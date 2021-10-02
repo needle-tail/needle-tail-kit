@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "swift-nio",
+        "repositoryURL": "https://github.com/apple/swift-nio.git",
+        "state": {
+          "branch": null,
+          "revision": "6aa9347d9bc5bbfe6a84983aec955c17ffea96ef",
+          "version": "2.33.0"
+        }
+      },
+      {
+        "package": "swift-nio-transport-services",
+        "repositoryURL": "https://github.com/Cartisim/swift-nio-transport-services.git",
+        "state": {
+          "branch": "feature/update-udp-support-nio-2.33.0",
+          "revision": "82c649b38edaad0a1754bbbd175c7b5d97cd2e68",
+          "version": null
+        }
+      }
+    ]
+  },
+  "version": 1
+}
