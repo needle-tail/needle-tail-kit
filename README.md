@@ -1,3 +1,3 @@
-# cartisim-nio-rtc
+# video-kit
 
 A description of this package.
