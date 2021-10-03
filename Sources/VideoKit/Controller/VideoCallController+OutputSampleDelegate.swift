@@ -24,14 +24,14 @@ protocol OutboundMediaDelegate {
 }
 
 protocol VideoCallDelegegate {
-    func setSessionPreset(sessionPreset: AVCaptureSession.Preset)
+    func setSessionPreset(sessionPreset: AVCaptureSession.Preset?)
 }
 
 extension VideoCallController: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate, VideoCallDelegegate {
-    func setSessionPreset(sessionPreset: AVCaptureSession.Preset) {
-        print(self.captureSession.sessionPreset, "BEFORE")
-        self.captureSession.sessionPreset = sessionPreset
-        print(self.captureSession.sessionPreset, "AFTER")
+    
+    
+    func setSessionPreset(sessionPreset: AVCaptureSession.Preset?) {
+        self.captureSession.sessionPreset = sessionPreset ?? .medium
     }
     
     public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -78,12 +78,12 @@ extension VideoCallController: AVCaptureVideoDataOutputSampleBufferDelegate, AVC
             guard let strongSelf = self else { return }
 #if os(iOS)
             if #available(iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
-                strongSelf.videoCallView?.sampleBufferVideoCallView.sampleBufferDisplayLayer.enqueue(buffer)
-                strongSelf.videoCallView?.sampleBufferVideoCallView.sampleBufferDisplayLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer.enqueue(buffer)
+                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
             }
 #else
-            strongSelf.videoCallView?.sampleBufferVideoCallView.sampleBufferDisplayLayer.enqueue(buffer)
-            strongSelf.videoCallView?.sampleBufferVideoCallView.sampleBufferDisplayLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+            strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.enqueue(buffer)
+            strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.videoGravity = AVLayerVideoGravity.resizeAspectFill
 #endif
         }
     }

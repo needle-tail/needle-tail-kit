@@ -12,12 +12,12 @@ import AVKit
 
 public class VideoCallView: NSView {
     
-    public let previewView: NSView = {
+public let previewView: NSView = {
         let view = NSView()
         return view
     }()
     
-    internal var previewLayer: AVCaptureVideoPreviewLayer?
+    public var previewLayer: AVCaptureVideoPreviewLayer?
     public let sampleBufferVideoCallView = SampleBufferVideoCallView()
     
 
@@ -40,18 +40,16 @@ public class VideoCallView: NSView {
     }
     
     deinit {
-        print("Memory Reclaimed in MasterView")
+        print("Memory Reclaimed in VideoCallView")
     }
     
     
     private func buildRemoteView() {
         addSubview(sampleBufferVideoCallView)
-        sampleBufferVideoCallView.anchors(top: topAnchor, leading: leadingAnchor, bottom: bottomAnchor, trailing: trailingAnchor, paddingTop: 0, paddingLeft: 0, paddingBottom: 0, paddingRight: 0, width: 0, height: 0)
     }
 
     private func buildLocalView() {
         sampleBufferVideoCallView.addSubview(previewView)
-        previewView.anchors(top: nil, leading: nil, bottom: sampleBufferVideoCallView.bottomAnchor, trailing: sampleBufferVideoCallView.trailingAnchor, paddingTop: 0, paddingLeft: 0, paddingBottom: 20, paddingRight: 20, width: 300, height: 169)
     }
 }
 

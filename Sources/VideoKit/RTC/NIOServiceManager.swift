@@ -18,6 +18,10 @@ final class NIOServiceManager: OutboundMediaDelegate {
         
     }
     
+    deinit {
+        print("Memory reclaimed in NIOServiceManager")
+    }
+    
     func transportLocalCapture(_ buffer: CMSampleBuffer) {
         print(buffer)
         delegate?.receiveRemoteCapture(buffer)

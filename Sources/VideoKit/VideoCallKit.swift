@@ -9,43 +9,56 @@ import UIKit
 
 public final class VideoCallKit {
     
-    internal let eventLoopGroup: EventLoopGroup
-    internal let videoCallController: VideoCallController
+    internal static var eventLoopGroup: EventLoopGroup?
+    internal var videoCallController: VideoCallController?
+#if os(iOS)
+    internal let videoCallView: VideoCallViewiOS?
+#else
+//    private let videoCallView: VideoCallView?
+#endif
+
     
-    public init() {
+    public init(videoCallView: VideoCallView) throws {
+        guard let elg = VideoCallKit.eventLoopGroup else { throw VideoKitErrors.nilEventLoopGroup }
+        self.videoCallController = VideoCallController(elg: elg, videoCallView: videoCallView)
+    }
+    
+    deinit {
+        print("Memory Reclaimed VideoCallKit")
+    }
+    
+    public class func startSession() {
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-        self.eventLoopGroup = NIOTSEventLoopGroup()
+        VideoCallKit.eventLoopGroup = NIOTSEventLoopGroup(loopCount: System.coreCount, defaultQoS: .utility)
 #else
-        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        VideoCallKit.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
 #endif
-        self.videoCallController = VideoCallController(elg: self.eventLoopGroup)
     }
     
-#if os(macOS)
-    public func returnCallView() -> NSView? {
-        guard let vcv = self.videoCallController.videoCallView else { return nil }
-        return vcv
+    public class func initializeView(videoCallView: VideoCallView) throws -> VideoCallKit {
+        var vck: VideoCallKit?
+        do {
+        vck = try VideoCallKit(videoCallView: videoCallView)
+        } catch {
+            print(VideoKitErrors.nilEventLoopGroup.rawValue)
+        }
+        guard let v = vck else { throw VideoKitErrors.nilVideoCallView }
+        return v
     }
-#else
-    public func returnCallView() -> UIView? {
-        guard let vcv = self.videoCallController.videoCallView else { return nil }
-        return vcv
-    }
-#endif
     
     
     public func makeCall() {
-        self.videoCallController.openSocket()
+        self.videoCallController?.openSocket()
     }
     
     public func endCall() {
-        self.videoCallController.closeSocket()
+        self.videoCallController?.closeSocket()
     }
     
     
     
     public func videoQuality(quality: AVCaptureSession.Preset) {
-        self.videoCallController.setSessionPreset(sessionPreset: quality)
+        self.videoCallController?.setSessionPreset(sessionPreset: quality)
     }
 
     

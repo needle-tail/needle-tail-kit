@@ -13,12 +13,11 @@ import AVKit
 extension VideoCallController {
     
     internal func createLocalCapture(promise: EventLoopPromise<Void>) {
-
+        
         if !captureSession.isRunning {
             print("Starting Capture Session")
             captureSession.sessionPreset = self.sessionPreset
-          
-
+ 
             
             // Find the FaceTime HD camera object
             _ = defaultDevices.devices.map { dev in
@@ -30,26 +29,32 @@ extension VideoCallController {
             }
             
             guard let d = captureDevice else { return }
-                do {
-                 
-                    try captureSession.addInput(AVCaptureDeviceInput(device: d))
-                    videoCallView?.previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-                    videoCallView?.previewLayer?.videoGravity = .resizeAspectFill
+            do {
+                self.videoInput = try AVCaptureDeviceInput(device: d)
+                
+                self.captureSession.removeInput(self.videoInput)
+                
+                if self.captureSession.canAddInput(self.videoInput) {
+                    
+                    captureSession.addInput(self.videoInput)
+                    
+                    self.videoCallView.previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+                    self.videoCallView.previewLayer?.videoGravity = .resizeAspectFill
                     
                     //Local Capture setup
-                    guard let p = videoCallView?.previewLayer else { return }
+                    guard let p = self.videoCallView.previewLayer else { return }
 #if os(macOS)
                     
-                    videoCallView?.previewView.layer?.masksToBounds = true
-                    videoCallView?.previewView.layer?.cornerRadius = 8
-                    videoCallView?.previewLayer?.frame = (videoCallView?.previewView.bounds)!
-                    videoCallView?.previewView.layer?.addSublayer(p)
+                    self.videoCallView.previewView.layer?.masksToBounds = true
+                    self.videoCallView.previewView.layer?.cornerRadius = 8
+                    self.videoCallView.previewLayer?.frame = self.videoCallView.previewView.bounds
+                    self.videoCallView.previewView.layer?.addSublayer(p)
 #else
                     
-                    videoCallView?.previewView.layer.masksToBounds = true
-                    videoCallView?.previewView.layer.cornerRadius = 8
-                    videoCallView?.previewLayer?.frame = (videoCallView?.previewView.bounds)!
-                    videoCallView?.previewView.layer.addSublayer(p)
+                    self.videoCallView.previewView.layer.masksToBounds = true
+                    self.videoCallView.previewView.layer.cornerRadius = 8
+                    self.videoCallView.previewLayer?.frame = videoCallView?.previewView.bounds
+                    self.videoCallView.previewView.layer.addSublayer(p)
                     
 #endif
                     captureSession.commitConfiguration()
@@ -57,13 +62,14 @@ extension VideoCallController {
                     // Start camera
                     captureSession.startRunning()
                     self.isSessionRunning = self.captureSession.isRunning
-                    promise.succeed(())
-                } catch {
-                    print(AVCaptureSessionErrorKey.description)
-                    setupResult = .configurationFailed
-                    captureSession.commitConfiguration()
-                    promise.fail(error)
                 }
+                promise.succeed(())
+            } catch {
+                print(AVCaptureSessionErrorKey.description)
+                setupResult = .configurationFailed
+                captureSession.commitConfiguration()
+                promise.fail(error)
+            }
         } else {
             print("Capture Session already running")
             promise.fail(VideoKitErrors.failedCapture)
@@ -77,6 +83,9 @@ extension VideoCallController {
         
         captureSession.beginConfiguration()
         // Add a video data output
+        
+        self.captureSession.removeOutput(videoDataOutput)
+        
         if captureSession.canAddOutput(videoDataOutput) {
             captureSession.addOutput(videoDataOutput)
             videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]

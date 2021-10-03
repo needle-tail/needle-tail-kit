@@ -14,8 +14,8 @@ public class SampleBufferVideoCallViewiOS: UIView {
         get { return AVSampleBufferDisplayLayer.self }
     }
 
-    var sampleBufferDisplayLayer: AVSampleBufferDisplayLayer {
-        return layer as! AVSampleBufferDisplayLayer
+    weak var sampleBufferDisplayLayer: AVSampleBufferDisplayLayer? {
+        return layer as? AVSampleBufferDisplayLayer
     }
 }
 #endif
