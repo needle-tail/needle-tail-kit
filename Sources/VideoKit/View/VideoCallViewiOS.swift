@@ -18,8 +18,8 @@ public class VideoCallViewiOS: UIView {
         return view
     }()
     
-    var previewLayer: AVCaptureVideoPreviewLayer?
-    var sampleBufferVideoCallView = SampleBufferVideoCallViewiOS()
+    public var previewLayer: AVCaptureVideoPreviewLayer?
+    public var sampleBufferVideoCallView = SampleBufferVideoCallViewiOS()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -44,12 +44,10 @@ public class VideoCallViewiOS: UIView {
     
     func buildRemoteView() {
         addSubview(sampleBufferVideoCallView)
-        sampleBufferVideoCallView.anchors(top: topAnchor, leading: leadingAnchor, bottom: bottomAnchor, trailing: trailingAnchor, paddingTop: -50, paddingLeft: -40, paddingBottom: -40, paddingRight: -40, width: 0, height: 0)
     }
 
     func buildLocalView() {
         sampleBufferVideoCallView.addSubview(previewView)
-        previewView.anchors(top: nil, leading: nil, bottom: sampleBufferVideoCallView.bottomAnchor, trailing: sampleBufferVideoCallView.trailingAnchor, paddingTop: 0, paddingLeft: 0, paddingBottom: 40, paddingRight: 70 ,width: 1080 / 8, height: 1920 / 8)
     }
 }
 #endif

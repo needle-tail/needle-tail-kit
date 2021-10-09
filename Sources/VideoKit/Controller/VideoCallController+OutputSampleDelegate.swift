@@ -78,8 +78,8 @@ extension VideoCallController: AVCaptureVideoDataOutputSampleBufferDelegate, AVC
             guard let strongSelf = self else { return }
 #if os(iOS)
             if #available(iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
-                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer.enqueue(buffer)
-                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.enqueue(buffer)
+                strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.videoGravity = AVLayerVideoGravity.resizeAspectFill
             }
 #else
             strongSelf.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.enqueue(buffer)

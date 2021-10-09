@@ -24,7 +24,16 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
     internal var videoInput: AVCaptureDeviceInput!
     internal var sessionPreset: AVCaptureSession.Preset = .high
     internal let seriviceManager: NIOServiceManager
+    internal let elg: EventLoopGroup
+    
+    internal enum SessionSetupResult {
+        case success
+        case notAuthorized
+        case configurationFailed
+    }
+    
 #if os(iOS)
+    internal let videoCallView: VideoCallViewiOS
     internal let defaultDevices = AVCaptureDevice.DiscoverySession(
         deviceTypes: [
             .builtInDualCamera,
@@ -34,6 +43,30 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
         mediaType: .video,
         position: .front
     )
+    internal init(elg: EventLoopGroup, videoCallView: VideoCallViewiOS) {
+        self.elg = elg
+        self.videoCallView = videoCallView
+        self.seriviceManager = NIOServiceManager()
+        super.init()
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            // The user has previously granted access to the camera
+            break
+            
+        case .notDetermined:
+
+            AVCaptureDevice.requestAccess(for: .video, completionHandler: { granted in
+                if !granted {
+                    self.setupResult = .notAuthorized
+                }
+            })
+            
+        default:
+            // The user has previously denied access
+            setupResult = .notAuthorized
+        }
+        
+    }
 #else
     internal let videoCallView: VideoCallView
     internal let defaultDevices = AVCaptureDevice.DiscoverySession(
@@ -44,14 +77,6 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
         mediaType: .video,
         position: .front
     )
-#endif
-    internal enum SessionSetupResult {
-        case success
-        case notAuthorized
-        case configurationFailed
-    }
-    
-    internal let elg: EventLoopGroup
     
     internal init(elg: EventLoopGroup, videoCallView: VideoCallView) {
         self.elg = elg
@@ -77,7 +102,7 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
         }
         
     }
-
+#endif
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -125,7 +150,7 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
         DispatchQueue.main.async {
             if self.setupResult == .success && self.captureSession.isRunning {
                 self.videoCallView.sampleBufferVideoCallView.sampleBufferDisplayLayer?.flushAndRemoveImage()
-            self.captureSession.stopRunning()
+                self.captureSession.stopRunning()
 
             self.isSessionRunning = self.captureSession.isRunning
             do {

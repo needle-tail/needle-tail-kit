@@ -53,7 +53,7 @@ extension VideoCallController {
                     
                     self.videoCallView.previewView.layer.masksToBounds = true
                     self.videoCallView.previewView.layer.cornerRadius = 8
-                    self.videoCallView.previewLayer?.frame = videoCallView?.previewView.bounds
+                    self.videoCallView.previewLayer?.frame = videoCallView.previewView.bounds
                     self.videoCallView.previewView.layer.addSublayer(p)
                     
 #endif
