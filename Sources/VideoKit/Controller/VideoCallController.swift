@@ -143,7 +143,16 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
   
     
     internal func openSocket() {
+        
+        let promise = self.elg.next().makePromise(of: Channel.self)
+//        let participants = [ VideoParticipant(host: "localhost", nickname: "name1"), VideoParticipant(host: "localhost", nickname: "name2") ]
+//        let session =  VideoSession(id: UUID(), host: "localhost", port: DefaultPort, name: "Testing", tls: true, videoParticipants: participants)
+        let mkAccount = MKAccount(host: "localhost", nickname: "name1")
+        let videoKit = VideoKit(mkAccount: mkAccount, passwordProvider: "", elg: self.elg)
+        let c = videoKit.nioHandler?.connect(promise: promise)
+        c?.whenSuccess { _ in
             self.reactToSetup()
+        }
     }
     
     internal func closeSocket() {

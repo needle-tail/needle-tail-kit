@@ -9,4 +9,5 @@ import Foundation
 
 enum VideoErrors: Swift.Error {
     case internalInconsistency
+    case remoteAddressNil
 }

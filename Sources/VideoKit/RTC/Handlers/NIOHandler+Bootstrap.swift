@@ -32,9 +32,9 @@ extension NIOHandler {
                     error.fail(VideoErrors.internalInconsistency)
                     return error.futureResult
                 }
-                
+              
                 return channel.pipeline
-                    .addHandler(VideoChannelHandler())
+                    .addHandler(VideoChannelHandler(remoteAddress: try! strongSelf.createRemoteAddress()))
                     .flatMap { [weak self] _ in
                         print(channel.pipeline, "pipeline")
                         let c = channel.pipeline
