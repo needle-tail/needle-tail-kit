@@ -1,3 +1,3 @@
-# video-kit
+# connection-kit
 
 A description of this package.
