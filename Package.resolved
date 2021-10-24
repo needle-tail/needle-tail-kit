@@ -2,21 +2,30 @@
   "object": {
     "pins": [
       {
-        "package": "swift-nio",
-        "repositoryURL": "https://github.com/apple/swift-nio.git",
+        "package": "swift-argument-parser",
+        "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {
           "branch": null,
-          "revision": "6aa9347d9bc5bbfe6a84983aec955c17ffea96ef",
-          "version": "2.33.0"
+          "revision": "223d62adc52d51669ae2ee19bdb8b7d9fd6fcd9c",
+          "version": "0.0.6"
         }
       },
       {
-        "package": "swift-nio-transport-services",
-        "repositoryURL": "https://github.com/Cartisim/swift-nio-transport-services.git",
+        "package": "swift-nio-extras",
+        "repositoryURL": "https://github.com/apple/swift-nio-extras.git",
         "state": {
-          "branch": "feature/update-udp-support-nio-2.33.0",
-          "revision": "82c649b38edaad0a1754bbbd175c7b5d97cd2e68",
-          "version": null
+          "branch": null,
+          "revision": "f73ca5ee9c6806800243f1ac415fcf82de9a4c91",
+          "version": "1.10.2"
+        }
+      },
+      {
+        "package": "swift-nio-irc",
+        "repositoryURL": "https://github.com/SwiftNIOExtras/swift-nio-irc.git",
+        "state": {
+          "branch": null,
+          "revision": "782e6d3bcd892efaedc9c530b2d5c5fbb42a680e",
+          "version": "0.8.2"
         }
       }
     ]
