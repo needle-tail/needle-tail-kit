@@ -27,6 +27,24 @@
           "revision": "782e6d3bcd892efaedc9c530b2d5c5fbb42a680e",
           "version": "0.8.2"
         }
+      },
+      {
+        "package": "swift-nio-ssl",
+        "repositoryURL": "https://github.com/apple/swift-nio-ssl.git",
+        "state": {
+          "branch": null,
+          "revision": "5e68c1ded15619bb281b273fa8c2d8fd7f7b2b7d",
+          "version": "2.16.1"
+        }
+      },
+      {
+        "package": "swift-nio-transport-services",
+        "repositoryURL": "https://github.com/Cartisim/swift-nio-transport-services.git",
+        "state": {
+          "branch": "feature/update-udp-support-nio-2.33.0",
+          "revision": "6e6a69b2eef926b6288f740778c51d0b343e7ff5",
+          "version": null
+        }
       }
     ]
   },

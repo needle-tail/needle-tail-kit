@@ -7,8 +7,8 @@
 
 import Foundation
 
-extension IRCNIOHandler: Equatable {
-    public static func == (lhs: IRCNIOHandler, rhs: IRCNIOHandler) -> Bool {
+extension IRCClient: Equatable {
+    public static func == (lhs: IRCClient, rhs: IRCClient) -> Bool {
         return lhs === rhs
     }
 }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum UserDefaultKeys: String {
+public enum UserDefaultKeys: String {
     
     // MARK: - Navigation
     case lastAccountID
@@ -33,7 +33,7 @@ extension UserDefaults {
 
 extension UserDefaults {
     
-    func decode<T: Decodable>(_ type: T.Type, forKey key: UserDefaultKeys) throws
+    public func decode<T: Decodable>(_ type: T.Type, forKey key: UserDefaultKeys) throws
     -> T?
     {
         let jsonData : Data = data(forKey: key.rawValue) ?? {
@@ -44,7 +44,7 @@ extension UserDefaults {
         return try JSONDecoder().decode(type, from: jsonData)
     }
     
-    func encode<T: Encodable>(_ object: T, forKey key: UserDefaultKeys) throws {
+    public func encode<T: Encodable>(_ object: T, forKey key: UserDefaultKeys) throws {
         let jsonData = try JSONEncoder().encode(object)
         let plist = try JSONSerialization.jsonObject(with: jsonData, options: [])
         setValue(plist, forKey: key.rawValue)

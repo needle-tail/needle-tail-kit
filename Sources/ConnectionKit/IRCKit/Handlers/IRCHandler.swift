@@ -14,9 +14,9 @@ final class IRCHandler: ChannelInboundHandler {
     
     typealias InboundIn = IRCMessage
     
-    let client : IRCNIOHandler
+    let client : IRCClient
     
-    init(client: IRCNIOHandler) {
+    init(client: IRCClient) {
         self.client = client
     }
     

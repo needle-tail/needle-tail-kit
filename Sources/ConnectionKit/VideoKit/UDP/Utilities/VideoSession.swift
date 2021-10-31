@@ -8,7 +8,6 @@
 import Foundation
 import NIOIRC
 
-
 public final class VideoSession: Identifiable {
     
     internal enum SessionType: Equatable {
@@ -20,7 +19,7 @@ public final class VideoSession: Identifiable {
     internal private(set) weak var serviceDelegate  : VideoKit?
     internal var name                               : String
     public var id                                   : String  { return name }
-    private var timeline = [ TimelineEntry ]()
+//    private var timeline = [ TimelineEntry ]()
     
     
     init(
@@ -67,22 +66,22 @@ public final class VideoSession: Identifiable {
     // MARK: - Connection Changes
     
     internal func serviceDidGoOffline() {
-      guard let last = timeline.last else { return }
-      if case .disconnect = last.payload { return }
-
-      timeline.append(.init(date: Date(), payload: .disconnect))
+//      guard let last = timeline.last else { return }
+//      if case .disconnect = last.payload { return }
+//
+//      timeline.append(.init(date: Date(), payload: .disconnect))
     }
     internal func serviceDidGoOnline() {
-      guard let last = timeline.last else { return }
-
-      switch last.payload {
-        case .reconnect, .message, .notice, .ownMessage:
-          return
-        case .disconnect:
-          break
-      }
-
-      timeline.append(.init(date: Date(), payload: .reconnect))
+//      guard let last = timeline.last else { return }
+//
+//      switch last.payload {
+//        case .reconnect, .message, .notice, .ownMessage:
+//          return
+//        case .disconnect:
+//          break
+//      }
+//
+//      timeline.append(.init(date: Date(), payload: .reconnect))
     }
 }
 

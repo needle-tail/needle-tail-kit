@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.5
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,8 +6,8 @@ import PackageDescription
 let package = Package(
     name: "connection-kit",
     platforms: [
-        .iOS(.v14),
-        .macOS(.v11)
+        .iOS(.v15),
+        .macOS(.v12)
     ],
     products: [
         .library(
@@ -22,7 +22,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
 //        .package(name: "swift-nio-ssl", path: "../ForkedSwiftNIOSSL/swift-nio-ssl"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5"))
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
+        .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", .branch("master"))
        
     ],
     targets: [
@@ -35,6 +36,8 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "NIOSSL", package: "swift-nio-ssl"),
             .product(name: "NIOHTTP1", package: "swift-nio"),
+            .product(name: "CypherMessaging", package: "CypherTextKit"),
+            .product(name: "MessagingHelpers", package: "CypherTextKit")
         ]),
         .testTarget(
             name: "ConnectionKitTests",

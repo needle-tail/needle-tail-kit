@@ -20,29 +20,29 @@ import NIOIRC
 
 public protocol IRCClientDelegate {
   
-  func client(_ client        : IRCNIOHandler,
+  func client(_ client        : IRCClient,
               registered nick : IRCNickName,
               with   userInfo : IRCUserInfo)
 
-  func clientFailedToRegister(_ client: IRCNIOHandler)
+  func clientFailedToRegister(_ client: IRCClient)
   
-  func client(_ client: IRCNIOHandler, received message: IRCMessage)
+  func client(_ client: IRCClient, received message: IRCMessage)
 
-  func client(_ client: IRCNIOHandler, messageOfTheDay: String)
-  func client(_ client: IRCNIOHandler, notice message:  String,
+  func client(_ client: IRCClient, messageOfTheDay: String)
+  func client(_ client: IRCClient, notice message:  String,
               for recipients: [ IRCMessageRecipient ])
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               message: String, from user: IRCUserID,
               for recipients: [ IRCMessageRecipient ])
 
-  func client(_ client: IRCNIOHandler, changedUserModeTo mode: IRCUserMode)
-  func client(_ client: IRCNIOHandler, changedNickTo     nick: IRCNickName)
+  func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode)
+  func client(_ client: IRCClient, changedNickTo     nick: IRCNickName)
   
-  func client(_ client: IRCNIOHandler, user: IRCUserID, joined: [ IRCChannelName ])
-  func client(_ client: IRCNIOHandler, user: IRCUserID, left:   [ IRCChannelName ],
+  func client(_ client: IRCClient, user: IRCUserID, joined: [ IRCChannelName ])
+  func client(_ client: IRCClient, user: IRCUserID, left:   [ IRCChannelName ],
               with: String?)
   
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               changeTopic: String, of channel: IRCChannelName)
 }
 
@@ -51,28 +51,28 @@ public protocol IRCClientDelegate {
 
 public extension IRCClientDelegate {
   
-  func client(_ client: IRCNIOHandler, registered nick: IRCNickName,
+  func client(_ client: IRCClient, registered nick: IRCNickName,
               with userInfo: IRCUserInfo) {}
-  func client(_ client: IRCNIOHandler, received message: IRCMessage) {}
+  func client(_ client: IRCClient, received message: IRCMessage) {}
 
-  func clientFailedToRegister(_ client: IRCNIOHandler) {}
+  func clientFailedToRegister(_ client: IRCClient) {}
 
-  func client(_ client: IRCNIOHandler, messageOfTheDay: String) {}
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient, messageOfTheDay: String) {}
+  func client(_ client: IRCClient,
               notice message: String,
               for recipients: [ IRCMessageRecipient ]) {}
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               message: String, from sender: IRCUserID,
               for recipients: [ IRCMessageRecipient ]) {}
-  func client(_ client: IRCNIOHandler, changedUserModeTo mode: IRCUserMode) {}
-  func client(_ client: IRCNIOHandler, changedNickTo nick: IRCNickName) {}
+  func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) {}
+  func client(_ client: IRCClient, changedNickTo nick: IRCNickName) {}
 
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               user: IRCUserID, joined channels: [ IRCChannelName ]) {}
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               user: IRCUserID, left   channels: [ IRCChannelName ],
               with message: String?) {}
-  func client(_ client: IRCNIOHandler,
+  func client(_ client: IRCClient,
               changeTopic: String, of channel: IRCChannelName) {}
 }
 //
