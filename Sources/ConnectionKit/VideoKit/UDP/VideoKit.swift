@@ -17,7 +17,7 @@ final public class VideoKit: Identifiable {
     public let ckAccount              : CKAccount
     private var activeClientOptions   : VideoClientOptions?
     internal var nioHandler           : UDPNIOHandler?
-    public let passwordProvider       : PasswordProvider
+    public let passwordProvider       : String
     internal(set) public var sessions : [ String: VideoSession ] = [:]
     
     internal var state : State = .suspended {
@@ -42,7 +42,7 @@ final public class VideoKit: Identifiable {
     
     public init(
         ckAccount: CKAccount,
-        passwordProvider: PasswordProvider,
+        passwordProvider: String,
         group: EventLoopGroup? = nil) {
             self.ckAccount = ckAccount
             self.passwordProvider = passwordProvider
