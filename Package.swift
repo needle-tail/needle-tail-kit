@@ -46,7 +46,8 @@ let package = Package(
                 .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "MongoKitten", package: "MongoKitten"),
                 .product(name: "Meow", package: "MongoKitten"),
-                .product(name: "IkigaJSON", package: "IkigaJSON")
+                .product(name: "IkigaJSON", package: "IkigaJSON"),
+                .product(name: "CypherMessaging", package: "CypherTextKit")
             ],
             swiftSettings: [
                 .unsafeFlags([
