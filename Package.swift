@@ -4,43 +4,58 @@
 import PackageDescription
 
 let package = Package(
-    name: "connection-kit",
+    name: "needle-tail-kit",
     platforms: [
         .iOS(.v15),
         .macOS(.v12)
     ],
     products: [
         .library(
-            name: "ConnectionKit",
-            targets: ["ConnectionKit"]),
+            name: "NeedleTailKit",
+            targets: ["NeedleTailKit", "AsyncIRC"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", .branch("feature/update-udp-support-nio-2.33.0")),
-        .package(url:  "https://github.com/SwiftNIOExtras/swift-nio-irc.git", from: "0.8.0"),
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.11.3"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.27.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
-        .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", .branch("master")),
-        .package(url: "https://github.com/Cartisim/swift-nio-irc-client.git", .branch("develop"))
-       
+        .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", .branch("feature/async-await")),
+        .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
+        .package(url: "https://github.com/joannis/IkigaJSON.git", from: "2.0.0"),
+        .package(url: "https://github.com/OpenKitten/MongoKitten.git", .branch("master/6.0")),
     ],
     targets: [
         .target(
-            name: "ConnectionKit",
+            name: "NeedleTailKit",
         dependencies: [
             .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
-            .product(name: "NIOIRC", package: "swift-nio-irc"),
-            .product(name: "IRC", package: "swift-nio-irc-client"),
             .product(name: "NIOExtras", package: "swift-nio-extras"),
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "NIOSSL", package: "swift-nio-ssl"),
             .product(name: "NIOHTTP1", package: "swift-nio"),
             .product(name: "CypherMessaging", package: "CypherTextKit"),
-            .product(name: "MessagingHelpers", package: "CypherTextKit")
+            .product(name: "MessagingHelpers", package: "CypherTextKit"),
+            .product(name: "AsyncCollections", package: "async-collections"),
+            .target(name: "AsyncIRC"),
         ]),
+        .target(
+            name: "AsyncIRC",
+            dependencies: [
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "AsyncCollections", package: "async-collections"),
+                .product(name: "MongoKitten", package: "MongoKitten"),
+                .product(name: "Meow", package: "MongoKitten"),
+                .product(name: "IkigaJSON", package: "IkigaJSON")
+            ],
+            swiftSettings: [
+                .unsafeFlags([
+                    "-Xfrontend", "-disable-availability-checking",
+                ])
+            ]
+        ),
         .testTarget(
-            name: "ConnectionKitTests",
-            dependencies: ["ConnectionKit"]),
+            name: "NeedleTailKitTests",
+            dependencies: ["NeedleTailKit"]),
     ]
 )

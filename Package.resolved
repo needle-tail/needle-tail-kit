@@ -2,6 +2,78 @@
   "object": {
     "pins": [
       {
+        "package": "async-collections",
+        "repositoryURL": "https://github.com/adam-fowler/async-collections.git",
+        "state": {
+          "branch": null,
+          "revision": "5acf565880079a808282889995d901637f3281a0",
+          "version": "0.0.1"
+        }
+      },
+      {
+        "package": "BSON",
+        "repositoryURL": "https://github.com/OpenKitten/BSON.git",
+        "state": {
+          "branch": null,
+          "revision": "98a2c90988895f1b985ed0066180995df995924c",
+          "version": "7.0.28"
+        }
+      },
+      {
+        "package": "CypherTextKit",
+        "repositoryURL": "https://github.com/orlandos-nl/CypherTextKit.git",
+        "state": {
+          "branch": "feature/async-await",
+          "revision": "1afb1a59d7ccbd159d74097b605466abaf247d56",
+          "version": null
+        }
+      },
+      {
+        "package": "Dribble",
+        "repositoryURL": "https://github.com/orlandos-nl/Dribble.git",
+        "state": {
+          "branch": "main",
+          "revision": "41cc48ec91456e9f39fa9be061d423af40568bbb",
+          "version": null
+        }
+      },
+      {
+        "package": "IkigaJSON",
+        "repositoryURL": "https://github.com/joannis/IkigaJSON.git",
+        "state": {
+          "branch": null,
+          "revision": "6fd44a4f1cfeb95042c9d99eca5147b131b54c4d",
+          "version": "2.0.10"
+        }
+      },
+      {
+        "package": "jwt-kit",
+        "repositoryURL": "https://github.com/vapor/jwt-kit.git",
+        "state": {
+          "branch": null,
+          "revision": "1822bb0abf0a31a4b5078ec19061c548835253b5",
+          "version": "4.3.0"
+        }
+      },
+      {
+        "package": "MongoKitten",
+        "repositoryURL": "https://github.com/OpenKitten/MongoKitten.git",
+        "state": {
+          "branch": "master/6.0",
+          "revision": "d22edbbf262d6925dbaed74cc83fa8953e867590",
+          "version": null
+        }
+      },
+      {
+        "package": "DNSClient",
+        "repositoryURL": "https://github.com/OpenKitten/NioDNS.git",
+        "state": {
+          "branch": null,
+          "revision": "71cfedd3310d59b7d19e290176dd2a1a605a4252",
+          "version": "2.0.7"
+        }
+      },
+      {
         "package": "swift-argument-parser",
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {
@@ -11,21 +83,57 @@
         }
       },
       {
+        "package": "swift-collections",
+        "repositoryURL": "https://github.com/apple/swift-collections",
+        "state": {
+          "branch": null,
+          "revision": "48254824bb4248676bf7ce56014ff57b142b77eb",
+          "version": "1.0.2"
+        }
+      },
+      {
+        "package": "swift-crypto",
+        "repositoryURL": "https://github.com/apple/swift-crypto.git",
+        "state": {
+          "branch": null,
+          "revision": "3bea268b223651c4ab7b7b9ad62ef9b2d4143eb6",
+          "version": "1.1.6"
+        }
+      },
+      {
+        "package": "swift-log",
+        "repositoryURL": "https://github.com/apple/swift-log.git",
+        "state": {
+          "branch": null,
+          "revision": "5d66f7ba25daf4f94100e7022febf3c75e37a6c7",
+          "version": "1.4.2"
+        }
+      },
+      {
+        "package": "swift-metrics",
+        "repositoryURL": "https://github.com/apple/swift-metrics.git",
+        "state": {
+          "branch": null,
+          "revision": "3edd2f57afc4e68e23c3e4956bc8b65ca6b5b2ff",
+          "version": "2.2.0"
+        }
+      },
+      {
+        "package": "swift-nio",
+        "repositoryURL": "https://github.com/apple/swift-nio.git",
+        "state": {
+          "branch": null,
+          "revision": "37e7a33de45bac894c0b08b56a2f755ebe4884e6",
+          "version": "2.35.0"
+        }
+      },
+      {
         "package": "swift-nio-extras",
         "repositoryURL": "https://github.com/apple/swift-nio-extras.git",
         "state": {
           "branch": null,
           "revision": "f73ca5ee9c6806800243f1ac415fcf82de9a4c91",
           "version": "1.10.2"
-        }
-      },
-      {
-        "package": "swift-nio-irc",
-        "repositoryURL": "https://github.com/SwiftNIOExtras/swift-nio-irc.git",
-        "state": {
-          "branch": null,
-          "revision": "782e6d3bcd892efaedc9c530b2d5c5fbb42a680e",
-          "version": "0.8.2"
         }
       },
       {
@@ -39,11 +147,20 @@
       },
       {
         "package": "swift-nio-transport-services",
-        "repositoryURL": "https://github.com/Cartisim/swift-nio-transport-services.git",
+        "repositoryURL": "https://github.com/apple/swift-nio-transport-services.git",
         "state": {
-          "branch": "feature/update-udp-support-nio-2.33.0",
-          "revision": "6e6a69b2eef926b6288f740778c51d0b343e7ff5",
-          "version": null
+          "branch": null,
+          "revision": "e7f5278a26442dc46783ba7e063643d524e414a0",
+          "version": "1.11.3"
+        }
+      },
+      {
+        "package": "websocket-kit",
+        "repositoryURL": "https://github.com/vapor/websocket-kit.git",
+        "state": {
+          "branch": null,
+          "revision": "b1c4df8f6c848c2e977726903bbe6578eed723ad",
+          "version": "2.2.0"
         }
       }
     ]
