@@ -198,6 +198,7 @@ open class IRCClient : IRCClientMessageTarget {
         } else {
             bootstrap = try groupManager.makeBootstrap(hostname: host, useTLS: true)
         }
+        let store = self.store
         return bootstrap
             .connectTimeout(.hours(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
@@ -205,7 +206,7 @@ open class IRCClient : IRCClientMessageTarget {
             .channelInitializer { [weak self] channel in
                 return channel.pipeline
 //                    .addHandler(ByteToMessageHandler(LineBasedFrameDecoder()))
-                    .addHandler(IRCChannelHandler(logger: Logger(label: "NeedleTail Client Logger"), store: self?.store))
+                    .addHandler(IRCChannelHandler(logger: Logger(label: "NeedleTail Client Logger"), store: store))
                     .flatMap { [weak self] _ in
                         guard let strongSelf = self else {
                             let error = channel.eventLoop.makePromise(of: Void.self)

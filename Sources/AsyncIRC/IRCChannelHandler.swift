@@ -45,14 +45,15 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-    private let store: NeedleTailStore?
+    private let store: NeedleTailStore
     private(set) var jobQueue: IRCJobQueue!
-    internal var cachedStore: _NeedleTailStoreCache?
+    internal var cachedStore: _NeedleTailStoreCache
     
     
     @inlinable
-    public init(logger: Logger = Logger(label: ""), store: NeedleTailStore? = nil) {
+    public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
         self.store = store
+        self.cachedStore = _NeedleTailStoreCache(store: self.store)
     }
     
     @inlinable
@@ -78,16 +79,15 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            try await self.queueMessage(context: context, line: line)!
-            
+            guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
+            return message
         }
         return promise.futureResult
     }
 
     private func queueMessage(context: ChannelHandlerContext, line: String) async throws -> IRCMessage? {
         do {
-            self.cachedStore = _NeedleTailStoreCache(store: self.store!)
-            self.jobQueue = try await IRCJobQueue(store: self.cachedStore!)
+            self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
             
