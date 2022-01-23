@@ -5,11 +5,12 @@
 //  Created by Cole M on 10/2/21.
 //
 
+#if os(iOS) || os(macOS)
 import Foundation
 import NIO
 import AVKit
 
-#if os(iOS) || os(macOS)
+
 extension VideoCallController {
     
     internal func createLocalCapture(promise: EventLoopPromise<Void>) {
