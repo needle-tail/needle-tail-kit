@@ -9,7 +9,7 @@ import Foundation
 import NIO
 import AVKit
 
-
+#if os(iOS) || os(macOS)
 extension VideoCallController {
     
     internal func createLocalCapture(promise: EventLoopPromise<Void>) {
@@ -103,3 +103,4 @@ extension VideoCallController {
         self.createLocalCapture(promise: localCapturePromise)
     }
 }
+#endif

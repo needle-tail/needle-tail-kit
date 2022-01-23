@@ -5,7 +5,7 @@
 //  Created by Cole M on 9/25/21.
 //  Copyright © 2021 Cole M. All rights reserved.
 //
-
+#if os(iOS) || os(macOS)
 #if os(macOS)
 import Cocoa
 #else
@@ -88,7 +88,5 @@ extension VideoCallController: AVCaptureVideoDataOutputSampleBufferDelegate, AVC
 #endif
         }
     }
-    
-    
 }
-
+#endif

@@ -4,7 +4,7 @@
 //
 //  Created by Cole M on 10/9/21.
 //
-
+#if os(iOS) || os(macOS)
 import Foundation
 import NIOCore
 
@@ -50,3 +50,4 @@ internal final class VideoChannelHandler: ChannelDuplexHandler {
     }
     
 }
+#endif

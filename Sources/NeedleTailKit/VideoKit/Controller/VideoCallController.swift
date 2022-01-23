@@ -5,6 +5,7 @@
 //  Created by Cole M on 10/02/21.
 //  Copyright © 2021 Cole M. All rights reserved.
 //
+#if os(iOS) || os(macOS)
 #if os(iOS)
 import UIKit
 #else
@@ -175,4 +176,4 @@ internal class VideoCallController: NSObject, InboundMediaDelegate {
         }
     }
 }
-
+#endif

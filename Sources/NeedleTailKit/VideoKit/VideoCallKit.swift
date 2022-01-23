@@ -1,3 +1,4 @@
+#if os(iOS) || os(macOS)
 import NIO
 import NIOTransportServices
 import AVKit
@@ -81,18 +82,5 @@ public final class VideoCallKit {
     public func videoQuality(quality: AVCaptureSession.Preset) {
         self.videoCallController?.setSessionPreset(sessionPreset: quality)
     }
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 }
+#endif
