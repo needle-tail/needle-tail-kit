@@ -36,19 +36,19 @@ extension URLSession {
         if let token = token {
             request.addValue(token, forHTTPHeaderField: "X-API-Token")
         }
-
+        
         var decodedBSON: (Data, URLResponse)?
         do {
             
             if httpMethod == Network.post.rawValue || httpMethod == Network.put.rawValue {
-            let data = try BSONEncoder().encode(httpBody).makeData()
-            
-            if data.count > maxBodySize {
-                return (Data(), URLResponse())
-            }
-
+                let data = try BSONEncoder().encode(httpBody).makeData()
+                
+                if data.count > maxBodySize {
+                    return (Data(), URLResponse())
+                }
+                
                 decodedBSON = try await self.upload(for: request, from: data)
-
+                
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
                     throw IRCClientError.invalidResponse
                 }
@@ -57,26 +57,27 @@ extension URLSession {
                 }
                 print("HTTPResponse_____", httpResponse)
                 
-        }
-            
-        if httpMethod == Network.get.rawValue {
-            decodedBSON = try await self.data(for: request)
-            
-            guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
-                throw IRCClientError.invalidResponse
             }
-            guard httpResponse.statusCode == 200 else {
-                throw IRCClientError.invalidResponse
+            
+            if httpMethod == Network.get.rawValue {
+                decodedBSON = try await self.data(for: request)
+                
+                guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
+                    throw IRCClientError.invalidResponse
+                }
+                guard httpResponse.statusCode == 200 else {
+                    throw IRCClientError.invalidResponse
+                }
+                print("HTTPResponse_____", httpResponse)
             }
-            print("HTTPResponse_____", httpResponse)
-        }
         } catch {
             throw error
         }
         guard let decodedBSON = decodedBSON else {
             throw IRCClientError.nilBSONResponse
         }
-
+        
         return decodedBSON
     }
+
 }
