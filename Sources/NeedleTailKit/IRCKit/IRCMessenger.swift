@@ -15,7 +15,9 @@ import AsyncIRC
 import MessagingHelpers
 import BSON
 import JWTKit
-
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public class IRCMessenger: VaporClient, IRCMessageDelegate {
     
@@ -45,7 +47,11 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
         userState: UserState,
         clientOptions: ClientOptions?
     ) async {
+        #if canImport(Network)
         let group = NIOTSEventLoopGroup()
+        #else
+        let group = EventLoopGroup()
+        #endif
         self.group = group
         self.passwordProvider = passwordProvider
         self.userState = userState
