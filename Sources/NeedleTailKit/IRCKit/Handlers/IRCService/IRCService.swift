@@ -1,11 +1,13 @@
 import ArgumentParser
 import Foundation
 import NIO
-import NIOTransportServices
 import AsyncIRC
 import CypherMessaging
 import Crypto
 import AsyncIRC
+#if canImport(Network)
+import NIOTransportServices
+#endif
 
 public final class IRCService: Identifiable, Hashable {
     

@@ -16,7 +16,7 @@ import NIO
 import NIOExtras
 import Logging
 import MongoKitten
-#if canImport(NIOTransportServices)
+#if canImport(Network)
 import NIOTransportServices
 #endif
 

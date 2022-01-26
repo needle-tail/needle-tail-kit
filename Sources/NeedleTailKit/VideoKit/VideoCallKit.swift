@@ -1,11 +1,13 @@
 #if os(iOS) || os(macOS)
 import NIO
-import NIOTransportServices
 import AVKit
 #if os(macOS)
 import Cocoa
 #else
 import UIKit
+#endif
+#if canImport(Network)
+import NIOTransportServices
 #endif
 
 public final class VideoCallKit {

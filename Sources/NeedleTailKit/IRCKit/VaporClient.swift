@@ -7,7 +7,6 @@
 
 import Foundation
 import NIOCore
-import NIOTransportServices
 import CypherMessaging
 import CypherProtocol
 import Crypto
@@ -17,6 +16,9 @@ import BSON
 import JWTKit
 #if canImport(FoundationNetworking)
 import FoundationNetworking
+#endif
+#if canImport(Network)
+import NIOTransportServices
 #endif
 
 public class VaporClient: CypherServerTransportClient {

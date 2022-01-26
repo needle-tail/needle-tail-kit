@@ -1,8 +1,8 @@
 import NIO
-import NIOTransportServices
 import NIOSSL
 #if canImport(Network)
 import Network
+import NIOTransportServices
 #endif
 
 /// `EventLoopGroupManager` can be used to manage an `EventLoopGroup`, either by creating or by sharing an existing one.
