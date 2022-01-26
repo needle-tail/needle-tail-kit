@@ -15,7 +15,9 @@ import AsyncIRC
 import MessagingHelpers
 import BSON
 import JWTKit
-
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public class VaporClient: CypherServerTransportClient {
     

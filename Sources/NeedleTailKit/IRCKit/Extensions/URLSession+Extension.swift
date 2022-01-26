@@ -10,6 +10,9 @@ import CypherMessaging
 import CypherProtocol
 import MessagingHelpers
 import BSON
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 let maxBodySize = 500_000
 
@@ -44,10 +47,31 @@ extension URLSession {
                 let data = try BSONEncoder().encode(httpBody).makeData()
                 
                 if data.count > maxBodySize {
-                    return (Data(), URLResponse())
+#if canImport(FoundationNetworking)
+            //guard let url = URL(string: "google.com") else { throw VaporTransportError.urlResponseNil }
+            //guard let res = URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil) else { throw  VaporTransportError.urlResponseNil }
+            return (Data(), URLResponse())
+#else
+            return (Data(), URLResponse())
+#endif
                 }
                 
-                decodedBSON = try await self.upload(for: request, from: data)
+
+#if canImport(FoundationNetworking)
+        let uploadTask: (Data, URLResponse) = await withCheckedContinuation { continuation in
+            let task = self.uploadTask(with: request, from: data)  { data, res, error in
+                guard error == nil else { return }
+                guard let response = res as? HTTPURLResponse else { return }
+                guard let data = data else { return }
+                continuation.resume(returning: (data, response))
+            }
+            task.resume()
+        }
+         decodedBSON = uploadTask
+#else
+        decodedBSON = try await self.upload(for: request, from: data)
+#endif
+
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
                     throw IRCClientError.invalidResponse
@@ -60,6 +84,22 @@ extension URLSession {
             }
             
             if httpMethod == Network.get.rawValue {
+
+
+#if canImport(FoundationNetworking)
+        let fetchBSON: (Data, URLResponse)? = await withCheckedContinuation { continuation in
+            self.dataTask(with: request) { data, _, _ in
+                guard let data = data else {
+                    fatalError("DataTask was nil while fetching BSON")
+                }
+                continuation.resume(returning: fetchBSON)
+            }.resume()
+            decodedBSON = fetchBSON
+        }
+#else
+    decodedBSON = try await self.data(for: request)
+#endif   
+
                 decodedBSON = try await self.data(for: request)
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
