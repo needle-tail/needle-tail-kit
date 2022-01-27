@@ -48,30 +48,30 @@ extension URLSession {
                 
                 if data.count > maxBodySize {
 #if canImport(FoundationNetworking)
-            guard let url = URL(string: "cartisim.io") else { throw VaporClientErrors.urlResponseNil }
-            guard let res = URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil) else { throw  VaporTransportError.urlResponseNil }
-            return (Data(), res)
+                    guard let url = URL(string: "cartisim.io") else { throw VaporClientErrors.urlResponseNil }
+                    let res = URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)
+                    return (Data(), res)
 #else
-            return (Data(), URLResponse())
+                    return (Data(), URLResponse())
 #endif
                 }
                 
-
+                
 #if canImport(FoundationNetworking)
-        let uploadTask: (Data, URLResponse) = await withCheckedContinuation { continuation in
-            let task = self.uploadTask(with: request, from: data)  { data, res, error in
-                guard error == nil else { return }
-                guard let response = res as? HTTPURLResponse else { return }
-                guard let data = data else { return }
-                continuation.resume(returning: (data, response))
-            }
-            task.resume()
-        }
-         decodedBSON = uploadTask
+                let uploadTask: (Data, URLResponse) = await withCheckedContinuation { continuation in
+                    let task = self.uploadTask(with: request, from: data)  { data, res, error in
+                        guard error == nil else { return }
+                        guard let response = res as? HTTPURLResponse else { return }
+                        guard let data = data else { return }
+                        continuation.resume(returning: (data, response))
+                    }
+                    task.resume()
+                }
+                decodedBSON = uploadTask
 #else
-        decodedBSON = try await self.upload(for: request, from: data)
+                decodedBSON = try await self.upload(for: request, from: data)
 #endif
-
+                
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
                     throw IRCClientError.invalidResponse
@@ -84,23 +84,21 @@ extension URLSession {
             }
             
             if httpMethod == Network.get.rawValue {
-
-
+                
+                
 #if canImport(FoundationNetworking)
-        let fetchBSON: (Data, URLResponse)? = await withCheckedContinuation { continuation in
-            self.dataTask(with: request) { data, _, _ in
-                guard let data = data else {
-                    fatalError("DataTask was nil while fetching BSON")
+                let fetchBSON: (Data, URLResponse)? = await withCheckedContinuation { continuation in
+                    self.dataTask(with: request) { data, _, _ in
+                        guard let data = data else {
+                            fatalError("DataTask was nil while fetching BSON")
+                        }
+                        continuation.resume(returning: fetchBSON)
+                    }.resume()
+                    decodedBSON = fetchBSON
                 }
-                continuation.resume(returning: fetchBSON)
-            }.resume()
-            decodedBSON = fetchBSON
-        }
 #else
-    decodedBSON = try await self.data(for: request)
-#endif   
-
                 decodedBSON = try await self.data(for: request)
+#endif
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
                     throw IRCClientError.invalidResponse
@@ -119,5 +117,5 @@ extension URLSession {
         
         return decodedBSON
     }
-
+    
 }
