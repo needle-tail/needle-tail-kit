@@ -215,6 +215,7 @@ struct Token: JWTPayload {
 
 enum VaporClientErrors: Error {
     case usernameMismatch
+    case urlResponseNil
 }
 
 
