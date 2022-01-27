@@ -147,7 +147,9 @@ enum IRCTask: Codable, IRCStoredTask {
     
     func onDelayed() async throws {
         switch self {
-        case .parseMessage(let task): break
+        case .parseMessage(let task):
+            print(task)
+            break
 //            _ = try await messenger._markMessage(byId: task.localId, as: .undelivered)
         case .parseMessageDeliveryStateChangeTask:
             ()

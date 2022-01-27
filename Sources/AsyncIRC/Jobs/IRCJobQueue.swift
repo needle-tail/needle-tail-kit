@@ -76,7 +76,8 @@ final class IRCJobQueue {
         //        try await store.createJob(job)
         var tasks: TaskResult = .success(ircMessage: nil)
         if !self.runningJobs {
-           tasks = await self.startRunningTasks() ?? .success(ircMessage: nil)
+           tasks = await self.startRunningTasks()
+//            ?? .success(ircMessage: nil)
         }
         return tasks
     }
@@ -93,18 +94,18 @@ final class IRCJobQueue {
             queuedJobs.append(job)
         }
         
-        do {
-            for job in jobs {
-//                try await store.createJob(job)
-            }
-        } catch {
-            self.logger.notice("Failed to queue all jobs of type \(T.self)")
-            for job in jobs {
-//                _ = try? await store.deleteJob(job)
-            }
-            
-            throw error
-        }
+//        do {
+//            for job in jobs {
+////                try await store.createJob(job)
+//            }
+//        } catch {
+//            self.logger.notice("Failed to queue all jobs of type \(T.self)")
+//            for job in jobs {
+////                _ = try? await store.deleteJob(job)
+//            }
+//
+//            throw error
+//        }
         
         self.jobs.append(contentsOf: queuedJobs)
         self.hasOutstandingTasks = true
@@ -236,7 +237,8 @@ final class IRCJobQueue {
                 }
                 
                 do {
-                    self.taskResult = try await next() ?? .success(ircMessage: nil)
+                    self.taskResult = try await next()
+//                    ?? .success(ircMessage: nil)
                 } catch {
                     self.logger.error("Job queue Error: \(error)")
                     self.runningJobs = false
