@@ -88,11 +88,11 @@ extension URLSession {
                 
 #if canImport(FoundationNetworking)
                 let fetchBSON: (Data, URLResponse)? = await withCheckedContinuation { continuation in
-                    self.dataTask(with: request) { data, _, _ in
-                        guard let data = data else {
-                            fatalError("DataTask was nil while fetching BSON")
-                        }
-                        continuation.resume(returning: fetchBSON)
+                    self.dataTask(with: request) { data, res, error in
+                        guard error == nil else { return }
+                        guard let response = res as? HTTPURLResponse else { return }
+                        guard let data = data else { return }
+                        continuation.resume(returning: (data, response))
                     }.resume()
                 }
                 decodedBSON = fetchBSON
