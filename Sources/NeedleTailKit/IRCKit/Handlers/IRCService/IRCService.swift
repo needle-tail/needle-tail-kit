@@ -83,6 +83,11 @@ public final class IRCService: Identifiable, Hashable {
     private func clientOptionsForAccount(_ signer: TransportCreationRequest, clientOptions: ClientOptions?) -> IRCClientOptions? {
         guard let nick = IRCNickName(signer.username.raw) else { return nil }
 //TODO: if password is not nil than we get a Crash saying PASS Command not found
+#if canImport(Network)
+let group = NIOTSEventLoopGroup()
+#else
+let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+#endif
         return IRCClientOptions(
             port: clientOptions?.port ?? 6667,
             host: clientOptions?.host ?? "localhost",
@@ -90,7 +95,7 @@ public final class IRCService: Identifiable, Hashable {
             tls: clientOptions?.tls ?? true,
             nickname: nick,
             userInfo: clientOptions?.userInfo,
-            eventLoopGroup: NIOTSEventLoopGroup()
+            eventLoopGroup: group
         )
     }
     
