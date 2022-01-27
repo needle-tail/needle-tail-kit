@@ -94,8 +94,8 @@ extension URLSession {
                         }
                         continuation.resume(returning: fetchBSON)
                     }.resume()
-                    decodedBSON = fetchBSON
                 }
+                decodedBSON = fetchBSON
 #else
                 decodedBSON = try await self.data(for: request)
 #endif
