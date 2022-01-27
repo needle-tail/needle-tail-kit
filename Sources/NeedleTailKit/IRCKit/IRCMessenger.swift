@@ -7,6 +7,7 @@
 
 import Foundation
 import NIOCore
+import NIOPosix
 import CypherMessaging
 import CypherProtocol
 import Crypto
@@ -52,7 +53,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
         #if canImport(Network)
         let group = NIOTSEventLoopGroup()
         #else
-        let group = EventLoopGroup()
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         #endif
         self.group = group
         self.passwordProvider = passwordProvider
