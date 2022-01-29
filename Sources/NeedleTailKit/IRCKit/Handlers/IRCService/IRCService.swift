@@ -9,17 +9,8 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-public final class IRCService: Equatable, Hashable {
+public final actor IRCService {
     
-    
-    public static func == (lhs: IRCService, rhs: IRCService) -> Bool {
-        return lhs === rhs
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(signer.deviceId.id)
-    }
-
     public let signer: TransportCreationRequest
     public let eventLoopGroup: EventLoopGroup
     public let passwordProvider: String
@@ -42,7 +33,7 @@ public final class IRCService: Equatable, Hashable {
         userState: UserState,
         clientOptions: ClientOptions?,
         delegate: CypherTransportClientDelegate?
-    ) {
+    ) async {
         self.eventLoopGroup = eventLoopGroup
         self.passwordProvider = passwordProvider
         self.signer = signer
@@ -71,17 +62,13 @@ public final class IRCService: Equatable, Hashable {
                 self.authenticated = .authenticated
         } catch {
             self.authenticated = .authenticationFailure
-            Task {
                await self.connectIfNecessary()
-            }
             print(error, "OUR ERROR")
         }
-        
     }
     
     private func clientOptionsForAccount(_ signer: TransportCreationRequest, clientOptions: ClientOptions?) -> IRCClientOptions? {
         guard let nick = IRCNickName(signer.username.raw) else { return nil }
-//TODO: if password is not nil than we get a Crash saying PASS Command not found
 #if canImport(Network)
 let group = NIOTSEventLoopGroup()
 #else

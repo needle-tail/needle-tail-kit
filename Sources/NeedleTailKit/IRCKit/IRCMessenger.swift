@@ -65,7 +65,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
     }
     
     public func resumeIRC(signer: TransportCreationRequest) async {
-        self.services = IRCService(
+        self.services = await IRCService(
             signer: signer,
             passwordProvider: self.passwordProvider,
             eventLoopGroup: self.group,
