@@ -30,7 +30,7 @@ public struct IRCChannelName : Hashable, CustomStringConvertible, Sendable {
   public typealias StringLiteralType = String
   
   let storage    : String
-  @let normalized : String
+  let normalized : String
 
   public init?(_ s: String) {
     guard IRCChannelName.validate(string: s) else { return nil }

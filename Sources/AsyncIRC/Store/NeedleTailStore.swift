@@ -11,7 +11,7 @@ import MongoKitten
 
 public protocol NeedleTailStore {
     
-    func createJob(_ job: IRCJobModel) asyncf
+    func createJob(_ job: IRCJobModel) async
     func updateJob(_ job: IRCJobModel) async
     func findJobs() async throws -> [IRCJobModel]
 //    func findOneJob(_ job: IRCJobModel) async -> IRCJobModel
