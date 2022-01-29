@@ -38,8 +38,7 @@ public protocol IRCMessageTarget {
 
 
 public extension IRCMessageTarget {
-    
-    @inlinable
+
     func sendMessage(_ message: IRCMessage) {
         Task {
         await sendMessages([ message ])
@@ -49,8 +48,6 @@ public extension IRCMessageTarget {
 
 public extension IRCMessageTarget {
     
-    
-    @inlinable
     func sendMessage(_ text: String, to recipients: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
       guard !recipients.isEmpty else { return }
       
@@ -62,8 +59,7 @@ public extension IRCMessageTarget {
       await sendMessages(messages)
     }
 
-    
-    @inlinable
+
     func sendNotice(_ text: String, to recipients: IRCMessageRecipient...) async {
         guard !recipients.isEmpty else { return }
         
@@ -76,7 +72,6 @@ public extension IRCMessageTarget {
         await sendMessages(messages)
     }
     
-    @inlinable
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
         sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
     }

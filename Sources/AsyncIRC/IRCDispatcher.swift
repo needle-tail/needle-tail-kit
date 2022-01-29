@@ -91,7 +91,6 @@ public enum IRCDispatcherError : Swift.Error {
 
 public extension IRCDispatcher {
 
-  @inlinable
   func irc_msgSend(_ message: IRCMessage) async throws {
     try await irc_defaultMsgSend(message)
   }

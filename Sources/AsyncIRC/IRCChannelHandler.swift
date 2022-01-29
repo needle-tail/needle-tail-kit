@@ -50,17 +50,15 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     internal var cachedStore: _NeedleTailStoreCache
     
     
-    @inlinable
     public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
         self.store = store
         self.cachedStore = _NeedleTailStoreCache(store: self.store)
     }
     
-    @inlinable
     open func channelActive(context: ChannelHandlerContext) {
         context.fireChannelActive()
     }
-    @inlinable
+
     open func channelInactive(context: ChannelHandlerContext) {
         context.fireChannelInactive()
     }
@@ -110,12 +108,10 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         
     }
     
-    @inlinable
     func channelRead(context: ChannelHandlerContext, value: InboundOut) {
         context.fireChannelRead(self.wrapInboundOut(value))
     }
     
-    @inlinable
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
         context.fireErrorCaught(InboundErr.transportError(error))
     }
@@ -123,7 +119,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     // MARK: - Writing
     
-    @inlinable
     public func write(context: ChannelHandlerContext, data: NIOAny,
                       promise: EventLoopPromise<Void>?
     ) {
@@ -131,7 +126,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         write(context: context, value: message, promise: promise)
     }
     
-    @inlinable
     public final func write(context: ChannelHandlerContext, value: IRCMessage,
                             promise: EventLoopPromise<Void>?
     ) {
@@ -140,7 +134,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         context.write(NIOAny(buffer), promise: promise)
     }
     
-    @inlinable
     func encode(value: IRCMessage, target: String?,
                 into buffer: inout ByteBuffer
     ) {
@@ -302,7 +295,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
 
 extension ByteBuffer {
     
-    @usableFromInline
     mutating func writeCSVArgument<T: Sequence>(_ args: T)
     where T.Element == String
     {
@@ -319,7 +311,6 @@ extension ByteBuffer {
         }
     }
     
-    @usableFromInline
     mutating func writeArguments<T: Sequence>(_ args: T)
     where T.Element == String
     {
@@ -331,7 +322,6 @@ extension ByteBuffer {
         }
     }
     
-    @usableFromInline
     mutating func writeArguments<T: Collection>(_ args: T, useLast: Bool = false)
     where T.Element == String
     {
@@ -348,7 +338,6 @@ extension ByteBuffer {
         return writeLastArgument(args[lastIdx])
     }
     
-    @usableFromInline
     mutating func writeLastArgument(_ s: String) {
         let cSpace : UInt8 = 32
         let cColon : UInt8 = 58

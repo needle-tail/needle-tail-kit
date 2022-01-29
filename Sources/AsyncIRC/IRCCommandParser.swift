@@ -256,7 +256,6 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
     init(_ v: Int, arguments: [ String ]) throws {
         if let code = IRCCommandCode(rawValue: v) {
             self = .numeric(code, arguments)
@@ -273,7 +272,6 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
     init(_ s: String, _ arguments: String...) throws {
         try self.init(s, arguments: arguments)
     }
@@ -285,7 +283,6 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
     init(_ v: Int, _ arguments: String...) async throws {
         try self.init(v, arguments: arguments)
     }

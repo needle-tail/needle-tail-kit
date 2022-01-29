@@ -29,33 +29,28 @@ public struct IRCChannelName : Hashable, CustomStringConvertible, Sendable {
   
   public typealias StringLiteralType = String
   
-  @usableFromInline let storage    : String
-  @usableFromInline let normalized : String
+  let storage    : String
+  @let normalized : String
 
-  @inlinable
   public init?(_ s: String) {
     guard IRCChannelName.validate(string: s) else { return nil }
     storage    = s
     normalized = s.ircLowercased()
   }
   
-  @inlinable
   public var stringValue : String { return storage }
   
-  @inlinable
   public func hash(into hasher: inout Hasher) {
     normalized.hash(into: &hasher)
   }
   
-  @inlinable
+
   public static func ==(lhs: IRCChannelName, rhs: IRCChannelName) -> Bool {
     return lhs.normalized == rhs.normalized
   }
   
-  @inlinable
   public var description : String { return stringValue }
   
-  @inlinable
   public static func validate(string: String) -> Bool {
     guard string.count > 1 && string.count <= 50 else { return false }
     

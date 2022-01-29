@@ -16,7 +16,6 @@ public struct IRCChannelMode : OptionSet {
   
   public let rawValue: UInt16
 
-  @inlinable
   public init(rawValue: UInt16) {
     self.rawValue = rawValue
   }
@@ -33,10 +32,8 @@ public struct IRCChannelMode : OptionSet {
   public static let speakControl        = IRCChannelMode(rawValue: 1 << 9)
   public static let password            = IRCChannelMode(rawValue: 1 << 10)
 
-  @inlinable
   public var maskValue : UInt16 { return rawValue }
   
-  @inlinable
   public init?(_ string: String) {
     var mask : UInt16 = 0
     for c in string {
@@ -59,7 +56,6 @@ public struct IRCChannelMode : OptionSet {
     self.init(rawValue: mask)
   }
   
-  @inlinable
   public var stringValue : String {
     var mode = ""
     if contains(.channelOperator)     { mode += "o" }

@@ -16,7 +16,6 @@ public struct IRCUserMode : OptionSet {
   
   public let rawValue: UInt16
   
-  @inlinable
   public init(rawValue: UInt16) {
     self.rawValue = rawValue
   }
@@ -39,10 +38,8 @@ public struct IRCUserMode : OptionSet {
   // UnrealIRCd https://www.unrealircd.org/docs/User_Modes "x"
   public static let hideHostname          = IRCUserMode(rawValue: 1 << 13)
 
-  @inlinable
   public var maskValue : UInt16 { return rawValue }
   
-  @inlinable
   public init?(_ string: String) {
     var mask : UInt16 = 0
     for c in string {
@@ -66,7 +63,6 @@ public struct IRCUserMode : OptionSet {
     self.init(rawValue: mask)
   }
   
-  @inlinable
   public var stringValue : String {
     var mode = ""
     mode.reserveCapacity(8)

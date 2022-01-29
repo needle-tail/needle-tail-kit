@@ -65,7 +65,7 @@ open class IRCClient : IRCClientMessageTarget {
         }
         
         var nick : IRCNickName? {
-            @inline(__always) get {
+            get {
                 switch self {
                 case .registering(_, let v, _): return v
                 case .registered (_, let v, _): return v
@@ -75,7 +75,7 @@ open class IRCClient : IRCClientMessageTarget {
         }
         
         var userInfo : IRCUserInfo? {
-            @inline(__always) get {
+             get {
                 switch self {
                 case .registering(_, _, let v): return v
                 case .registered (_, _, let v): return v
@@ -85,7 +85,7 @@ open class IRCClient : IRCClientMessageTarget {
         }
         
         var channel : Channel? {
-            @inline(__always) get {
+            get {
                 switch self {
                 case .registering(let channel, _, _): return channel
                 case .registered (let channel, _, _): return channel
@@ -170,7 +170,7 @@ open class IRCClient : IRCClientMessageTarget {
     // MARK: - Connect
     
     var retryInfo = IRCRetryInfo()
-    var channel : Channel? { @inline(__always) get { return state.channel } }
+    var channel : Channel? { get { return state.channel } }
     
     
     internal func _connect(host: String, port: Int) async throws -> EventLoopFuture<Channel> {

@@ -19,14 +19,12 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
   public let user : String?
   public let host : String?
   
-  @inlinable
   public init(nick: IRCNickName, user: String? = nil, host: String? = nil) {
     self.nick = nick
     self.user = user
     self.host = host
   }
   
-  @inlinable
   public init?(_ s: String) {
     if let atIdx = s.firstIndex(of: "@") {
       let hs = s.index(after: atIdx)
@@ -54,15 +52,12 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
     }
   }
   
-  @inlinable
   public func hash(into hasher: inout Hasher) { nick.hash(into: &hasher) }
   
-  @inlinable
   public static func ==(lhs: IRCUserID, rhs: IRCUserID) -> Bool {
     return lhs.nick == rhs.nick && lhs.user == rhs.user && lhs.host == rhs.host
   }
   
-  @inlinable
   public var stringValue : String {
     var ms = "\(nick)"
     if let host = host {
@@ -72,6 +67,5 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
     return ms
   }
   
-  @inlinable
   public var description: String { return stringValue }
 }

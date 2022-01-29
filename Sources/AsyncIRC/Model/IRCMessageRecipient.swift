@@ -21,8 +21,6 @@ public enum IRCMessageRecipient : Hashable, Sendable {
   // TODO:
   // or: user, or user%host, @server, etc
   // or: nickname!user@host
-
-  @inlinable
   public func hash(into hasher: inout Hasher) {
     switch self {
       case .channel (let name): return name.hash(into: &hasher)
@@ -31,7 +29,6 @@ public enum IRCMessageRecipient : Hashable, Sendable {
     }
   }
   
-  @inlinable
   public static func ==(lhs: IRCMessageRecipient, rhs: IRCMessageRecipient)
                   -> Bool
   {
@@ -46,7 +43,6 @@ public enum IRCMessageRecipient : Hashable, Sendable {
 
 public extension IRCMessageRecipient {
   
-  @inlinable
   init?(_ s: String) {
     if s == "*"                             { self = .everything       }
     else if let channel = IRCChannelName(s) { self = .channel(channel) }
@@ -54,7 +50,6 @@ public extension IRCMessageRecipient {
     else                                    { return nil               }
   }
   
-  @inlinable
   var stringValue : String {
     switch self {
       case .channel (let name) : return name.stringValue
@@ -66,7 +61,6 @@ public extension IRCMessageRecipient {
 
 extension IRCMessageRecipient : CustomStringConvertible {
   
-  @inlinable
   public var description : String {
     switch self {
       case .channel (let name) : return name.description

@@ -57,7 +57,7 @@ public enum IRCCommand {
   public enum CAPSubCommand : String {
     case LS, LIST, REQ, ACK, NAK, END
     
-    @inlinable
+
     public var commandAsString : String { return rawValue }
   }
   case CAP(CAPSubCommand, [ String ])
@@ -68,7 +68,6 @@ public enum IRCCommand {
 
 extension IRCCommand : CustomStringConvertible {
   
-  @inlinable
   public var commandAsString : String {
     switch self {
       case .NICK:           return "NICK"
@@ -101,7 +100,6 @@ extension IRCCommand : CustomStringConvertible {
     }
   }
   
-  @inlinable
   public var arguments : [ String ] {
     switch self {
       case .NICK(let nick): return [ nick.stringValue ]
@@ -194,7 +192,6 @@ extension IRCCommand : CustomStringConvertible {
     }
   }
   
-  @inlinable
   public var description : String {
     switch self {
       case .PING(let server, let server2), .PONG(let server, let server2):
