@@ -1,10 +1,9 @@
 import ArgumentParser
 import Foundation
 import NIO
-import AsyncIRC
-import CypherMessaging
+@_predatesConcurrency import AsyncIRC
+@_predatesConcurrency import CypherMessaging
 import Crypto
-import AsyncIRC
 #if canImport(Network)
 import NIOTransportServices
 #endif
