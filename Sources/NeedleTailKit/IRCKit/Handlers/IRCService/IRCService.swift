@@ -9,14 +9,14 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-public final actor IRCService: Equatable, Hashable {
+public final class IRCService: Equatable, Hashable {
     
     
     public static func == (lhs: IRCService, rhs: IRCService) -> Bool {
         return lhs === rhs
     }
 
-    nonisolated public func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(signer.deviceId.id)
     }
 
@@ -42,8 +42,7 @@ public final actor IRCService: Equatable, Hashable {
         userState: UserState,
         clientOptions: ClientOptions?,
         delegate: CypherTransportClientDelegate?
-    )
-    async {
+    ) {
         self.eventLoopGroup = eventLoopGroup
         self.passwordProvider = passwordProvider
         self.signer = signer

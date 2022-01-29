@@ -26,7 +26,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
     
     func passSendMessage(_ text: Data, to recipients: IRCMessageRecipient, tags: [IRCTags]?) async {
         do {
-            try await services?.sendMessage(text, to: recipients, tags: tags)
+            _ = try await services?.sendMessage(text, to: recipients, tags: tags)
         } catch {
             print("There was an error error sendding message in \(#function) - Error: \(error)")
         }
@@ -65,7 +65,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
     }
     
     public func resumeIRC(signer: TransportCreationRequest) async {
-        self.services = await IRCService(
+        self.services = IRCService(
             signer: signer,
             passwordProvider: self.passwordProvider,
             eventLoopGroup: self.group,
