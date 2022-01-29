@@ -9,17 +9,8 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-public final class IRCService: Identifiable, Hashable {
+public final class IRCService {
     
-    public static func == (lhs: IRCService, rhs: IRCService) -> Bool {
-        return lhs.id == rhs.id
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-    public var id: UUID { UUID(uuidString: signer.deviceId.id)! }
     public let signer: TransportCreationRequest
     public let eventLoopGroup: EventLoopGroup
     public let passwordProvider: String
