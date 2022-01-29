@@ -9,8 +9,17 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-public final class IRCService {
+public final actor IRCService: Equatable, Hashable {
     
+    
+    public static func == (lhs: IRCService, rhs: IRCService) -> Bool {
+        return lhs === rhs
+    }
+
+    nonisolated public func hash(into hasher: inout Hasher) {
+        hasher.combine(signer.deviceId.id)
+    }
+
     public let signer: TransportCreationRequest
     public let eventLoopGroup: EventLoopGroup
     public let passwordProvider: String
@@ -113,7 +122,6 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     
     
     // MARK: - Conversations
-    @discardableResult
     public func registerPrivateChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }
@@ -122,7 +130,6 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         return chat?.conversation
     }
     
-    @discardableResult
     public func registerGroupChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }
@@ -140,7 +147,6 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
     
     // MARK: - Sending
-    @discardableResult
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
 //        guard case .online = userState.state else { return false }
         await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
