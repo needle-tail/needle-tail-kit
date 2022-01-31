@@ -49,6 +49,25 @@ public struct IRCJobModel: Codable {
         self.attempts = 0
     }
     
+    
+    public init(
+        id: UUID,
+        taskKey: String,
+        task: Document,
+        delayedUntil: Date?,
+        scheduledAt: Date,
+        attempts: Int,
+        isBackgroundTask: Bool
+    ) {
+        self.id = id
+        self.taskKey = taskKey
+        self.task = task
+        self.delayedUntil = delayedUntil
+        self.scheduledAt = scheduledAt
+        self.attempts = attempts
+        self.isBackgroundTask = isBackgroundTask
+    }
+    
     func delayExecution(retryDelay: TimeInterval) async throws {
 //        try await setProp(at: \.delayedUntil, to: Date().addingTimeInterval(retryDelay))
 //        try await setProp(at: \.attempts, to: self.attempts + 1)

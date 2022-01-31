@@ -27,14 +27,7 @@ enum ParserError: Swift.Error {
 }
 
 public final class IRCMessageParser {
-//    private var logger: Logger
-//    
-//    
-//    init(
-//        logger: Logger
-//    ) {
-//        self.logger = logger
-//    }
+
     public enum Error : Swift.Error {
         case invalidPrefix       (Data)
         case invalidCommand      (Data)

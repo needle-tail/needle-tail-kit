@@ -73,7 +73,7 @@ final class IRCJobQueue {
         
         self.jobs.append(queuedJob)
         self.hasOutstandingTasks = true
-        //        try await store.createJob(job)
+//        try await store.createJob(queuedJob)
         var tasks: TaskResult = .success(ircMessage: nil)
         if !self.runningJobs {
            tasks = await self.startRunningTasks()
