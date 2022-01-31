@@ -135,21 +135,21 @@ public class SQLiteStore: NeedleTailStore {
     
     
     
-    func createJob(_ job: IRCJobModel) async throws {
+    public func createJob(_ job: IRCJobModel) async throws {
         try await _IRCJobModel(job: job, new: true).create(on: database).get()
     }
     
-    func updateJob(_ job: IRCJobModel) async throws {
+    public func updateJob(_ job: IRCJobModel) async throws {
         try await _IRCJobModel(job: job, new: false).update(on: database).get()
     }
     
-    func findJobs() async throws -> [IRCJobModel] {
+    public func findJobs() async throws -> [IRCJobModel] {
         try await _IRCJobModel.query(on: database).all().flatMapEachThrowing {
            $0.makeJob()
         }.get()
     }
     
-    func deleteJob(_ job: IRCJobModel) async throws {
+    public func deleteJob(_ job: IRCJobModel) async throws {
         try await _IRCJobModel(job: job, new: false).delete(on: database).get()
     }
     
