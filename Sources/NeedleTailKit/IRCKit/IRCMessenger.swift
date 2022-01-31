@@ -37,6 +37,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
     private var passwordProvider: String
     private var userState: UserState
     private var clientOptions: ClientOptions?
+    public var store: NeedleTailStore
     
     public init(
         passwordProvider: String,
@@ -48,7 +49,8 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
         appleToken: String?,
         messenger: CypherMessenger?,
         userState: UserState,
-        clientOptions: ClientOptions?
+        clientOptions: ClientOptions?,
+        store: NeedleTailStore
     ) async {
         #if canImport(Network)
         let group = NIOTSEventLoopGroup()
@@ -59,6 +61,7 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
         self.passwordProvider = passwordProvider
         self.userState = userState
         self.clientOptions = clientOptions
+        self.store = store
         await super.init(host: host, username: username, deviceId: deviceId, signer: signer, httpClient: httpClient, appleToken: appleToken)
         messageDelegate = self
         await resumeIRC(signer: signer)
@@ -72,7 +75,8 @@ public class IRCMessenger: VaporClient, IRCMessageDelegate {
             authenticated: self.authenticated,
             userState: self.userState,
             clientOptions: self.clientOptions,
-            delegate: self.delegate
+            delegate: self.delegate,
+            store: self.store
         )
             await self.resume()
     }

@@ -11,6 +11,15 @@
         }
       },
       {
+        "package": "async-kit",
+        "repositoryURL": "https://github.com/vapor/async-kit.git",
+        "state": {
+          "branch": null,
+          "revision": "e2f741640364c1d271405da637029ea6a33f754e",
+          "version": "1.11.1"
+        }
+      },
+      {
         "package": "BSON",
         "repositoryURL": "https://github.com/OpenKitten/BSON.git",
         "state": {
@@ -38,12 +47,21 @@
         }
       },
       {
-        "package": "IkigaJSON",
-        "repositoryURL": "https://github.com/joannis/IkigaJSON.git",
+        "package": "fluent-kit",
+        "repositoryURL": "https://github.com/vapor/fluent-kit.git",
         "state": {
           "branch": null,
-          "revision": "ac6085c4f682dd50886aecb3bad3531288510c1e",
-          "version": "2.1.1"
+          "revision": "d5273e8d050c51dd7e1d3a4dab08fe32ec9ffffa",
+          "version": "1.20.0"
+        }
+      },
+      {
+        "package": "fluent-sqlite-driver",
+        "repositoryURL": "https://github.com/vapor/fluent-sqlite-driver.git",
+        "state": {
+          "branch": null,
+          "revision": "9ca34be792979fb0f1dbd8e45b8af9f1e1440474",
+          "version": "4.1.0"
         }
       },
       {
@@ -56,21 +74,30 @@
         }
       },
       {
-        "package": "MongoKitten",
-        "repositoryURL": "https://github.com/OpenKitten/MongoKitten.git",
+        "package": "sql-kit",
+        "repositoryURL": "https://github.com/vapor/sql-kit.git",
         "state": {
-          "branch": "master/6.0",
-          "revision": "d22edbbf262d6925dbaed74cc83fa8953e867590",
-          "version": null
+          "branch": null,
+          "revision": "9cc30f8cef132e91a07e36005612b37f918731fc",
+          "version": "3.16.0"
         }
       },
       {
-        "package": "DNSClient",
-        "repositoryURL": "https://github.com/OpenKitten/NioDNS.git",
+        "package": "sqlite-kit",
+        "repositoryURL": "https://github.com/vapor/sqlite-kit.git",
         "state": {
           "branch": null,
-          "revision": "71cfedd3310d59b7d19e290176dd2a1a605a4252",
-          "version": "2.0.7"
+          "revision": "0b3b12b032991de3ab5999b428a652ec29139746",
+          "version": "4.1.0"
+        }
+      },
+      {
+        "package": "sqlite-nio",
+        "repositoryURL": "https://github.com/vapor/sqlite-nio.git",
+        "state": {
+          "branch": null,
+          "revision": "6481dd0b01112d082dd7eb362782126e81964138",
+          "version": "1.1.0"
         }
       },
       {
@@ -107,15 +134,6 @@
           "branch": null,
           "revision": "5d66f7ba25daf4f94100e7022febf3c75e37a6c7",
           "version": "1.4.2"
-        }
-      },
-      {
-        "package": "swift-metrics",
-        "repositoryURL": "https://github.com/apple/swift-metrics.git",
-        "state": {
-          "branch": null,
-          "revision": "3edd2f57afc4e68e23c3e4956bc8b65ca6b5b2ff",
-          "version": "2.2.0"
         }
       },
       {

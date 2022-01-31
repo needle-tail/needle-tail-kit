@@ -11,12 +11,10 @@ import MongoKitten
 
 public protocol NeedleTailStore {
     
-    func createJob(_ job: IRCJobModel) async
-    func updateJob(_ job: IRCJobModel) async
+    func createJob(_ job: IRCJobModel) async throws
+    func updateJob(_ job: IRCJobModel) async throws
     func findJobs() async throws -> [IRCJobModel]
-//    func findOneJob(_ job: IRCJobModel) async -> IRCJobModel
-    func deleteOneJob(_ job: IRCJobModel) async
-    func deleteJobs()
+    func deleteJob(_ job: IRCJobModel) async throws
 }
 
 
@@ -32,20 +30,16 @@ internal final class _NeedleTailStoreCache: NeedleTailStore {
     internal let store: NeedleTailStore
     private var jobs: [IRCJobModel]?
     
-    
-    
     init(store: NeedleTailStore) {
         self.store = store
     }
     
-    
-    
-    func createJob(_ job: IRCJobModel) async {
-        
+    func createJob(_ job: IRCJobModel) async throws {
+        try await store.createJob(job)
     }
     
-    func updateJob(_ job: IRCJobModel) async {
-        
+    func updateJob(_ job: IRCJobModel) async throws {
+        try await store.updateJob(job)
     }
     
     @NeedleCacheActor
@@ -57,15 +51,10 @@ internal final class _NeedleTailStoreCache: NeedleTailStore {
             self.jobs = jobs
             return jobs
         }
-        }
-
-    
-    func deleteOneJob(_ job: IRCJobModel) async {
-        
     }
     
-    func deleteJobs() {
-        
+    func deleteJob(_ job: IRCJobModel) async throws {
+        try await store.deleteJob(job)
     }
     
     
