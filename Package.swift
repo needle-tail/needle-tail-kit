@@ -23,8 +23,7 @@ let package = Package(
 //        .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", .branch("feature/async-await")),
         .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
         .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
-        .package(url: "https://github.com/joannis/IkigaJSON.git", from: "2.0.0"),
-        .package(url: "https://github.com/OpenKitten/MongoKitten.git", branch: "master/6.0"),
+        .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.1.0")
     ],
     targets: [
         .target(
@@ -45,9 +44,7 @@ let package = Package(
             dependencies: [
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
-                .product(name: "MongoKitten", package: "MongoKitten"),
-                .product(name: "Meow", package: "MongoKitten"),
-                .product(name: "IkigaJSON", package: "IkigaJSON"),
+                .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
                 .product(name: "CypherMessaging", package: "CypherTextKit")
             ],
             swiftSettings: [
