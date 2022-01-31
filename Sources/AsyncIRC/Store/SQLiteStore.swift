@@ -60,7 +60,7 @@ struct IRCJobMigration: Migration {
 }
 
 fileprivate func makeSQLiteURL() -> String {
-    guard var url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+    guard var url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
         fatalError()
     }
 
