@@ -75,7 +75,7 @@ fileprivate func makeSQLiteURL() -> String {
     return url.path
 }
 
-class SQLiteStore: NeedleTailStore {
+public class SQLiteStore: NeedleTailStore {
     let databases: Databases
     let database: Database
     var eventLoop: EventLoop { database.eventLoop }
