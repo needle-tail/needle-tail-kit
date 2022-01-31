@@ -15,7 +15,6 @@
 import NIO
 import NIOExtras
 import Logging
-import MongoKitten
 #if canImport(Network)
 import NIOTransportServices
 #endif
@@ -127,11 +126,11 @@ open class IRCClient : IRCClientMessageTarget {
     }
     
     var logger: Logger
-    internal var db: MongoDatabase
-    internal var store: MongoStore
+    internal var store: NeedleTailStore
     
-    public init(options: IRCClientOptions) {
+    public init(options: IRCClientOptions, store: NeedleTailStore) {
         self.options = options
+        self.store = store
         let eventLoop = options.eventLoopGroup?.next()
         self.eventLoop = eventLoop!
         self.logger = Logger(label: "NeedleTail Client Logger")
@@ -147,10 +146,6 @@ open class IRCClient : IRCClientMessageTarget {
             options.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 #endif
         }
-        
-        self.db = try! MongoDatabase.synchronousConnect("mongodb://localhost/needle_tail")
-        self.store = MongoStore(database: self.db)
-        
         let provider: EventLoopGroupManager.Provider = options.eventLoopGroup.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
     }
@@ -214,8 +209,7 @@ open class IRCClient : IRCClientMessageTarget {
                             return error.futureResult
                         }
                         return channel.pipeline
-                            .addHandler(Handler(client: strongSelf),
-                                        name: "de.zeezide.nio.irc.client")
+                            .addHandler(Handler(client: strongSelf))
                     }
             }
         

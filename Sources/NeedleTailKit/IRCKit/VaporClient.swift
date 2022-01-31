@@ -37,6 +37,7 @@ public class VaporClient: CypherServerTransportClient {
     internal var messageDelegate: IRCMessageDelegate?
     public var type : ConversationType = .im
     
+    
     internal init(
         host: String,
         username: Username,
@@ -58,7 +59,8 @@ public class VaporClient: CypherServerTransportClient {
         for transportRequest: TransportCreationRequest,
         host: String,
         messenger: CypherMessenger? = nil,
-        clientOptions: ClientOptions? = nil
+        clientOptions: ClientOptions? = nil,
+        store: NeedleTailStore
     ) async throws -> IRCMessenger {
         let client = URLSession(configuration: .default)
         VaporClient.host = Self.host
@@ -72,7 +74,8 @@ public class VaporClient: CypherServerTransportClient {
             appleToken: nil,
             messenger: messenger,
             userState: UserState(identifier: ""),
-            clientOptions: clientOptions
+            clientOptions: clientOptions,
+            store: store
         )
     }
     

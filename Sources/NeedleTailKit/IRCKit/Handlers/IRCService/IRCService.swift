@@ -18,7 +18,7 @@ public final actor IRCService {
     private var authenticated: AuthenticationState?
     public var delegate: IRCClientDelegate?
     public weak var transportDelegate: CypherTransportClientDelegate?
-    
+    public var store: NeedleTailStore
     var messenger: CypherMessenger?
     var client: IRCClient?
     internal var userState: UserState
@@ -31,7 +31,8 @@ public final actor IRCService {
         authenticated: AuthenticationState,
         userState: UserState,
         clientOptions: ClientOptions?,
-        delegate: CypherTransportClientDelegate?
+        delegate: CypherTransportClientDelegate?,
+        store: NeedleTailStore
     ) async {
         self.eventLoopGroup = eventLoopGroup
         self.passwordProvider = passwordProvider
@@ -40,6 +41,7 @@ public final actor IRCService {
         self.userState = userState
         self.clientOptions = clientOptions
         self.transportDelegate = delegate
+        self.store = store
         activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
     }
     
@@ -53,7 +55,7 @@ public final actor IRCService {
     private func connectIfNecessary() async {
         guard case .offline = userState.state else { return }
         guard let options = activeClientOptions else { return }
-        self.client = IRCClient(options: options)
+        self.client = IRCClient(options: options, store: store)
         self.client?.delegate = self
         userState.transition(to: .connecting)
         do {
