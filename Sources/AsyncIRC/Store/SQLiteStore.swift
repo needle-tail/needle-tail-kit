@@ -78,10 +78,7 @@ fileprivate func makeSQLiteURL() -> String {
         try! url.setResourceValues(excludedFromBackup)
     }
 
-            let path = "/home/cartisim/.local/share/parseDB"
-        print(path, "PATH___1")
-     print(url.path, "PATH___2")
-    return path
+    return url.path
 }
 
 public class SQLiteStore: NeedleTailStore {
