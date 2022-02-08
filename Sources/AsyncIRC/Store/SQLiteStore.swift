@@ -79,8 +79,8 @@ fileprivate func makeSQLiteURL() -> String {
     }
 
             let path = "/home/cartisim/.local/share/parseDB"
-        print(path, "PATH___")
-    
+        print(path, "PATH___1")
+     print(url.path, "PATH___2")
     return path
 }
 
