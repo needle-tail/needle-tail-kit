@@ -51,11 +51,6 @@ struct IRCJobMigration: Migration {
         database.schema(_IRCJobModel.schema)
             .id()
             .field("a", .data, .required)
-            .field("b", .data, .required)
-            .field("c", .data, .required)
-            .field("d", .data, .required)
-            .field("e", .data, .required)
-            .field("f", .data, .required)
             .create()
     }
     
@@ -114,7 +109,7 @@ public class SQLiteStore: NeedleTailStore {
     public static func create(
         on eventLoop: EventLoop
     ) async throws -> SQLiteStore {
-        try await self.create(withConfiguration: .file(makeSQLiteURL(), on: eventLoop).get()
+        try await self.create(withConfiguration: .file(makeSQLiteURL()), on: eventLoop).get()
     }
     
     static func create(
