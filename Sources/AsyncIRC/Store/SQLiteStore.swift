@@ -113,7 +113,7 @@ public class SQLiteStore: NeedleTailStore {
     ) async throws -> SQLiteStore {
         let path = "/home/cartisim/.local/share/parseDB"
         print(path, "PATH___")
-        try await self.create(withConfiguration: .file(path, on: eventLoop).get()
+        return try await self.create(withConfiguration: .file(path, on: eventLoop).get()
     }
     
     static func create(
