@@ -51,6 +51,11 @@ struct IRCJobMigration: Migration {
         database.schema(_IRCJobModel.schema)
             .id()
             .field("a", .data, .required)
+            .field("b", .data, .required)
+            .field("c", .data, .required)
+            .field("d", .data, .required)
+            .field("e", .data, .required)
+            .field("f", .data, .required)
             .create()
     }
     
