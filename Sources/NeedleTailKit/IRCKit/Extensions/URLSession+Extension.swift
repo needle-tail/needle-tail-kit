@@ -20,7 +20,7 @@ let maxBodySize = 500_000
 extension URLSession {
     
     func codableNetworkWrapper<T: Codable>(
-        type: T.Type,
+        type: T.Type? = nil,
         httpHost: String,
         urlPath: String,
         httpMethod: String,

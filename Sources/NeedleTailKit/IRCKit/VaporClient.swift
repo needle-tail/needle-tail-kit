@@ -9,6 +9,7 @@ import Foundation
 import NIOCore
 import CypherMessaging
 import CypherProtocol
+import MessagingHelpers
 import Crypto
 import AsyncIRC
 import MessagingHelpers
@@ -250,6 +251,21 @@ extension VaporClient {
             token: self.makeToken())
     }
     
+    public struct SetToken: Codable {
+        let token: String
+    }
+    
+    public func registerAPNSToken(_ token: Data) async throws {
+        _ = try await self.httpClient.codableNetworkWrapper(
+            httpHost: httpHost,
+            urlPath: "auth/current-device/token",
+            httpMethod: "POST",
+            httpBody: SetToken(token: token.hexString),
+            username: self.username,
+            deviceId: self.deviceId,
+            token: self.makeToken())
+    }
+    
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         fatalError()
     }
@@ -305,4 +321,36 @@ extension VaporClient {
 
 protocol IRCMessageDelegate {
     func passSendMessage(_ text: Data, to recipients: IRCMessageRecipient, tags: [IRCTags]?) async
+}
+
+
+let charA = UInt8(UnicodeScalar("a").value)
+let char0 = UInt8(UnicodeScalar("0").value)
+
+private func itoh(_ value: UInt8) -> UInt8 {
+    return (value > 9) ? (charA + value - 10) : (char0 + value)
+}
+
+extension DataProtocol {
+    var hexString: String {
+        let hexLen = self.count * 2
+        let ptr = UnsafeMutablePointer<UInt8>.allocate(capacity: hexLen)
+        var offset = 0
+
+        self.regions.forEach { (_) in
+            for i in self {
+                ptr[Int(offset * 2)] = itoh((i >> 4) & 0xF)
+                ptr[Int(offset * 2 + 1)] = itoh(i & 0xF)
+                offset += 1
+            }
+        }
+
+        return String(bytesNoCopy: ptr, length: hexLen, encoding: .utf8, freeWhenDone: true)!
+    }
+}
+
+extension URLResponse {
+    convenience public init?(_ url: URL) {
+      self.init(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: "")
+    }
 }

@@ -1,8 +1,8 @@
 import ArgumentParser
 import Foundation
 import NIO
-@_predatesConcurrency import AsyncIRC
-@_predatesConcurrency import CypherMessaging
+import AsyncIRC
+import CypherMessaging
 import Crypto
 #if canImport(Network)
 import NIOTransportServices
@@ -64,7 +64,6 @@ public final actor IRCService {
         } catch {
             self.authenticated = .authenticationFailure
                await self.connectIfNecessary()
-            print(error, "OUR ERROR")
         }
     }
     

@@ -12,7 +12,7 @@ import BSON
 
 fileprivate final class _IRCJobModel: FluentKit.Model {
     static let schema = "a"
-
+    
     @ID(key: .id) var id: UUID?
     @Field(key: "a") var taskKey: String
     @Field(key: "b") var task: Document
@@ -20,7 +20,7 @@ fileprivate final class _IRCJobModel: FluentKit.Model {
     @Field(key: "d") var scheduledAt: Date
     @Field(key: "e") var attempts: Int
     @Field(key: "f") var isBackgroundTask: Bool
-
+    
     init() {}
     
     init(job: IRCJobModel, new: Bool) async {
@@ -53,25 +53,31 @@ struct IRCJobMigration: Migration {
             .field("a", .data, .required)
             .create()
     }
-
+    
     func revert(on database: Database) -> EventLoopFuture<Void> {
         database.schema(_IRCJobModel.schema).delete()
     }
 }
 
 fileprivate func makeSQLiteURL() -> String {
+    
+#if os(iOS) || os(macOS)
+    guard var url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+        fatalError()
+    }
+#else
     guard var url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
         fatalError()
     }
-
+#endif
     url = url.appendingPathComponent("parseDB")
-
+    
     if FileManager.default.fileExists(atPath: url.path) {
         var excludedFromBackup = URLResourceValues()
         excludedFromBackup.isExcludedFromBackup = true
         try! url.setResourceValues(excludedFromBackup)
     }
-
+    
     return url.path
 }
 
@@ -79,30 +85,30 @@ public class SQLiteStore: NeedleTailStore {
     let databases: Databases
     let database: Database
     var eventLoop: EventLoop { database.eventLoop }
-
+    
     private init(databases: Databases, database: Database) {
         self.databases = databases
         self.database = database
     }
-
+    
     static func exists() -> Bool {
         FileManager.default.fileExists(atPath: makeSQLiteURL())
     }
-
+    
     static func destroy() {
         try? FileManager.default.removeItem(atPath:makeSQLiteURL())
     }
-
+    
     func destroy() {
         Self.destroy()
     }
-
+    
     public static func create(
         on eventLoop: EventLoop
     ) async throws -> SQLiteStore {
         try await self.create(withConfiguration: .file(makeSQLiteURL()), on: eventLoop).get()
     }
-
+    
     static func create(
         withConfiguration configuration: SQLiteConfiguration,
         on eventLoop: EventLoop
@@ -111,13 +117,13 @@ public class SQLiteStore: NeedleTailStore {
             threadPool: NIOThreadPool(numberOfThreads: 1),
             on: eventLoop
         )
-
+        
         databases.use(.sqlite(configuration), as: .sqlite)
         let logger = Logger(label: "sqlite")
-
+        
         let migrations = Migrations()
         migrations.add(IRCJobMigration())
-
+        
         let migrator = Migrator(databases: databases, migrations: migrations, logger: logger, on: eventLoop)
         return migrator.setupIfNeeded().flatMap {
             migrator.prepareBatch()
@@ -145,7 +151,7 @@ public class SQLiteStore: NeedleTailStore {
     
     public func findJobs() async throws -> [IRCJobModel] {
         try await _IRCJobModel.query(on: database).all().flatMapEachThrowing {
-           $0.makeJob()
+            $0.makeJob()
         }.get()
     }
     

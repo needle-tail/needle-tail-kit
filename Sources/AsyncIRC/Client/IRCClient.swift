@@ -168,14 +168,14 @@ open class IRCClient : IRCClientMessageTarget {
     var channel : Channel? { get { return state.channel } }
     
     
-    internal func _connect(host: String, port: Int) async throws -> EventLoopFuture<Channel> {
+    internal func _connect(host: String, port: Int) async throws -> Channel {
         clearListCollectors()
         userMode = IRCUserMode()
         state    = .connecting
         retryInfo.attempt += 1
         
         return try await clientBootstrap()
-            .connect(host: host, port: port)
+            .connect(host: host, port: port).get()
     }
     
     //Shutdown the program
@@ -188,6 +188,7 @@ open class IRCClient : IRCClientMessageTarget {
         guard let host = options.hostname else {
             throw Error.notImplemented
         }
+
         if !options.tls {
             bootstrap = try groupManager.makeBootstrap(hostname: host, useTLS: false)
         } else {
@@ -198,28 +199,21 @@ open class IRCClient : IRCClientMessageTarget {
             .connectTimeout(.hours(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
                                                  SO_REUSEADDR), value: 1)
-            .channelInitializer { [weak self] channel in
+            .channelInitializer { channel in
                 return channel.pipeline
-//                    .addHandler(ByteToMessageHandler(LineBasedFrameDecoder()))
-                    .addHandler(IRCChannelHandler(logger: Logger(label: "NeedleTail Client Logger"), store: store))
-                    .flatMap { [weak self] _ in
-                        guard let strongSelf = self else {
-                            let error = channel.eventLoop.makePromise(of: Void.self)
-                            error.fail(Error.internalInconsistency)
-                            return error.futureResult
-                        }
-                        return channel.pipeline
-                            .addHandler(Handler(client: strongSelf))
-                    }
+                    .addHandlers([
+//                        ByteToMessageHandler(LineBasedFrameDecoder()),
+                        IRCChannelHandler(logger: Logger(label: "NeedleTail Client Logger"), store: store),
+                        Handler(client: self)
+                    ])
             }
-        
     }
     
     
     public func connecting() async throws -> Channel? {
         var channel: Channel?
         do {
-            channel = try await _connect(host: options.hostname ?? "localhost", port: options.port).get()
+            channel = try await _connect(host: options.hostname ?? "localhost", port: options.port)
             await self.retryInfo.registerSuccessfulConnect()
             guard case .connecting = self.state else {
                 assertionFailure("called \(#function) but we are not connecting?")

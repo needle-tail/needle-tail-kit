@@ -5,13 +5,13 @@
 //  Created by Cole M on 9/19/21.
 //
 
-@_predatesConcurrency import Foundation
-@_predatesConcurrency import NIOCore
+import Foundation
+import NIOCore
 import NIOPosix
-@_predatesConcurrency import CypherMessaging
+import CypherMessaging
 import CypherProtocol
 import Crypto
-@_predatesConcurrency import AsyncIRC
+import AsyncIRC
 import MessagingHelpers
 import BSON
 import JWTKit

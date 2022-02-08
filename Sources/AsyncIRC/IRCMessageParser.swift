@@ -15,7 +15,6 @@
 import NIO
 import Foundation
 import AsyncCollections
-import MongoKitten
 import Logging
  
 // Compat, remove me.

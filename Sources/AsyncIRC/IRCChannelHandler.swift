@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
-import MongoKitten
 import Logging
 
 public let DefaultIRCPort = 6667
@@ -55,11 +54,11 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         self.cachedStore = _NeedleTailStoreCache(store: self.store)
     }
     
-    open func channelActive(context: ChannelHandlerContext) {
+    public func channelActive(context: ChannelHandlerContext) {
         context.fireChannelActive()
     }
 
-    open func channelInactive(context: ChannelHandlerContext) {
+    public func channelInactive(context: ChannelHandlerContext) {
         context.fireChannelInactive()
     }
     
@@ -108,7 +107,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         
     }
     
-    func channelRead(context: ChannelHandlerContext, value: InboundOut) {
+    public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
         context.fireChannelRead(self.wrapInboundOut(value))
     }
     

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import MongoKitten
 
 
 public protocol NeedleTailStore {
