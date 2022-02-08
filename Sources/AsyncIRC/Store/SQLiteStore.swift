@@ -82,8 +82,11 @@ fileprivate func makeSQLiteURL() -> String {
         excludedFromBackup.isExcludedFromBackup = true
         try! url.setResourceValues(excludedFromBackup)
     }
+
+            let path = "/home/cartisim/.local/share/parseDB"
+        print(path, "PATH___")
     
-    return url.path
+    return path
 }
 
 public class SQLiteStore: NeedleTailStore {
@@ -111,9 +114,7 @@ public class SQLiteStore: NeedleTailStore {
     public static func create(
         on eventLoop: EventLoop
     ) async throws -> SQLiteStore {
-        let path = "/home/cartisim/.local/share/parseDB"
-        print(path, "PATH___")
-        return try await self.create(withConfiguration: .file(path, on: eventLoop).get()
+        try await self.create(withConfiguration: .file(makeSQLiteURL(), on: eventLoop).get()
     }
     
     static func create(
