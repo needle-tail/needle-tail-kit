@@ -70,9 +70,13 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
                print(line, "CHANNEL_READ_LINE")
             let message = asyncParse(context: context, line: line)
-            message.whenSuccess { message in
+            message.whenComplete { switch $0 {
+                case .success(let message):
              print(message, "MESSAGE_LINE")
                 self.channelRead(context: context, value: message)
+                case .failure(let error):
+                print("Error parsing data Error \(error)")
+            }
             }
     }
     
