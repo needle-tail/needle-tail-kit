@@ -41,6 +41,7 @@ final class IRCJobQueue {
     init(store: NeedleTailStore) async throws {
         self.logger = Logger(label: "JobQueue - ")
         self.store = store
+                print(store, "STORE____")
         self.jobs = try await store.findJobs()
     }
     
