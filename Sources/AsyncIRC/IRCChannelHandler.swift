@@ -83,7 +83,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             //guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
             //return message
             let l = await self.checkCompleteWithTask(line: line)
-            let m = IRCMessage(command: IRCCommand.NICK(l))
+            let nick = IRCNickName(l)
+            let m = IRCMessage(command: IRCCommand.NICK(nick!))
             return m
         }
         return promise.futureResult
