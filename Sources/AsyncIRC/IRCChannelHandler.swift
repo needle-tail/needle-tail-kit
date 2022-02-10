@@ -78,19 +78,28 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
-        print(context)
-        print("ASYNC_PARSE__", line)
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
-             print(message, "MESSAGE")
-            return message
+            //guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
+            //return message
+            let l = await self.checkCompleteWithTask(line: line)
+            let m = IRCMessage(command: IRCCommand.NICK(l))
+            return m
         }
         return promise.futureResult
     }
 
-    private func queueMessage(context: ChannelHandlerContext, line: String) async throws -> IRCMessage? {
-   /*     do {
+    func checkCompleteWithTask(line: String) async -> String {
+        let l = await returnLine(line: line)
+        print(l)
+        return l
+    }
+
+    func returnLine(line: String) async -> String {
+        return line
+    }
+    private func queueMessage(line: String) async throws -> IRCMessage? {
+        do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
@@ -106,8 +115,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             }
         } catch {
             print("Queue Task Error: \(error)")
-        }*/
-        print("RETURNING NIL")
+        }
         return nil
     }
 
