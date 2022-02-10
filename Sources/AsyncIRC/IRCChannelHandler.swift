@@ -68,11 +68,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
-               print(line, "CHANNEL_READ_LINE")
-               //stops here: USER needletail irc.cartisim.io irc.cartisim.io :NIO IRC User CHANNEL_READ_LINE
             let message = asyncParse(context: context, line: line)
             message.whenSuccess { message in
-             print(message, "MESSAGE_LINE")
                 self.channelRead(context: context, value: message)
             }
     }
@@ -80,27 +77,14 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            //guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
-            //return message
-            let l = await self.checkCompleteWithTask(line: line)
-            let nick = IRCNickName(l)
-            let m = IRCMessage(command: IRCCommand.NICK(nick!))
-            return m
+            let message = try await self.queueMessage(line: line)
+            return message
         }
         return promise.futureResult
     }
 
-    func checkCompleteWithTask(line: String) async -> String {
-        let l = await returnLine(line: line)
-        print(l)
-        return l
-    }
-
-    func returnLine(line: String) async -> String {
-        return line
-    }
-    private func queueMessage(line: String) async throws -> IRCMessage? {
-        do {
+    private func queueMessage(line: String) async throws -> IRCMessage {
+        /*do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
@@ -117,7 +101,11 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         } catch {
             print("Queue Task Error: \(error)")
         }
-        return nil
+        return nil*/
+
+         let c = try? IRCCommand("COMMAND", "ARGUEMENTS")
+        let message = IRCMessage(origin: "ORIGIN", target: "TARGET", command: c!, tags: nil)
+        return message
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
