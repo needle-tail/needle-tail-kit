@@ -69,6 +69,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
                print(line, "CHANNEL_READ_LINE")
+               //stops here: USER needletail irc.cartisim.io irc.cartisim.io :NIO IRC User CHANNEL_READ_LINE
             let message = asyncParse(context: context, line: line)
             message.whenSuccess { message in
              print(message, "MESSAGE_LINE")
@@ -77,6 +78,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
+        print(context)
+        print("ASYNC_PARSE__", line)
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
@@ -87,7 +90,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
 
     private func queueMessage(context: ChannelHandlerContext, line: String) async throws -> IRCMessage? {
-        do {
+   /*     do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
@@ -103,7 +106,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             }
         } catch {
             print("Queue Task Error: \(error)")
-        }
+        }*/
         print("RETURNING NIL")
         return nil
     }
