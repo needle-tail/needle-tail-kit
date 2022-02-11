@@ -56,7 +56,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public func channelActive(context: ChannelHandlerContext) {
         context.fireChannelActive()
-        print(context, "CHANNEL_HANDLER_CONTEXT")
     }
 
     public func channelInactive(context: ChannelHandlerContext) {
@@ -77,14 +76,14 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            let message = try await self.queueMessage(line: line)
+            guard let message = try await self.queueMessage(line: line) else { throw ParserError.jobFailedToParse }
             return message
         }
         return promise.futureResult
     }
 
-    private func queueMessage(line: String) async throws -> IRCMessage {
-        /*do {
+    private func queueMessage(line: String) async throws -> IRCMessage? {
+        do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
@@ -101,15 +100,11 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         } catch {
             print("Queue Task Error: \(error)")
         }
-        return nil*/
-
-         let c = try? IRCCommand("COMMAND", "ARGUEMENTS")
-        let message = IRCMessage(origin: "ORIGIN", target: "TARGET", command: c!, tags: nil)
-        return message
+        return nil
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        
+        print("READ Complete")
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
