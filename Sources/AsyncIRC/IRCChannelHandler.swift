@@ -76,6 +76,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
+        self.logger.info("Future Message, \(message)")
         message.whenComplete{ switch $0 {
         case .success(let message):
                 self.channelRead(context: context, value: message)
@@ -95,7 +96,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             }
             return message
         }
-        self.logger.info("Future Result, \(promise.futureResult)")
         return promise.futureResult
     }
 
