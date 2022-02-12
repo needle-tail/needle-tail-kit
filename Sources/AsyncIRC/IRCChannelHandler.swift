@@ -14,7 +14,6 @@
 
 import NIO
 import Logging
-import FileLogging
 import Foundation
 
 public let DefaultIRCPort = 6667
@@ -52,27 +51,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     var logger: Logger
     
     public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
-        
-#if os(iOS) || os(macOS)
-    guard var logFileURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
-        fatalError()
-    }
-#else
-    guard var logFileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-        fatalError()
-    }
-#endif
-        logFileURL.appendPathComponent("needle-tail-kit.log")
-        let fileLogger = try? FileLogging(to: logFileURL)
-
-        LoggingSystem.bootstrap { label in
-            let handlers:[LogHandler] = [
-                FileLogHandler(label: label, fileLogger: fileLogger!),
-                StreamLogHandler.standardOutput(label: label)
-            ]
-
-            return MultiplexLogHandler(handlers)
-        }
         
         self.logger = logger
         self.logger.info("Initializing IRCChannelHandler")
