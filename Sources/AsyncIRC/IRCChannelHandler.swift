@@ -76,9 +76,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
-        self.logger.info("Future Message, \(message)")
         message.whenComplete{ switch $0 {
         case .success(let message):
+            self.logger.info("Future Message, \(message)")
                 self.channelRead(context: context, value: message)
         case .failure(let error):
             self.logger.error("AsyncParse Failed \(error)")
