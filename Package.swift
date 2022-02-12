@@ -23,7 +23,8 @@ let package = Package(
         .package(url: "https://github.com/needle-tail/CypherTextKit.git", .branch("feature/async-await")),
 //        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
         .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
-        .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.1.0")
+        .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.1.0"),
+        .package(url: "https://github.com/needle-tail/swift-log-file.git", .branch("main"))
     ],
     targets: [
         .target(
@@ -45,7 +46,8 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),
-                .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver")
+                .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
+                .product(name: "FileLogging", package: "swift-log-file"),
             ],
             swiftSettings: [
                 .unsafeFlags([

@@ -14,6 +14,8 @@
 
 import NIO
 import Logging
+import FileLogging
+import Foundation
 
 public let DefaultIRCPort = 6667
 
@@ -47,24 +49,52 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private let store: NeedleTailStore
     private(set) var jobQueue: IRCJobQueue!
     internal var cachedStore: _NeedleTailStoreCache
-    
+    var logger: Logger
     
     public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
+        
+#if os(iOS) || os(macOS)
+    guard var logFileURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+        fatalError()
+    }
+#else
+    guard var logFileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        fatalError()
+    }
+#endif
+        logFileURL.appendPathComponent("needle-tail-kit.log")
+        let fileLogger = try? FileLogging(to: logFileURL)
+
+        LoggingSystem.bootstrap { label in
+            let handlers:[LogHandler] = [
+                FileLogHandler(label: label, fileLogger: fileLogger!),
+                StreamLogHandler.standardOutput(label: label)
+            ]
+
+            return MultiplexLogHandler(handlers)
+        }
+        
+        self.logger = logger
+        self.logger.info("Initializing IRCChannelHandler")
+        
         self.store = store
         self.cachedStore = _NeedleTailStoreCache(store: self.store)
     }
     
     public func channelActive(context: ChannelHandlerContext) {
+        self.logger.info("IRCChannelHandler is Active")
         context.fireChannelActive()
     }
 
     public func channelInactive(context: ChannelHandlerContext) {
+        self.logger.info("IRCChannelHandler is Inactive")
         context.fireChannelInactive()
     }
     
     
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        self.logger.info("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
@@ -74,6 +104,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
+        self.logger.info("Called AsyncParse")
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = try await self.queueMessage(line: line) else { throw ParserError.jobFailedToParse }
@@ -83,28 +114,29 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
 
     private func queueMessage(line: String) async throws -> IRCMessage? {
+        self.logger.info("Queueing Message")
         do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
-            
             let taskResult = try await self.jobQueue.queueTask(
                 IRCTask.parseMessage(ParseMessageTask(message: line))
             )
             switch taskResult {
             case .success(ircMessage: let message):
+                self.logger.info("SUCCESS - IRCMessage: \(String(describing: message))")
                 return message
             default:
                 break
             }
         } catch {
-            print("Queue Task Error: \(error)")
+            self.logger.error("Queue Task Error: \(error)")
         }
         return nil
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        print("READ Complete")
+        self.logger.info("READ Complete")
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {

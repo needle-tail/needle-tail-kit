@@ -59,13 +59,19 @@ public final class IRCMessageParser {
         case int   (Int)
         case string(String)
     }
-
+    var logger: Logger
+    
+    init(logger: Logger) {
+        self.logger = logger
+    }
+    
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
-
+        self.logger.info("Parsing Message.... \(message)")
+        
         if message.contains("@") && message.contains("; ") {
             seperatedTags.append(contentsOf: message.components(separatedBy: "; "))
             stripedMessage = seperatedTags[1]
@@ -119,6 +125,7 @@ public final class IRCMessageParser {
                                     command: try IRCCommand(i, arguments: arguments), tags: tags)
 
         }
+        self.logger.info("Parsed Message \(ircMessage)")
         return ircMessage
     }
     
@@ -142,6 +149,7 @@ public final class IRCMessageParser {
                 }
             }
         }
+        self.logger.info("Parsing CommandKey - \(commandKey)")
         return commandKey
     }
     
@@ -165,7 +173,7 @@ public final class IRCMessageParser {
             newArgArray.append(initialBreak[2])
             args = newArgArray
         }
-        
+        self.logger.info("Parsing Arguments - \(args)")
         return args
     }
     
@@ -183,7 +191,7 @@ public final class IRCMessageParser {
                 let ircTag = IRCTags(key: kvpArray[0], value: kvpArray[1])
                 tagArray.append(ircTag)
             }
-            print(tagArray, "TAG ARRAY__")
+            self.logger.info("Parsing Tags - \(tags)")
             return tagArray
         }
         return nil

@@ -161,7 +161,7 @@ enum IRCTask: Codable, IRCStoredTask {
         case .parseMessage(let message):
 //            debugLog("Sending message to \(message.recipient)")
 //            return try await TaskHelpers.writeMessageTask(task: message, messenger: messenger)
-            return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: IRCMessageParser())
+            return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: IRCMessageParser(logger: self.logger))
         case .parseMessageDeliveryStateChangeTask(let task):
 //            let result = try await messenger._markMessage(byId: task.localId, as: task.newState)
 //            switch result {
