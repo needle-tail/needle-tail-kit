@@ -77,7 +77,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = try await self.queueMessage(line: line) else { throw ParserError.jobFailedToParse }
-            print("IRCMessage", message)
             return message
         }
         return promise.futureResult
