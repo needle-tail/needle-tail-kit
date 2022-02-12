@@ -139,7 +139,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public func write(context: ChannelHandlerContext, data: NIOAny,
                       promise: EventLoopPromise<Void>?
     ) {
-        let message : OutboundIn = self.unwrapOutboundIn(data)
+        let message: OutboundIn = self.unwrapOutboundIn(data)
         write(context: context, value: message, promise: promise)
     }
     

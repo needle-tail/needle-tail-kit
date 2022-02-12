@@ -2,9 +2,6 @@ import Foundation
 import CypherMessaging
 import Logging
 
-
-
-
 @globalActor final actor JobQueueActor {
     public static let shared = JobQueueActor()
     
@@ -41,7 +38,6 @@ final class IRCJobQueue {
     init(store: NeedleTailStore) async throws {
         self.logger = Logger(label: "JobQueue - ")
         self.store = store
-                print(store, "STORE____")
         self.jobs = try await store.findJobs()
     }
     
@@ -78,7 +74,6 @@ final class IRCJobQueue {
         var tasks: TaskResult = .success(ircMessage: nil)
         if !self.runningJobs {
            tasks = await self.startRunningTasks()
-//            ?? .success(ircMessage: nil)
         }
         return tasks
     }
@@ -239,7 +234,6 @@ final class IRCJobQueue {
                 
                 do {
                     self.taskResult = try await next()
-//                    ?? .success(ircMessage: nil)
                 } catch {
                     self.logger.error("Job queue Error: \(error)")
                     self.runningJobs = false

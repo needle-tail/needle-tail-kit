@@ -8,7 +8,7 @@
 import Foundation
 
 
-public protocol NeedleTailStore {
+public protocol NeedleTailStore: AnyObject {
     
     func createJob(_ job: IRCJobModel) async throws
     func updateJob(_ job: IRCJobModel) async throws
