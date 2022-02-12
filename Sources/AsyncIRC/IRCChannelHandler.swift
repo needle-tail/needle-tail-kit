@@ -95,6 +95,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             }
             return message
         }
+        self.logger.info("Future Result, \(promise.futureResult)")
         return promise.futureResult
     }
 
