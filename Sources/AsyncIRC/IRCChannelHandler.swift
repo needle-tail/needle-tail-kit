@@ -76,22 +76,29 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
-            message.whenSuccess { message in
+        message.whenComplete{ switch $0 {
+        case .success(let message):
                 self.channelRead(context: context, value: message)
-            }
+        case .failure(let error):
+            self.logger.error("AsyncParse Failed \(error)")
+        }
     }
+}
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         self.logger.info("Called AsyncParse")
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            guard let message = try await self.queueMessage(line: line) else { throw ParserError.jobFailedToParse }
+            guard let message = await self.queueMessage(line: line) else {
+            promise.fail(ParserError.jobFailedToParse)
+            return try await promise.futureResult.get()
+            }
             return message
         }
         return promise.futureResult
     }
 
-    private func queueMessage(line: String) async throws -> IRCMessage? {
+    private func queueMessage(line: String) async -> IRCMessage? {
         self.logger.info("Queueing Message")
         do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
