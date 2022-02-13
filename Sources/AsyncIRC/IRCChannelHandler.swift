@@ -50,7 +50,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger
     
-    public init(logger: Logger = Logger(label: ""), needleTailStore: NeedleTailStore?) {
+    public init(logger: Logger = Logger(label: "NeedleTailKit"), needleTailStore: NeedleTailStore?) {
         
         self.logger = logger
         self.logger.info("Initializing IRCChannelHandler")

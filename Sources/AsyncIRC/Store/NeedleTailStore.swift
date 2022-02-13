@@ -26,23 +26,25 @@ public protocol NeedleTailStore: AnyObject {
 
 internal final class _NeedleTailStoreCache: NeedleTailStore {
     
-    internal weak var store: NeedleTailStore?
+    private weak var store: NeedleTailStore?
     private var jobs: [IRCJobModel]?
     
-    init(needleTailStore: NeedleTailStore?) {
+    internal init(needleTailStore: NeedleTailStore?) {
         self.store = needleTailStore
     }
     
-    func createJob(_ job: IRCJobModel) async throws {
+    @NeedleCacheActor
+    internal func createJob(_ job: IRCJobModel) async throws {
         try await store?.createJob(job)
     }
     
-    func updateJob(_ job: IRCJobModel) async throws {
+    @NeedleCacheActor
+    internal func updateJob(_ job: IRCJobModel) async throws {
         try await store?.updateJob(job)
     }
     
     @NeedleCacheActor
-    func findJobs() async throws -> [IRCJobModel] {
+    internal func findJobs() async throws -> [IRCJobModel] {
         if let jobs = self.jobs {
             return jobs
         } else {
@@ -52,7 +54,8 @@ internal final class _NeedleTailStoreCache: NeedleTailStore {
         }
     }
     
-    func deleteJob(_ job: IRCJobModel) async throws {
+    @NeedleCacheActor
+    internal func deleteJob(_ job: IRCJobModel) async throws {
         try await store?.deleteJob(job)
     }
     
