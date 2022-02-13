@@ -203,7 +203,7 @@ open class IRCClient : IRCClientMessageTarget {
                 return channel.pipeline
                     .addHandlers([
 //                        ByteToMessageHandler(LineBasedFrameDecoder()),
-                        IRCChannelHandler(logger: self.logger, store: store),
+                        IRCChannelHandler(logger: self.logger, needleTailStore: store),
                         Handler(client: self)
                     ])
             }

@@ -45,18 +45,18 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-    private let store: NeedleTailStore
+    private weak var needleTailStore: NeedleTailStore?
     private(set) var jobQueue: IRCJobQueue!
     internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger
     
-    public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
+    public init(logger: Logger = Logger(label: ""), needleTailStore: NeedleTailStore?) {
         
         self.logger = logger
         self.logger.info("Initializing IRCChannelHandler")
         
-        self.store = store
-        self.cachedStore = _NeedleTailStoreCache(store: self.store)
+        self.needleTailStore = needleTailStore
+        self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
     }
     
     public func channelActive(context: ChannelHandlerContext) {
