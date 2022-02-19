@@ -164,6 +164,15 @@
         }
       },
       {
+        "package": "swift-nio-transport-services",
+        "repositoryURL": "https://github.com/Cartisim/swift-nio-transport-services.git",
+        "state": {
+          "branch": "udp-support-nio-latest",
+          "revision": "f80c310444d550f6f0db9d01bafb624a24fe8b4c",
+          "version": null
+        }
+      },
+      {
         "package": "websocket-kit",
         "repositoryURL": "https://github.com/vapor/websocket-kit.git",
         "state": {
