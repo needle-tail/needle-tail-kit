@@ -10,7 +10,7 @@ import Dribble
 import CypherMessaging
 #if canImport(Network)
 import NIOTransportServices
-#endif
+
 
 
 ///Basic P2P flow is. We can call the methods from our CypherMessenger
@@ -148,3 +148,5 @@ private final class BufferHandler: ChannelInboundHandler {
         }
     }
 }
+
+#endif
