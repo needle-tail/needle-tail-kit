@@ -15,7 +15,8 @@ let package = Package(
             targets: ["NeedleTailKit", "AsyncIRC"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.11.3"),
+        .package(path: "../temp/swift-nio-transport-services"),
+//        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.11.3"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.27.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),

@@ -459,7 +459,6 @@ open class IRCClient : IRCClientMessageTarget {
         if count == 1 {
             do {
                 guard let message = messages.first else { return }
-                print("sendMEssage Message_____ \(message)")
                 try await channel.writeAndFlush(message)
             } catch {
                 print(error)

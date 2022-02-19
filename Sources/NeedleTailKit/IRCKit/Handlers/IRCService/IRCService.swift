@@ -216,6 +216,8 @@ break
                     case .message:
                         let dmPacket = try BSONDecoder().decode(DirectMessagePacket.self, from: packet.body)
                         print("DMPACKET", dmPacket)
+                        // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
+                        // it to the DB where we can get the message from
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 dmPacket.message,

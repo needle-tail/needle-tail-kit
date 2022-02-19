@@ -274,6 +274,7 @@ extension VaporClient {
         fatalError()
     }
 
+    /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
     public func sendMessage(_
                             message: RatchetedCypherMessage,
                             toUser username: Username,

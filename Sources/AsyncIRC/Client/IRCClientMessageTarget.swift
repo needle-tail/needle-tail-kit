@@ -21,7 +21,6 @@ public extension IRCClientMessageTarget {
   
   func send(_ command: IRCCommand) async {
       let message = IRCMessage(command: command)
-      print("Messages Sending___", message)
     await sendMessages([ message ])
   }
 

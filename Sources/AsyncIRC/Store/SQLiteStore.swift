@@ -71,7 +71,7 @@ fileprivate func makeSQLiteURL() -> String {
         fatalError()
     }
 #else
-    guard var url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+    guard var url = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {
         fatalError()
     }
 #endif
@@ -82,7 +82,7 @@ fileprivate func makeSQLiteURL() -> String {
         excludedFromBackup.isExcludedFromBackup = true
         try! url.setResourceValues(excludedFromBackup)
     }
-
+    
     return url.path
 }
 
