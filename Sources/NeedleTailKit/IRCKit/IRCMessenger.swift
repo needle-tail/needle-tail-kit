@@ -1,6 +1,6 @@
 //
 //  IRCMessenger.swift
-//  
+//
 //
 //  Created by Cole M on 9/19/21.
 //
@@ -112,14 +112,10 @@ public class IRCMessenger: CypherServerTransportClient {
     public func registerBundle() async throws {
         //If we do not have a registration type, don't register
         switch registrationType {
-        case .siwa:
+        case .siwa, .plain:
             guard let appleToken = appleToken else { return }
-            let siwaObject = siwaRequest(with: appleToken)
-            let packet = try BSONEncoder().encode(siwaObject).makeData().base64EncodedString()
-            await services?.resume(packet)
-        case .plain:
-            let plainObject = plainRequest()
-            let packet = try BSONEncoder().encode(plainObject).makeData().base64EncodedString()
+            let regObject = regRequest(with: appleToken)
+            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
             await services?.resume(packet)
         case .none:
             break
@@ -170,24 +166,15 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.resume()
     }
     
-    
-    internal func siwaRequest(with appleToken: String) -> SIWARequest {
-        return SIWARequest(
+    private func regRequest(with appleToken: String) -> RegRequest {
+        return RegRequest(
             username: signer.username,
             appleToken: appleToken,
             config: signer.userConfig,
             deviceId: signer.deviceId
         )
     }
-    
-    internal func plainRequest() -> PlainSignUpRequest {
-        return PlainSignUpRequest(
-            username: signer.username,
-            config: signer.userConfig,
-            deviceId: signer.deviceId
-        )
-    }
-    
+
     private func configRequest(_ jwt: String, config: UserConfig) -> UserConfigRequest {
         return UserConfigRequest(
             jwt: jwt,
@@ -209,15 +196,9 @@ public class IRCMessenger: CypherServerTransportClient {
         ReadBundleRequest(jwt: jwt, sender: self.username, recipient: recipient, deviceId: self.deviceId)
     }
     
-    struct SIWARequest: Codable {
+    struct RegRequest: Codable {
         let username: Username
-        let appleToken: String
-        let config: UserConfig
-        let deviceId: DeviceId
-    }
-    
-    struct PlainSignUpRequest: Codable {
-        let username: Username
+        let appleToken: String?
         let config: UserConfig
         let deviceId: DeviceId
     }
