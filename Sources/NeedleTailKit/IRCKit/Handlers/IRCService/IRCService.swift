@@ -23,18 +23,23 @@ public final actor IRCService {
     var client: IRCClient?
     internal var userState: UserState
     internal var clientOptions: ClientOptions?
+    private var userConfig: UserConfig?
     
     public init(
         signer: TransportCreationRequest,
         passwordProvider: String,
-        eventLoopGroup: EventLoopGroup,
         authenticated: AuthenticationState,
         userState: UserState,
         clientOptions: ClientOptions?,
         delegate: CypherTransportClientDelegate?,
         store: NeedleTailStore
     ) async {
-        self.eventLoopGroup = eventLoopGroup
+//        self.eventLoopGroup = eventLoopGroup
+#if canImport(Network)
+        self.eventLoopGroup = NIOTSEventLoopGroup()
+#else
+        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+#endif
         self.passwordProvider = passwordProvider
         self.signer = signer
         self.authenticated = authenticated
@@ -52,18 +57,18 @@ public final actor IRCService {
         await self.connectIfNecessary()
     }
     
-    private func connectIfNecessary() async {
+    private func connectIfNecessary(_ regPacket: String? = nil) async {
         guard case .offline = userState.state else { return }
         guard let options = activeClientOptions else { return }
         self.client = IRCClient(options: options, store: store)
         self.client?.delegate = self
         userState.transition(to: .connecting)
         do {
-       _ = try await client?.connecting()
+            _ = try await client?.connecting(regPacket)
                 self.authenticated = .authenticated
         } catch {
             self.authenticated = .authenticationFailure
-               await self.connectIfNecessary()
+               await self.connectIfNecessary(regPacket)
         }
     }
     
@@ -86,8 +91,8 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
     
     // MARK: - Lifecycle
-    public func resume() async {
-        await connectIfNecessary()
+    public func resume(_ regPacket: String? = nil) async {
+        await connectIfNecessary(regPacket)
     }
     
     
@@ -104,10 +109,34 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     public func close() async {
         await client?.disconnect()
     }
+}
+
+
+//MARK: - Outbound
+extension IRCService {
+    
+    //TODO: Handle ACK
+    internal func publishKeyBundle(_ keyBundle: String) async {
+        await client?.publishKeyBundle(keyBundle)
+    }
+    
+    internal func readKeyBundle(_ packet: String) async -> UserConfig? {
+        await client?.readKeyBundle(packet)
+        var config: UserConfig?
+        while self.userConfig == nil {
+            config = self.userConfig
+        }
+        return config
+    }
     
     
     
-    // MARK: - Conversations
+    //TODO: Handle ACK
+    internal func registerAPN(_ packet: String) async {
+        await client?.registerAPN(packet)
+    }
+    
+    //MARK: - CypherMessageAPI
     public func registerPrivateChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }
@@ -132,7 +161,6 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         return try? await self.messenger?.getGroupChat(byId: GroupChatId(recipient.stringValue))
     }
     
-    // MARK: - Sending
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
 //        guard case .online = userState.state else { return false }
         await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
@@ -142,8 +170,34 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
 
 
+
+
+
+
+
+//MARK: - Inbound
 extension IRCService: IRCClientDelegate {
-    // MARK: - Messages
+    //MARK: - CypherMessageAPI
+        func fetchConversations() async {
+            for chat in try! await messenger!.listConversations(
+                includingInternalConversation: true,
+                increasingOrder: { _, _ in return true }
+            ) {
+                print(chat.conversation)
+            }
+        }
+    
+    
+    // MARK: - IRCMessages
+    
+    public func client(_ client: IRCClient, keyBundle: [String]) async {
+        guard let userConfig = keyBundle.first else { return }
+        guard let data = Data(base64Encoded: userConfig) else { return }
+        let buffer = ByteBuffer(data: data)
+        self.userConfig = try? BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
+    }
+    
+    
     public func client(_       client : IRCClient,
                        notice message : String,
                        for recipients : [ IRCMessageRecipient ]
@@ -156,6 +210,8 @@ extension IRCService: IRCClientDelegate {
 //        }
       }
       
+    
+    //This is where we receive messages from server via AsyncIRC
     public func client(_       client : IRCClient,
                        message        : String,
                        from    sender : IRCUserID,
@@ -190,10 +246,10 @@ break
           }
         }
       }
+
+    
     
     public func client(_ client: IRCClient, received message: IRCMessage) async {
-        print("MESSAGE", message)
-        print("CLIENT", client)
 
         struct Packet: Codable {
             let id: ObjectId
@@ -244,20 +300,17 @@ break
                     print(error)
                 }
             }
+//
+//        case .otherCommand(let keyBundle, let data):
+//            if keyBundle == "KEYBUNDLE" {
+//                //DO stuff with data
+//            }
         default:
             break
         }
         }
     
 
-    func fetchConversations() async {
-        for chat in try! await messenger!.listConversations(
-            includingInternalConversation: true,
-            increasingOrder: { _, _ in return true }
-        ) {
-            print(chat.conversation)
-        }
-    }
     
     public func client(_ client: IRCClient, messageOfTheDay message: String) async {
         await self.updateConnectedClientState(client)

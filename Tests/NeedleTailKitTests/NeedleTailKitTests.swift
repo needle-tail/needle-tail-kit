@@ -33,3 +33,6 @@
         let message = IRCMessage(origin: "ORIGIN", target: "TARGET", command: c!, tags: nil)
         return message
     }
+
+
+

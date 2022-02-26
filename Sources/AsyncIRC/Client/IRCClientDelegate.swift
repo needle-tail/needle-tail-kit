@@ -36,6 +36,7 @@
         func client(_ client: IRCClient,
                     changeTopic: String, of channel: IRCChannelName) async
      func client(_ client: IRCClient, quit: String?) async
+     func client(_ client: IRCClient, keyBundle: [String]) async
 }
 
 // MARK: - Default No-Op Implementations

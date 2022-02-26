@@ -15,6 +15,7 @@
 import NIO
 import NIOExtras
 import Logging
+import CypherMessaging
 #if canImport(Network)
 import NIOTransportServices
 #endif
@@ -210,7 +211,7 @@ open class IRCClient : IRCClientMessageTarget {
     }
     
     
-    public func connecting() async throws -> Channel? {
+    public func connecting(_ regPacket: String?) async throws -> Channel? {
         var channel: Channel?
         do {
             channel = try await _connect(host: options.hostname ?? "localhost", port: options.port)
@@ -222,7 +223,7 @@ open class IRCClient : IRCClientMessageTarget {
             self.state = .registering(channel: channel!,
                                       nick:     self.options.nickname,
                                       userInfo: self.options.userInfo)
-            await self._register()
+            await self._register(regPacket)
         } catch {
             await self.close()
         }
@@ -231,7 +232,7 @@ open class IRCClient : IRCClientMessageTarget {
     }
     
     
-    private func _register() async {
+    private func _register(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
@@ -241,11 +242,31 @@ open class IRCClient : IRCClientMessageTarget {
             await send(.otherCommand("PASS", [ pwd ]))
         }
 
+        if let regPacket = regPacket {
+        let tag = IRCTags(key: "registrationPacket", value: regPacket)
+        await send(.NICK(nick), tags: [tag])
+        } else {
         await send(.NICK(nick))
+        }
         await send(.USER(user))
     }
     
-    func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
+    //TODO: Handle ACK
+    public func
+    publishKeyBundle(_ keyBundle: String) async {
+      await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
+    }
+    
+    public func readKeyBundle(_ packet: String) async {
+        await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
+    }
+    
+    //TODO: Handle ACK
+    public func registerAPN(_ packet: String) async {
+        await send(.otherCommand("REGAPN", [packet]))
+    }
+    
+    internal func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
         assert(eventLoop.inEventLoop, "threading issue")
         
         if let error = error {
@@ -365,6 +386,8 @@ open class IRCClient : IRCClientMessageTarget {
         }
     }
     
+    
+    // This is where we receive all messages from server in the client
     func handlerHandleResult(_ message: IRCMessage) async {
         if case .registering = state {
             if message.command.signalsSuccessfulRegistration {
@@ -373,7 +396,7 @@ open class IRCClient : IRCClientMessageTarget {
             
             if case .numeric(.errorNicknameInUse, _) = message.command {
                 print("NEEDS NEW NICK!")
-                // TODO: recover using a callback
+                // TODO: recover using a callback, never use callback when you have a/a
                 return await handleRegistrationFailed(with: message)
             }
             else if message.command.isErrorReply {
@@ -441,7 +464,7 @@ open class IRCClient : IRCClientMessageTarget {
     
     
     // MARK: - Writing
-        public var origin : String? { return nil }
+    public var origin : String? { return nil }
     public func sendMessages<T: Collection>(_ messages: T) async
     where T.Element == IRCMessage
     {
@@ -498,6 +521,8 @@ extension IRCCommand {
 
 extension IRCClient : IRCDispatcher {
     
+    
+    //TODO: - This will send Messages to the client Via the ClientDelegate. This is where we want to work in our otherCommand for getting/giving keyBundle
     public func irc_msgSend(_ message: IRCMessage) async throws {
         do {
             return try await irc_defaultMsgSend(message)
@@ -537,7 +562,8 @@ extension IRCClient : IRCDispatcher {
 #else
             break
 #endif
-            
+        case .numeric(.replyKeyBundle, let bundle):
+            await delegate?.client(self, keyBundle: bundle)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[1]) else {

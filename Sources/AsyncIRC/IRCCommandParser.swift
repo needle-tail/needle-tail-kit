@@ -106,16 +106,14 @@ public extension IRCCommand {
                             else if let mode = IRCUserMode(String(c)) {
                                 if isAdd { add   .insert(mode) }
                                 else     { remove.insert(mode) }
-                            }
-                            else {
+                            } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
                             }
                         }
                     }
                     self = .MODE(nick, add: add, remove: remove)
-                }
-                else {
+                } else {
                     self = .MODEGET(nick)
                 }
                 
@@ -131,8 +129,7 @@ public extension IRCCommand {
                             else if let mode = IRCChannelMode(String(c)) {
                                 if isAdd { add   .insert(mode) }
                                 else     { remove.insert(mode) }
-                            }
-                            else {
+                            } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
                             }
@@ -243,7 +240,7 @@ public extension IRCCommand {
                                 onlyOperators: arguments[1] == "o")
             default: fatalError("unexpected argument count \(arguments.count)")
             }
-            
+            //Other Command, can be something like PASS, KEYBUNDLE
         default:
             self = .otherCommand(command.uppercased(), arguments)
         }

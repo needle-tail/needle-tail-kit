@@ -21,4 +21,6 @@ internal enum IRCClientError : Swift.Error {
     case nilBSONResponse
     case userConfigIsNil
     case nilMessageData
+    case nilUsedConfig
+    case nilToken
 }

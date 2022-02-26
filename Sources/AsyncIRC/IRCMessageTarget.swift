@@ -70,7 +70,7 @@ public extension IRCMessageTarget {
                IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
         }
         await sendMessages(messages)
-    }
+    } 
     
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
         sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
