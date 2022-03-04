@@ -1,11 +1,4 @@
-
-enum TCPError: Swift.Error {
-    case invalidHost
-    case invalidPort
-    case errorRunningProgram
-}
-
-internal enum IRCClientError : Swift.Error {
+internal enum IRCClientError: Error {
     case writeError(Swift.Error)
     case stopped
     case notImplemented
@@ -23,4 +16,5 @@ internal enum IRCClientError : Swift.Error {
     case nilMessageData
     case nilUsedConfig
     case nilToken
+    case urlResponseNil
 }
