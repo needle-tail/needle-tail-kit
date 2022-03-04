@@ -15,28 +15,20 @@
 import protocol NIO.EventLoopGroup
 import class    NIO.MultiThreadedEventLoopGroup
 
-fileprivate let onDemandSharedEventLoopGroup =
-                    MultiThreadedEventLoopGroup(numberOfThreads: 1)
-
 /// Configuration options for the socket connects
 open class ConnectOptions : CustomStringConvertible {
   
-  public var eventLoopGroup : EventLoopGroup?
   public var hostname       : String?
   public var port           : Int
   public var tls: Bool
     
   public init(hostname: String? = "localhost",
               port: Int = 80,
-              tls: Bool = false,
-              eventLoopGroup: EventLoopGroup? = nil)
+              tls: Bool = false)
   {
     self.hostname = hostname
     self.port     = port
-      self.tls = tls
-    self.eventLoopGroup = eventLoopGroup
-                       ?? MultiThreadedEventLoopGroup.currentEventLoop
-                       ?? onDemandSharedEventLoopGroup
+    self.tls = tls
   }
   
   public var description: String {
@@ -73,8 +65,7 @@ open class IRCClientOptions : ConnectOptions {
               password       : String?         = nil,
               tls            : Bool            = false,
               nickname       : IRCNickName,
-              userInfo       : IRCUserInfo?    = nil,
-              eventLoopGroup : EventLoopGroup? = nil)
+              userInfo       : IRCUserInfo?    = nil)
   {
     self.password      = password
     self.nickname      = nickname
@@ -84,7 +75,7 @@ open class IRCClientOptions : ConnectOptions {
                                             hostname: host, servername: host,
                                             realname: "NIO IRC User")
     
-      super.init(hostname: host, port: port, tls: tls, eventLoopGroup: eventLoopGroup)
+      super.init(hostname: host, port: port, tls: tls)
   }
   
   override open func appendToDescription(_ ms: inout String) {

@@ -10,17 +10,17 @@ import AsyncIRC
 
 public class ClientOptions {
     
-    var host: String?
-    var port: Int?
-    var password: String?
-    var tls: Bool?
+    public var host: String?
+    public var port: Int?
+    public var password: String = ""
+    public var tls: Bool = true
     var userInfo: IRCUserInfo?
     
     public init(
         host: String?,
         port: Int?,
         password: String,
-        tls: Bool?,
+        tls: Bool,
         userInfo: IRCUserInfo? = nil
     ) {
         self.host = host

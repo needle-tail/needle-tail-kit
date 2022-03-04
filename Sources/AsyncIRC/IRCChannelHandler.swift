@@ -51,34 +51,30 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     var logger: Logger
     
     public init(logger: Logger = Logger(label: "NeedleTailKit"), needleTailStore: NeedleTailStore?) {
-        
         self.logger = logger
-        self.logger.info("Initializing IRCChannelHandler")
-        
         self.needleTailStore = needleTailStore
         self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
     }
     
     public func channelActive(context: ChannelHandlerContext) {
-        self.logger.info("IRCChannelHandler is Active")
+        self.logger.trace("IRCChannelHandler is Active")
         context.fireChannelActive()
     }
 
     public func channelInactive(context: ChannelHandlerContext) {
-        self.logger.info("IRCChannelHandler is Inactive")
+        self.logger.trace("IRCChannelHandler is Inactive")
         context.fireChannelInactive()
     }
     
     
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        self.logger.info("IRCChannelHandler Read")
+        self.logger.trace("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
         message.whenComplete{ switch $0 {
         case .success(let message):
-            self.logger.info("Future Message, \(message)")
                 self.channelRead(context: context, value: message)
         case .failure(let error):
             self.logger.error("AsyncParse Failed \(error)")
@@ -87,7 +83,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
 }
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
-        self.logger.info("Called AsyncParse")
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = await self.queueMessage(line: line) else {
@@ -100,7 +95,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
 
     private func queueMessage(line: String) async -> IRCMessage? {
-        self.logger.info("Queueing Message")
         do {
             self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
@@ -110,7 +104,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             )
             switch taskResult {
             case .success(ircMessage: let message):
-                self.logger.info("SUCCESS - IRCMessage: \(String(describing: message))")
                 return message
             default:
                 break
@@ -122,7 +115,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        self.logger.info("READ Complete")
+        self.logger.trace("READ Complete")
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {

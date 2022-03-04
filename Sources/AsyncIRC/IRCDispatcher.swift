@@ -41,7 +41,7 @@ public protocol IRCDispatcher {
                       _ capIDs   : [ String ])         async throws
     
     func doNick      (_ nick     : IRCNickName, tags: [IRCTags]?)        async throws
-    func doUserInfo  (_ info     : IRCUserInfo)        async throws
+    func doUserInfo  (_ info     : IRCUserInfo, tags: [IRCTags]?)        async throws
     func doModeGet   (nick       : IRCNickName)        async throws
     func doModeGet   (channel    : IRCChannelName)     async throws
     func doMode      (nick       : IRCNickName,
@@ -72,11 +72,11 @@ public protocol IRCDispatcher {
     
     func doQuit      (_ message  : String?) async throws
     
-    func doPublishKeyBundle(_ user: IRCUserID, keyBundle: [String]) async throws
+    func doPublishKeyBundle(_ keyBundle: [String]) async throws
     
-    func doReadKeyBundle(_ user: IRCUserID, keyBundle: [String]) async throws
+    func doReadKeyBundle(_ keyBundle: [String]) async throws
     
-    func doRegisterAPN(_ user: IRCUserID, token: [String]) async throws
+    func doRegisterAPN(_ token: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -113,14 +113,18 @@ public extension IRCDispatcher {
                                     recipients: recipients, message: payload, tags: tags)
             case .NOTICE(let recipients, let message):
                 try await doNotice(recipients: recipients, message: message)
-                
-            case .NICK   (let nickName):           try await doNick    (nickName, tags: message.tags)
-            case .USER   (let info):               try await doUserInfo(info)
-            case .ISON   (let nicks):              try await doIsOnline(nicks)
-            case .MODEGET(let nickName):           try await doModeGet (nick: nickName)
-            case .CAP    (let subcmd, let capIDs): try await doCAP     (subcmd, capIDs)
-            case .QUIT   (let message):            try await doQuit    (message)
-                
+            case .NICK(let nickName):
+                try await doNick(nickName, tags: message.tags)
+            case .USER(let info):
+                try await doUserInfo(info, tags: message.tags)
+            case .ISON(let nicks):
+                try await doIsOnline(nicks)
+            case .MODEGET(let nickName):
+                try await doModeGet(nick: nickName)
+            case .CAP(let subcmd, let capIDs):
+                try await doCAP(subcmd, capIDs)
+            case .QUIT(let message):
+                try await doQuit(message)
             case .CHANNELMODE_GET(let channelName):
                 try await doModeGet(channel: channelName)
             case .CHANNELMODE_GET_BANMASK(let channelName):
@@ -143,16 +147,12 @@ public extension IRCDispatcher {
                 
             case .LIST(let channels, let target):
                 try await doList(channels, target)
-                
             case .otherCommand("PUBKEYBNDL", let keyBundle):
-                guard let user = IRCUserID(message.origin ?? "") else { return }
-                try await doPublishKeyBundle(user, keyBundle: keyBundle)
+                try await doPublishKeyBundle(keyBundle)
             case .otherCommand("READKEYBNDL", let keyBundle):
-                guard let user = IRCUserID(message.origin ?? "") else { return }
-                try await doReadKeyBundle(user, keyBundle: keyBundle)
+                try await doReadKeyBundle(keyBundle)
             case .otherCommand("REGAPN", let token):
-                guard let user = IRCUserID(message.origin ?? "") else { return }
-                try await doRegisterAPN(user, token: token)
+                try await doRegisterAPN(token)
             default:
                 throw IRCDispatcherError.doesNotRespondTo(message)
             }
@@ -187,7 +187,7 @@ public extension IRCDispatcher {
     func doNick(_ nick: IRCNickName, tags: [IRCTags]?) throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doUserInfo(_ info: IRCUserInfo) throws {
+    func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doModeGet(nick: IRCNickName) throws {
@@ -240,15 +240,15 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     
-    func doPublishKeyBundle(_ user: IRCUserID, keyBundle: [String]) async throws {
+    func doPublishKeyBundle(_ keyBundle: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     
-    func doReadKeyBundle(_ user: IRCUserID, keyBundle: [String]) async throws {
+    func doReadKeyBundle(_ keyBundle: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     
-    func doRegisterAPN(_ user: IRCUserID, token: [String]) async throws {
+    func doRegisterAPN(_ token: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

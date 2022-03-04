@@ -24,7 +24,7 @@ import NIOTransportServices
 
 public class IRCMessenger: CypherServerTransportClient {
     
-    public weak var delegate: CypherTransportClientDelegate?
+    public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .im
@@ -32,10 +32,8 @@ public class IRCMessenger: CypherServerTransportClient {
     private(set) var signer: TransportCreationRequest
     private let username: Username
     private let appleToken: String?
-    private let registrationType: RegistrationType?
-    public var services: IRCService?
-    internal var group: EventLoopGroup
-    private var passwordProvider: String
+    public var registrationType: RegistrationType?
+    internal var services: IRCService?
     private var userState: UserState
     private var clientOptions: ClientOptions?
     public var store: NeedleTailStore
@@ -44,25 +42,15 @@ public class IRCMessenger: CypherServerTransportClient {
     
     
     public init(
-        passwordProvider: String,
         host: String,
         username: Username,
         deviceId: DeviceId,
         signer: TransportCreationRequest,
         appleToken: String?,
-        messenger: CypherMessenger?,
         userState: UserState,
         clientOptions: ClientOptions?,
-        store: NeedleTailStore,
-        registrationType: RegistrationType?
+        store: NeedleTailStore
     ) async throws {
-#if canImport(Network)
-        let group = NIOTSEventLoopGroup()
-#else
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-#endif
-        self.group = group
-        self.passwordProvider = passwordProvider
         self.userState = userState
         self.clientOptions = clientOptions
         self.store = store
@@ -70,53 +58,51 @@ public class IRCMessenger: CypherServerTransportClient {
         self.deviceId = deviceId
         self.signer = signer
         self.appleToken = appleToken
-        self.registrationType = registrationType
-        
-        self.services = await IRCService(
-            signer: self.signer,
-            passwordProvider: clientOptions?.password ?? "",
-            authenticated: self.authenticated,
-            userState: self.userState,
-            clientOptions: clientOptions,
-            delegate: self.delegate,
-            store: self.store
-        )
     }
     
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
         host: String,
-        messenger: CypherMessenger? = nil,
-        eventLoop: EventLoop,
         options: ClientOptions?,
-        store: NeedleTailStore,
-        registrationType: RegistrationType? = nil
+        store: NeedleTailStore
     ) async throws -> IRCMessenger {
         return try await IRCMessenger(
-            passwordProvider: options?.password ?? "",
             host: host,
             username: transportRequest.username,
             deviceId: transportRequest.deviceId,
             signer: transportRequest,
             appleToken: appleToken,
-            messenger: messenger,
             userState: UserState(identifier: ""),
             clientOptions: options,
-            store: store,
-            registrationType: registrationType
+            store: store
         )
     }
     
-    //Publish, register, and  read nned to makeToken()
-    public func registerBundle() async throws {
-        //If we do not have a registration type, don't register
-        switch registrationType {
+    public func startService(_ packet: String? = nil) async {
+        if self.services == nil {
+        self.services = await IRCService(
+            signer: self.signer,
+            authenticated: self.authenticated,
+            userState: self.userState,
+            clientOptions: clientOptions,
+            delegate: self.delegate,
+            store: self.store
+        )
+        }
+        await self.services?.resume(packet)
+    }
+    
+    public func registerBundle(
+        type: RegistrationType?,
+        options: ClientOptions
+    ) async throws {
+        switch type {
         case .siwa, .plain:
             guard let appleToken = appleToken else { return }
             let regObject = regRequest(with: appleToken)
             let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-            await services?.resume(packet)
+            await self.startService(packet)
         case .none:
             break
         }
@@ -129,6 +115,7 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.services?.client?.publishKeyBundle(self.keyBundle)
     }
     
+
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -153,34 +140,25 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
-    public func resumeIRC(signer: TransportCreationRequest) async {
-        self.services = await IRCService(
-            signer: signer,
-            passwordProvider: self.passwordProvider,
-            authenticated: self.authenticated,
-            userState: self.userState,
-            clientOptions: self.clientOptions,
-            delegate: self.delegate,
-            store: self.store
-        )
-        await self.resume()
-    }
-    
-    private func regRequest(with appleToken: String) -> RegRequest {
-        return RegRequest(
-            username: signer.username,
+    private func regRequest(with appleToken: String) -> AuthPacket {
+        return AuthPacket(
+            jwt: nil,
             appleToken: appleToken,
-            config: signer.userConfig,
-            deviceId: signer.deviceId
+            username: signer.username,
+            recipient: nil,
+            deviceId: signer.deviceId,
+            config: signer.userConfig
         )
     }
 
-    private func configRequest(_ jwt: String, config: UserConfig) -> UserConfigRequest {
-        return UserConfigRequest(
+    private func configRequest(_ jwt: String, config: UserConfig) -> AuthPacket {
+        return AuthPacket(
             jwt: jwt,
+            appleToken: nil,
             username: self.username,
-            config: config,
-            deviceId: self.deviceId
+            recipient: nil,
+            deviceId: self.deviceId,
+            config: config
         )
     }
     
@@ -188,55 +166,51 @@ public class IRCMessenger: CypherServerTransportClient {
                             jwt: String,
                             appleToken: String,
                             deviceId: DeviceId
-    ) -> APNTokenRequest {
-        return APNTokenRequest(jwt: jwt, appleToken: appleToken, username: self.username, deviceId: deviceId)
+    ) -> AuthPacket {
+        AuthPacket(
+            jwt: jwt,
+            appleToken: appleToken,
+            username: self.username,
+            recipient: nil,
+            deviceId: deviceId,
+            config: nil
+        )
     }
     
-    private func readBundleRequest(_ jwt: String, recipient: Username) -> ReadBundleRequest {
-        ReadBundleRequest(jwt: jwt, sender: self.username, recipient: recipient, deviceId: self.deviceId)
+    private func readBundleRequest(_
+                                   jwt: String,
+                                   recipient: Username
+    ) -> AuthPacket {
+        AuthPacket(
+            jwt: jwt,
+            appleToken: nil,
+            username: self.username,
+            recipient: recipient,
+            deviceId: deviceId,
+            config: nil
+        )
     }
     
-    struct RegRequest: Codable {
-        let username: Username
+
+    struct AuthPacket: Codable {
+        let jwt: String?
         let appleToken: String?
-        let config: UserConfig
-        let deviceId: DeviceId
-    }
-    
-    struct UserConfigRequest: Codable {
-        let jwt: String
         let username: Username
-        let config: UserConfig
-        let deviceId: DeviceId
+        let recipient: Username?
+        let deviceId: DeviceId?
+        let config: UserConfig?
     }
-    
-    struct APNTokenRequest: Codable {
-        let jwt: String
-        let appleToken: String
-        let username: Username
-        let deviceId: DeviceId
-    }
-    
-    struct ReadBundleRequest: Codable {
-        let jwt: String
-        let sender: Username
-        let recipient: Username
-        let deviceId: DeviceId
-    }
+
     
     struct SignUpResponse: Codable {
         let existingUser: Username?
     }
     
     
-    // MARK: - Service Lookup
-    internal func serviceWithID(_ id: UUID) -> IRCService? {
-        return services
-    }
-    
+    // MARK: - services Lookup
     internal func serviceWithID(_ id: String) -> IRCService? {
         guard let uuid = UUID(uuidString: id) else { return nil }
-        return serviceWithID(uuid)
+        return serviceWithID(uuid.uuidString)
     }
     
     public func removeAccountWithID(_ id: UUID) {
@@ -283,10 +257,7 @@ struct IRCCypherMessage<Message: Codable>: Codable {
 
 
 extension IRCMessenger {
-    public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-        self.delegate = delegate
-    }
-    
+
     public func reconnect() async throws {}
     
     public func disconnect() async throws {}
@@ -300,6 +271,10 @@ extension IRCMessenger {
     public struct SetToken: Codable {
         let token: String
     }
+    
+    public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
+            self.delegate = delegate
+        }
     
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         fatalError()

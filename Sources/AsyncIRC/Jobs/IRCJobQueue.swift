@@ -95,7 +95,7 @@ final class IRCJobQueue {
 ////                try await store.createJob(job)
 //            }
 //        } catch {
-//            self.logger.notice("Failed to queue all jobs of type \(T.self)")
+//            self.logger.error("Failed to queue all jobs of type \(T.self)")
 //            for job in jobs {
 ////                _ = try? await store.deleteJob(job)
 //            }
@@ -141,25 +141,25 @@ final class IRCJobQueue {
     
     @JobQueueActor
     func startRunningTasks() async -> TaskResult {
-        self.logger.notice("Starting job queue")
+        self.logger.trace("Starting job queue")
         if runningJobs {
-            self.logger.notice("Job queue already running")
+            self.logger.trace("Job queue already running")
             return .stopTask
         }
         
         if let pausing = pausing {
-            self.logger.notice("Pausing job queue")
+            self.logger.trace("Pausing job queue")
             pausing.succeed(())
             return .stopTask
         }
-        self.logger.notice("Job queue started")
+        self.logger.trace("Job queue started")
         runningJobs = true
         
         
         @JobQueueActor @Sendable func next() async throws -> TaskResult {
-            self.logger.notice("Looking for next task")
+            self.logger.trace("Looking for next task")
             if self.jobs.isEmpty {
-                self.logger.notice("No more tasks")
+                self.logger.trace("No more tasks")
                 self.runningJobs = false
                 self.hasOutstandingTasks = false
                 self.markAsDone()
@@ -176,7 +176,7 @@ final class IRCJobQueue {
             }
             
             if let pausing = self.pausing {
-                self.logger.notice("Job finished, pausing started. Stopping further processing")
+                self.logger.trace("Job finished, pausing started. Stopping further processing")
                 self.runningJobs = false
                 pausing.succeed(())
                 return .stopTask
@@ -197,7 +197,7 @@ final class IRCJobQueue {
                         
                         try await task.onDelayed()
                     }
-                    self.logger.notice("Task failed or none found, stopping processing")
+                    self.logger.trace("Task failed or none found, stopping processing")
                     self.runningJobs = false
                 }
             }
@@ -205,7 +205,7 @@ final class IRCJobQueue {
         }
     
             if self.jobs.isEmpty {
-                self.logger.notice("No jobs to run")
+                self.logger.trace("No jobs to run")
                 self.hasOutstandingTasks = false
                 self.runningJobs = false
                 self.markAsDone()
@@ -226,7 +226,7 @@ final class IRCJobQueue {
             }
                 
                 guard hasUsefulTasks else {
-                    self.logger.notice("All jobs are delayed")
+                    self.logger.trace("All jobs are delayed")
                     self.hasOutstandingTasks = false
                     self.runningJobs = false
                     return .stopTask
@@ -285,9 +285,9 @@ final class IRCJobQueue {
         }
         
         let job = jobs[index]
-        self.logger.info("Running Job", metadata: ["Job:-":"\(job)"])
+        self.logger.trace("Running Job", metadata: ["Job:-":"\(job)"])
         if let delayedUntil = job.delayedUntil, delayedUntil >= Date() {
-            self.logger.info("Task was delayed into the future", metadata: ["Task":"\(job.task)"])
+            self.logger.trace("Task was delayed into the future", metadata: ["Task":"\(job.task)"])
             return .delayed
         }
         
@@ -318,7 +318,7 @@ final class IRCJobQueue {
             self.logger.error("Job Error: \(error)")
             switch task.retryMode.raw {
             case .retryAfter(let retryDelay, let maxAttempts):
-                self.logger.notice("Delaying task for an hour")
+                self.logger.trace("Delaying task for an hour")
                 try await job.delayExecution(retryDelay: retryDelay)
                 
                 if let maxAttempts = maxAttempts, job.attempts >= maxAttempts {

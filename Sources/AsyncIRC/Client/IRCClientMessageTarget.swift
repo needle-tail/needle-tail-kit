@@ -12,16 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIO
+import NIOCore
 
 public protocol IRCClientMessageTarget : IRCMessageTarget {
 }
 
 public extension IRCClientMessageTarget {
-  
+    
     func send(_ command: IRCCommand, tags: [IRCTags]? = nil) async {
-      let message = IRCMessage(command: command, tags: tags)
-    await sendMessages([ message ])
-  }
-
+        let message = IRCMessage(command: command, tags: tags)
+        await sendMessages([ message ])
+    }
+    
 }

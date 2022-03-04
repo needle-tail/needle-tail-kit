@@ -170,22 +170,25 @@ extension IRCCommand : CustomStringConvertible {
         else {
           return [ name.stringValue, "+" + add.stringValue ]
         }
-      case .MODEGET(let name): return [ name.stringValue ]
+      case .MODEGET(let name):
+        return [ name.stringValue ]
       case .CHANNELMODE_GET(let name), .CHANNELMODE_GET_BANMASK(let name):
         return [ name.stringValue ]
-      
       case .WHOIS(.some(let server), let usermasks):
         return [ server, usermasks.joined(separator: ",")]
       case .WHOIS(.none, let usermasks):
         return [ usermasks.joined(separator: ",") ]
-      
-      case .WHO(.none, _):                   return []
-      case .WHO(.some(let usermask), false): return [ usermask ]
-      case .WHO(.some(let usermask), true):  return [ usermask, "o" ]
+      case .WHO(.none, _):
+        return []
+      case .WHO(.some(let usermask), false):
+        return [ usermask ]
+      case .WHO(.some(let usermask), true):
+        return [ usermask, "o" ]
 
       case .numeric     (_, let args),
            .otherCommand(_, let args),
-           .otherNumeric(_, let args): return args
+           .otherNumeric(_, let args):
+        return args
       
       default: // TBD: which case do we miss???
         fatalError("unexpected case \(self)")
@@ -201,15 +204,17 @@ extension IRCCommand : CustomStringConvertible {
         else {
           return "\(commandAsString) '\(server)'"
         }
-      
-      case .QUIT(.some(let v)): return "QUIT '\(v)'"
-      case .QUIT(.none): return "QUIT"
-      case .NICK(let v): return "NICK \(v)"
-      case .USER(let v): return "USER \(v)"
+      case .QUIT(.some(let v)):
+        return "QUIT '\(v)'"
+      case .QUIT(.none):
+        return "QUIT"
+      case .NICK(let v):
+        return "NICK \(v)"
+      case .USER(let v):
+        return "USER \(v)"
       case .ISON(let v):
         let nicks = v.map { $0.stringValue}
         return "ISON \(nicks.joined(separator: ","))"
-
       case .MODEGET(let nick):
         return "MODE \(nick)"
       case .MODE(let nick, let add, let remove):
@@ -217,52 +222,46 @@ extension IRCCommand : CustomStringConvertible {
         if !add   .isEmpty { s += " +\(add   .stringValue)" }
         if !remove.isEmpty { s += " -\(remove.stringValue)" }
         return s
-
-      case .CHANNELMODE_GET(let v):         return "MODE \(v)"
-      case .CHANNELMODE_GET_BANMASK(let v): return "MODE b \(v)"
+      case .CHANNELMODE_GET(let v):
+        return "MODE \(v)"
+      case .CHANNELMODE_GET_BANMASK(let v):
+        return "MODE b \(v)"
       case .CHANNELMODE(let nick, let add, let remove):
         var s = "MODE \(nick)"
         if !add   .isEmpty { s += " +\(add   .stringValue)" }
         if !remove.isEmpty { s += " -\(remove.stringValue)" }
         return s
-
-      case .JOIN0: return "JOIN0"
-      
+      case .JOIN0:
+        return "JOIN0"
       case .JOIN(let channels, .none):
         let names = channels.map { $0.stringValue}
         return "JOIN \(names.joined(separator: ","))"
-      
       case .JOIN(let channels, .some(let keys)):
         let names = channels.map { $0.stringValue}
         return "JOIN \(names.joined(separator: ","))"
              + " keys: \(keys.joined(separator: ","))"
-
       case .PART(let channels, .none):
         let names = channels.map { $0.stringValue}
         return "PART \(names.joined(separator: ","))"
-      
       case .PART(let channels, .some(let message)):
         let names = channels.map { $0.stringValue}
         return "PART \(names.joined(separator: ",")) '\(message)'"
-      
-      case .LIST(.none, .none):             return "LIST *"
-      case .LIST(.none, .some(let target)): return "LIST * @\(target)"
-      
+      case .LIST(.none, .none):
+        return "LIST *"
+      case .LIST(.none, .some(let target)):
+        return "LIST * @\(target)"
       case .LIST(.some(let channels), .none):
         let names = channels.map { $0.stringValue}
         return "LIST \(names.joined(separator: ",") )"
-      
       case .LIST(.some(let channels), .some(let target)):
         let names = channels.map { $0.stringValue}
         return "LIST @\(target) \(names.joined(separator: ",") )"
-      
       case .PRIVMSG(let recipients, let message):
         let to = recipients.map { $0.description }
         return "PRIVMSG \(to.joined(separator: ",")) '\(message)'"
       case .NOTICE (let recipients, let message):
         let to = recipients.map { $0.description }
         return "NOTICE \(to.joined(separator: ",")) '\(message)'"
-      
       case .CAP(let subcmd, let capIDs):
         return "CAP \(subcmd) \(capIDs.joined(separator: ","))"
       case .WHOIS(.none, let masks):
@@ -273,7 +272,6 @@ extension IRCCommand : CustomStringConvertible {
         return "WHO"
       case .WHO(.some(let mask), let opOnly):
         return "WHO \(mask)\(opOnly ? " o" : "")"
-
       case .otherCommand(let cmd, let args):
         return "<IRCCmd: \(cmd) args=\(args.joined(separator: ","))>"
       case .otherNumeric(let cmd, let args):

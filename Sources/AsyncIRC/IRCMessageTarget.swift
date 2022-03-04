@@ -39,10 +39,8 @@ public protocol IRCMessageTarget {
 
 public extension IRCMessageTarget {
 
-    func sendMessage(_ message: IRCMessage) {
-        Task {
+    func sendMessage(_ message: IRCMessage) async {
         await sendMessages([ message ])
-        }
     }
 }
 
@@ -73,7 +71,7 @@ public extension IRCMessageTarget {
     } 
     
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
-        sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
+        await sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
     }
 }
 #endif

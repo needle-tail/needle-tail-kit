@@ -47,7 +47,7 @@ public final class IRCMessageParser {
     
     enum MessageParserError: Swift.Error {
         case rangeNotFound
-        case isLetterIsNil
+        case firstCharacterIsNil
         case argumentsAreNil
         case commandIsNil
         case firstIndexChoiceNil
@@ -72,6 +72,10 @@ public final class IRCMessageParser {
         var stripedMessage: String = ""
         self.logger.info("Parsing Message.... \(message)")
         
+//        We need to make sure we are seperating into ORIGIN,TARGET,COMMAND,ARGUEMENTS. Only then can we parse properly.
+//        message         ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
+        
+        ///We are seperating our tags from our message string before we process the rest of our message
         if message.contains("@") && message.contains("; ") {
             seperatedTags.append(contentsOf: message.components(separatedBy: "; "))
             stripedMessage = seperatedTags[1]
@@ -81,21 +85,24 @@ public final class IRCMessageParser {
 
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
 
+        ///This stripedMessage represents our irc message portion without tags. If we have the source then we will get the source here
         if stripedMessage.hasPrefix(":") {
             let source = stripedMessage[..<firstSpaceIndex]
             origin = String(source)
         }
+        
         // removes the first whitespace in our arguements line
         let rest = stripedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
 
+        ///We need to to determine our commandKey type
         var commandKey: IRCCommandKey = .string("")
         let commandIndex = rest.startIndex
         let commandMessage = rest[commandIndex...]
         let commandSubstring = stripedMessage[commandIndex..<firstSpaceIndex]
-        
+        let seperatedCommand = commandMessage.components(separatedBy: " ")
         
         guard let command = try parseCommand(
-            commandSubstring: String(commandSubstring),
+            command: seperatedCommand[0],
             commandKey: commandKey
         ) else { throw MessageParserError.commandIsNil}
 
@@ -132,16 +139,16 @@ public final class IRCMessageParser {
 
     
     func parseCommand(
-        commandSubstring: String,
+        command: String,
         commandKey: IRCCommandKey
     ) throws -> IRCCommandKey? {
         var commandKey = commandKey
-        if !commandSubstring.isEmpty {
-            guard let isLetter = commandSubstring.first?.isLetter else { throw MessageParserError.isLetterIsNil }
-            if isLetter {
-                commandKey = .string(String(commandSubstring))
+        if !command.isEmpty {
+            guard let firstCharacter = command.first else { throw MessageParserError.firstCharacterIsNil }
+            if firstCharacter.isLetter {
+                commandKey = .string(String(command))
             } else {
-                let command = commandSubstring.components(separatedBy: CharacterSet.decimalDigits.inverted)
+                let command = command.components(separatedBy: .decimalDigits.inverted)
                 for c in command {
                     if !c.isEmpty{
                         commandKey = .int(Int(c) ?? 0)
@@ -172,6 +179,13 @@ public final class IRCMessageParser {
             newArgArray.append(initialBreak[1])
             newArgArray.append(initialBreak[2])
             args = newArgArray
+        } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") {
+            let seperated = stripedMessage.components(separatedBy: ":")
+            args.append(seperated[1])
+        } else {
+            let seperated = stripedMessage.components(separatedBy: ":")
+            guard let argument = seperated.last?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+            args.append(argument)
         }
         self.logger.info("Parsing Arguments - \(args)")
         return args
