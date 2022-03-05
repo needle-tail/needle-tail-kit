@@ -22,7 +22,7 @@ import struct Foundation.Data
  */
 
 public struct IRCMessage: CustomStringConvertible {
-    //TODO: Introduce tags
+
     public enum CodingKeys: String, CodingKey {
         case origin, target, command, arguments, tags
     }

@@ -22,7 +22,6 @@
         let promise = group.next().makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = try await queueMessage(line: line) else { throw ParserError.jobFailedToParse }
-            print("COMPLETES____")
             return message
         }
         return promise.futureResult

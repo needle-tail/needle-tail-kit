@@ -42,7 +42,6 @@ public class IRCMessenger: CypherServerTransportClient {
     
     
     public init(
-        host: String,
         username: Username,
         deviceId: DeviceId,
         signer: TransportCreationRequest,
@@ -63,12 +62,10 @@ public class IRCMessenger: CypherServerTransportClient {
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
-        host: String,
         options: ClientOptions?,
         store: NeedleTailStore
     ) async throws -> IRCMessenger {
         return try await IRCMessenger(
-            host: host,
             username: transportRequest.username,
             deviceId: transportRequest.deviceId,
             signer: transportRequest,

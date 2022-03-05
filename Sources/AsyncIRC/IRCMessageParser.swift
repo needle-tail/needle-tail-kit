@@ -70,10 +70,11 @@ public final class IRCMessageParser {
         var origin: String?
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
+        var commandKey: IRCCommandKey = .string("")
         self.logger.info("Parsing Message.... \(message)")
         
-//        We need to make sure we are seperating into ORIGIN,TARGET,COMMAND,ARGUEMENTS. Only then can we parse properly.
-//        message         ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
+        /// IRCMessage sytax
+        /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
         
         ///We are seperating our tags from our message string before we process the rest of our message
         if message.contains("@") && message.contains("; ") {
@@ -84,29 +85,35 @@ public final class IRCMessageParser {
         }
 
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
-
+        var command = ""
         ///This stripedMessage represents our irc message portion without tags. If we have the source then we will get the source here
+        
+        /// Always our origin
         if stripedMessage.hasPrefix(":") {
-            let source = stripedMessage[..<firstSpaceIndex]
-            origin = String(source)
+        let source = stripedMessage[..<firstSpaceIndex]
+        origin = String(source)
+        }
+        let spreadStriped = stripedMessage.components(separatedBy: " ")
+        
+        //This is probably really bad, if we get a origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
+        if stripedMessage.hasPrefix(":") {
+            command = spreadStriped[1]
+        } else {
+            command = spreadStriped[0]
         }
         
-        // removes the first whitespace in our arguements line
-        let rest = stripedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
-
-        ///We need to to determine our commandKey type
-        var commandKey: IRCCommandKey = .string("")
-        let commandIndex = rest.startIndex
-        let commandMessage = rest[commandIndex...]
-        let commandSubstring = stripedMessage[commandIndex..<firstSpaceIndex]
-        let seperatedCommand = commandMessage.components(separatedBy: " ")
-        
         guard let command = try parseCommand(
-            command: seperatedCommand[0],
+            command: command,
             commandKey: commandKey
         ) else { throw MessageParserError.commandIsNil}
 
         commandKey = command
+        
+        
+        let rest = stripedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
+        let commandIndex = rest.startIndex
+        let commandMessage = rest[commandIndex...]
+        let commandSubstring = stripedMessage[commandIndex..<firstSpaceIndex]
 
         guard let arguments = try parseArguments(
             commandMessage: String(commandMessage),
@@ -166,6 +173,7 @@ public final class IRCMessageParser {
         stripedMessage: String
     ) throws -> [String]? {
         var args = [String]()
+        guard let firstCharacter = commandSubstring.first else { throw MessageParserError.firstCharacterIsNil }
         if commandSubstring.hasPrefix("NICK") || commandSubstring.hasPrefix("JOIN") {
             args.append(commandMessage)
         } else if commandSubstring.hasPrefix("USER") {
@@ -182,7 +190,7 @@ public final class IRCMessageParser {
         } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") {
             let seperated = stripedMessage.components(separatedBy: ":")
             args.append(seperated[1])
-        } else {
+        } else if !firstCharacter.isLetter {
             let seperated = stripedMessage.components(separatedBy: ":")
             guard let argument = seperated.last?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
             args.append(argument)
