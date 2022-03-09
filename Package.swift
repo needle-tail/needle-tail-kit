@@ -43,6 +43,7 @@ let package = Package(
             dependencies: [
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
+                .product(name: "CypherMessaging", package: "CypherTextKit"),
                 .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver")
             ],
             swiftSettings: [
