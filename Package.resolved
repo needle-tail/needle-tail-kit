@@ -32,8 +32,8 @@
         "package": "CypherTextKit",
         "repositoryURL": "https://github.com/needle-tail/CypherTextKit.git",
         "state": {
-          "branch": "feature/async-await",
-          "revision": "812d108f299ec23be26e4ca52b382bb5e1792026",
+          "branch": "feature/pre-sendable",
+          "revision": "79c47dfb36ec771b59853d358a7ac271ece0b6f1",
           "version": null
         }
       },
@@ -41,9 +41,9 @@
         "package": "Dribble",
         "repositoryURL": "https://github.com/orlandos-nl/Dribble.git",
         "state": {
-          "branch": "main",
+          "branch": null,
           "revision": "afbfa0a83bd41880820b8883a765fd0d310eabfd",
-          "version": null
+          "version": "0.1.0"
         }
       },
       {
