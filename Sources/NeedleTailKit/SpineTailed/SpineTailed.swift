@@ -151,15 +151,18 @@ public class SpineTailed: P2PTransportClientFactory {
     
     //UDP Stuff
     private func spinedTailClientBootstrap(handle: P2PTransportFactoryHandle) async throws -> NIOTSDatagramBootstrap {
-        let bootstrap: NIOTSDatagramBootstrap
 #if canImport(Network)
+        let bootstrap: NIOTSDatagramBootstrap
         group = NIOTSEventLoopGroup()
         bootstrap = NIOTSDatagramBootstrap(group: group)
+        return bootstrap
 #else
+        let bootstrap: DatagramBootstrap
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         bootstrap = DatagramBootstrap(group: group)
-#endif
         return bootstrap
+#endif
+       
     }
 }
 
