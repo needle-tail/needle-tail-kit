@@ -157,7 +157,7 @@ public class SpineTailed: P2PTransportClientFactory {
         bootstrap = NIOTSDatagramBootstrap(group: group)
 #else
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        bootstrap = NIOTSDatagramBootstrap(group: group)
+        bootstrap = DatagramBootstrap(group: group)
 #endif
         return bootstrap
     }
