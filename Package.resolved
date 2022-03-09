@@ -32,8 +32,8 @@
         "package": "CypherTextKit",
         "repositoryURL": "https://github.com/needle-tail/CypherTextKit.git",
         "state": {
-          "branch": "feature/pre-sendable",
-          "revision": "79c47dfb36ec771b59853d358a7ac271ece0b6f1",
+          "branch": "feature/async-await",
+          "revision": "213fb184d4948bb97bfa9a7dd682462839dbfda3",
           "version": null
         }
       },

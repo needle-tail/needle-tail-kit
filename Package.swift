@@ -20,7 +20,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", .branch("feature/pre-sendable")),
+        .package(url: "https://github.com/needle-tail/CypherTextKit.git", .branch("feature/async-await")),
         .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
         .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.1.0")
     ],
