@@ -8,7 +8,7 @@
 import NIO
 import Dribble
 import CypherMessaging
-#if canImport(NIOTransportServices)
+#if canImport(Network)
 import NIOTransportServices
 #endif
 
@@ -39,7 +39,7 @@ public class SpineTailed: P2PTransportClientFactory {
     let stun: StunConfig?
     
     public init(stun: StunConfig? = nil) {
-#if canImport(NIOTransportServices)
+#if canImport(Network)
         group = NIOTSEventLoopGroup()
 #else
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -82,7 +82,7 @@ public class SpineTailed: P2PTransportClientFactory {
         throw error
     }
     }
-
+    
     
     public func receiveMessage(_ text: String, metadata: Document, handle: P2PTransportFactoryHandle) async throws -> P2PTransportClient? {
         guard
@@ -92,13 +92,20 @@ public class SpineTailed: P2PTransportClientFactory {
             throw SpineTailedErrors.socketCreationFailed
         }
         
-
+#if canImport(Network)
         return try await NIOTSDatagramBootstrap(group: group)
             .connectTimeout(.seconds(30))
             .connect(host: host, port: port)
             .flatMap({ channel in
                 DatagramTransportClient.initialize(state: handle.state, channel: channel)
             }).get()
+#else
+        return try await DatagramBootstrap(group: group)
+            .bind(host: host, port: port)
+            .flatMap({ channel in
+                DatagramTransportClient.initialize(state: handle.state, channel: channel)
+            }).get()
+#endif
     }
     
     
@@ -126,22 +133,22 @@ public class SpineTailed: P2PTransportClientFactory {
                     promise.fail(SpineTailedErrors.timeout)
                     channel.close(promise: nil)
                 })
-        
-        
-        guard
-            let localAddress = channel.localAddress,
-            let port = localAddress.port
-        else {
-            promise.fail(SpineTailedErrors.socketCreationFailed)
-            return self.eventLoop.makeFailedFuture(SpineTailedErrors.socketCreationFailed)
-        }
-        
-        return channel.eventLoop.executeAsync {
-            try await handle.sendMessage("", metadata: [
-                "ip": address.ipAddress,
-                "port": port
-            ])
-        }
+                
+                
+                guard
+                    let localAddress = channel.localAddress,
+                    let port = localAddress.port
+                else {
+                    promise.fail(SpineTailedErrors.socketCreationFailed)
+                    return self.eventLoop.makeFailedFuture(SpineTailedErrors.socketCreationFailed)
+                }
+                
+                return channel.eventLoop.executeAsync {
+                    try await handle.sendMessage("", metadata: [
+                        "ip": address.ipAddress,
+                        "port": port
+                    ])
+                }
             }.whenFailure { error in
                 promise.fail(error)
             }
@@ -151,7 +158,7 @@ public class SpineTailed: P2PTransportClientFactory {
     
     //UDP Stuff
     private func spinedTailClientBootstrap(handle: P2PTransportFactoryHandle) async throws -> NIOTSDatagramBootstrap {
-#if canImport(NIOTransportServices)
+#if canImport(Network)
         let bootstrap: NIOTSDatagramBootstrap
         group = NIOTSEventLoopGroup()
         bootstrap = NIOTSDatagramBootstrap(group: group)
@@ -162,7 +169,7 @@ public class SpineTailed: P2PTransportClientFactory {
         bootstrap = DatagramBootstrap(group: group)
         return bootstrap
 #endif
-       
+        
     }
 }
 
