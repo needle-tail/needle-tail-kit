@@ -8,7 +8,7 @@
 import NIO
 import Dribble
 import CypherMessaging
-#if canImport(Network)
+#if canImport(NIOTransportServices)
 import NIOTransportServices
 #endif
 
@@ -39,7 +39,7 @@ public class SpineTailed: P2PTransportClientFactory {
     let stun: StunConfig?
     
     public init(stun: StunConfig? = nil) {
-#if canImport(Network)
+#if canImport(NIOTransportServices)
         group = NIOTSEventLoopGroup()
 #else
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -151,7 +151,7 @@ public class SpineTailed: P2PTransportClientFactory {
     
     //UDP Stuff
     private func spinedTailClientBootstrap(handle: P2PTransportFactoryHandle) async throws -> NIOTSDatagramBootstrap {
-#if canImport(Network)
+#if canImport(NIOTransportServices)
         let bootstrap: NIOTSDatagramBootstrap
         group = NIOTSEventLoopGroup()
         bootstrap = NIOTSDatagramBootstrap(group: group)
