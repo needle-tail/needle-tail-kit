@@ -30,7 +30,7 @@ enum SpineTailedErrors: Error {
 }
 
 public class SpineTailed: P2PTransportClientFactory {
-    
+    public weak var delegate: P2PTransportFactoryDelegate?
     
     // We want to set up a P2P connection. Sending the needed information about each client. When a user recieves an offer they send the answer and once an agreement is made we can send our UDP Data P2P.
     public let transportLayerIdentifier: String = "_udp"

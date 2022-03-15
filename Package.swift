@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.6
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -15,12 +15,12 @@ let package = Package(
             targets: ["NeedleTailKit", "AsyncIRC"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", .branch("udp-support-nio-latest")),
+        .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", branch: "udp-support-nio-latest"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.27.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", .branch("feature/async-await")),
+        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
         .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
         .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.1.0")
     ],
