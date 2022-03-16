@@ -129,7 +129,7 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     private func makeToken() -> String? {
-        return try? JWTSigner(algorithm: signer).sign(
+        return try? JWTSigner(algorithm: signer as JWTAlgorithm).sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
                 exp: .init(value: Date().addingTimeInterval(3600))
