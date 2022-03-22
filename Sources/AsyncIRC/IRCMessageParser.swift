@@ -224,4 +224,4 @@ public final class IRCMessageParser {
         return nil
     }
 }
-}
+
