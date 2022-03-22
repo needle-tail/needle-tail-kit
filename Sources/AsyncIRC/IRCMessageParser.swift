@@ -209,8 +209,13 @@ public final class IRCMessageParser {
             for tag in seperatedTags {
                 var tag = tag
                 tag.removeAll(where: { $0 == "@" })
+                var ircTag: IRCTags
                 let kvpArray = tag.components(separatedBy: "=")
-                let ircTag = IRCTags(key: kvpArray[0], value: kvpArray[1])
+                if  String(tag.characters.suffix(2)) == "==" {
+                    ircTag = IRCTags(key: kvpArray[0], value: "\(kvpArray[1])==")
+                } else {
+                    ircTag = IRCTags(key: kvpArray[0], value: kvpArray[1])
+                }
                 tagArray.append(ircTag)
             }
             self.logger.info("Parsing Tags - \(tags)")
@@ -218,4 +223,5 @@ public final class IRCMessageParser {
         }
         return nil
     }
+}
 }
