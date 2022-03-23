@@ -190,6 +190,9 @@ public final class IRCMessageParser {
         } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") {
             let seperated = stripedMessage.components(separatedBy: ":")
             args.append(seperated[1])
+        } else if commandMessage.hasPrefix("MODE") {
+            let seperated = commandMessage.components(separatedBy: " ")
+            args.append(seperated[1])
         } else if !firstCharacter.isLetter {
             let seperated = stripedMessage.components(separatedBy: ":")
             guard let argument = seperated.last?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }

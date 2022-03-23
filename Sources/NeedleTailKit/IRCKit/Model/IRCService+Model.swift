@@ -39,3 +39,7 @@ extension IRCService {
         let recipient: UserDeviceId
     }
 }
+
+struct RegistrationAck: Codable {
+    var registered: Bool
+}

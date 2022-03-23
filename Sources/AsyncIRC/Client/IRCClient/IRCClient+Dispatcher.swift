@@ -50,8 +50,10 @@ extension IRCClient : IRCDispatcher {
 #else
             break
 #endif
+        case .numeric(.replyInfo, let info):
+            try await delegate?.client(self, info: info)
         case .numeric(.replyKeyBundle, let bundle):
-            await delegate?.client(self, keyBundle: bundle)
+            try await delegate?.client(self, keyBundle: bundle)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[1]) else {

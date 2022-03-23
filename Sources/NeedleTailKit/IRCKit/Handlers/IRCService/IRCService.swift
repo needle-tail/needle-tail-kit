@@ -24,7 +24,7 @@ public final class IRCService {
     internal var clientOptions: ClientOptions?
     internal var userConfig: UserConfig?
     var stream: KeyBundleIterator?
-    
+    var registedNewUser: Bool = false
     public init(
         signer: TransportCreationRequest,
         authenticated: AuthenticationState,

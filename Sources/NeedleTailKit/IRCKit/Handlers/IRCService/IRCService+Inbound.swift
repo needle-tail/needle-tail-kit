@@ -22,14 +22,20 @@ extension IRCService: IRCClientDelegate {
             }
         }
     
-    
     // MARK: - IRCMessages
+    public func client(_ client: IRCClient, info: [String]) async throws {
+        guard let info = info.first else { return }
+        guard let data = Data(base64Encoded: info) else { return }
+        let buffer = ByteBuffer(data: data)
+        registedNewUser = try BSONDecoder().decode(RegistrationAck.self, from: Document(buffer: buffer)).registered
+    }
     
-    public func client(_ client: IRCClient, keyBundle: [String]) async {
+    
+    public func client(_ client: IRCClient, keyBundle: [String]) async throws {
         guard let userConfig = keyBundle.first else { return }
         guard let data = Data(base64Encoded: userConfig) else { return }
         let buffer = ByteBuffer(data: data)
-        let c = try! BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
+        let c = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         self.stream = KeyBundleSequence(bundle: c).makeAsyncIterator()
     }
     

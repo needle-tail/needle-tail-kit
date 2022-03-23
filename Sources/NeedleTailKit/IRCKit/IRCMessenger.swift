@@ -117,7 +117,18 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        guard let userConfig = await services?.readKeyBundle(packet) else { throw IRCClientError.nilUsedConfig }
+        guard let services = services else {
+            throw VideoErrors.remoteAddressNil
+        }
+        services.registedNewUser = false
+        
+        var userConfig: UserConfig?
+        repeat {
+            if services.registedNewUser {
+                userConfig = await services.readKeyBundle(packet)
+            }
+        } while services.registedNewUser == false
+        guard let userConfig = userConfig else { throw IRCClientError.nilUsedConfig }
         return userConfig
     }
     
