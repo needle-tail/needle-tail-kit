@@ -10,4 +10,8 @@ import Foundation
 
 public struct RegistrationAck: Codable {
     public var registered: Bool
+    
+    public init(registered: Bool) {
+        self.registered = registered
+    }
 }
