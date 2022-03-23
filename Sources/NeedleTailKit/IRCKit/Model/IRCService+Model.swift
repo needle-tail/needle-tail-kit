@@ -40,6 +40,6 @@ extension IRCService {
     }
 }
 
-struct RegistrationAck: Codable {
-    var registered: Bool
+public struct RegistrationAck: Codable {
+    public var registered: Bool
 }
