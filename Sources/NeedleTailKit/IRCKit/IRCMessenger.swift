@@ -130,10 +130,10 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let userConfig = userConfig else { throw IRCClientError.nilUsedConfig }
         return userConfig
     }
-    
+
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
-        let apnObject = apnRequest(jwt, appleToken: token.hexString, deviceId: self.deviceId)
+        let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
         let packet = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
         await self.services?.registerAPN(packet)
     }
@@ -151,6 +151,7 @@ public class IRCMessenger: CypherServerTransportClient {
         return AuthPacket(
             jwt: nil,
             appleToken: appleToken,
+            apnToken: nil,
             username: signer.username,
             recipient: nil,
             deviceId: signer.deviceId,
@@ -162,6 +163,7 @@ public class IRCMessenger: CypherServerTransportClient {
         return AuthPacket(
             jwt: jwt,
             appleToken: nil,
+            apnToken: nil,
             username: self.username,
             recipient: nil,
             deviceId: self.deviceId,
@@ -171,12 +173,13 @@ public class IRCMessenger: CypherServerTransportClient {
     
     private func apnRequest(_
                             jwt: String,
-                            appleToken: String,
+                            apnToken: String,
                             deviceId: DeviceId
     ) -> AuthPacket {
         AuthPacket(
             jwt: jwt,
-            appleToken: appleToken,
+            appleToken: nil,
+            apnToken: apnToken,
             username: self.username,
             recipient: nil,
             deviceId: deviceId,
@@ -191,6 +194,7 @@ public class IRCMessenger: CypherServerTransportClient {
         AuthPacket(
             jwt: jwt,
             appleToken: nil,
+            apnToken: nil,
             username: self.username,
             recipient: recipient,
             deviceId: deviceId,
@@ -202,6 +206,7 @@ public class IRCMessenger: CypherServerTransportClient {
     struct AuthPacket: Codable {
         let jwt: String?
         let appleToken: String?
+        let apnToken: String?
         let username: Username
         let recipient: Username?
         let deviceId: DeviceId?
