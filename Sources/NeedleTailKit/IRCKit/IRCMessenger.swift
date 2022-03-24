@@ -201,17 +201,6 @@ public class IRCMessenger: CypherServerTransportClient {
             config: nil
         )
     }
-    
-
-    struct AuthPacket: Codable {
-        let jwt: String?
-        let appleToken: String?
-        let apnToken: String?
-        let username: Username
-        let recipient: Username?
-        let deviceId: DeviceId?
-        let config: UserConfig?
-    }
 
     
     struct SignUpResponse: Codable {
@@ -266,7 +255,15 @@ struct IRCCypherMessage<Message: Codable>: Codable {
     }
 }
 
-
+public struct AuthPacket: Codable {
+    let jwt: String?
+    let appleToken: String?
+    let apnToken: String?
+    let username: Username
+    let recipient: Username?
+    let deviceId: DeviceId?
+    let config: UserConfig?
+}
 
 extension IRCMessenger {
 
