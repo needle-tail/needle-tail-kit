@@ -256,13 +256,13 @@ struct IRCCypherMessage<Message: Codable>: Codable {
 }
 
 public struct AuthPacket: Codable {
-    let jwt: String?
-    let appleToken: String?
-    let apnToken: String?
-    let username: Username
-    let recipient: Username?
-    let deviceId: DeviceId?
-    let config: UserConfig?
+    public let jwt: String?
+    public let appleToken: String?
+    public let apnToken: String?
+    public let username: Username
+    public let recipient: Username?
+    public let deviceId: DeviceId?
+    public let config: UserConfig?
 }
 
 extension IRCMessenger {
