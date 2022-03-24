@@ -187,7 +187,7 @@ public final class IRCMessageParser {
             newArgArray.append(initialBreak[1])
             newArgArray.append(initialBreak[2])
             args = newArgArray
-        } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") {
+        } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") || commandSubstring.hasPrefix("REGAPN") {
             let seperated = stripedMessage.components(separatedBy: ":")
             args.append(seperated[1])
         } else if commandMessage.hasPrefix("MODE") {
@@ -201,7 +201,9 @@ public final class IRCMessageParser {
         self.logger.info("Parsing Arguments - \(args)")
         return args
     }
-    
+//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing Message.... REGAPN :twEAAAJqd3QADAEAAGV5SmhiR2NpT2lKbFpESTFOVEU1SWl3aWRIbHdJam9pU2xkVUluMC5leUpsZUhBaU9qRTJORGd3T0RVd01qTXVPRFUzTURBMU1Td2laR1YyYVdObElqcDdJblZ6WlhJaU9pSnVaV1ZrYkdWMFlXbHNJaXdpWkdWMmFXTmxJam9pTnpWaFl6UmhaVE10WmpreVpDMDBaVGxpTFRobU1qQXRNR000WlRJd1lURmlNV013SW4xOS5fQ2s2WHJlaVBFaTR1UGNyU1NTT2hzUVpkdUVTUGhLZExOQnhFYU00aWFwcld4WGZ3dU9yQWxUcGhaVm5QdXlQZ0ktcUw0c3luZ3NRb1pBdWNJYVdDdwACYXBwbGVUb2tlbgBBAAAAODYwMjZhZDQ5NzY2MjVkZTJjNWJjYjViMWMzOTQzZTdlMWZlMmNlNWY5NGJjYTRjYzM5NTQ2Mzk0MGI1N2Y5YQACdXNlcm5hbWUACwAAAG5lZWRsZXRhaWwAAmRldmljZUlkACUAAAA3NWFjNGFlMy1mOTJkLTRlOWItOGYyMC0wYzhlMjBhMWIxYzAAAA==
+//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing CommandKey - string("REGAPN")
+//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing Arguments - []
 // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""

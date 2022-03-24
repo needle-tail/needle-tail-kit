@@ -120,8 +120,7 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let services = services else {
             throw VideoErrors.remoteAddressNil
         }
-        services.registedNewUser = false
-        
+
         var userConfig: UserConfig?
         repeat {
             if services.registedNewUser {
