@@ -23,11 +23,17 @@ extension IRCService: IRCClientDelegate {
         }
     
     // MARK: - IRCMessages
+    
+    /// This method is used to get extra information from server activity, For instance in our case we are using it to send back acknowledgements of different types of activity.
+    /// - Parameters:
+    ///   - client: Our ``IRCClient``
+    ///   - info: An array of string info sent back from the server
     public func client(_ client: IRCClient, info: [String]) async throws {
         guard let info = info.first else { return }
         guard let data = Data(base64Encoded: info) else { return }
         let buffer = ByteBuffer(data: data)
-        registedNewUser = try BSONDecoder().decode(RegistrationAck.self, from: Document(buffer: buffer)).registered
+        let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
+        acknowledgment = ack.acknowledgment
     }
     
     

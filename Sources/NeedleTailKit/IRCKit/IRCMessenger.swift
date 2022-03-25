@@ -39,7 +39,7 @@ public class IRCMessenger: CypherServerTransportClient {
     public var store: NeedleTailStore
     internal var messenger: CypherMessenger?
     private var keyBundle: String = ""
-    
+    private var publishingKeyBundle: Bool = false
     
     public init(
         username: Username,
@@ -106,28 +106,40 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     public func publishKeyBundle(_ data: UserConfig) async throws {
+        publishingKeyBundle = true
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         await self.services?.client?.publishKeyBundle(self.keyBundle)
     }
-    
+
 
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        guard let services = services else {
-            throw VideoErrors.remoteAddressNil
-        }
+        guard let services = services else { throw IRCClientError.nilService }
 
         var userConfig: UserConfig?
-        repeat {
-            if services.registedNewUser {
-                userConfig = await services.readKeyBundle(packet)
+        
+        if !publishingKeyBundle {
+            userConfig = await services.readKeyBundle(packet)
+        } else {
+            repeat {
+            switch services.acknowledgment {
+            case .registered(let registered):
+                if Bool(registered) != nil {
+                    userConfig = await services.readKeyBundle(packet)
+                }
+                publishingKeyBundle = false
+            default:
+                break
             }
-        } while services.registedNewUser == false
+            } while services.acknowledgment == .none
+        }
+        
         guard let userConfig = userConfig else { throw IRCClientError.nilUsedConfig }
+        services.acknowledgment = .none
         return userConfig
     }
 
@@ -202,6 +214,16 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
 
+    struct AuthPacket: Codable {
+        let jwt: String?
+        let appleToken: String?
+        let apnToken: String?
+        let username: Username
+        let recipient: Username?
+        let deviceId: DeviceId?
+        let config: UserConfig?
+    }
+
     
     struct SignUpResponse: Codable {
         let existingUser: Username?
@@ -255,15 +277,6 @@ struct IRCCypherMessage<Message: Codable>: Codable {
     }
 }
 
-public struct AuthPacket: Codable {
-    public let jwt: String?
-    public let appleToken: String?
-    public let apnToken: String?
-    public let username: Username
-    public let recipient: Username?
-    public let deviceId: DeviceId?
-    public let config: UserConfig?
-}
 
 extension IRCMessenger {
 
@@ -317,11 +330,11 @@ extension IRCMessenger {
     public func recipient(name: String) async throws -> IRCMessageRecipient {
         switch type {
         case .channel:
-            guard let name = IRCChannelName(name) else { throw ConnectionKitErrors.nilIRCChannelName }
+            guard let name = IRCChannelName(name) else { throw IRCClientError.nilChannelName }
             return .channel(name)
         case .im:
             print(name)
-            guard let validatedName = IRCNickName(name) else { throw ConnectionKitErrors.nilIRCNickName }
+            guard let validatedName = IRCNickName(name) else { throw IRCClientError.nilNickName }
             return .nickname(validatedName)
         }
     }

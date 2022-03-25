@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum ConnectionKitErrors: Swift.Error {
-    case nilIRCChannelName
-    case nilIRCNickName
-}
+//enum ConnectionKitErrors: Swift.Error {
+//    case nilIRCChannelName
+//    case nilIRCNickName
+//}

@@ -17,4 +17,7 @@ internal enum IRCClientError: Error {
     case nilUsedConfig
     case nilToken
     case urlResponseNil
+    case nilService
+    case nilChannelName
+    case nilNickName
 }
