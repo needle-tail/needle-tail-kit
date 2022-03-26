@@ -12,7 +12,6 @@ import AsyncIRC
 //MARK: - Outbound
 extension IRCService {
     
-    //TODO: Handle ACK
     internal func publishKeyBundle(_ keyBundle: String) async {
         await client?.publishKeyBundle(keyBundle)
     }

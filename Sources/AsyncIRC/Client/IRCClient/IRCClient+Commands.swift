@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  IRCClient+Commands.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -9,39 +9,33 @@ import NIO
 
 extension IRCClient {
     
-    public func sendMessages<T: Collection>(_ messages: T) async
-    where T.Element == IRCMessage
-    {
-        // TBD: this looks a little more difficult than necessary.
-        guard let channel = channel else {
-            print("fail")
-            return
-        }
+    
+    public func sendMessage(_ message: IRCMessage) async {
         
-        let count = messages.count
-        if count == 0 {
-            print("succeed")
-            return
-        }
-        if count == 1 {
-            do {
-                guard let message = messages.first else { return }
-                try await channel.writeAndFlush(message)
-            } catch {
-                print(error)
+        consumer.feedConsumer([message])
+        
+            func getNextMessage() async throws -> SequenceResult? {
+                return try await iterator?.next()
             }
-        }
-        //        channel.flush()
+
+            let res = try? await getNextMessage()
+            switch res {
+            case .success(let message):
+                do {
+                    try await channel?.writeAndFlush(message)
+                } catch {
+                    print(error)
+                }
+                consumedState = .consumed
+            case .retry:
+           await sendMessage(message)
+            default:
+                break
+            }
+       
     }
-    
+
     // MARK: - Commands
-    
-    open func changeNick(_ nick: IRCNickName) async {
-        await send(.NICK(nick))
-    }
-    
-    
-    
     internal func _register(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not connecting?")
@@ -61,9 +55,7 @@ extension IRCClient {
         await send(.USER(user))
     }
     
-    //TODO: Handle ACK
-    public func
-    publishKeyBundle(_ keyBundle: String) async {
+    public func publishKeyBundle(_ keyBundle: String) async {
         await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
     }
     
@@ -71,9 +63,18 @@ extension IRCClient {
         await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
     }
     
-    //TODO: Handle ACK
     public func registerAPN(_ packet: String) async {
         await send(.otherCommand("REGAPN", [packet]))
+    }
+    
+    public func changeNick(_ nick: IRCNickName) async {
+        await send(.NICK(nick))
+    }
+    
+    internal func _resubscribe() {
+        if !subscribedChannels.isEmpty {
+            // TODO: issues JOIN commands
+        }
     }
     
     internal func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
@@ -94,13 +95,6 @@ extension IRCClient {
             exit(0)
         }
         print("closed server")
-    }
-    
-    
-    internal func _resubscribe() {
-        if !subscribedChannels.isEmpty {
-            // TODO: issues JOIN commands
-        }
     }
     
     

@@ -21,6 +21,7 @@ final class Handler : ChannelInboundHandler {
     }
     
     func channelActive(context: ChannelHandlerContext) {
+        print("Client Handler Active")
     }
     
     func channelInactive(context: ChannelHandlerContext) {

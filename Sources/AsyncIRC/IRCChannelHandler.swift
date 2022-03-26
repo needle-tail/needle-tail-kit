@@ -45,7 +45,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-    private weak var needleTailStore: NeedleTailStore?
+    private var needleTailStore: NeedleTailStore?
     private(set) var jobQueue: IRCJobQueue!
     internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger

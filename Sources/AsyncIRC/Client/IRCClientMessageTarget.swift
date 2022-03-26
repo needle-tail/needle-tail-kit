@@ -14,14 +14,18 @@
 
 import NIOCore
 
-public protocol IRCClientMessageTarget : IRCMessageTarget {
-}
+public protocol IRCClientMessageTarget : IRCMessageTarget {}
 
 public extension IRCClientMessageTarget {
-    
     func send(_ command: IRCCommand, tags: [IRCTags]? = nil) async {
-        let message = IRCMessage(command: command, tags: tags)
-        await sendMessages([ message ])
+        do {
+            let message = IRCMessage(command: command, tags: tags)
+            await sendMessage(message)
+//            for try await message in MessageSequence(message: message) {
+//                await sendMessage(message)
+//            }
+        } catch {
+            print(error)
+        }
     }
-    
 }

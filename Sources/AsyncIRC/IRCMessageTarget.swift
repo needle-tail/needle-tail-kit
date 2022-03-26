@@ -21,7 +21,7 @@ import AsyncCollections
  * A `IRCMessageTarget` is the reverse to the `IRCMessageDispatcher`.
  *
  * Both the `IRCClient` and the `IRCServer` objects implement this protocol
- * and just its `sendMessages` and `origin` methods.
+ * and just its `sendMessage` and `origin` methods.
  *
  * Extensions then provide extra functionality based on this, the PoP way.
  */
@@ -29,49 +29,76 @@ public protocol IRCMessageTarget {
     
     var origin : String? { get }
     var tags: [IRCTags]? { get }
-    
-    func sendMessages<T: Collection>(_ messages: T) async
-    where T.Element == IRCMessage
-    
+    func sendMessage(_ message: IRCMessage) async
 }
 
 
 
 public extension IRCMessageTarget {
-
+    
     func sendMessage(_ message: IRCMessage) async {
-        await sendMessages([ message ])
+        await sendMessage(message)
     }
 }
 
 public extension IRCMessageTarget {
     
     func sendMessage(_ text: String, to recipients: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
-      guard !recipients.isEmpty else { return }
-      
-      let lines = text.components(separatedBy: "\n")
-                      .map { $0.replacingOccurrences(of: "\r", with: "") }
-        let messages = lines.map {
-             IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
-      }
-      await sendMessages(messages)
-    }
-
-
-    func sendNotice(_ text: String, to recipients: IRCMessageRecipient...) async {
         guard !recipients.isEmpty else { return }
         
         let lines = text.components(separatedBy: "\n")
-                        .map { $0.replacingOccurrences(of: "\r", with: "") }
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
         
-          let messages = lines.map {
-               IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
+//        var sequence: MessageSequence?
+        
+        _ = await lines.asyncMap {
+            let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
+            await sendMessage(message)
+//            sequence = MessageSequence(message: message)
         }
-        await sendMessages(messages)
-    } 
+//
+//        do {
+//            var iterator = sequence?.makeAsyncIterator()
+//            guard let message = try await iterator?.next() else { return }
+//            await sendMessage(message)
+//        } catch {
+//            print(error)
+//        }
+    }
+    
+    
+    func sendNotice(_ text: String, to recipients: IRCMessageRecipient...) async {
+        guard !recipients.isEmpty else { return }
+        
+//        var sequence: MessageSequence?
+        
+        let lines = text.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
+        _ = await lines.asyncMap {
+            let message =  IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
+            await sendMessage(message)
+//            sequence = MessageSequence(message: message)
+        }
+        
+//        do {
+//            var iterator = sequence?.makeAsyncIterator()
+//            guard let message = try await iterator?.next() else { return }
+//            await sendMessage(message)
+//        } catch {
+//            print(error)
+//        }
+    }
     
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
-        await sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
+//        do {
+            let message = IRCMessage(origin: origin, command: .numeric(code, args), tags: tags)
+            await sendMessage(message)
+//            for try await message in MessageSequence(message: message) {
+//                await sendMessage(message)
+//            }
+//        } catch {
+//            print(error)
+//        }
     }
 }
 #endif

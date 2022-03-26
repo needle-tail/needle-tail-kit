@@ -34,6 +34,7 @@ extension IRCService: IRCClientDelegate {
         let buffer = ByteBuffer(data: data)
         let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
         acknowledgment = ack.acknowledgment
+        print("INFO RECEIVED - ACK: - ", acknowledgment)
     }
     
     

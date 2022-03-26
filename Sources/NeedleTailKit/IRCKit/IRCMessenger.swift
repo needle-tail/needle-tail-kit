@@ -23,7 +23,7 @@ import NIOTransportServices
 #endif
 
 public class IRCMessenger: CypherServerTransportClient {
-    public var isConnected: Bool = false
+    public var isConnected: Bool = true
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
@@ -78,16 +78,16 @@ public class IRCMessenger: CypherServerTransportClient {
     
     public func startService(_ packet: String? = nil) async {
         if self.services == nil {
-        self.services = await IRCService(
-            signer: self.signer,
-            authenticated: self.authenticated,
-            userState: self.userState,
-            clientOptions: clientOptions,
-            delegate: self.delegate,
-            store: self.store
-        )
+            self.services = await IRCService(
+                signer: self.signer,
+                authenticated: self.authenticated,
+                userState: self.userState,
+                clientOptions: clientOptions,
+                delegate: self.delegate,
+                store: self.store
+            )
         }
-        await self.services?.resume(packet)
+        await resume(packet)
     }
     
     public func registerBundle(
@@ -105,6 +105,8 @@ public class IRCMessenger: CypherServerTransportClient {
         }
     }
     
+    /// We only Publish Key Bundles when a user is adding mutli-devcie support.
+    /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     public func publishKeyBundle(_ data: UserConfig) async throws {
         publishingKeyBundle = true
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
@@ -112,29 +114,31 @@ public class IRCMessenger: CypherServerTransportClient {
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         await self.services?.client?.publishKeyBundle(self.keyBundle)
     }
-
-
+    
+    /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
+    /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is causght and we will call ``publishKeyBundle(_ data:)``
+    /// from **CypherTextKit**'s **registerMessenger()** method.
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         guard let services = services else { throw IRCClientError.nilService }
-
+        
         var userConfig: UserConfig?
         
         if !publishingKeyBundle {
             userConfig = await services.readKeyBundle(packet)
         } else {
             repeat {
-            switch services.acknowledgment {
-            case .registered(let registered):
-                if Bool(registered) != nil {
-                    userConfig = await services.readKeyBundle(packet)
+                switch services.acknowledgment {
+                case .registered(let registered):
+                    if Bool(registered) != nil {
+                        userConfig = await services.readKeyBundle(packet)
+                    }
+                    publishingKeyBundle = false
+                default:
+                    break
                 }
-                publishingKeyBundle = false
-            default:
-                break
-            }
             } while services.acknowledgment == .none
         }
         
@@ -142,7 +146,8 @@ public class IRCMessenger: CypherServerTransportClient {
         services.acknowledgment = .none
         return userConfig
     }
-
+    
+    
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
@@ -170,7 +175,7 @@ public class IRCMessenger: CypherServerTransportClient {
             config: signer.userConfig
         )
     }
-
+    
     private func configRequest(_ jwt: String, config: UserConfig) -> AuthPacket {
         return AuthPacket(
             jwt: jwt,
@@ -213,7 +218,7 @@ public class IRCMessenger: CypherServerTransportClient {
             config: nil
         )
     }
-
+    
     struct AuthPacket: Codable {
         let jwt: String?
         let appleToken: String?
@@ -223,7 +228,7 @@ public class IRCMessenger: CypherServerTransportClient {
         let deviceId: DeviceId?
         let config: UserConfig?
     }
-
+    
     
     struct SignUpResponse: Codable {
         let existingUser: Username?
@@ -241,12 +246,19 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     // MARK: - Lifecycle
-    public func resume() async {
-        await services?.resume()
+    public func resume(_ regPacket: String? = nil) async {
+        do {
+            try await services?.resume()
+            self.authenticated = .authenticated
+        } catch {
+            self.authenticated = .authenticationFailure
+            await resume()
+        }
     }
     
     public func suspend() async {
         await services?.suspend()
+        self.authenticated = .unauthenticated
     }
     
     public func close() async {
@@ -279,7 +291,7 @@ struct IRCCypherMessage<Message: Codable>: Codable {
 
 
 extension IRCMessenger {
-
+    
     public func reconnect() async throws {}
     
     public func disconnect() async throws {}
@@ -295,8 +307,8 @@ extension IRCMessenger {
     }
     
     public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-            self.delegate = delegate
-        }
+        self.delegate = delegate
+    }
     
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         fatalError()

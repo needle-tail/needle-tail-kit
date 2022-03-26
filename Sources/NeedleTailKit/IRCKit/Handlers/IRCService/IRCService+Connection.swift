@@ -12,29 +12,24 @@ extension IRCService {
     
     
     // MARK: - Connection
-    private func handleAccountChange() async {
-        await self.connectIfNecessary()
+    private func handleAccountChange() async throws {
+        try await self.connectIfNecessary()
     }
     
-    private func connectIfNecessary(_ regPacket: String? = nil) async {
+    private func connectIfNecessary(_ regPacket: String? = nil) async throws {
         guard case .offline = userState.state else { return }
         guard let options = activeClientOptions else { return }
         guard let store = store else { return }
         self.client = IRCClient(options: options, store: store)
         self.client?.delegate = self
         userState.transition(to: .connecting)
-        do {
-            _ = try await client?.connecting(regPacket)
-                self.authenticated = .authenticated
-        } catch {
-            self.authenticated = .authenticationFailure
-               await self.connectIfNecessary(regPacket)
-        }
+        _ = try await client?.connecting(regPacket)
     }
 
+
     // MARK: - Lifecycle
-    public func resume(_ regPacket: String? = nil) async {
-        await connectIfNecessary(regPacket)
+    public func resume(_ regPacket: String? = nil) async throws {
+        try await connectIfNecessary(regPacket)
     }
     
     

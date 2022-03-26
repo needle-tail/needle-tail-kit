@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
+import Foundation
 
 /**
  * An IRC message
@@ -21,8 +21,11 @@ import struct Foundation.Data
  * arguments).
  */
 
-public struct IRCMessage: CustomStringConvertible {
 
+public struct IRCMessage: CustomStringConvertible {
+    
+    let id = UUID()
+    
     public enum CodingKeys: String, CodingKey {
         case origin, target, command, arguments, tags
     }
@@ -163,5 +166,11 @@ public struct IRCMessage: CustomStringConvertible {
         try c.encode(command.commandAsString, forKey: .command)
         try c.encode(command.arguments,       forKey: .arguments)
         try c.encodeIfPresent(tags, forKey: .tags)
+    }
+}
+
+extension IRCMessage: Equatable {
+    public static func == (lhs: IRCMessage, rhs: IRCMessage) -> Bool {
+        return lhs.id == rhs.id
     }
 }

@@ -34,7 +34,7 @@ open class IRCClient : IRCClientMessageTarget {
     public var origin : String? { return nil }
     public let options   : IRCClientOptions
     public let eventLoop : EventLoop
-    public var delegate  : IRCClientDelegate?
+    public weak var delegate  : IRCClientDelegate?
     public var tags: [IRCTags]?
     let groupManager: EventLoopGroupManager
     var messageOfTheDay = ""
@@ -52,6 +52,9 @@ open class IRCClient : IRCClientMessageTarget {
     internal weak var store: NeedleTailStore?
     var retryInfo = IRCRetryInfo()
     var channel : Channel? { get { return state.channel } }
+    let consumer = Consumer()
+    var iterator: MessageSequence.Iterator?
+    
     
     public enum Error : Swift.Error {
         case writeError(Swift.Error)
@@ -153,6 +156,8 @@ open class IRCClient : IRCClientMessageTarget {
         self.eventLoop = group!.next()
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
+        let seq = MessageSequence(consumer: consumer)
+        iterator = seq.makeAsyncIterator()
     }
     
     deinit {
