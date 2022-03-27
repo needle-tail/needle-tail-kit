@@ -9,7 +9,7 @@ import Foundation
 import NIOCore
 
 
-struct MessageSequence: AsyncSequence {
+public struct MessageSequence: AsyncSequence {
     typealias Element = SequenceResult
     
     
@@ -69,7 +69,7 @@ enum ConsumedState {
 var consumedState = ConsumedState.consumed
 var nextResult = NextResult.preparing
 
-final class Consumer {
+public final class Consumer {
     
     internal var wb = IRCMessageBuffer(CircularBuffer<IRCMessage>())
     
