@@ -66,7 +66,7 @@ enum ConsumedState {
     case consumed, waiting
 }
 
-var consumedState = ConsumedState.consumed
+public var consumedState = ConsumedState.consumed
 var nextResult = NextResult.preparing
 
 public final class Consumer {
@@ -76,7 +76,7 @@ public final class Consumer {
     public init() {}
     
     
-    func feedConsumer(_ messages: [IRCMessage]) {
+    public func feedConsumer(_ messages: [IRCMessage]) {
         wb.append(contentsOf: messages)
     }
     
