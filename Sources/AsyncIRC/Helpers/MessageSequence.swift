@@ -62,7 +62,7 @@ enum NextResult {
     case ready((IRCMessage, Bool)?), preparing
 }
 
-enum ConsumedState {
+public enum ConsumedState {
     case consumed, waiting
 }
 
