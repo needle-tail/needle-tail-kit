@@ -10,16 +10,16 @@ import NIOCore
 
 
 public struct MessageSequence: AsyncSequence {
-    typealias Element = SequenceResult
+    public typealias Element = SequenceResult
     
     
     let consumer: Consumer
     
-    init(consumer: Consumer) {
+    public init(consumer: Consumer) {
         self.consumer = consumer
     }
     
-    func makeAsyncIterator() -> Iterator {
+    public func makeAsyncIterator() -> Iterator {
         return MessageSequence.Iterator(consumer: consumer)
     }
     
@@ -27,9 +27,9 @@ public struct MessageSequence: AsyncSequence {
 }
 
 extension MessageSequence {
-    struct Iterator: AsyncIteratorProtocol {
+    public struct Iterator: AsyncIteratorProtocol {
         
-        typealias Element = SequenceResult
+        public typealias Element = SequenceResult
         
         let consumer: Consumer
         
@@ -37,7 +37,7 @@ extension MessageSequence {
             self.consumer = consumer
         }
         
-        mutating func next() async throws -> SequenceResult? {
+        mutating public func next() async throws -> SequenceResult? {
             let result = consumer.next()
                 var res: SequenceResult?
 
@@ -54,7 +54,7 @@ extension MessageSequence {
     }
 }
 
-enum SequenceResult {
+public enum SequenceResult {
     case success(IRCMessage), retry
 }
 
@@ -73,7 +73,7 @@ public final class Consumer {
     
     internal var wb = IRCMessageBuffer(CircularBuffer<IRCMessage>())
     
-    init() {}
+    public init() {}
     
     
     func feedConsumer(_ messages: [IRCMessage]) {
