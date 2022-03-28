@@ -50,6 +50,7 @@ public final class IRCMessageParser {
         case firstCharacterIsNil
         case argumentsAreNil
         case commandIsNil
+        case originIsNil
         case firstIndexChoiceNil
         case messageWithTagsNil
         case messageWithWhiteSpaceNil
@@ -86,6 +87,7 @@ public final class IRCMessageParser {
 
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
         var command = ""
+        var parameter = ""
         ///This stripedMessage represents our irc message portion without tags. If we have the source then we will get the source here
         
         /// Always our origin
@@ -98,8 +100,10 @@ public final class IRCMessageParser {
         //This is probably really bad, if we get a origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
         if stripedMessage.hasPrefix(":") {
             command = spreadStriped[1]
+            parameter = spreadStriped[2]
         } else {
             command = spreadStriped[0]
+            parameter = spreadStriped[1]
         }
         
         guard let command = try parseCommand(
@@ -113,14 +117,14 @@ public final class IRCMessageParser {
         let rest = stripedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
         let commandIndex = rest.startIndex
         let commandMessage = rest[commandIndex...]
-        let commandSubstring = stripedMessage[commandIndex..<firstSpaceIndex]
 
-        guard let arguments = try parseArguments(
+        guard let arguments = try parseArgument(
+            commandKey: commandKey,
+            message: message, 
             commandMessage: String(commandMessage),
-            commandSubstring: String(commandSubstring),
-            stripedMessage: String(stripedMessage)
+            stripedMessage: stripedMessage,
+            parameter: parameter
         ) else { throw MessageParserError.argumentsAreNil }
-
         
         var tags: [IRCTags]?
         if seperatedTags != [] {
@@ -128,15 +132,25 @@ public final class IRCMessageParser {
             tags: seperatedTags[0]
         )
         }
-
+        
 
         switch commandKey {
-        case .string(let s):
+        case .string(let commandKey):
+
+//            :needletail!needletail@localhost JOIN #NIO
+            if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
+                guard let unwrapOrigin = origin else { throw MessageParserError.originIsNil }
+                if unwrapOrigin.contains("@") && unwrapOrigin.contains("!") {
+                    let seperatedJoin = unwrapOrigin.components(separatedBy: "!")
+                    origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
+                }
+            }
+
             ircMessage = IRCMessage(origin: origin,
-                                    command: try IRCCommand(s, arguments: arguments), tags: tags)
-        case .int(let i):
+                                    command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
+        case .int(let commandKey):
             ircMessage = IRCMessage(origin: origin,
-                                    command: try IRCCommand(i, arguments: arguments), tags: tags)
+                                    command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
 
         }
         self.logger.info("Parsed Message \(ircMessage)")
@@ -167,43 +181,54 @@ public final class IRCMessageParser {
         return commandKey
     }
     
-    func parseArguments(
+    func parseArgument(
+        commandKey: IRCCommandKey,
+        message: String,
         commandMessage: String,
-        commandSubstring: String,
-        stripedMessage: String
+        stripedMessage: String,
+        parameter: String
     ) throws -> [String]? {
+        
         var args = [String]()
-        guard let firstCharacter = commandSubstring.first else { throw MessageParserError.firstCharacterIsNil }
-        if commandSubstring.hasPrefix("NICK") || commandSubstring.hasPrefix("JOIN") {
-            args.append(commandMessage)
-        } else if commandSubstring.hasPrefix("USER") {
-            let initialBreak = commandMessage.components(separatedBy: " :")
-            var spreadArgs = initialBreak[0].components(separatedBy: " ")
-            spreadArgs.append(initialBreak[1])
-            args = spreadArgs
-        } else if commandSubstring.hasPrefix("PRIVMSG") {
-            let initialBreak = stripedMessage.components(separatedBy: " ")
-            var newArgArray: [String] = []
-            newArgArray.append(initialBreak[1])
-            newArgArray.append(initialBreak[2])
-            args = newArgArray
-        } else if commandSubstring.hasPrefix("READKEYBNDL") || commandSubstring.hasPrefix("PUBKEYBNDL") || commandSubstring.hasPrefix("REGAPN") {
-            let seperated = stripedMessage.components(separatedBy: ":")
-            args.append(seperated[1])
-        } else if commandMessage.hasPrefix("MODE") {
-            let seperated = commandMessage.components(separatedBy: " ")
-            args.append(seperated[1])
-        } else if !firstCharacter.isLetter {
-            let seperated = stripedMessage.components(separatedBy: ":")
-            guard let argument = seperated.last?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-            args.append(argument)
+        switch commandKey {
+        case .int(_):
+//            :localhost 332 Guest31 #NIO :Welcome to #nio!
+            var spread = message.components(separatedBy: " ")
+            let right = spread[4...]
+            let left = spread[0...3]
+           spread = Array(left)
+            let rightArray = Array(right)
+            let joinedString = rightArray.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let newArray = spread + [joinedString]
+            args.append(contentsOf: newArray)
+        case .string(let commandKey):
+            if commandKey.hasPrefix("NICK") {
+                args.append(parameter)
+            } else if commandKey.hasPrefix("USER") {
+                let initialBreak = commandMessage.components(separatedBy: " :")
+                var spreadArgs = initialBreak[0].components(separatedBy: " ")
+                spreadArgs.append(initialBreak[1])
+                args = spreadArgs
+            } else if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
+                args.append(parameter)
+            } else if commandKey.hasPrefix("PRIVMSG") {
+                let initialBreak = stripedMessage.components(separatedBy: " ")
+                var newArgArray: [String] = []
+                newArgArray.append(initialBreak[1])
+                newArgArray.append(initialBreak[2])
+                args = newArgArray
+            } else if commandKey.hasPrefix("MODE") {
+                let seperated = commandMessage.components(separatedBy: " ")
+                args.append(seperated[1])
+            } else if commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PUBKEYBNDL") || commandKey.hasPrefix("REGAPN") {
+                let seperated = stripedMessage.components(separatedBy: ":")
+                args.append(seperated[1])
+            }
         }
-        self.logger.info("Parsing Arguments - \(args)")
         return args
     }
-//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing Message.... REGAPN :twEAAAJqd3QADAEAAGV5SmhiR2NpT2lKbFpESTFOVEU1SWl3aWRIbHdJam9pU2xkVUluMC5leUpsZUhBaU9qRTJORGd3T0RVd01qTXVPRFUzTURBMU1Td2laR1YyYVdObElqcDdJblZ6WlhJaU9pSnVaV1ZrYkdWMFlXbHNJaXdpWkdWMmFXTmxJam9pTnpWaFl6UmhaVE10WmpreVpDMDBaVGxpTFRobU1qQXRNR000WlRJd1lURmlNV013SW4xOS5fQ2s2WHJlaVBFaTR1UGNyU1NTT2hzUVpkdUVTUGhLZExOQnhFYU00aWFwcld4WGZ3dU9yQWxUcGhaVm5QdXlQZ0ktcUw0c3luZ3NRb1pBdWNJYVdDdwACYXBwbGVUb2tlbgBBAAAAODYwMjZhZDQ5NzY2MjVkZTJjNWJjYjViMWMzOTQzZTdlMWZlMmNlNWY5NGJjYTRjYzM5NTQ2Mzk0MGI1N2Y5YQACdXNlcm5hbWUACwAAAG5lZWRsZXRhaWwAAmRldmljZUlkACUAAAA3NWFjNGFlMy1mOTJkLTRlOWItOGYyMC0wYzhlMjBhMWIxYzAAAA==
-//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing CommandKey - string("REGAPN")
-//    2022-03-24T08:23:43+0800 info IRCTask -  : Parsing Arguments - []
+    
+    
 // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""

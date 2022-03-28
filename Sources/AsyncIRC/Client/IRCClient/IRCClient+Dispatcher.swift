@@ -37,7 +37,7 @@ extension IRCClient : IRCDispatcher {
             // <IRCCmd: 366 args=Guest1,#ZeeQL,End of /NAMES list> localhost -
         case .numeric(.replyNameReply, _ /*let args*/):
 #if false
-            // messageOfTheDay += (args.last ?? "") + "\n"
+             messageOfTheDay += (args.last ?? "") + "\n"
 #else
             break
 #endif
@@ -56,7 +56,7 @@ extension IRCClient : IRCDispatcher {
             try await delegate?.client(self, keyBundle: bundle)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
-            guard args.count > 2, let channel = IRCChannelName(args[1]) else {
+            guard args.count > 2, let channel = IRCChannelName(args[3]) else {
                 return print("ERROR: topic args incomplete:", message)
             }
             await delegate?.client(self, changeTopic: args[2], of: channel)

@@ -280,7 +280,7 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    init(_ v: Int, _ arguments: String...) async throws {
+    init(_ v: Int, _ arguments: String...) throws {
         try self.init(v, arguments: arguments)
     }
 }
