@@ -16,7 +16,7 @@ enum _IRCTaskKey: String, Codable {
     case parseMessageDeliveryStateChangeTask = "b"
 }
 
-struct ParseMessageTask: Codable {
+public struct ParseMessageTask: Codable {
     private enum CodingKeys: String, CodingKey {
         case message = "a"
     }
@@ -161,7 +161,7 @@ enum IRCTask: Codable, IRCStoredTask {
         case .parseMessage(let message):
 //            debugLog("Sending message to \(message.recipient)")
 //            return try await TaskHelpers.writeMessageTask(task: message, messenger: messenger)
-            return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: IRCMessageParser(logger: self.logger))
+            return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: IRCMessageParser())
         case .parseMessageDeliveryStateChangeTask(let task):
 //            let result = try await messenger._markMessage(byId: task.localId, as: task.newState)
 //            switch result {
@@ -197,7 +197,7 @@ enum IRCTask: Codable, IRCStoredTask {
 @available(macOS 12, iOS 15, *)
 enum IRCTaskHelpers {
 
-    fileprivate static func parseMessageTask(task: ParseMessageTask, ircMessageParser: IRCMessageParser) async throws -> IRCMessage {
+     static func parseMessageTask(task: ParseMessageTask, ircMessageParser: IRCMessageParser) async throws -> IRCMessage {
         //Parse
         Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
             return try await ircMessageParser.parseMessage(task.message)

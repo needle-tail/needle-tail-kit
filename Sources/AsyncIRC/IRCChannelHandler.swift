@@ -49,11 +49,16 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private(set) var jobQueue: IRCJobQueue!
     internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger
+    let consumer = ParseConsumer()
+    var iterator: ParserSequence.Iterator?
+    
     
     public init(logger: Logger = Logger(label: "NeedleTailKit"), needleTailStore: NeedleTailStore?) {
         self.logger = logger
         self.needleTailStore = needleTailStore
         self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
+        let seq = ParserSequence(consumer: consumer)
+        iterator = seq.makeAsyncIterator()
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -85,13 +90,40 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            guard let message = await self.queueMessage(line: line) else {
+            guard let message = await self.processMessage(line) else {
+//            guard let message = await self.queueMessage(line: line) else {
             promise.fail(ParserError.jobFailedToParse)
             return try await promise.futureResult.get()
             }
             return message
         }
         return promise.futureResult
+    }
+    
+    let parser = IRCMessageParser()
+    public func processMessage(_ message: String) async -> IRCMessage? {
+        
+        consumer.feedConsumer([message])
+        
+            func getNextMessage() async throws -> ParseSequenceResult? {
+                return try await iterator?.next()
+            }
+
+            let res = try? await getNextMessage()
+            switch res {
+            case .success(let message):
+                do {
+                    consumedState = .consumed
+                    return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
+                } catch {
+                    print(error)
+                }
+            case .retry:
+           _ = await processMessage(message)
+            default:
+                break
+            }
+       return nil
     }
 
     private func queueMessage(line: String) async -> IRCMessage? {

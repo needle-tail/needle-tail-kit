@@ -62,8 +62,8 @@ public final class IRCMessageParser {
     }
     var logger: Logger
     
-    init(logger: Logger) {
-        self.logger = logger
+    init() {
+        self.logger = Logger(label: "IRCMessageParser")
     }
     
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
@@ -139,7 +139,6 @@ public final class IRCMessageParser {
             
             //            :needletail!needletail@localhost JOIN #NIO
             if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
-                //                guard let unwrapOrigin = origin else { throw MessageParserError.originIsNil }
                 if let unwrapOrigin = origin {
                     if unwrapOrigin.contains("@") && unwrapOrigin.contains("!") {
                         let seperatedJoin = unwrapOrigin.components(separatedBy: "!")
