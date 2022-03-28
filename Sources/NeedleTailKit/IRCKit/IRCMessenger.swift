@@ -36,7 +36,7 @@ public class IRCMessenger: CypherServerTransportClient {
     internal var services: IRCService?
     private var userState: UserState
     private var clientOptions: ClientOptions?
-    public var store: NeedleTailStore
+//    public var store: NeedleTailStore
     internal var messenger: CypherMessenger?
     private var keyBundle: String = ""
     private var publishingKeyBundle: Bool = false
@@ -47,12 +47,12 @@ public class IRCMessenger: CypherServerTransportClient {
         signer: TransportCreationRequest,
         appleToken: String?,
         userState: UserState,
-        clientOptions: ClientOptions?,
-        store: NeedleTailStore
+        clientOptions: ClientOptions?
+//        store: NeedleTailStore
     ) async throws {
         self.userState = userState
         self.clientOptions = clientOptions
-        self.store = store
+//        self.store = store
         self.username = username
         self.deviceId = deviceId
         self.signer = signer
@@ -62,8 +62,8 @@ public class IRCMessenger: CypherServerTransportClient {
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
-        options: ClientOptions?,
-        store: NeedleTailStore
+        options: ClientOptions?
+//        store: NeedleTailStore
     ) async throws -> IRCMessenger {
         return try await IRCMessenger(
             username: transportRequest.username,
@@ -71,8 +71,8 @@ public class IRCMessenger: CypherServerTransportClient {
             signer: transportRequest,
             appleToken: appleToken,
             userState: UserState(identifier: ""),
-            clientOptions: options,
-            store: store
+            clientOptions: options
+//            store: store
         )
     }
     
@@ -83,8 +83,8 @@ public class IRCMessenger: CypherServerTransportClient {
                 authenticated: self.authenticated,
                 userState: self.userState,
                 clientOptions: clientOptions,
-                delegate: self.delegate,
-                store: self.store
+                delegate: self.delegate
+//                store: self.store
             )
         }
         await resume(packet)

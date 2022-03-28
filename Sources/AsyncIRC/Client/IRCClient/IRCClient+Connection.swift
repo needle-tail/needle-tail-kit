@@ -36,7 +36,7 @@ extension IRCClient {
         } else {
             bootstrap = try groupManager.makeBootstrap(hostname: host, useTLS: true)
         }
-        let store = self.store
+//        let store = self.store
         return bootstrap
             .connectTimeout(.hours(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
@@ -45,7 +45,7 @@ extension IRCClient {
                 return channel.pipeline
                     .addHandlers([
 //                        ByteToMessageHandler(LineBasedFrameDecoder()),
-                        IRCChannelHandler(logger: self.logger, needleTailStore: store),
+                        IRCChannelHandler(logger: self.logger),
                         Handler(client: self)
                     ])
             }

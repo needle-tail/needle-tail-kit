@@ -15,7 +15,7 @@ final class IRCJobQueue {
         case offline
     }
     
-    private var store: NeedleTailStore
+//    private var store: NeedleTailStore
     public private(set) var runningJobs = false
     public private(set) var hasOutstandingTasks = true
     private var pausing: EventLoopPromise<Void>?
@@ -35,10 +35,10 @@ final class IRCJobQueue {
     private static var taskDecoders = [IRCTaskKey: IRCTaskDecoder]()
     private var logger: Logger
     
-    init(store: NeedleTailStore) async throws {
+    init() async throws {
         self.logger = Logger(label: "JobQueue - ")
-        self.store = store
-        self.jobs = try await store.findJobs()
+//        self.store = store
+//        self.jobs = try await store.findJobs()
     }
     
     static func registerTask<T: IRCStoredTask>(_ task: T.Type, forKey key: IRCTaskKey) {

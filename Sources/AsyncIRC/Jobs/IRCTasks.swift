@@ -140,7 +140,6 @@ enum IRCTask: Codable, IRCStoredTask {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
         try container.encode(_key, forKey: .key)
         try container.encode(makeDocument(), forKey: .document)
     }
@@ -159,8 +158,6 @@ enum IRCTask: Codable, IRCStoredTask {
     func execute() async throws -> IRCMessage? {
         switch self {
         case .parseMessage(let message):
-//            debugLog("Sending message to \(message.recipient)")
-//            return try await TaskHelpers.writeMessageTask(task: message, messenger: messenger)
             return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: IRCMessageParser())
         case .parseMessageDeliveryStateChangeTask(let task):
 //            let result = try await messenger._markMessage(byId: task.localId, as: task.newState)
@@ -198,55 +195,7 @@ enum IRCTask: Codable, IRCStoredTask {
 enum IRCTaskHelpers {
 
      static func parseMessageTask(task: ParseMessageTask, ircMessageParser: IRCMessageParser) async throws -> IRCMessage {
-        //Parse
         Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
             return try await ircMessageParser.parseMessage(task.message)
-    }
-    
-    fileprivate static func writeMessageTask(
-        task: ParseMessageTask
-    ) async throws {
-//    messenger: CypherMessenger
-//        guard messenger.authenticated == .authenticated else {
-//            debugLog("Not connected with the server")
-//            _ = try await messenger._markMessage(byId: task.localId, as: .undelivered)
-//            throw CypherSDKError.offline
-//        }
-//
-//        // Fetch the identity
-//        debugLog("Executing task: Send message")
-//
-//        if let p2pTransport = try await messenger.getEstablishedP2PConnection(with: task.recipient, deviceId: task.recipientDeviceId) {
-//            do {
-//                try await p2pTransport.sendMessage(
-//                    task.message,
-//                    messageId: task.messageId
-//                )
-//
-//                // Message may be a magic packet
-//                _ = try? await messenger._markMessage(byId: task.localId, as: .none)
-//
-//                return
-//            } catch {
-//                debugLog("P2P Connection failed to communicate")
-//            }
-//        }
-//
-//        try await messenger._writeWithRatchetEngine(ofUser: task.recipient, deviceId: task.recipientDeviceId) { ratchetEngine, rekeyState in
-//            let encodedMessage = try BSONEncoder().encode(task.message).makeData()
-//            let ratchetMessage = try ratchetEngine.ratchetEncrypt(encodedMessage)
-//
-//            let encryptedMessage = try await messenger._signRatchetMessage(ratchetMessage, rekey: rekeyState)
-//            try await messenger.transport.sendMessage(
-//                encryptedMessage,
-//                toUser: task.recipient,
-//                otherUserDeviceId: task.recipientDeviceId,
-//                pushType: task.pushType,
-//                messageId: task.messageId
-//            )
-//        }
-//
-//        // Message may be a magic packet
-//        _ = try? await messenger._markMessage(byId: task.localId, as: .none)
     }
 }

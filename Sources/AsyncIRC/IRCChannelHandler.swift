@@ -45,18 +45,18 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-    private var needleTailStore: NeedleTailStore?
+//    private var needleTailStore: NeedleTailStore?
     private(set) var jobQueue: IRCJobQueue!
-    internal var cachedStore: _NeedleTailStoreCache
+//    internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger
     let consumer = ParseConsumer()
     var iterator: ParserSequence.Iterator?
     
     
-    public init(logger: Logger = Logger(label: "NeedleTailKit"), needleTailStore: NeedleTailStore?) {
+    public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
-        self.needleTailStore = needleTailStore
-        self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
+//        self.needleTailStore = needleTailStore
+//        self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
         let seq = ParserSequence(consumer: consumer)
         iterator = seq.makeAsyncIterator()
     }
@@ -108,7 +108,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             func getNextMessage() async throws -> ParseSequenceResult? {
                 return try await iterator?.next()
             }
-
+        
             let res = try? await getNextMessage()
             switch res {
             case .success(let message):
@@ -128,7 +128,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
 
     private func queueMessage(line: String) async -> IRCMessage? {
         do {
-            self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
+//            self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
             _ = await self.jobQueue.startRunningTasks()
             await self.jobQueue.resume()
             let taskResult = try await self.jobQueue.queueTask(
