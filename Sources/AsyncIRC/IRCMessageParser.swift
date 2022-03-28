@@ -16,7 +16,7 @@ import NIO
 import Foundation
 import AsyncCollections
 import Logging
- 
+
 // Compat, remove me.
 public typealias IRCParserError = IRCMessageParser.Error
 
@@ -26,7 +26,7 @@ enum ParserError: Swift.Error {
 }
 
 public final class IRCMessageParser {
-
+    
     public enum Error : Swift.Error {
         case invalidPrefix       (Data)
         case invalidCommand      (Data)
@@ -84,7 +84,7 @@ public final class IRCMessageParser {
         } else {
             stripedMessage = message
         }
-
+        
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
         var command = ""
         var parameter = ""
@@ -92,8 +92,8 @@ public final class IRCMessageParser {
         
         /// Always our origin
         if stripedMessage.hasPrefix(":") {
-        let source = stripedMessage[..<firstSpaceIndex]
-        origin = String(source)
+            let source = stripedMessage[..<firstSpaceIndex]
+            origin = String(source)
         }
         let spreadStriped = stripedMessage.components(separatedBy: " ")
         
@@ -110,17 +110,17 @@ public final class IRCMessageParser {
             command: command,
             commandKey: commandKey
         ) else { throw MessageParserError.commandIsNil}
-
+        
         commandKey = command
         
         
         let rest = stripedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
         let commandIndex = rest.startIndex
         let commandMessage = rest[commandIndex...]
-
+        
         guard let arguments = try parseArgument(
             commandKey: commandKey,
-            message: message, 
+            message: message,
             commandMessage: String(commandMessage),
             stripedMessage: stripedMessage,
             parameter: parameter
@@ -129,35 +129,37 @@ public final class IRCMessageParser {
         var tags: [IRCTags]?
         if seperatedTags != [] {
             tags = try await parseTags(
-            tags: seperatedTags[0]
-        )
+                tags: seperatedTags[0]
+            )
         }
         
-
+        
         switch commandKey {
         case .string(let commandKey):
-
-//            :needletail!needletail@localhost JOIN #NIO
+            
+            //            :needletail!needletail@localhost JOIN #NIO
             if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
-                guard let unwrapOrigin = origin else { throw MessageParserError.originIsNil }
-                if unwrapOrigin.contains("@") && unwrapOrigin.contains("!") {
-                    let seperatedJoin = unwrapOrigin.components(separatedBy: "!")
-                    origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
+                //                guard let unwrapOrigin = origin else { throw MessageParserError.originIsNil }
+                if let unwrapOrigin = origin {
+                    if unwrapOrigin.contains("@") && unwrapOrigin.contains("!") {
+                        let seperatedJoin = unwrapOrigin.components(separatedBy: "!")
+                        origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
+                    }
                 }
             }
-
+            
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
         case .int(let commandKey):
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
-
+            
         }
         self.logger.info("Parsed Message \(ircMessage)")
         return ircMessage
     }
     
-
+    
     
     func parseCommand(
         command: String,
@@ -192,11 +194,11 @@ public final class IRCMessageParser {
         var args = [String]()
         switch commandKey {
         case .int(_):
-//            :localhost 332 Guest31 #NIO :Welcome to #nio!
+            //            :localhost 332 Guest31 #NIO :Welcome to #nio!
             var spread = message.components(separatedBy: " ")
             let right = spread[4...]
             let left = spread[0...3]
-           spread = Array(left)
+            spread = Array(left)
             let rightArray = Array(right)
             let joinedString = rightArray.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
             let newArray = spread + [joinedString]
@@ -229,7 +231,7 @@ public final class IRCMessageParser {
     }
     
     
-// https://ircv3.net/specs/extensions/message-tags.html#format
+    // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""
     ) async throws -> [IRCTags]? {
