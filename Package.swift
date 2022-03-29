@@ -42,7 +42,8 @@ let package = Package(
             dependencies: [
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
-                .product(name: "CypherMessaging", package: "CypherTextKit")
+                .product(name: "CypherMessaging", package: "CypherTextKit"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
             ],
             swiftSettings: [
                 .unsafeFlags([
