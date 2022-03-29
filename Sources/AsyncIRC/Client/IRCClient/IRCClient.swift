@@ -49,7 +49,6 @@ open class IRCClient : IRCClientMessageTarget {
     }
     
     var logger: Logger
-//    internal weak var store: NeedleTailStore?
     var retryInfo = IRCRetryInfo()
     var channel : Channel? { get { return state.channel } }
     let consumer = Consumer()
@@ -136,10 +135,8 @@ open class IRCClient : IRCClientMessageTarget {
     
     public init(
         options: IRCClientOptions
-//        store: NeedleTailStore
     ) {
         self.options = options
-//        self.store = store
         let group: EventLoopGroup?
         self.logger = Logger(label: "NeedleTail Client Logger")
 #if canImport(Network)

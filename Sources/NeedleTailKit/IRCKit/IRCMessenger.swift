@@ -36,7 +36,6 @@ public class IRCMessenger: CypherServerTransportClient {
     internal var services: IRCService?
     private var userState: UserState
     private var clientOptions: ClientOptions?
-//    public var store: NeedleTailStore
     internal var messenger: CypherMessenger?
     private var keyBundle: String = ""
     private var publishingKeyBundle: Bool = false
@@ -48,11 +47,9 @@ public class IRCMessenger: CypherServerTransportClient {
         appleToken: String?,
         userState: UserState,
         clientOptions: ClientOptions?
-//        store: NeedleTailStore
     ) async throws {
         self.userState = userState
         self.clientOptions = clientOptions
-//        self.store = store
         self.username = username
         self.deviceId = deviceId
         self.signer = signer
@@ -63,7 +60,6 @@ public class IRCMessenger: CypherServerTransportClient {
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
         options: ClientOptions?
-//        store: NeedleTailStore
     ) async throws -> IRCMessenger {
         return try await IRCMessenger(
             username: transportRequest.username,
@@ -72,7 +68,6 @@ public class IRCMessenger: CypherServerTransportClient {
             appleToken: appleToken,
             userState: UserState(identifier: ""),
             clientOptions: options
-//            store: store
         )
     }
     
@@ -84,7 +79,6 @@ public class IRCMessenger: CypherServerTransportClient {
                 userState: self.userState,
                 clientOptions: clientOptions,
                 delegate: self.delegate
-//                store: self.store
             )
         }
         await resume(packet)

@@ -19,7 +19,6 @@ extension IRCService {
     private func connectIfNecessary(_ regPacket: String? = nil) async throws {
         guard case .offline = userState.state else { return }
         guard let options = activeClientOptions else { return }
-//        guard let store = store else { return }
         self.client = IRCClient(options: options)
         self.client?.delegate = self
         userState.transition(to: .connecting)

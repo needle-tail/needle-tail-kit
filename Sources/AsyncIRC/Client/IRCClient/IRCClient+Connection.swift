@@ -36,7 +36,6 @@ extension IRCClient {
         } else {
             bootstrap = try groupManager.makeBootstrap(hostname: host, useTLS: true)
         }
-//        let store = self.store
         return bootstrap
             .connectTimeout(.hours(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),

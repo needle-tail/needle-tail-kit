@@ -45,9 +45,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-//    private var needleTailStore: NeedleTailStore?
-    private(set) var jobQueue: IRCJobQueue!
-//    internal var cachedStore: _NeedleTailStoreCache
     var logger: Logger
     let consumer = ParseConsumer()
     var iterator: ParserSequence.Iterator?
@@ -55,8 +52,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
-//        self.needleTailStore = needleTailStore
-//        self.cachedStore = _NeedleTailStoreCache(needleTailStore: self.needleTailStore)
         let seq = ParserSequence(consumer: consumer)
         iterator = seq.makeAsyncIterator()
     }
@@ -91,7 +86,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = await self.processMessage(line) else {
-//            guard let message = await self.queueMessage(line: line) else {
             promise.fail(ParserError.jobFailedToParse)
             return try await promise.futureResult.get()
             }
@@ -124,26 +118,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
                 break
             }
        return nil
-    }
-
-    private func queueMessage(line: String) async -> IRCMessage? {
-        do {
-//            self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
-            _ = await self.jobQueue.startRunningTasks()
-            await self.jobQueue.resume()
-            let taskResult = try await self.jobQueue.queueTask(
-                IRCTask.parseMessage(ParseMessageTask(message: line))
-            )
-            switch taskResult {
-            case .success(ircMessage: let message):
-                return message
-            default:
-                break
-            }
-        } catch {
-            self.logger.error("Queue Task Error: \(error)")
-        }
-        return nil
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {

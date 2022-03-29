@@ -17,7 +17,6 @@ public final class IRCService {
     internal var authenticated: AuthenticationState?
     public weak var ircDelegate: IRCClientDelegate?
     public var transportDelegate: CypherTransportClientDelegate?
-//    public weak var store: NeedleTailStore?
     internal var messenger: CypherMessenger?
     internal var client: IRCClient?
     internal var userState: UserState
@@ -33,14 +32,12 @@ public final class IRCService {
         userState: UserState,
         clientOptions: ClientOptions?,
         delegate: CypherTransportClientDelegate?
-//        store: NeedleTailStore
     ) async {
         self.signer = signer
         self.authenticated = authenticated
         self.userState = userState
         self.clientOptions = clientOptions
         self.transportDelegate = delegate
-//        self.store = store
         activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
     }
     
