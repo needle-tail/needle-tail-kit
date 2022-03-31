@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public enum IRCMessageRecipient : Hashable, Sendable {
+public enum IRCMessageRecipient: Codable, Hashable, Sendable {
   
   case channel (IRCChannelName)
   case nickname(IRCNickName)

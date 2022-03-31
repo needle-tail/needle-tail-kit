@@ -100,7 +100,8 @@ extension IRCClient : IRCDispatcher {
     open func doMessage(sender     : IRCUserID?,
                         recipients : [ IRCMessageRecipient ],
                         message    : String,
-                        tags       : [IRCTags]?) async throws {
+                        tags       : [IRCTags]?,
+                        userStatus: UserStatus<Any>?) async throws {
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return

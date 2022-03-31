@@ -346,7 +346,7 @@ extension IRCMessenger {
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
-        fatalError("There was an error!!!!!")
+        fatalError("AsyncIRC Doesn't support sendMultiRecipientMessage() in this manner")
     }
     
     public enum ConversationType: Equatable {
