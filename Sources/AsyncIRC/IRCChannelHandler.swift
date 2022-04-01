@@ -97,6 +97,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     let parser = IRCMessageParser()
     public func processMessage(_ message: String) async -> IRCMessage? {
         
+        
+        print("IS_OUR_MESSAGE_EMPTY______?", message)
+        guard !message.isEmpty else { return nil }
         consumer.feedConsumer([message])
         
             func getNextMessage() async throws -> ParseSequenceResult? {
