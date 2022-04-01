@@ -39,8 +39,8 @@ extension IRCService: IRCClientDelegate {
     
     
     public func client(_ client: IRCClient, keyBundle: [String]) async throws {
-        guard let userConfig = keyBundle.first else { return }
-        guard let data = Data(base64Encoded: userConfig) else { return }
+        guard let keyBundle = keyBundle.first else { return }
+        guard let data = Data(base64Encoded: keyBundle) else { return }
         let buffer = ByteBuffer(data: data)
         let c = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         self.stream = KeyBundleSequence(bundle: c).makeAsyncIterator()

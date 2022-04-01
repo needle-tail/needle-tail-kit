@@ -192,7 +192,7 @@ public final class IRCMessageParser {
         
         var args = [String]()
         switch commandKey {
-        case .int(_):
+        case .int(let int):
             //            :localhost 332 Guest31 #NIO :Welcome to #nio!
             var spread = message.components(separatedBy: " ")
             let right = spread[4...]
@@ -201,7 +201,12 @@ public final class IRCMessageParser {
             let rightArray = Array(right)
             let joinedString = rightArray.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
             let newArray = spread + [joinedString]
+            
+            if int == 270 || int == 371 {
+                args.append(newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
+            } else {
             args.append(contentsOf: newArray)
+            }
         case .string(let commandKey):
             if commandKey.hasPrefix("NICK") {
                 args.append(parameter)

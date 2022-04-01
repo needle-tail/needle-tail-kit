@@ -38,7 +38,7 @@ public class IRCMessenger: CypherServerTransportClient {
     private var clientOptions: ClientOptions?
     internal var messenger: CypherMessenger?
     private var keyBundle: String = ""
-    private var publishingKeyBundle: Bool = false
+    private var waitingToReadBundle: Bool = false
     
     public init(
         username: Username,
@@ -90,6 +90,7 @@ public class IRCMessenger: CypherServerTransportClient {
     ) async throws {
         switch type {
         case .siwa, .plain:
+            waitingToReadBundle = true
             guard let appleToken = appleToken else { return }
             let regObject = regRequest(with: appleToken)
             let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
@@ -102,7 +103,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     public func publishKeyBundle(_ data: UserConfig) async throws {
-        publishingKeyBundle = true
+        waitingToReadBundle = true
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
@@ -120,7 +121,7 @@ public class IRCMessenger: CypherServerTransportClient {
         
         var userConfig: UserConfig?
         
-        if !publishingKeyBundle {
+        if !waitingToReadBundle {
             userConfig = await services.readKeyBundle(packet)
         } else {
             repeat {
@@ -129,7 +130,7 @@ public class IRCMessenger: CypherServerTransportClient {
                     if Bool(registered) != nil {
                         userConfig = await services.readKeyBundle(packet)
                     }
-                    publishingKeyBundle = false
+                    waitingToReadBundle = false
                 default:
                     break
                 }
@@ -242,11 +243,11 @@ public class IRCMessenger: CypherServerTransportClient {
     // MARK: - Lifecycle
     public func resume(_ regPacket: String? = nil) async {
         do {
-            try await services?.resume()
+            try await services?.resume(regPacket)
             self.authenticated = .authenticated
         } catch {
             self.authenticated = .authenticationFailure
-            await resume()
+            await resume(regPacket)
         }
     }
     
