@@ -31,6 +31,7 @@
  */
 
 public protocol IRCDispatcher {
+    
     // MARK: - Dispatching Function
     func irc_msgSend(_ message: IRCMessage) async throws
     
@@ -64,7 +65,7 @@ public protocol IRCDispatcher {
                       recipients : [ IRCMessageRecipient ],
                       message    : String,
                       tags: [IRCTags]?,
-                      userStatus: UserStatus<Any>?) async throws
+                      userStatus: UserStatus?) async throws
     
     func doIsOnline  (_ nicks    : [ IRCNickName ]) async throws
     
@@ -227,11 +228,12 @@ public extension IRCDispatcher {
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
+    
     func doMessage(sender: IRCUserID?,
                    recipients: [ IRCMessageRecipient ],
                    message: String,
                    tags: [IRCTags]? = nil,
-                   userStatus: UserStatus<Any>?) async throws
+                   userStatus: UserStatus?) async throws
     {
         throw InternalDispatchError.notImplemented(function: #function)
     }

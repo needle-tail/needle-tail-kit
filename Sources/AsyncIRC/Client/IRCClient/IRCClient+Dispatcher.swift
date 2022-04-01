@@ -101,7 +101,7 @@ extension IRCClient : IRCDispatcher {
                         recipients : [ IRCMessageRecipient ],
                         message    : String,
                         tags       : [IRCTags]?,
-                        userStatus: UserStatus<Any>?) async throws {
+                        userStatus: UserStatus?) async throws {
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return
