@@ -22,6 +22,12 @@ import FoundationNetworking
 import NIOTransportServices
 #endif
 
+@globalActor final actor NeedleTailKitActor {
+    public static let shared = NeedleTailKitActor()
+    private init() {}
+}
+
+
 public class IRCMessenger: CypherServerTransportClient {
     public var isConnected: Bool = true
     public var delegate: CypherTransportClientDelegate?
@@ -56,6 +62,7 @@ public class IRCMessenger: CypherServerTransportClient {
         self.appleToken = appleToken
     }
     
+    @NeedleTailKitActor
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
@@ -71,6 +78,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
+    @NeedleTailKitActor
     public func startService(_ packet: String? = nil) async {
         if self.services == nil {
             self.services = await IRCService(
@@ -84,6 +92,7 @@ public class IRCMessenger: CypherServerTransportClient {
         await resume(packet)
     }
     
+    @NeedleTailKitActor
     public func registerBundle(
         type: RegistrationType?,
         options: ClientOptions
@@ -102,6 +111,7 @@ public class IRCMessenger: CypherServerTransportClient {
     
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
+    @NeedleTailKitActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let configObject = configRequest(jwt, config: data)
@@ -112,6 +122,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is causght and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
+    @NeedleTailKitActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -141,7 +152,7 @@ public class IRCMessenger: CypherServerTransportClient {
         return userConfig
     }
     
-    
+    @NeedleTailKitActor
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
