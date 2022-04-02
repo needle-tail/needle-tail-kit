@@ -25,7 +25,8 @@ import AsyncCollections
  *
  * Extensions then provide extra functionality based on this, the PoP way.
  */
-public protocol IRCMessageTarget {
+
+public protocol IRCMessageTarget: AnyObject {
     
     var origin : String? { get }
     var tags: [IRCTags]? { get }
@@ -50,8 +51,8 @@ public extension IRCMessageTarget {
             .map { $0.replacingOccurrences(of: "\r", with: "") }
         
         _ = await lines.asyncMap {
-            let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
-            await sendMessage(message, chatDoc: nil)
+            let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+            await self.sendMessage(message, chatDoc: nil)
         }
     }
     
@@ -63,8 +64,8 @@ public extension IRCMessageTarget {
             .map { $0.replacingOccurrences(of: "\r", with: "") }
         
         _ = await lines.asyncMap {
-            let message =  IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
-            await sendMessage(message, chatDoc: nil)
+            let message =  IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: self.tags)
+            await self.sendMessage(message, chatDoc: nil)
         }
     }
     

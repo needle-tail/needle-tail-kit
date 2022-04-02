@@ -16,7 +16,7 @@ import protocol NIO.EventLoopGroup
 import class    NIO.MultiThreadedEventLoopGroup
 
 /// Configuration options for the socket connects
-open class ConnectOptions : CustomStringConvertible {
+public class ConnectOptions: CustomStringConvertible {
   
   public var hostname       : String?
   public var port           : Int
@@ -38,7 +38,7 @@ open class ConnectOptions : CustomStringConvertible {
     return ms
   }
   
-  open func appendToDescription(_ ms: inout String) {
+  public func appendToDescription(_ ms: inout String) {
     if let hostname = hostname { ms += " \(hostname):\(port)" }
     else { ms += " \(port)" }
   }
@@ -49,12 +49,12 @@ open class ConnectOptions : CustomStringConvertible {
 //public let DefaultIRCPort = 6667
 
 /// Configuration options for the IRC client object
-open class IRCClientOptions : ConnectOptions {
+public class IRCClientOptions: ConnectOptions {
   
-  open var password      : String?
-  open var nickname      : IRCNickName
-  open var userInfo      : IRCUserInfo
-  open var retryStrategy : IRCRetryStrategyCB?
+  public var password      : String?
+  public var nickname      : IRCNickName
+  public var userInfo      : IRCUserInfo
+  public var retryStrategy : IRCRetryStrategyCB?
   
   public convenience init(nick: String) {
     self.init(nickname: IRCNickName(nick)!)
@@ -78,7 +78,7 @@ open class IRCClientOptions : ConnectOptions {
       super.init(hostname: host, port: port, tls: tls)
   }
   
-  override open func appendToDescription(_ ms: inout String) {
+  override public func appendToDescription(_ ms: inout String) {
     super.appendToDescription(&ms)
     ms += " \(nickname)"
     ms += " \(userInfo)"

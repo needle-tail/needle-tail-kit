@@ -29,12 +29,12 @@ import NIOTransportServices
  *   incoming commands
  * - `connect` the client
  */
-open class IRCClient : IRCClientMessageTarget {
+public final class IRCClient: IRCClientMessageTarget {
     
-    public var origin : String? { return nil }
-    public let options   : IRCClientOptions
-    public let eventLoop : EventLoop
-    public weak var delegate  : IRCClientDelegate?
+    public var origin: String? { return nil }
+    public let options: IRCClientOptions
+    public let eventLoop: EventLoop
+    public weak var delegate: IRCClientDelegate?
     public var tags: [IRCTags]?
     let groupManager: EventLoopGroupManager
     var messageOfTheDay = ""

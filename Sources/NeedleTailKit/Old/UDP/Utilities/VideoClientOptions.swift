@@ -46,7 +46,7 @@ import AsyncIRC
 //        super.init(host: host, port: port, tls: tls)
 //    }
 //
-//    override open func appendToDescription(_ ms: inout String) {
+//    override public func appendToDescription(_ ms: inout String) {
 //        super.appendToDescription(&ms)
 //        ms += " \(nickname)"
 //        ms += " \(userInfo)"

@@ -30,7 +30,7 @@ public class ClientOptions {
         self.userInfo = userInfo
     }
     
-    open func appendToDescription(_ ms: inout String) {
+    public func appendToDescription(_ ms: inout String) {
         if let hostname = host { ms += " \(hostname):\(port ?? 6667)" }
         else { ms += " \(port ?? 6667)" }
     }

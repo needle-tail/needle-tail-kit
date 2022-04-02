@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  IRCClient+IRCDispatcher.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -8,7 +8,7 @@
 import NIO
 
 
-extension IRCClient : IRCDispatcher {
+extension IRCClient: IRCDispatcher, @unchecked Sendable {
     
     @NeedleTailKitActor
     public func irc_msgSend(_ message: IRCMessage) async throws {
@@ -94,11 +94,11 @@ extension IRCClient : IRCDispatcher {
         }
     }
     
-    open func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
+    public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await delegate?.client(self, notice: message, for: recipients)
     }
     
-    open func doMessage(sender     : IRCUserID?,
+    public func doMessage(sender     : IRCUserID?,
                         recipients : [ IRCMessageRecipient ],
                         message    : String,
                         tags       : [IRCTags]?,
@@ -110,7 +110,7 @@ extension IRCClient : IRCDispatcher {
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
     
-    open func doNick(_ newNick: IRCNickName) async throws {
+    public func doNick(_ newNick: IRCNickName) async throws {
         switch state {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
@@ -126,7 +126,7 @@ extension IRCClient : IRCDispatcher {
         await delegate?.client(self, changedNickTo: newNick)
     }
     
-    open func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws {
+    public func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws {
         guard let myNick = state.nick, myNick == nick else {
             return
         }
@@ -140,7 +140,7 @@ extension IRCClient : IRCDispatcher {
         }
     }
     
-    open func doPing(_ server: String, server2: String? = nil) async throws {
+    public func doPing(_ server: String, server2: String? = nil) async throws {
         let msg: IRCMessage
         
         msg = IRCMessage(origin: origin, // probably wrong
