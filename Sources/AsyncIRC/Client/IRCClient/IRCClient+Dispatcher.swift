@@ -8,7 +8,7 @@
 import NIO
 
 
-extension IRCClient: IRCDispatcher, @unchecked Sendable {
+extension IRCClient: IRCDispatcher {
     
     @NeedleTailKitActor
     public func irc_msgSend(_ message: IRCMessage) async throws {

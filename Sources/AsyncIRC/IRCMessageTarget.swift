@@ -37,6 +37,7 @@ public protocol IRCMessageTarget: AnyObject {
 
 public extension IRCMessageTarget {
     
+    @NeedleTailKitActor
     func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         await sendMessage(message, chatDoc: chatDoc)
     }
@@ -57,7 +58,7 @@ public extension IRCMessageTarget {
         }
     }
     
-    
+    @NeedleTailKitActor
     func sendNotice(_ text: String, to recipients: IRCMessageRecipient...) async {
         guard !recipients.isEmpty else { return }
         
@@ -70,6 +71,7 @@ public extension IRCMessageTarget {
         }
     }
     
+    @NeedleTailKitActor
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
         let message = IRCMessage(origin: origin, command: .numeric(code, args), tags: tags)
         await sendMessage(message, chatDoc: nil)

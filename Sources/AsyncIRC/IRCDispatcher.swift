@@ -30,7 +30,7 @@
  *       the actual dispatcher implementation.
  */
 
-public protocol IRCDispatcher: Sendable {
+public protocol IRCDispatcher {
     
     // MARK: - Dispatching Function
     func irc_msgSend(_ message: IRCMessage) async throws
