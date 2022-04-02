@@ -130,7 +130,6 @@ internal struct IRCMessageBuffer {
     }
 
     mutating internal func append<Messages: Sequence>(contentsOf newMessages: Messages) where Messages.Element == IRCMessage {
-        print("NEW_MESSAGES______", newMessages)
         self.circularBuffer.append(contentsOf: newMessages)
         if self.circularBuffer.count >= self.target, self.canShrink, self.target > self.minimum {
             self.target &>>= 1
