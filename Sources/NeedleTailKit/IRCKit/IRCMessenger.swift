@@ -37,8 +37,8 @@ public class IRCMessenger: CypherServerTransportClient {
     private var userState: UserState
     private var clientOptions: ClientOptions?
     internal var messenger: CypherMessenger?
-    private var keyBundle: String = ""
-    private var waitingToReadBundle: Bool = false
+    @NeedleTailKitActor private var keyBundle: String = ""
+    @NeedleTailKitActor private var waitingToReadBundle: Bool = false
     
     public init(
         username: Username,
@@ -153,7 +153,8 @@ public class IRCMessenger: CypherServerTransportClient {
         let packet = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
         await self.services?.registerAPN(packet)
     }
-    
+
+    @NeedleTailKitActor
     private func makeToken() -> String? {
         return try? JWTSigner(algorithm: signer as! JWTAlgorithm).sign(
             Token(
@@ -235,6 +236,8 @@ public class IRCMessenger: CypherServerTransportClient {
     
     
     // MARK: - services Lookup
+    
+    @NeedleTailKitActor
     internal func serviceWithID(_ id: String) -> IRCService? {
         guard let uuid = UUID(uuidString: id) else { return nil }
         return serviceWithID(uuid.uuidString)
@@ -245,6 +248,8 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     // MARK: - Lifecycle
+    
+    @NeedleTailKitActor
     public func resume(_ regPacket: String? = nil) async {
         do {
             try await services?.resume(regPacket)
@@ -255,11 +260,13 @@ public class IRCMessenger: CypherServerTransportClient {
         }
     }
     
+    @NeedleTailKitActor
     public func suspend() async {
         await services?.suspend()
         self.authenticated = .unauthenticated
     }
     
+    @NeedleTailKitActor
     public func close() async {
         await services?.close()
     }
@@ -325,7 +332,7 @@ extension IRCMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        let body = IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
+        let body = await IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
         let data = try BSONEncoder().encode(body).makeData()
         do {
             
@@ -343,6 +350,7 @@ extension IRCMessenger {
         }
     }
     
+    @NeedleTailKitActor
     public func recipient(name: String) async throws -> IRCMessageRecipient {
         switch type {
         case .channel:

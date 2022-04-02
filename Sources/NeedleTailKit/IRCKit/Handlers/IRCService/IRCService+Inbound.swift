@@ -13,6 +13,8 @@ import BSON
 //MARK: - Inbound
 extension IRCService: IRCClientDelegate, @unchecked Sendable {
     //MARK: - CypherMessageAPI
+    
+    @NeedleTailKitActor
         func fetchConversations() async {
             for chat in try! await messenger!.listConversations(
                 includingInternalConversation: true,
@@ -47,6 +49,7 @@ extension IRCService: IRCClientDelegate, @unchecked Sendable {
         self.stream = KeyBundleSequence(bundle: c).makeAsyncIterator()
     }
     
+    @NeedleTailKitActor
     public func client(_       client : IRCClient,
                        notice message : String,
                        for recipients : [ IRCMessageRecipient ]
@@ -61,6 +64,7 @@ extension IRCService: IRCClientDelegate, @unchecked Sendable {
       
     
     //This is where we receive messages from server via AsyncIRC
+    @NeedleTailKitActor
     public func client(_       client : IRCClient,
                        message        : String,
                        from    sender : IRCUserID,
@@ -97,7 +101,7 @@ break
       }
 
     
-    
+    @NeedleTailKitActor
     public func client(_ client: IRCClient, received message: IRCMessage) async {
 
         struct Packet: Codable {
@@ -160,7 +164,7 @@ break
         }
     
 
-    
+    @NeedleTailKitActor
     public func client(_ client: IRCClient, messageOfTheDay message: String) async {
         await self.updateConnectedClientState(client)
 //        self.messageOfTheDay = message
@@ -169,6 +173,7 @@ break
     
     // MARK: - Channels
 
+    @NeedleTailKitActor
     public func client(_ client: IRCClient,
                        user: IRCUserID, joined channels: [ IRCChannelName ]
     ) async {
@@ -176,6 +181,7 @@ break
 //        channels.forEach { self.registerChannel($0.stringValue) }
       }
     
+    @NeedleTailKitActor
     public func client(_ client: IRCClient,
                        user: IRCUserID, left channels: [ IRCChannelName ],
                        with message: String?
@@ -184,6 +190,7 @@ break
 //        channels.forEach { self.unregisterChannel($0.stringValue) }
       }
 
+    @NeedleTailKitActor
     public func client(_ client: IRCClient,
                        changeTopic welcome: String, of channel: IRCChannelName
     ) async {
@@ -191,6 +198,7 @@ break
         // TODO: operation
     }
 
+    @NeedleTailKitActor
     private func updateConnectedClientState(_ client: IRCClient) async {
         switch self.userState.state {
         case .suspended:
@@ -211,6 +219,8 @@ break
     }
     
     // MARK: - Connection
+    
+    @NeedleTailKitActor
     public func client(_ client        : IRCClient,
                        registered nick : IRCNickName,
                        with   userInfo : IRCUserInfo
@@ -218,14 +228,17 @@ break
         await self.updateConnectedClientState(client)
     }
     
+    @NeedleTailKitActor
     public func client(_ client: IRCClient, changedNickTo nick: IRCNickName) async {
         await self.updateConnectedClientState(client)
     }
     
+    @NeedleTailKitActor
     public func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async {
         await self.updateConnectedClientState(client)
     }
 
+    @NeedleTailKitActor
     public func clientFailedToRegister(_ newClient: IRCClient) async {
         switch self.userState.state {
             
@@ -240,6 +253,7 @@ break
         }
       }
     
+    @NeedleTailKitActor
     public func client(_ client: IRCClient, quit: String?) async {
         print("QUITING")
     }

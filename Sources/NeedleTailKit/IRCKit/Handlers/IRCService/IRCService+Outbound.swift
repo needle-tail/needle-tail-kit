@@ -12,10 +12,12 @@ import AsyncIRC
 //MARK: - Outbound
 extension IRCService {
     
+    @NeedleTailKitActor
     internal func publishKeyBundle(_ keyBundle: String) async {
         await client?.publishKeyBundle(keyBundle)
     }
     
+    @NeedleTailKitActor
     internal func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
         var config: UserConfig?
@@ -26,11 +28,15 @@ extension IRCService {
     }
     
     //TODO: Handle ACK
+    
+    @NeedleTailKitActor
     internal func registerAPN(_ packet: String) async {
         await client?.registerAPN(packet)
     }
     
     //MARK: - CypherMessageAPI
+    
+    @NeedleTailKitActor
     public func registerPrivateChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }
@@ -39,6 +45,7 @@ extension IRCService {
         return chat?.conversation
     }
     
+    @NeedleTailKitActor
     public func registerGroupChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }
@@ -47,14 +54,17 @@ extension IRCService {
         return chat?.conversation
     }
     
+    @NeedleTailKitActor
     public func conversationWithID(_ id: UUID) async -> DecryptedModel<ConversationModel>? {
         return try? await self.messenger?.getConversation(byId: id)?.conversation
     }
     
+    @NeedleTailKitActor
     public func conversationForRecipient(_ recipient: IRCMessageRecipient, create: Bool = false) async -> GroupChat? {
         return try? await self.messenger?.getGroupChat(byId: GroupChatId(recipient.stringValue))
     }
     
+    @NeedleTailKitActor
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
         //        guard case .online = userState.state else { return false }
         await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
