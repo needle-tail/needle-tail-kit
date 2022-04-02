@@ -35,7 +35,7 @@ let package = Package(
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "AsyncCollections", package: "async-collections"),
-            .target(name: "AsyncIRC"),
+            .target(name: "AsyncIRC")
         ]),
         .target(
             name: "AsyncIRC",
@@ -43,7 +43,7 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),
-                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl")
             ],
             swiftSettings: [
                 .unsafeFlags([

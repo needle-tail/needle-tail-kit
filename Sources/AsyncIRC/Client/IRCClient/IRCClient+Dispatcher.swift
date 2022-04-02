@@ -10,6 +10,7 @@ import NIO
 
 extension IRCClient : IRCDispatcher {
     
+    @NeedleTailKitActor
     public func irc_msgSend(_ message: IRCMessage) async throws {
  
         do {

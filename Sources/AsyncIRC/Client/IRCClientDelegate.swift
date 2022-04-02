@@ -15,7 +15,8 @@
 /**
  * Delegate methods called by `IRCClient` upon receiving IRC commands.
  */
-public protocol IRCClientDelegate: AnyObject {
+
+public protocol IRCClientDelegate: AnyObject, Sendable {
     func client(_ client        : IRCClient,
                 registered nick : IRCNickName,
                 with   userInfo : IRCUserInfo) async

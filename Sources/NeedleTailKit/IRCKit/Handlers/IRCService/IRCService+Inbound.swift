@@ -11,7 +11,7 @@ import CypherMessaging
 import BSON
 
 //MARK: - Inbound
-extension IRCService: IRCClientDelegate {
+extension IRCService: IRCClientDelegate, @unchecked Sendable {
     //MARK: - CypherMessageAPI
         func fetchConversations() async {
             for chat in try! await messenger!.listConversations(

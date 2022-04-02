@@ -22,12 +22,6 @@ import FoundationNetworking
 import NIOTransportServices
 #endif
 
-@globalActor final actor NeedleTailKitActor {
-    public static let shared = NeedleTailKitActor()
-    private init() {}
-}
-
-
 public class IRCMessenger: CypherServerTransportClient {
     public var isConnected: Bool = true
     public var delegate: CypherTransportClientDelegate?

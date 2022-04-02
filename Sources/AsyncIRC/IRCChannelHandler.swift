@@ -16,7 +16,13 @@ import NIO
 import Logging
 import Foundation
 
+@globalActor public final actor NeedleTailKitActor {
+    public static let shared = NeedleTailKitActor()
+    private init() {}
+}
+
 public let DefaultIRCPort = 6667
+
 
 /**
  * Protocol handler for IRC
@@ -95,6 +101,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     let parser = IRCMessageParser()
+    
+    @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
         
 
