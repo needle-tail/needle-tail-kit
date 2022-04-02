@@ -10,7 +10,7 @@ import NIO
 extension IRCClient {
     
     
-    public func sendMessage(_ message: IRCMessage) async {
+    public func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         
         consumer.feedConsumer([message])
         
@@ -28,7 +28,7 @@ extension IRCClient {
                 }
                 consumedState = .consumed
             case .retry:
-           await sendMessage(message)
+           await sendMessage(message, chatDoc: chatDoc)
             default:
                 break
             }

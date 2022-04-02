@@ -202,7 +202,7 @@ break
                       print("going online:", client)
             self.userState.transition(to: .online)
                       let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-                      await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)))
+                      await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
             break
                   // TODO: update state (nick, userinfo, etc)

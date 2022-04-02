@@ -144,6 +144,6 @@ extension IRCClient : IRCDispatcher {
         
         msg = IRCMessage(origin: origin, // probably wrong
                          command: .PONG(server: server, server2: server))
-         await sendMessage(msg)
+         await sendMessage(msg, chatDoc: nil)
     }
 }

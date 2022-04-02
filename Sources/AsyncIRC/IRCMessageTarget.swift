@@ -36,7 +36,7 @@ public protocol IRCMessageTarget {
 
 public extension IRCMessageTarget {
     
-    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument? = nil) async {
+    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         await sendMessage(message, chatDoc: chatDoc)
     }
 }
@@ -51,7 +51,7 @@ public extension IRCMessageTarget {
         
         _ = await lines.asyncMap {
             let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
-            await sendMessage(message)
+            await sendMessage(message, chatDoc: nil)
         }
     }
     
@@ -64,13 +64,13 @@ public extension IRCMessageTarget {
         
         _ = await lines.asyncMap {
             let message =  IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
-            await sendMessage(message)
+            await sendMessage(message, chatDoc: nil)
         }
     }
     
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
         let message = IRCMessage(origin: origin, command: .numeric(code, args), tags: tags)
-        await sendMessage(message)
+        await sendMessage(message, chatDoc: nil)
     }
 }
 #endif

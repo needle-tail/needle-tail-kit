@@ -324,6 +324,11 @@ extension IRCMessenger {
         let body = IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
         let data = try BSONEncoder().encode(body).makeData()
         do {
+            
+//                            let recipientDevice = UserDeviceId(user: recipient, device: deviceId)
+//                            let token = recipient.deviceTokens[recipientDevice.device]
+            
+            
             let recipient = try await recipient(name: "\(username.raw)")
             _ = try await services?.sendMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
