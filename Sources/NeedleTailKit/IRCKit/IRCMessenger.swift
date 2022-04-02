@@ -37,7 +37,7 @@ public class IRCMessenger: CypherServerTransportClient {
     private var userState: UserState
     private var clientOptions: ClientOptions?
     internal var messenger: CypherMessenger?
-    @NeedleTailKitActor private var keyBundle: String = ""
+     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
     
     public init(
@@ -56,7 +56,7 @@ public class IRCMessenger: CypherServerTransportClient {
         self.appleToken = appleToken
     }
     
-    @NeedleTailKitActor
+    
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
@@ -105,7 +105,7 @@ public class IRCMessenger: CypherServerTransportClient {
     
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
-    @NeedleTailKitActor
+    
     public func publishKeyBundle(_ data: UserConfig) async throws {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let configObject = configRequest(jwt, config: data)
@@ -116,7 +116,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is causght and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
-    @NeedleTailKitActor
+    
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -235,7 +235,7 @@ public class IRCMessenger: CypherServerTransportClient {
     
     // MARK: - services Lookup
     
-    @NeedleTailKitActor
+    
     internal func serviceWithID(_ id: String) -> IRCService? {
         guard let uuid = UUID(uuidString: id) else { return nil }
         return serviceWithID(uuid.uuidString)
@@ -256,13 +256,13 @@ public class IRCMessenger: CypherServerTransportClient {
         }
     }
     
-    @NeedleTailKitActor
+    
     public func suspend() async {
         await services?.suspend()
         self.authenticated = .unauthenticated
     }
     
-    @NeedleTailKitActor
+    
     public func close() async {
         await services?.close()
     }
@@ -328,7 +328,7 @@ extension IRCMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        let body = await IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
+        let body = IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
         let data = try BSONEncoder().encode(body).makeData()
         do {
             
@@ -346,7 +346,7 @@ extension IRCMessenger {
         }
     }
     
-    @NeedleTailKitActor
+    
     public func recipient(name: String) async throws -> IRCMessageRecipient {
         switch type {
         case .channel:

@@ -9,7 +9,7 @@ import NIO
 
 extension IRCClient {
     
-    @NeedleTailKitActor
+    
     public func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         
         consumer.feedConsumer([message])
@@ -37,7 +37,7 @@ extension IRCClient {
 
     // MARK: - Commands
     
-    @NeedleTailKitActor
+    
     internal func _register(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not connecting?")
@@ -57,22 +57,22 @@ extension IRCClient {
         await send(.USER(user))
     }
     
-    @NeedleTailKitActor
+    
     public func publishKeyBundle(_ keyBundle: String) async {
         await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
     }
     
-    @NeedleTailKitActor
+    
     public func readKeyBundle(_ packet: String) async {
         await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
     }
     
-    @NeedleTailKitActor
+    
     public func registerAPN(_ packet: String) async {
         await send(.otherCommand("REGAPN", [packet]))
     }
     
-    @NeedleTailKitActor
+    
     public func changeNick(_ nick: IRCNickName) async {
         await send(.NICK(nick))
     }
@@ -104,7 +104,7 @@ extension IRCClient {
         print("closed server")
     }
     
-    @NeedleTailKitActor
+    
     func handleRegistrationDone() async {
         guard case .registering(let channel, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not registering?")
@@ -117,7 +117,7 @@ extension IRCClient {
         self._resubscribe()
     }
     
-    @NeedleTailKitActor
+    
     func handleRegistrationFailed(with message: IRCMessage) async {
         guard case .registering(_, let nick, _) = state else {
             assertionFailure("called \(#function) but we are not registering?")
@@ -132,7 +132,7 @@ extension IRCClient {
     
     
     // This is where we receive all messages from server in the client
-    @NeedleTailKitActor
+    
     func handlerHandleResult(_ message: IRCMessage) async {
         if case .registering = state {
             if message.command.signalsSuccessfulRegistration {

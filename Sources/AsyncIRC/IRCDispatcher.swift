@@ -96,12 +96,12 @@ public enum IRCDispatcherError : Swift.Error {
 
 public extension IRCDispatcher {
     
-    @NeedleTailKitActor
+    
     func irc_msgSend(_ message: IRCMessage) async throws {
         try await irc_defaultMsgSend(message)
     }
     
-    @NeedleTailKitActor
+    
     func irc_defaultMsgSend(_ message: IRCMessage) async throws {
         do {
             switch message.command {

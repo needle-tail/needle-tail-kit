@@ -13,7 +13,7 @@ extension IRCService {
     
     // MARK: - Connection
     
-    @NeedleTailKitActor
+    
     private func handleAccountChange() async throws {
         try await self.connectIfNecessary()
     }
@@ -33,7 +33,7 @@ extension IRCService {
         try await connectIfNecessary(regPacket)
     }
     
-    @NeedleTailKitActor
+    
     public func suspend() async {
         defer { userState.transition(to: .suspended) }
         switch userState.state {
@@ -44,7 +44,7 @@ extension IRCService {
         }
     }
     
-    @NeedleTailKitActor
+    
     public func close() async {
         await client?.disconnect()
     }

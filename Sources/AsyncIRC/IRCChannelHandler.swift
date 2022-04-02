@@ -102,7 +102,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     let parser = IRCMessageParser()
     
-    @NeedleTailKitActor
+    
     public func processMessage(_ message: String) async -> IRCMessage? {
         
 

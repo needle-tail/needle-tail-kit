@@ -20,7 +20,7 @@
  * Maximum length is 9 characters, but clients should support longer for
  * future compat.
  */
-public struct IRCNickName: Codable, Hashable, CustomStringConvertible, Sendable {
+public struct IRCNickName: Codable, Hashable, CustomStringConvertible {
   
   public typealias StringLiteralType = String
   

@@ -23,7 +23,7 @@ public final class IRCService {
     internal var clientOptions: ClientOptions?
     internal var userConfig: UserConfig?
     var stream: KeyBundleIterator?
-    @NeedleTailKitActor public var acknowledgment: Acknowledgment.AckType = .none
+     public var acknowledgment: Acknowledgment.AckType = .none
     
     
     public init(
@@ -38,10 +38,10 @@ public final class IRCService {
         self.userState = userState
         self.clientOptions = clientOptions
         self.transportDelegate = delegate
-        activeClientOptions = await self.clientOptionsForAccount(signer, clientOptions: clientOptions)
+        activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
     }
     
-    @NeedleTailKitActor
+    
     private func clientOptionsForAccount(_ signer: TransportCreationRequest, clientOptions: ClientOptions?) -> IRCClientOptions? {
         guard let nick = IRCNickName(signer.username.raw) else { return nil }
         return IRCClientOptions(
