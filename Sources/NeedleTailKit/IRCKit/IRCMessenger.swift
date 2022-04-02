@@ -72,7 +72,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
-    @NeedleTailKitActor
+
     public func startService(_ packet: String? = nil) async {
         if self.services == nil {
             self.services = await IRCService(
@@ -86,7 +86,7 @@ public class IRCMessenger: CypherServerTransportClient {
         await resume(packet)
     }
     
-    @NeedleTailKitActor
+
     public func registerBundle(
         type: RegistrationType?,
         options: ClientOptions
@@ -146,7 +146,6 @@ public class IRCMessenger: CypherServerTransportClient {
         return userConfig
     }
     
-    @NeedleTailKitActor
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
@@ -154,7 +153,6 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.services?.registerAPN(packet)
     }
 
-    @NeedleTailKitActor
     private func makeToken() -> String? {
         return try? JWTSigner(algorithm: signer as! JWTAlgorithm).sign(
             Token(
@@ -248,8 +246,6 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     // MARK: - Lifecycle
-    
-    @NeedleTailKitActor
     public func resume(_ regPacket: String? = nil) async {
         do {
             try await services?.resume(regPacket)

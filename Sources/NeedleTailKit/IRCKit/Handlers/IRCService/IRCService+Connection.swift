@@ -18,7 +18,6 @@ extension IRCService {
         try await self.connectIfNecessary()
     }
     
-    @NeedleTailKitActor
     private func connectIfNecessary(_ regPacket: String? = nil) async throws {
         guard case .offline = userState.state else { return }
         guard let options = activeClientOptions else { return }
@@ -30,8 +29,6 @@ extension IRCService {
 
 
     // MARK: - Lifecycle
-    
-    @NeedleTailKitActor
     public func resume(_ regPacket: String? = nil) async throws {
         try await connectIfNecessary(regPacket)
     }
