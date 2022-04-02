@@ -103,7 +103,6 @@ public class IRCMessenger: CypherServerTransportClient {
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     public func publishKeyBundle(_ data: UserConfig) async throws {
-        waitingToReadBundle = true
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
