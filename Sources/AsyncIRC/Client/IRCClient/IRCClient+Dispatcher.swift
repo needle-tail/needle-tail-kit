@@ -94,10 +94,12 @@ extension IRCClient: IRCDispatcher, @unchecked Sendable {
         }
     }
     
+    @NeedleTailKitActor
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await delegate?.client(self, notice: message, for: recipients)
     }
     
+    @NeedleTailKitActor
     public func doMessage(sender     : IRCUserID?,
                         recipients : [ IRCMessageRecipient ],
                         message    : String,
@@ -110,6 +112,7 @@ extension IRCClient: IRCDispatcher, @unchecked Sendable {
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
     
+    @NeedleTailKitActor
     public func doNick(_ newNick: IRCNickName) async throws {
         switch state {
         case .registering(let channel, let nick, let info):
@@ -126,6 +129,7 @@ extension IRCClient: IRCDispatcher, @unchecked Sendable {
         await delegate?.client(self, changedNickTo: newNick)
     }
     
+    @NeedleTailKitActor
     public func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws {
         guard let myNick = state.nick, myNick == nick else {
             return
@@ -140,6 +144,7 @@ extension IRCClient: IRCDispatcher, @unchecked Sendable {
         }
     }
     
+    @NeedleTailKitActor
     public func doPing(_ server: String, server2: String? = nil) async throws {
         let msg: IRCMessage
         
