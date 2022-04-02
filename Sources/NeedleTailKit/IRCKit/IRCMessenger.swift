@@ -38,7 +38,7 @@ public class IRCMessenger: CypherServerTransportClient {
     private var clientOptions: ClientOptions?
     internal var messenger: CypherMessenger?
     @NeedleTailKitActor private var keyBundle: String = ""
-    @NeedleTailKitActor private var waitingToReadBundle: Bool = false
+    private var waitingToReadBundle: Bool = false
     
     public init(
         username: Username,
