@@ -29,15 +29,15 @@ public protocol IRCMessageTarget {
     
     var origin : String? { get }
     var tags: [IRCTags]? { get }
-    func sendMessage(_ message: IRCMessage) async
+    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async
 }
 
 
 
 public extension IRCMessageTarget {
     
-    func sendMessage(_ message: IRCMessage) async {
-        await sendMessage(message)
+    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument? = nil) async {
+        await sendMessage(message, chatDoc: chatDoc)
     }
 }
 

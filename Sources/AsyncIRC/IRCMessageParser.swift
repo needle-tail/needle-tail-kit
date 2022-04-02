@@ -199,11 +199,14 @@ public final class IRCMessageParser {
             let left = spread[0...3]
             spread = Array(left)
             let rightArray = Array(right)
-            let joinedString = rightArray.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let joinedString = rightArray.joined(separator: " ")
             let newArray = spread + [joinedString]
             
+            //If we replyKeyBundle or replyInfo we need to do a bit more parsing
             if int == 270 || int == 371 {
-                args.append(newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
+                let chunk = newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
+                let components = chunk.components(separatedBy: "\r\n")
+                args.append(components[0])
             } else {
             args.append(contentsOf: newArray)
             }
