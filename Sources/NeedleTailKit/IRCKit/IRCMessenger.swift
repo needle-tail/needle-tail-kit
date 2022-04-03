@@ -125,7 +125,7 @@ public class IRCMessenger: CypherServerTransportClient {
         var userConfig: UserConfig?
         
         if !waitingToReadBundle {
-//            userConfig = await services.readKeyBundle(packet)
+            userConfig = await services.readKeyBundle(packet)
         } else {
             repeat {
                 switch services.acknowledgment {
