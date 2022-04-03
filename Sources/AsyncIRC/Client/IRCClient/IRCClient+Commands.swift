@@ -45,7 +45,7 @@ extension IRCClient {
         await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
     }
     
-    
+    @NeedleTailKitActor
     public func readKeyBundle(_ packet: String) async {
         await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
     }
