@@ -19,8 +19,6 @@ extension IRCClient {
     }
     
     // MARK: - Commands
-    
-    @NeedleTailKitActor
     internal func _register(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not connecting?")
@@ -45,7 +43,7 @@ extension IRCClient {
         await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
     }
     
-    @NeedleTailKitActor
+    
     public func readKeyBundle(_ packet: String) async {
         await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
     }
