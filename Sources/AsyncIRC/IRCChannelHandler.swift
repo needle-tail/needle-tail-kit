@@ -104,7 +104,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-
         guard !message.isEmpty else { return nil }
         consumer.feedConsumer([message])
         
