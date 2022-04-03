@@ -102,9 +102,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     let parser = IRCMessageParser()
     
-    
+    @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        
 
         guard !message.isEmpty else { return nil }
         consumer.feedConsumer([message])
@@ -117,8 +116,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             switch res {
             case .success(let message):
                 do {
+                    let parsed = try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
                     consumedState = .consumed
-                    return try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
+                    return parsed
                 } catch {
                     print(error)
                 }

@@ -27,16 +27,11 @@ extension IRCService {
         return config
     }
     
-    //TODO: Handle ACK
-    
-    
     internal func registerAPN(_ packet: String) async {
         await client?.registerAPN(packet)
     }
     
     //MARK: - CypherMessageAPI
-    
-    
     public func registerPrivateChat(_ name: String) async throws -> DecryptedModel<ConversationModel>? {
         let id = name.lowercased()
         let conversation = self.conversations?.first { $0.id.uuidString == id }

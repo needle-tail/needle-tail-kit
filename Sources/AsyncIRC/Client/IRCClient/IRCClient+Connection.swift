@@ -43,7 +43,6 @@ extension IRCClient {
             .channelInitializer { channel in
                 return channel.pipeline
                     .addHandlers([
-//                        ByteToMessageHandler(LineBasedFrameDecoder()),
                         IRCChannelHandler(logger: self.logger),
                         Handler(client: self)
                     ])

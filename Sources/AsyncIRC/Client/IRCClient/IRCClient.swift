@@ -51,9 +51,6 @@ public final class IRCClient: IRCClientMessageTarget {
     var logger: Logger
     var retryInfo = IRCRetryInfo()
     var channel : Channel? { get { return state.channel } }
-    let consumer = Consumer()
-    var iterator: MessageSequence.Iterator?
-    
     
     public enum Error : Swift.Error {
         case writeError(Swift.Error)
@@ -153,8 +150,6 @@ public final class IRCClient: IRCClientMessageTarget {
         self.eventLoop = group!.next()
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
-        let seq = MessageSequence(consumer: consumer)
-        iterator = seq.makeAsyncIterator()
     }
     
     deinit {

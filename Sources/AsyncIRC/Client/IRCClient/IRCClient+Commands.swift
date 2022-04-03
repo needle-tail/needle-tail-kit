@@ -11,33 +11,16 @@ extension IRCClient {
     
     
     public func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
-        
-        consumer.feedConsumer([message])
-        
-            func getNextMessage() async throws -> SequenceResult? {
-                return try await iterator?.next()
-            }
-
-            let res = try? await getNextMessage()
-            switch res {
-            case .success(let message):
-                do {
-                    try await channel?.writeAndFlush(message)
-                } catch {
-                    print(error)
-                }
-                consumedState = .consumed
-            case .retry:
-           await sendMessage(message, chatDoc: chatDoc)
-            default:
-                break
-            }
-       
+        do {
+            try await channel?.writeAndFlush(message)
+        } catch {
+            print(error)
+        }
     }
-
+    
     // MARK: - Commands
     
-    
+    @NeedleTailKitActor
     internal func _register(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = state else {
             assertionFailure("called \(#function) but we are not connecting?")

@@ -114,9 +114,8 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
-    /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is causght and we will call ``publishKeyBundle(_ data:)``
+    /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
-    
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw IRCClientError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -126,7 +125,7 @@ public class IRCMessenger: CypherServerTransportClient {
         var userConfig: UserConfig?
         
         if !waitingToReadBundle {
-            userConfig = await services.readKeyBundle(packet)
+//            userConfig = await services.readKeyBundle(packet)
         } else {
             repeat {
                 switch services.acknowledgment {
@@ -154,7 +153,7 @@ public class IRCMessenger: CypherServerTransportClient {
     }
 
     private func makeToken() -> String? {
-        return try? JWTSigner(algorithm: signer as! JWTAlgorithm).sign(
+        return try? JWTSigner(algorithm: signer as JWTAlgorithm).sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
                 exp: .init(value: Date().addingTimeInterval(3600))
