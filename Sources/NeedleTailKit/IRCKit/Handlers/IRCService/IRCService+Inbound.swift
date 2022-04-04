@@ -82,14 +82,57 @@ extension IRCService: IRCClientDelegate {
 //                c.addMessage(message, from: sender)
 //              }
               break
-            case .nickname: // name should be us
-              print("DATA RECEIVED: \(client)")
-              print("DATA RECEIVED: \(message)")
-              print("DATA RECEIVED: \(sender)")
-              print("DATA RECEIVED: \(recipients)")
-//              if let c = self.registerDirectMessage(sender.nick.stringValue) {
-//                c.addMessage(message, from: sender)
-//              }
+            case .nickname:
+              
+              struct Packet: Codable {
+                  let id: ObjectId
+                  let type: MessageType
+                  let body: Document
+              }
+              
+                      do {
+                          let buffer = ByteBuffer(data: Data(base64Encoded: message)!)
+                          let packet = try BSONDecoder().decode(Packet.self, from: Document(buffer: buffer))
+                          switch packet.type {
+                              
+                          case .message:
+                              
+                              print("DATA RECEIVED: \(client)")
+                              print("DATA RECEIVED: \(message)")
+                              print("DATA RECEIVED: \(sender)")
+                              print("DATA RECEIVED: \(recipients)")
+                              
+                              
+                              let dmPacket = try BSONDecoder().decode(DirectMessagePacket.self, from: packet.body)
+                              // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
+                              // it to the DB where we can get the message from
+                              print("DATA RECEIVED: \(dmPacket.message)")
+                              try await self.transportDelegate?.receiveServerEvent(
+                                  .messageSent(
+                                      dmPacket.message,
+                                      id: dmPacket.messageId,
+                                      byUser: dmPacket.sender.user,
+                                      deviceId: dmPacket.sender.device
+                                  )
+                              )
+                          case .multiRecipientMessage:
+                              break
+                          case .readReceipt:
+                              let receipt = try BSONDecoder().decode(ReadReceiptPacket.self, from: packet.body)
+                              switch receipt.state {
+                              case .displayed:
+                                  break
+                              case .received:
+                                  break
+                              }
+                          case .ack:
+                              ()
+                          }
+                          
+                      } catch {
+                          print(error)
+                      }
+              
               break
             case .everything:
 break
@@ -102,55 +145,7 @@ break
 
     
     
-    public func client(_ client: IRCClient, received message: IRCMessage) async {
-
-        struct Packet: Codable {
-            let id: ObjectId
-            let type: MessageType
-            let body: Document
-        }
-        
-        switch message.command {
-
-        case .PRIVMSG(_, let data):
-                do {
-                    let buffer = ByteBuffer(data: Data(base64Encoded: data)!)
-                    let packet = try BSONDecoder().decode(Packet.self, from: Document(buffer: buffer))
-                    switch packet.type {
-                        
-                    case .message:
-                        let dmPacket = try BSONDecoder().decode(DirectMessagePacket.self, from: packet.body)
-                        // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
-                        // it to the DB where we can get the message from
-                        try await self.transportDelegate?.receiveServerEvent(
-                            .messageSent(
-                                dmPacket.message,
-                                id: dmPacket.messageId,
-                                byUser: dmPacket.sender.user,
-                                deviceId: dmPacket.sender.device
-                            )
-                        )
-                    case .multiRecipientMessage:
-                        break
-                    case .readReceipt:
-                        let receipt = try BSONDecoder().decode(ReadReceiptPacket.self, from: packet.body)
-                        switch receipt.state {
-                        case .displayed:
-                            break
-                        case .received:
-                            break
-                        }
-                    case .ack:
-                        ()
-                    }
-                    
-                } catch {
-                    print(error)
-                }
-        default:
-            break
-        }
-        }
+    public func client(_ client: IRCClient, received message: IRCMessage) async { }
     
 
     

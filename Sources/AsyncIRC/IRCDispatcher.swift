@@ -64,8 +64,7 @@ public protocol IRCDispatcher {
     func doMessage   (sender     : IRCUserID?,
                       recipients : [ IRCMessageRecipient ],
                       message    : String,
-                      tags: [IRCTags]?,
-                      userStatus: UserStatus?) async throws
+                      tags: [IRCTags]?) async throws
     
     func doIsOnline  (_ nicks    : [ IRCNickName ]) async throws
     
@@ -116,8 +115,7 @@ public extension IRCDispatcher {
                 try await doMessage(sender: sender,
                                     recipients: recipients,
                                     message: payload,
-                                    tags: tags,
-                                    userStatus: nil)
+                                    tags: tags)
             case .NOTICE(let recipients, let message):
                 try await doNotice(recipients: recipients, message: message)
             case .NICK(let nickName):
@@ -234,8 +232,7 @@ public extension IRCDispatcher {
     func doMessage(sender: IRCUserID?,
                    recipients: [ IRCMessageRecipient ],
                    message: String,
-                   tags: [IRCTags]? = nil,
-                   userStatus: UserStatus?) async throws
+                   tags: [IRCTags]? = nil) async throws
     {
         throw InternalDispatchError.notImplemented(function: #function)
     }

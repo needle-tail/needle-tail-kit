@@ -93,7 +93,7 @@ extension IRCClient: IRCDispatcher {
             await delegate?.client(self, received: message)
         }
     }
-    
+
     
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await delegate?.client(self, notice: message, for: recipients)
@@ -103,8 +103,7 @@ extension IRCClient: IRCDispatcher {
     public func doMessage(sender     : IRCUserID?,
                         recipients : [ IRCMessageRecipient ],
                         message    : String,
-                        tags       : [IRCTags]?,
-                        userStatus: UserStatus?) async throws {
+                        tags       : [IRCTags]?) async throws {
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return
