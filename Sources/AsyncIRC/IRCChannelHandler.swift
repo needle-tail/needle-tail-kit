@@ -13,10 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
-import MongoKitten
 import Logging
+import Foundation
+
+@globalActor public final actor NeedleTailKitActor {
+    public static let shared = NeedleTailKitActor()
+    private init() {}
+}
 
 public let DefaultIRCPort = 6667
+
 
 /**
  * Protocol handler for IRC
@@ -45,77 +51,92 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
-    private let store: NeedleTailStore
-    private(set) var jobQueue: IRCJobQueue!
-    internal var cachedStore: _NeedleTailStoreCache
+    var logger: Logger
+    let consumer = ParseConsumer()
+    var iterator: ParserSequence.Iterator?
     
     
-    @inlinable
-    public init(logger: Logger = Logger(label: ""), store: NeedleTailStore) {
-        self.store = store
-        self.cachedStore = _NeedleTailStoreCache(store: self.store)
+    public init(logger: Logger = Logger(label: "NeedleTailKit")) {
+        self.logger = logger
+        let seq = ParserSequence(consumer: consumer)
+        iterator = seq.makeAsyncIterator()
     }
     
-    @inlinable
-    open func channelActive(context: ChannelHandlerContext) {
+    public func channelActive(context: ChannelHandlerContext) {
+        self.logger.trace("IRCChannelHandler is Active")
         context.fireChannelActive()
     }
-    @inlinable
-    open func channelInactive(context: ChannelHandlerContext) {
+
+    public func channelInactive(context: ChannelHandlerContext) {
+        self.logger.trace("IRCChannelHandler is Inactive")
         context.fireChannelInactive()
     }
     
     
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        self.logger.trace("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let line = buffer.readString(length: buffer.readableBytes) ?? ""
             let message = asyncParse(context: context, line: line)
-            message.whenSuccess { message in
+        message.whenComplete{ switch $0 {
+        case .success(let message):
                 self.channelRead(context: context, value: message)
-            }
+        case .failure(let error):
+            self.logger.error("AsyncParse Failed \(error)")
+        }
     }
+}
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            guard let message = try await self.queueMessage(context: context, line: line) else { throw ParserError.jobFailedToParse }
+            guard let message = await self.processMessage(line) else {
+            promise.fail(ParserError.jobFailedToParse)
+            return try await promise.futureResult.get()
+            }
             return message
         }
         return promise.futureResult
     }
-
-    private func queueMessage(context: ChannelHandlerContext, line: String) async throws -> IRCMessage? {
-        do {
-            self.jobQueue = try await IRCJobQueue(store: self.cachedStore)
-            _ = await self.jobQueue.startRunningTasks()
-            await self.jobQueue.resume()
-            
-            let taskResult = try await self.jobQueue.queueTask(
-                IRCTask.parseMessage(ParseMessageTask(message: line))
-            )
-            switch taskResult {
-            case .success(ircMessage: let message):
-                return message
+    
+    let parser = IRCMessageParser()
+    
+    @NeedleTailKitActor
+    public func processMessage(_ message: String) async -> IRCMessage? {
+        guard !message.isEmpty else { return nil }
+        consumer.feedConsumer([message])
+        
+            func getNextMessage() async throws -> ParseSequenceResult? {
+                return try await iterator?.next()
+            }
+        
+            let res = try? await getNextMessage()
+            switch res {
+            case .success(let message):
+                do {
+                    let parsed = try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
+                    consumedState = .consumed
+                    return parsed
+                } catch {
+                    print(error)
+                }
+            case .retry:
+           _ = await processMessage(message)
             default:
                 break
             }
-        } catch {
-            print("Queue Task Error: \(error)")
-        }
-        return nil
+       return nil
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        
+        self.logger.trace("READ Complete")
     }
     
-    @inlinable
-    func channelRead(context: ChannelHandlerContext, value: InboundOut) {
+    public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
         context.fireChannelRead(self.wrapInboundOut(value))
     }
     
-    @inlinable
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
         context.fireErrorCaught(InboundErr.transportError(error))
     }
@@ -123,15 +144,13 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     // MARK: - Writing
     
-    @inlinable
     public func write(context: ChannelHandlerContext, data: NIOAny,
                       promise: EventLoopPromise<Void>?
     ) {
-        let message : OutboundIn = self.unwrapOutboundIn(data)
+        let message: OutboundIn = self.unwrapOutboundIn(data)
         write(context: context, value: message, promise: promise)
     }
     
-    @inlinable
     public final func write(context: ChannelHandlerContext, value: IRCMessage,
                             promise: EventLoopPromise<Void>?
     ) {
@@ -140,7 +159,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         context.write(NIOAny(buffer), promise: promise)
     }
     
-    @inlinable
     func encode(value: IRCMessage, target: String?,
                 into buffer: inout ByteBuffer
     ) {
@@ -302,7 +320,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
 
 extension ByteBuffer {
     
-    @usableFromInline
     mutating func writeCSVArgument<T: Sequence>(_ args: T)
     where T.Element == String
     {
@@ -319,7 +336,6 @@ extension ByteBuffer {
         }
     }
     
-    @usableFromInline
     mutating func writeArguments<T: Sequence>(_ args: T)
     where T.Element == String
     {
@@ -331,7 +347,6 @@ extension ByteBuffer {
         }
     }
     
-    @usableFromInline
     mutating func writeArguments<T: Collection>(_ args: T, useLast: Bool = false)
     where T.Element == String
     {
@@ -348,7 +363,6 @@ extension ByteBuffer {
         return writeLastArgument(args[lastIdx])
     }
     
-    @usableFromInline
     mutating func writeLastArgument(_ s: String) {
         let cSpace : UInt8 = 32
         let cColon : UInt8 = 58

@@ -60,7 +60,7 @@ extension EventLoopGroupManager {
         let bootstrap: (NIOClientTCPBootstrap, EventLoopGroup)
 
         bootstrap = try makeUniversalBootstrap(serverHostname: hostname)
-        
+
         if useTLS {
             return bootstrap.0.enableTLS()
         } else {

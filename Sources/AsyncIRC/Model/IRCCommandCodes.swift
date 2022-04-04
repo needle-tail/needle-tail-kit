@@ -122,7 +122,9 @@ public enum IRCCommandCode : Int {
   case replyAdminEMail         = 259
   
   case replyTryAgain           = 263
-  
+    
+  case replyKeyBundle          = 270
+    
   // MARK: - Error Replies (400...599)
   
   case errorNoSuchNick         = 401

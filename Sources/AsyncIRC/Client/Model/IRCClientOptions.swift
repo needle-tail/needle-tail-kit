@@ -15,28 +15,20 @@
 import protocol NIO.EventLoopGroup
 import class    NIO.MultiThreadedEventLoopGroup
 
-fileprivate let onDemandSharedEventLoopGroup =
-                    MultiThreadedEventLoopGroup(numberOfThreads: 1)
-
 /// Configuration options for the socket connects
-open class ConnectOptions : CustomStringConvertible {
+public class ConnectOptions: CustomStringConvertible {
   
-  public var eventLoopGroup : EventLoopGroup?
   public var hostname       : String?
   public var port           : Int
   public var tls: Bool
     
   public init(hostname: String? = "localhost",
               port: Int = 80,
-              tls: Bool = false,
-              eventLoopGroup: EventLoopGroup? = nil)
+              tls: Bool = false)
   {
     self.hostname = hostname
     self.port     = port
-      self.tls = tls
-    self.eventLoopGroup = eventLoopGroup
-                       ?? MultiThreadedEventLoopGroup.currentEventLoop
-                       ?? onDemandSharedEventLoopGroup
+    self.tls = tls
   }
   
   public var description: String {
@@ -46,7 +38,7 @@ open class ConnectOptions : CustomStringConvertible {
     return ms
   }
   
-  open func appendToDescription(_ ms: inout String) {
+  public func appendToDescription(_ ms: inout String) {
     if let hostname = hostname { ms += " \(hostname):\(port)" }
     else { ms += " \(port)" }
   }
@@ -57,12 +49,12 @@ open class ConnectOptions : CustomStringConvertible {
 //public let DefaultIRCPort = 6667
 
 /// Configuration options for the IRC client object
-open class IRCClientOptions : ConnectOptions {
+public class IRCClientOptions: ConnectOptions {
   
-  open var password      : String?
-  open var nickname      : IRCNickName
-  open var userInfo      : IRCUserInfo
-  open var retryStrategy : IRCRetryStrategyCB?
+  public var password      : String?
+  public var nickname      : IRCNickName
+  public var userInfo      : IRCUserInfo
+  public var retryStrategy : IRCRetryStrategyCB?
   
   public convenience init(nick: String) {
     self.init(nickname: IRCNickName(nick)!)
@@ -73,8 +65,7 @@ open class IRCClientOptions : ConnectOptions {
               password       : String?         = nil,
               tls            : Bool            = false,
               nickname       : IRCNickName,
-              userInfo       : IRCUserInfo?    = nil,
-              eventLoopGroup : EventLoopGroup? = nil)
+              userInfo       : IRCUserInfo?    = nil)
   {
     self.password      = password
     self.nickname      = nickname
@@ -84,10 +75,10 @@ open class IRCClientOptions : ConnectOptions {
                                             hostname: host, servername: host,
                                             realname: "NIO IRC User")
     
-      super.init(hostname: host, port: port, tls: tls, eventLoopGroup: eventLoopGroup)
+      super.init(hostname: host, port: port, tls: tls)
   }
   
-  override open func appendToDescription(_ ms: inout String) {
+  override public func appendToDescription(_ ms: inout String) {
     super.appendToDescription(&ms)
     ms += " \(nickname)"
     ms += " \(userInfo)"

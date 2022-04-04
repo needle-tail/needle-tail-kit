@@ -21,64 +21,60 @@ import AsyncCollections
  * A `IRCMessageTarget` is the reverse to the `IRCMessageDispatcher`.
  *
  * Both the `IRCClient` and the `IRCServer` objects implement this protocol
- * and just its `sendMessages` and `origin` methods.
+ * and just its `sendMessage` and `origin` methods.
  *
  * Extensions then provide extra functionality based on this, the PoP way.
  */
-public protocol IRCMessageTarget {
+
+public protocol IRCMessageTarget: AnyObject {
     
     var origin : String? { get }
     var tags: [IRCTags]? { get }
-    
-    func sendMessages<T: Collection>(_ messages: T) async
-    where T.Element == IRCMessage
-    
+    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async
 }
 
 
 
 public extension IRCMessageTarget {
     
-    @inlinable
-    func sendMessage(_ message: IRCMessage) {
-        Task {
-        await sendMessages([ message ])
+    
+    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
+        await sendMessage(message, chatDoc: chatDoc)
+    }
+}
+
+public extension IRCMessageTarget {
+    
+    
+    func sendMessage(_ text: String, to recipients: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
+        guard !recipients.isEmpty else { return }
+        
+        let lines = text.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
+        
+        _ = await lines.asyncMap {
+            let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+            await self.sendMessage(message, chatDoc: nil)
         }
     }
-}
-
-public extension IRCMessageTarget {
     
     
-    @inlinable
-    func sendMessage(_ text: String, to recipients: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
-      guard !recipients.isEmpty else { return }
-      
-      let lines = text.components(separatedBy: "\n")
-                      .map { $0.replacingOccurrences(of: "\r", with: "") }
-        let messages = lines.map {
-             IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
-      }
-      await sendMessages(messages)
-    }
-
-    
-    @inlinable
     func sendNotice(_ text: String, to recipients: IRCMessageRecipient...) async {
         guard !recipients.isEmpty else { return }
         
         let lines = text.components(separatedBy: "\n")
-                        .map { $0.replacingOccurrences(of: "\r", with: "") }
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
         
-          let messages = lines.map {
-               IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
+        _ = await lines.asyncMap {
+            let message =  IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: self.tags)
+            await self.sendMessage(message, chatDoc: nil)
         }
-        await sendMessages(messages)
     }
     
-    @inlinable
+    
     func sendRawReply(_ code: IRCCommandCode, _ args: String...) async {
-        sendMessage(IRCMessage(origin: origin, command: .numeric(code, args), tags: tags))
+        let message = IRCMessage(origin: origin, command: .numeric(code, args), tags: tags)
+        await sendMessage(message, chatDoc: nil)
     }
 }
 #endif

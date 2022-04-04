@@ -14,8 +14,6 @@
 
 extension String {
   // You wonder why, admit it! ;-)
-  
-  @usableFromInline
   func ircLowercased() -> String {
     return String(lowercased().map { c in
       switch c {

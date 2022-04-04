@@ -21,10 +21,9 @@ public struct IRCServerName : Hashable {
   
   public typealias StringLiteralType = String
   
-  @usableFromInline let storage    : String
-  @usableFromInline let normalized : String
+  let storage    : String
+  let normalized : String
   
-  @inlinable
   public init?(_ s: String) {
     guard IRCNickName.validate(string: s, validationFlags: []) else {
       return nil
@@ -33,18 +32,14 @@ public struct IRCServerName : Hashable {
     normalized = s.ircLowercased()
   }
   
-  @inlinable
   public var stringValue : String { return storage }
   
-  @inlinable
   public func hash(into hasher: inout Hasher) { normalized.hash(into: &hasher) }
   
-  @inlinable
   public static func ==(lhs: IRCServerName, rhs: IRCServerName) -> Bool {
     return lhs.normalized == rhs.normalized
   }
   
-  @inlinable
   public static func validate(string: String) -> Bool {
     guard string.count > 1 && string.count <= 63 else {
       return false

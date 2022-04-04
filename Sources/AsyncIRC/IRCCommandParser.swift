@@ -106,16 +106,14 @@ public extension IRCCommand {
                             else if let mode = IRCUserMode(String(c)) {
                                 if isAdd { add   .insert(mode) }
                                 else     { remove.insert(mode) }
-                            }
-                            else {
+                            } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
                             }
                         }
                     }
                     self = .MODE(nick, add: add, remove: remove)
-                }
-                else {
+                } else {
                     self = .MODEGET(nick)
                 }
                 
@@ -131,8 +129,7 @@ public extension IRCCommand {
                             else if let mode = IRCChannelMode(String(c)) {
                                 if isAdd { add   .insert(mode) }
                                 else     { remove.insert(mode) }
-                            }
-                            else {
+                            } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
                             }
@@ -243,7 +240,7 @@ public extension IRCCommand {
                                 onlyOperators: arguments[1] == "o")
             default: fatalError("unexpected argument count \(arguments.count)")
             }
-            
+            //Other Command, can be something like PASS, KEYBUNDLE
         default:
             self = .otherCommand(command.uppercased(), arguments)
         }
@@ -256,7 +253,6 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
     init(_ v: Int, arguments: [ String ]) throws {
         if let code = IRCCommandCode(rawValue: v) {
             self = .numeric(code, arguments)
@@ -273,7 +269,6 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
     init(_ s: String, _ arguments: String...) throws {
         try self.init(s, arguments: arguments)
     }
@@ -285,8 +280,7 @@ public extension IRCCommand {
      * The parser validates the argument counts etc and throws exceptions on
      * unexpected input.
      */
-    @inlinable
-    init(_ v: Int, _ arguments: String...) async throws {
+    init(_ v: Int, _ arguments: String...) throws {
         try self.init(v, arguments: arguments)
     }
 }

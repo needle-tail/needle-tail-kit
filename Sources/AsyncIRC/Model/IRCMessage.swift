@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
+import Foundation
 
 /**
  * An IRC message
@@ -21,13 +21,15 @@ import struct Foundation.Data
  * arguments).
  */
 
+
 public struct IRCMessage: CustomStringConvertible {
-    //TODO: Introduce tags
+    
+    let id = UUID()
+    
     public enum CodingKeys: String, CodingKey {
         case origin, target, command, arguments, tags
     }
     
-    @inlinable
     public init(
         origin: String? = nil,
         target: String? = nil,
@@ -47,7 +49,6 @@ public struct IRCMessage: CustomStringConvertible {
      *
      * This is a server name or a nickname w/ user@host parts.
      */
-    @inlinable
     public var origin : String? {
         set {
             copyStorageIfNeeded()
@@ -58,7 +59,6 @@ public struct IRCMessage: CustomStringConvertible {
         }
     }
     
-    @inlinable
     public var target : String? {
         set {
             copyStorageIfNeeded()
@@ -72,7 +72,6 @@ public struct IRCMessage: CustomStringConvertible {
     /**
      * The IRC command and its arguments (max 15).
      */
-    @inlinable
     public var command : IRCCommand {
         set {
             copyStorageIfNeeded()
@@ -83,7 +82,6 @@ public struct IRCMessage: CustomStringConvertible {
         }
     }
     
-    @inlinable
     public var tags : [IRCTags]? {
         set {
             copyStorageIfNeeded()
@@ -94,7 +92,6 @@ public struct IRCMessage: CustomStringConvertible {
         }
     }
     
-    @inlinable
     public var description: String {
         var ms = "<IRCMsg:"
         
@@ -113,21 +110,18 @@ public struct IRCMessage: CustomStringConvertible {
     
     
     // MARK: - Internal Storage to keep the value small
-    @usableFromInline
     mutating func copyStorageIfNeeded() {
         if !isKnownUniquelyReferenced(&_storage) {
             _storage =  _Storage(_storage)
         }
     }
     
-    @usableFromInline
     class _Storage {
-        @usableFromInline var origin  : String?
-        @usableFromInline var target  : String?
-        @usableFromInline var command : IRCCommand
-        @usableFromInline var tags : [IRCTags]?
+        var origin  : String?
+        var target  : String?
+        var command : IRCCommand
+        var tags : [IRCTags]?
         
-        @usableFromInline
         init(
             origin: String?,
             target: String?,
@@ -139,7 +133,7 @@ public struct IRCMessage: CustomStringConvertible {
             self.command = command
             self.tags = tags
         }
-        @usableFromInline
+
         init(_ other: _Storage) {
             self.origin  = other.origin
             self.target  = other.target
@@ -147,12 +141,10 @@ public struct IRCMessage: CustomStringConvertible {
             self.tags = other.tags
         }
     }
-    @usableFromInline var _storage : _Storage
+    var _storage : _Storage
     
     
     // MARK: - Codable
-    
-    @inlinable
     public init(from decoder: Decoder) async throws {
         let c       = try decoder.container(keyedBy: CodingKeys.self)
         let cmd     = try c.decode(String.self,              forKey: .command)
@@ -166,7 +158,7 @@ public struct IRCMessage: CustomStringConvertible {
                   tags: tags
         )
     }
-    @inlinable
+    
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeIfPresent(origin,         forKey: .origin)
@@ -174,5 +166,11 @@ public struct IRCMessage: CustomStringConvertible {
         try c.encode(command.commandAsString, forKey: .command)
         try c.encode(command.arguments,       forKey: .arguments)
         try c.encodeIfPresent(tags, forKey: .tags)
+    }
+}
+
+extension IRCMessage: Equatable {
+    public static func == (lhs: IRCMessage, rhs: IRCMessage) -> Bool {
+        return lhs.id == rhs.id
     }
 }

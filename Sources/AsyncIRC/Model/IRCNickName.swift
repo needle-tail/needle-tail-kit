@@ -20,12 +20,12 @@
  * Maximum length is 9 characters, but clients should support longer for
  * future compat.
  */
-public struct IRCNickName : Hashable, CustomStringConvertible, Sendable {
+public struct IRCNickName: Codable, Hashable, CustomStringConvertible {
   
   public typealias StringLiteralType = String
   
-  @usableFromInline let storage    : String
-  @usableFromInline let normalized : String
+  let storage    : String
+  let normalized : String
   
   public struct ValidationFlags: OptionSet {
     public let rawValue : UInt8
@@ -46,7 +46,7 @@ public struct IRCNickName : Hashable, CustomStringConvertible, Sendable {
     public static let strictLengthLimit  = ValidationFlags(rawValue: 1 << 1)
   }
   
-  @inlinable
+
   public init?(_ s: String,
                validationFlags: ValidationFlags = [ .allowStartingDigit ])
   {
@@ -59,22 +59,19 @@ public struct IRCNickName : Hashable, CustomStringConvertible, Sendable {
     normalized = s.ircLowercased()
   }
   
-  @inlinable
+
   public var stringValue : String {
     return storage
   }
   
-  @inlinable
   public func hash(into hasher: inout Hasher) {
     normalized.hash(into: &hasher)
   }
   
-  @inlinable
   public static func ==(lhs: IRCNickName, rhs: IRCNickName) -> Bool {
     return lhs.normalized == rhs.normalized
   }
 
-  @inlinable
   public var description : String { return stringValue }
 
   public static func validate(string: String, validationFlags: ValidationFlags)

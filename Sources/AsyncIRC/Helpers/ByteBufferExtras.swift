@@ -21,7 +21,6 @@ public extension ByteBuffer {
   /**
    * Write an Integer as an ASCII String.
    */
-  @inlinable
   @discardableResult
   mutating func write<T: SignedInteger>(integerAsString integer: T,
                                         as: T.Type = T.self) -> Int
@@ -32,7 +31,6 @@ public extension ByteBuffer {
   /**
    * Set an Integer as an ASCII String.
    */
-  @inlinable
   @discardableResult
   mutating func set<T: SignedInteger>(integerAsString integer: T,
                                       at index: Int,
