@@ -22,7 +22,7 @@ extension IRCService {
         await client?.readKeyBundle(packet)
         repeat {
             userConfig = try? await self.stream?.next()
-            try? await Task.sleep(nanoseconds: NSEC_PER_SEC)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             waitCount += 1
             self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
         } while await shouldRunCount()

@@ -136,7 +136,7 @@ public class IRCMessenger: CypherServerTransportClient {
                 if services.client?.channel != nil {
                     userConfig = await services.readKeyBundle(packet)
                 }
-                try await Task.sleep(nanoseconds: NSEC_PER_SEC)
+                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
             } while shouldRunCount()
             services.acknowledgment = Acknowledgment.AckType.none
@@ -151,7 +151,7 @@ public class IRCMessenger: CypherServerTransportClient {
                 default:
                     break
                 }
-                try await Task.sleep(nanoseconds: NSEC_PER_SEC)
+                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
                 self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
             } while shouldRunCount()
@@ -183,7 +183,7 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     private func makeToken() -> String? {
-        return try? JWTSigner(algorithm: signer as JWTAlgorithm).sign(
+        return try? JWTSigner(algorithm: signer as! JWTAlgorithm).sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
                 exp: .init(value: Date().addingTimeInterval(3600))
