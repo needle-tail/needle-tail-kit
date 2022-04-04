@@ -37,6 +37,7 @@ public final class IRCClient: IRCClientMessageTarget {
     public weak var delegate: IRCClientDelegate?
     public var tags: [IRCTags]?
     let groupManager: EventLoopGroupManager
+    public var channel : Channel? { get { return state.channel } }
     var messageOfTheDay = ""
     internal var state : State = .disconnected
     internal var userMode = IRCUserMode()
@@ -50,7 +51,6 @@ public final class IRCClient: IRCClientMessageTarget {
     
     var logger: Logger
     var retryInfo = IRCRetryInfo()
-    var channel : Channel? { get { return state.channel } }
     
     public enum Error : Swift.Error {
         case writeError(Swift.Error)

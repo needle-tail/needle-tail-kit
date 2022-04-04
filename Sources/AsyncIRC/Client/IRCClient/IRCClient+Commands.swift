@@ -9,7 +9,6 @@ import NIO
 
 extension IRCClient {
     
-    @NeedleTailKitActor
     public func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         do {
             try await channel?.writeAndFlush(message)

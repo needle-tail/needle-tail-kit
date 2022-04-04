@@ -4,6 +4,7 @@ import NIO
 import AsyncIRC
 import CypherMessaging
 import Crypto
+import Logging
 #if canImport(Network)
 import NIOTransportServices
 import MessagingHelpers
@@ -11,20 +12,21 @@ import MessagingHelpers
 
 public final class IRCService {
     
-    public let signer: TransportCreationRequest
-    internal var activeClientOptions: IRCClientOptions?
-    public var conversations: [ DecryptedModel<ConversationModel> ]?
-    internal var authenticated: AuthenticationState?
-    public weak var ircDelegate: IRCClientDelegate?
-    public var transportDelegate: CypherTransportClientDelegate?
-    internal var messenger: CypherMessenger?
-    internal var client: IRCClient?
-    internal var userState: UserState
-    internal var clientOptions: ClientOptions?
-    internal var userConfig: UserConfig?
+    var messenger: CypherMessenger?
+    var client: IRCClient?
+    var userState: UserState
+    var clientOptions: ClientOptions?
+    var userConfig: UserConfig?
+    var waitCount = 0
+    var logger: Logger
     var stream: KeyBundleIterator?
-     public var acknowledgment: Acknowledgment.AckType = .none
-    
+    var activeClientOptions: IRCClientOptions?
+    var authenticated: AuthenticationState?
+    public var acknowledgment: Acknowledgment.AckType = .none
+    public let signer: TransportCreationRequest
+    public var conversations: [ DecryptedModel<ConversationModel> ]?
+    public var transportDelegate: CypherTransportClientDelegate?
+    public weak var ircDelegate: IRCClientDelegate?
     
     public init(
         signer: TransportCreationRequest,
@@ -33,12 +35,17 @@ public final class IRCService {
         clientOptions: ClientOptions?,
         delegate: CypherTransportClientDelegate?
     ) async {
+        self.logger = Logger(label: "IRCService - ")
         self.signer = signer
         self.authenticated = authenticated
         self.userState = userState
         self.clientOptions = clientOptions
         self.transportDelegate = delegate
         activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
+
+        guard let options = activeClientOptions else { return }
+        self.client = IRCClient(options: options)
+        self.client?.delegate = self
     }
     
     

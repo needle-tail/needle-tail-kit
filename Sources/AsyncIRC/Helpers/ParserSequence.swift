@@ -54,7 +54,9 @@ extension ParserSequence {
     }
 }
 
-
+public enum ConsumedState {
+    case consumed, waiting
+}
 
 public enum ParseSequenceResult {
     case success(ParseMessageTask), retry
@@ -64,6 +66,7 @@ enum NextParseResult {
     case ready((ParseMessageTask, Bool)?), preparing
 }
 
+public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.preparing
 

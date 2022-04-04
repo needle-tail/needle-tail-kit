@@ -20,11 +20,23 @@ extension IRCService {
     
     internal func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
-        var config: UserConfig?
         repeat {
-            config = try? await self.stream?.next()
-        } while config == nil
-        return config
+            userConfig = try? await self.stream?.next()
+            try? await Task.sleep(nanoseconds: NSEC_PER_SEC)
+            waitCount += 1
+            self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
+        } while await shouldRunCount()
+        return userConfig
+    }
+    
+    private func shouldRunCount() async -> Bool {
+        guard userConfig == nil else {
+            return false
+        }
+        guard waitCount <= 100 else {
+            return false
+        }
+        return true
     }
     
     internal func registerAPN(_ packet: String) async {

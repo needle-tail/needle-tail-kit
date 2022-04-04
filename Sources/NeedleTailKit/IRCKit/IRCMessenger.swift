@@ -15,6 +15,7 @@ import AsyncIRC
 import MessagingHelpers
 import BSON
 import JWTKit
+import Logging
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -33,12 +34,14 @@ public class IRCMessenger: CypherServerTransportClient {
     private let username: Username
     private let appleToken: String?
     public var registrationType: RegistrationType?
-    internal var services: IRCService?
     private var userState: UserState
     private var clientOptions: ClientOptions?
-    internal var messenger: CypherMessenger?
-     private var keyBundle: String = ""
+    private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
+    var messenger: CypherMessenger?
+    var services: IRCService?
+    var logger: Logger
+    
     
     public init(
         username: Username,
@@ -48,6 +51,7 @@ public class IRCMessenger: CypherServerTransportClient {
         userState: UserState,
         clientOptions: ClientOptions?
     ) async throws {
+        self.logger = Logger(label: "IRCMessenger - ")
         self.userState = userState
         self.clientOptions = clientOptions
         self.username = username
@@ -72,7 +76,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
-
+    
     public func startService(_ packet: String? = nil) async {
         if self.services == nil {
             self.services = await IRCService(
@@ -86,7 +90,7 @@ public class IRCMessenger: CypherServerTransportClient {
         await resume(packet)
     }
     
-
+    
     public func registerBundle(
         type: RegistrationType?,
         options: ClientOptions
@@ -113,6 +117,8 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.services?.client?.publishKeyBundle(self.keyBundle)
     }
     
+    var waitCount = 0
+    
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
@@ -125,7 +131,15 @@ public class IRCMessenger: CypherServerTransportClient {
         var userConfig: UserConfig?
         
         if !waitingToReadBundle {
-            userConfig = await services.readKeyBundle(packet)
+            services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
+            repeat {
+                if services.client?.channel != nil {
+                    userConfig = await services.readKeyBundle(packet)
+                }
+                try await Task.sleep(nanoseconds: NSEC_PER_SEC)
+                waitCount += 1
+            } while shouldRunCount()
+            services.acknowledgment = Acknowledgment.AckType.none
         } else {
             repeat {
                 switch services.acknowledgment {
@@ -137,12 +151,28 @@ public class IRCMessenger: CypherServerTransportClient {
                 default:
                     break
                 }
-            } while services.acknowledgment == .none
+                try await Task.sleep(nanoseconds: NSEC_PER_SEC)
+                waitCount += 1
+                self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
+            } while shouldRunCount()
         }
         
         guard let userConfig = userConfig else { throw IRCClientError.nilUsedConfig }
         services.acknowledgment = .none
         return userConfig
+    }
+    
+    private func shouldRunCount() -> Bool {
+        if services?.client?.channel == nil {
+            return true
+        } else if services?.acknowledgment == Acknowledgment.AckType.none {
+            return true
+        } else if waitCount >= 100 {
+            waitCount = 0
+            return false
+        } else {
+            return false
+        }
     }
     
     public func registerAPNSToken(_ token: Data) async throws {
@@ -151,7 +181,7 @@ public class IRCMessenger: CypherServerTransportClient {
         let packet = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
         await self.services?.registerAPN(packet)
     }
-
+    
     private func makeToken() -> String? {
         return try? JWTSigner(algorithm: signer as JWTAlgorithm).sign(
             Token(
@@ -330,11 +360,6 @@ extension IRCMessenger {
         let body = IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
         let data = try BSONEncoder().encode(body).makeData()
         do {
-            
-//                            let recipientDevice = UserDeviceId(user: recipient, device: deviceId)
-//                            let token = recipient.deviceTokens[recipientDevice.device]
-            
-            
             let recipient = try await recipient(name: "\(username.raw)")
             _ = try await services?.sendMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
