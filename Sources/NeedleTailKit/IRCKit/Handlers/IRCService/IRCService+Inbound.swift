@@ -71,7 +71,10 @@ extension IRCService: IRCClientDelegate {
                        for recipients : [ IRCMessageRecipient ]
     ) async {
         await self.updateConnectedClientState(client)
-        
+        print("DATA RECEIVED: \(client)")
+        print("DATA RECEIVED: \(message)")
+        print("DATA RECEIVED: \(sender)")
+        print("DATA RECEIVED: \(recipients)")
         // FIXME: We need this because for DMs we use the sender as the
         //        name
         for recipient in recipients {
@@ -97,10 +100,7 @@ extension IRCService: IRCClientDelegate {
                               
                           case .message:
                               
-                              print("DATA RECEIVED: \(client)")
-                              print("DATA RECEIVED: \(message)")
-                              print("DATA RECEIVED: \(sender)")
-                              print("DATA RECEIVED: \(recipients)")
+
                               
                               
                               let dmPacket = try BSONDecoder().decode(DirectMessagePacket.self, from: packet.body)

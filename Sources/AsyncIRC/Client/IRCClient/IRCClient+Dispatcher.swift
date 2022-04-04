@@ -12,7 +12,7 @@ extension IRCClient: IRCDispatcher {
     
     
     public func irc_msgSend(_ message: IRCMessage) async throws {
- 
+        
         do {
             return try await irc_defaultMsgSend(message)
         }
@@ -20,7 +20,7 @@ extension IRCClient: IRCDispatcher {
             guard case .doesNotRespondTo = error else { throw error }
         }
         catch { throw error }
-
+        
         switch message.command {
             /* Message of the Day coalescing */
         case .numeric(.replyMotDStart, let args):
@@ -38,7 +38,7 @@ extension IRCClient: IRCDispatcher {
             // <IRCCmd: 366 args=Guest1,#ZeeQL,End of /NAMES list> localhost -
         case .numeric(.replyNameReply, _ /*let args*/):
 #if false
-             messageOfTheDay += (args.last ?? "") + "\n"
+            messageOfTheDay += (args.last ?? "") + "\n"
 #else
             break
 #endif
@@ -93,21 +93,24 @@ extension IRCClient: IRCDispatcher {
             await delegate?.client(self, received: message)
         }
     }
-
+    
     
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await delegate?.client(self, notice: message, for: recipients)
     }
     
     
-    public func doMessage(sender     : IRCUserID?,
-                        recipients : [ IRCMessageRecipient ],
-                        message    : String,
-                        tags       : [IRCTags]?) async throws {
+    public func doMessage(
+        sender: IRCUserID?,
+        recipients: [ IRCMessageRecipient ],
+        message: String,
+        tags: [IRCTags]?
+    ) async throws {
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return
         }
+        print("MESSAGE___", message)
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
     
@@ -149,6 +152,6 @@ extension IRCClient: IRCDispatcher {
         
         msg = IRCMessage(origin: origin, // probably wrong
                          command: .PONG(server: server, server2: server))
-         await sendMessage(msg, chatDoc: nil)
+        await sendMessage(msg, chatDoc: nil)
     }
 }
