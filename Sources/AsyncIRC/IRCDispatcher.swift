@@ -36,54 +36,41 @@ public protocol IRCDispatcher {
     func irc_msgSend(_ message: IRCMessage) async throws
     
     // MARK: - Implementations
-    func doPing      (_ server   : String,
-                      server2    : String?)            async throws
-    func doCAP       (_ cmd      : IRCCommand.CAPSubCommand,
-                      _ capIDs   : [ String ])         async throws
+    func doPing(_ server: String, server2: String?) async throws
+    func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
-    func doNick      (_ nick     : IRCNickName, tags: [IRCTags]?)        async throws
-    func doUserInfo  (_ info     : IRCUserInfo, tags: [IRCTags]?)        async throws
-    func doModeGet   (nick       : IRCNickName)        async throws
-    func doModeGet   (channel    : IRCChannelName)     async throws
-    func doMode      (nick       : IRCNickName,
-                      add        : IRCUserMode,
-                      remove     : IRCUserMode)        async throws
+    func doNick(_ nick: IRCNickName, tags: [IRCTags]?) async throws
+    func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) async throws
+    func doModeGet(nick: IRCNickName) async throws
+    func doModeGet(channel: IRCChannelName) async throws
+    func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws
+    func doWhoIs(server: String?, usermasks: [ String ]) async throws
+    func doWho(mask: String?, operatorsOnly opOnly: Bool) async throws
     
-    func doWhoIs     (server     : String?,
-                      usermasks  : [ String ])         async throws
-    func doWho       (mask       : String?, operatorsOnly opOnly: Bool) async throws
+    func doJoin(_ channels: [ IRCChannelName ]) async throws
+    func doPart(_ channels: [ IRCChannelName ], message: String?) async throws
+    func doPartAll()async throws
+    func doGetBanMask(_ channel  : IRCChannelName) async throws
+    func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
+    func doMessage(
+        sender: IRCUserID?,
+        recipients: [ IRCMessageRecipient ],
+        message: String,tags: [IRCTags]?,
+        userStatus: UserStatus
+    ) async throws
     
-    func doJoin      (_ channels : [ IRCChannelName ]) async throws
-    func doPart      (_ channels : [ IRCChannelName ],
-                      message    : String?)            async throws
-    func doPartAll   ()                                async throws
-    func doGetBanMask(_ channel  : IRCChannelName)     async throws
     
-    func doNotice    (recipients : [ IRCMessageRecipient ],
-                      message    : String) async throws
-    func doMessage   (sender     : IRCUserID?,
-                      recipients : [ IRCMessageRecipient ],
-                      message    : String,
-                      tags: [IRCTags]?) async throws
-    
-    func doIsOnline  (_ nicks    : [ IRCNickName ]) async throws
-    
-    func doList      (_ channels : [ IRCChannelName ]?,
-                      _ target   : String?)         async throws
-    
-    func doQuit      (_ message  : String?) async throws
-    
+    func doIsOnline (_ nicks: [ IRCNickName ]) async throws
+    func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
+    func doQuit(_ message: String?) async throws
     func doPublishKeyBundle(_ keyBundle: [String]) async throws
-    
     func doReadKeyBundle(_ keyBundle: [String]) async throws
-    
     func doRegisterAPN(_ token: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
     
     case doesNotRespondTo(IRCMessage)
-    
     case nicknameInUse(IRCNickName)
     case noSuchNick   (IRCNickName)
     case noSuchChannel(IRCChannelName)
@@ -114,7 +101,8 @@ public extension IRCDispatcher {
                 try await doMessage(sender: sender,
                                     recipients: recipients,
                                     message: payload,
-                                    tags: tags)
+                                    tags: tags,
+                                    userStatus: .isOnline)
             case .NOTICE(let recipients, let message):
                 try await doNotice(recipients: recipients, message: message)
             case .NICK(let nickName):
@@ -183,11 +171,9 @@ public extension IRCDispatcher {
     func doPing(_ server: String, server2: String?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doNick(_ nick: IRCNickName, tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
@@ -223,38 +209,32 @@ public extension IRCDispatcher {
     func doGetBanMask(_ channel: IRCChannelName) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doMessage(sender: IRCUserID?,
                    recipients: [ IRCMessageRecipient ],
                    message: String,
-                   tags: [IRCTags]? = nil) async throws
-    {
+                   tags: [IRCTags]? = nil,
+                   userStatus: UserStatus
+    ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doIsOnline(_ nicks: [ IRCNickName ]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doList(_ channels : [ IRCChannelName ]?, _ target: String?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doQuit(_ message: String?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doPublishKeyBundle(_ keyBundle: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    
     func doRegisterAPN(_ token: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
