@@ -31,7 +31,7 @@ import NIOTransportServices
  */
 public final class IRCClient: IRCClientMessageTarget {
     
-    public var origin: String? 
+    public var origin: String? { return state.nick?.stringValue }
     public let options: IRCClientOptions
     public let eventLoop: EventLoop
     public weak var delegate: IRCClientDelegate?

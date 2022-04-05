@@ -28,7 +28,7 @@ import AsyncCollections
 
 public protocol IRCMessageTarget: AnyObject {
     
-    var origin : String? { get set }
+    var origin : String? { get }
     var tags: [IRCTags]? { get }
     func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async
 }
