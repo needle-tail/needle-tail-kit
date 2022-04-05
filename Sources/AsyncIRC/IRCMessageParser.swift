@@ -231,7 +231,7 @@ public final class IRCMessageParser {
                 let initialBreak = stripedMessage.components(separatedBy: " ")
                 var newArgArray: [String] = []
                 newArgArray.append(initialBreak[2])
-                newArgArray.append(String("\(initialBreak[3])==".dropFirst()))
+                newArgArray.append(String("\(initialBreak[3])".dropFirst()))
                 args = newArgArray
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
