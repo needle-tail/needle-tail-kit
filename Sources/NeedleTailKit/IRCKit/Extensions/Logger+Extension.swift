@@ -7,7 +7,7 @@ import CommonCrypto
 #endif
 
 // Hashing data for logger
-internal extension Logger.Metadata {
+public extension Logger.Metadata {
     
     ///  A static method used for hashing a string This is specifically helpful when trying to mask sensitive information in the ``Logger``.
     /// - Parameter string: A `String` intended for hashing
