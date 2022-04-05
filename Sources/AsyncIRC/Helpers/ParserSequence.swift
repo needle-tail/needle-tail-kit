@@ -40,7 +40,6 @@ extension ParserSequence {
         mutating public func next() async throws -> ParseSequenceResult? {
             let result = consumer.next()
                 var res: ParseSequenceResult?
-            print("RESULT____", result)
                 switch result {
                 case .ready(let sequence):
                     res = .success(sequence!.0)
