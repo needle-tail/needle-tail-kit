@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CommonCrypto)
 import CommonCrypto
+#endif
 
 extension Data{
     

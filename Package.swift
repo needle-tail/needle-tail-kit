@@ -21,7 +21,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
         .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", branch: "feature/async-await"),
-        .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1")
+        .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0"),
     ],
     targets: [
         .target(
@@ -35,6 +36,7 @@ let package = Package(
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "AsyncCollections", package: "async-collections"),
+            .product(name: "Crypto", package: "swift-crypto"),
             .target(name: "AsyncIRC")
         ]),
         .target(
@@ -43,6 +45,7 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "NIOSSL", package: "swift-nio-ssl")
             ],
             swiftSettings: [
