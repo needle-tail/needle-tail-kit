@@ -15,14 +15,14 @@ extension IRCService: IRCClientDelegate {
     //MARK: - CypherMessageAPI
     
     
-        func fetchConversations() async {
-            for chat in try! await messenger!.listConversations(
-                includingInternalConversation: true,
-                increasingOrder: { _, _ in return true }
-            ) {
-                print(chat.conversation)
-            }
+    func fetchConversations() async {
+        for chat in try! await messenger!.listConversations(
+            includingInternalConversation: true,
+            increasingOrder: { _, _ in return true }
+        ) {
+            print(chat.conversation)
         }
+    }
     
     // MARK: - IRCMessages
     
@@ -57,11 +57,11 @@ extension IRCService: IRCClientDelegate {
         await self.updateConnectedClientState(client)
         
         // FIXME: this is not quite right, mirror what we do in message
-//        self.conversationsForRecipients(recipients).forEach {
-//          $0.addNotice(message)
-//        }
-      }
-      
+        //        self.conversationsForRecipients(recipients).forEach {
+        //          $0.addNotice(message)
+        //        }
+    }
+    
     
     //This is where we receive messages from server via AsyncIRC
     
@@ -71,99 +71,86 @@ extension IRCService: IRCClientDelegate {
                        for recipients : [ IRCMessageRecipient ]
     ) async {
         await self.updateConnectedClientState(client)
-        print("DATA RECEIVED: \(client)")
-        print("DATA RECEIVED: \(message)")
-        print("DATA RECEIVED: \(sender)")
-        print("DATA RECEIVED: \(recipients)")
         // FIXME: We need this because for DMs we use the sender as the
         //        name
         for recipient in recipients {
-          switch recipient {
+            switch recipient {
             case .channel(let name):
-              print(name)
-//              if let c = self.registerChannel(name.stringValue) {
-//                c.addMessage(message, from: sender)
-//              }
-              break
+                print(name)
+                //              if let c = self.registerChannel(name.stringValue) {
+                //                c.addMessage(message, from: sender)
+                //              }
+                break
             case .nickname:
-              
-              struct Packet: Codable {
-                  let id: ObjectId
-                  let type: MessageType
-                  let body: Document
-              }
-              
-                      do {
-                          let buffer = ByteBuffer(data: Data(base64Encoded: message)!)
-                          let packet = try BSONDecoder().decode(Packet.self, from: Document(buffer: buffer))
-                          switch packet.type {
-                              
-                          case .message:
-                              
-
-                              
-                              
-                              let dmPacket = try BSONDecoder().decode(DirectMessagePacket.self, from: packet.body)
-                              // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
-                              // it to the DB where we can get the message from
-                              print("DATA RECEIVED: \(dmPacket.message)")
-                              try await self.transportDelegate?.receiveServerEvent(
-                                  .messageSent(
-                                      dmPacket.message,
-                                      id: dmPacket.messageId,
-                                      byUser: dmPacket.sender.user,
-                                      deviceId: dmPacket.sender.device
-                                  )
-                              )
-                          case .multiRecipientMessage:
-                              break
-                          case .readReceipt:
-                              let receipt = try BSONDecoder().decode(ReadReceiptPacket.self, from: packet.body)
-                              switch receipt.state {
-                              case .displayed:
-                                  break
-                              case .received:
-                                  break
-                              }
-                          case .ack:
-                              ()
-                          }
-                          
-                      } catch {
-                          print(error)
-                      }
-              
-              break
+                
+                do { 
+                    guard let data = Data(base64Encoded: message) else { return }
+                    print("decodedData", data)
+                    let buffer = ByteBuffer(data: data)
+                    let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
+                    switch packet.type {
+                        
+                    case .message:
+                        // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
+                        // it to the DB where we can get the message from
+                        try await self.transportDelegate?.receiveServerEvent(
+                            .messageSent(
+                                packet.message,
+                                id: packet.messageId,
+                                byUser: Username(sender.nick.stringValue),
+                                deviceId: packet.sender
+                            )
+                        )
+                    case .multiRecipientMessage:
+                        break
+                    case .readReceipt:
+                        switch packet.readReceipt?.state {
+                        case .displayed:
+                            break
+                        case .received:
+                            break
+                        case .none:
+                            break
+                        }
+                    case .ack:
+                        ()
+                    }
+                    
+                } catch {
+                    print(error)
+                }
+                
+                break
             case .everything:
-break
-//              self.conversations.values.forEach {
-//                $0.addMessage(message, from: sender)
-//              }
-          }
+                break
+                //              self.conversations.values.forEach {
+                //                $0.addMessage(message, from: sender)
+                //              }
+            }
         }
-      }
-
+    }
+    
     
     
     public func client(_ client: IRCClient, received message: IRCMessage) async { }
     
-
+    
     
     public func client(_ client: IRCClient, messageOfTheDay message: String) async {
         await self.updateConnectedClientState(client)
-//        self.messageOfTheDay = message
-      }
+        //        self.messageOfTheDay = message
+    }
     
     
     // MARK: - Channels
-
+    
     
     public func client(_ client: IRCClient,
                        user: IRCUserID, joined channels: [ IRCChannelName ]
     ) async {
         await self.updateConnectedClientState(client)
-//        channels.forEach { self.registerChannel($0.stringValue) }
-      }
+        //        channels.forEach { self.registerChannel($0.stringValue) }
+    }
     
     
     public func client(_ client: IRCClient,
@@ -171,9 +158,9 @@ break
                        with message: String?
     ) async {
         await self.updateConnectedClientState(client)
-//        channels.forEach { self.unregisterChannel($0.stringValue) }
-      }
-
+        //        channels.forEach { self.unregisterChannel($0.stringValue) }
+    }
+    
     
     public func client(_ client: IRCClient,
                        changeTopic welcome: String, of channel: IRCChannelName
@@ -181,24 +168,24 @@ break
         await self.updateConnectedClientState(client)
         // TODO: operation
     }
-
+    
     
     private func updateConnectedClientState(_ client: IRCClient) async {
         switch self.userState.state {
         case .suspended:
             assertionFailure("not connecting, still getting connected client info")
-                     return
+            return
         case .offline:
             assertionFailure("not connecting, still getting connected client info")
-                     return
+            return
         case .connecting:
-                      print("going online:", client)
+            print("going online:", client)
             self.userState.transition(to: .online)
-                      let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-                      await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
+            await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
             break
-                  // TODO: update state (nick, userinfo, etc)
+            // TODO: update state (nick, userinfo, etc)
         }
     }
     
@@ -221,21 +208,21 @@ break
     public func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async {
         await self.updateConnectedClientState(client)
     }
-
+    
     
     public func clientFailedToRegister(_ newClient: IRCClient) async {
         switch self.userState.state {
             
         case .suspended, .offline:
             assertionFailure("not connecting, still get registration failure")
-                       return
+            return
         case .connecting, .online:
-                      print("Closing client ...")
-                      client?.delegate = nil
+            print("Closing client ...")
+            client?.delegate = nil
             self.userState.transition(to: .offline)
-                      await client?.disconnect()
+            await client?.disconnect()
         }
-      }
+    }
     
     
     public func client(_ client: IRCClient, quit: String?) async {

@@ -8,8 +8,6 @@
 import Foundation
 import CypherMessaging
 
-extension IRCService {
-
     enum MessageType: String, Codable {
         case message = "a"
         case multiRecipientMessage = "b"
@@ -17,13 +15,16 @@ extension IRCService {
         case ack = "d"
     }
 
-    struct DirectMessagePacket: Codable {
+    struct MessagePacket: Codable {
         let _id: ObjectId
+        let pushType: PushType
+        let type: MessageType
         let messageId: String
         let createdAt: Date
-        let sender: UserDeviceId
-        let recipient: UserDeviceId
+        let sender: DeviceId
+        let recipient: DeviceId
         let message: RatchetedCypherMessage
+        let readReceipt: ReadReceiptPacket?
     }
     
     struct ReadReceiptPacket: Codable {
@@ -38,4 +39,3 @@ extension IRCService {
         let sender: UserDeviceId
         let recipient: UserDeviceId
     }
-}

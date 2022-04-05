@@ -110,7 +110,6 @@ extension IRCClient: IRCDispatcher {
             assertionFailure("got empty message sender!")
             return
         }
-        print("MESSAGE___", message)
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
     

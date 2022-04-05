@@ -66,7 +66,7 @@ public final class IRCMessageParser {
         self.logger = Logger(label: "IRCMessageParser")
     }
     
-    internal func parseMessage(_ message: String) async throws -> IRCMessage {
+    internal func parseMessage(_ message: String) throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []
@@ -128,7 +128,7 @@ public final class IRCMessageParser {
         
         var tags: [IRCTags]?
         if seperatedTags != [] {
-            tags = try await parseTags(
+            tags = try parseTags(
                 tags: seperatedTags[0]
             )
         }
@@ -147,8 +147,15 @@ public final class IRCMessageParser {
                 }
             }
             
+            if commandKey.hasPrefix("PRIVMSG") {
+                guard let array = origin?.components(separatedBy: "!") else { throw MessageParserError.originIsNil }
+                let newOrigin = String(array[0]).dropFirst()
+                origin = String(newOrigin)
+            }
+            
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
+            print("MESSAGE_PARSED", ircMessage)
         case .int(let commandKey):
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
@@ -223,8 +230,8 @@ public final class IRCMessageParser {
             } else if commandKey.hasPrefix("PRIVMSG") {
                 let initialBreak = stripedMessage.components(separatedBy: " ")
                 var newArgArray: [String] = []
-                newArgArray.append(initialBreak[1])
                 newArgArray.append(initialBreak[2])
+                newArgArray.append(String("\(initialBreak[3])==".dropFirst()))
                 args = newArgArray
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
@@ -237,11 +244,10 @@ public final class IRCMessageParser {
         return args
     }
     
-    
     // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""
-    ) async throws -> [IRCTags]? {
+    ) throws -> [IRCTags]? {
         if tags.hasPrefix("@") {
             var tagArray: [IRCTags] = []
             let seperatedTags = tags.components(separatedBy: ";@")

@@ -66,7 +66,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         self.logger.trace("IRCChannelHandler is Active")
         context.fireChannelActive()
     }
-
+    
     public func channelInactive(context: ChannelHandlerContext) {
         self.logger.trace("IRCChannelHandler is Inactive")
         context.fireChannelInactive()
@@ -76,24 +76,24 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         self.logger.trace("IRCChannelHandler Read")
-            var buffer = self.unwrapInboundIn(data)
-            let line = buffer.readString(length: buffer.readableBytes) ?? ""
-            let message = asyncParse(context: context, line: line)
+        var buffer = self.unwrapInboundIn(data)
+        let line = buffer.readString(length: buffer.readableBytes) ?? ""
+        let message = asyncParse(context: context, line: line)
         message.whenComplete{ switch $0 {
         case .success(let message):
-                self.channelRead(context: context, value: message)
+            self.channelRead(context: context, value: message)
         case .failure(let error):
             self.logger.error("AsyncParse Failed \(error)")
         }
+        }
     }
-}
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = await self.processMessage(line) else {
-            promise.fail(ParserError.jobFailedToParse)
-            return try await promise.futureResult.get()
+                promise.fail(ParserError.jobFailedToParse)
+                return try await promise.futureResult.get()
             }
             return message
         }
@@ -105,30 +105,27 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
         guard !message.isEmpty else { return nil }
-        consumer.feedConsumer([message])
+        let lines = message.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
+            .filter{ $0 != ""}
         
-            func getNextMessage() async throws -> ParseSequenceResult? {
-                return try await iterator?.next()
-            }
-        
-            let res = try? await getNextMessage()
-            switch res {
-            case .success(let message):
-                do {
-                    let parsed = try await IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
-                    consumedState = .consumed
-                    return parsed
-                } catch {
-                    print(error)
-                }
-            case .retry:
-           _ = await processMessage(message)
+        await consumer.feedConsumer(lines)
+        do {
+            for try await message in ParserSequence(consumer: consumer) {
+            switch message {
+            case.success(let task):
+                print("TASK__", task)
+                return try IRCTaskHelpers.parseMessageTask(task: task.message, ircMessageParser: parser)
             default:
                 break
             }
-       return nil
+        }
+        } catch {
+            print(error)
+        }
+        return nil
     }
-
+    
     public func channelReadComplete(context: ChannelHandlerContext) {
         self.logger.trace("READ Complete")
     }

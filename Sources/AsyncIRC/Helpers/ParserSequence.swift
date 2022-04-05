@@ -40,7 +40,7 @@ extension ParserSequence {
         mutating public func next() async throws -> ParseSequenceResult? {
             let result = consumer.next()
                 var res: ParseSequenceResult?
-
+            print("RESULT____", result)
                 switch result {
                 case .ready(let sequence):
                     res = .success(sequence!.0)
@@ -77,7 +77,7 @@ public final class ParseConsumer {
     public init() {}
     
     
-    public func feedConsumer(_ messages: [String]) {
+    public func feedConsumer(_ messages: [String]) async {
         wb.append(contentsOf: messages)
     }
     

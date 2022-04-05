@@ -109,8 +109,7 @@ public extension IRCDispatcher {
                 try await doPing(server, server2: server2)
                 
             case .PRIVMSG(let recipients, let payload):
-                let sender = message.origin != nil
-                ? IRCUserID(message.origin!) : nil
+                let sender = IRCUserID(message.origin ?? "")
                 let tags = message.tags
                 try await doMessage(sender: sender,
                                     recipients: recipients,

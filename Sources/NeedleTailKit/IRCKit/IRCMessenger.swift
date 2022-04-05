@@ -306,17 +306,20 @@ struct IRCCypherMessage<Message: Codable>: Codable {
     var pushType: PushType
     var messageId: String
     var token: String?
+    var type: MessageType
     
     init(
         message: Message,
         pushType: PushType,
         messageId: String,
-        token: String?
+        token: String?,
+        type: MessageType
     ) {
         self.message = message
         self.pushType = pushType
         self.messageId = messageId
         self.token = token
+        self.type = type
     }
 }
 
@@ -348,6 +351,7 @@ extension IRCMessenger {
     public func readPublishedBlob<C>(byId id: String, as type: C.Type) async throws -> ReferencedBlob<C>? where C : Decodable, C : Encodable {
         fatalError()
     }
+
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
     public func sendMessage(_
@@ -357,8 +361,9 @@ extension IRCMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        let body = IRCCypherMessage(message: message, pushType: pushType, messageId: messageId, token: self.makeToken())
-        let data = try BSONEncoder().encode(body).makeData()
+    
+        let packet = MessagePacket(_id: ObjectId(), pushType: pushType, type: .message, messageId: messageId, createdAt: Date(), sender: self.deviceId, recipient: deviceId, message: message, readReceipt: nil)
+        let data = try BSONEncoder().encode(packet).makeData()
         do {
             let recipient = try await recipient(name: "\(username.raw)")
             _ = try await services?.sendMessage(data, to: recipient, tags: [

@@ -74,6 +74,7 @@ extension IRCService {
     
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
         //        guard case .online = userState.state else { return false }
+        print(message.base64EncodedString())
         await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
         return true
     }

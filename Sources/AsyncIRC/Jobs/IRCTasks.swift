@@ -12,8 +12,8 @@ public struct ParseMessageTask: Codable {
 
 enum IRCTaskHelpers {
 
-     static func parseMessageTask(task: ParseMessageTask, ircMessageParser: IRCMessageParser) async throws -> IRCMessage {
+     static func parseMessageTask(task: String, ircMessageParser: IRCMessageParser) throws -> IRCMessage {
         Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
-            return try await ircMessageParser.parseMessage(task.message)
+            return try ircMessageParser.parseMessage(task)
     }
 }
