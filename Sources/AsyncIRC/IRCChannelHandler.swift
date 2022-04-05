@@ -114,14 +114,13 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             for try await message in ParserSequence(consumer: consumer) {
             switch message {
             case.success(let task):
-                print("TASK__", task)
                 return try IRCTaskHelpers.parseMessageTask(task: task.message, ircMessageParser: parser)
             default:
                 break
             }
         }
         } catch {
-            print(error)
+            logger.error("Parser Sequence Error: \(error)")
         }
         return nil
     }
