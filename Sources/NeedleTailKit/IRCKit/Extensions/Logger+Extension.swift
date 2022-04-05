@@ -10,33 +10,10 @@ public extension Logger.Metadata {
     /// - Returns: A hashed string
     static func hash(_ string: String) -> String? {
         var hashed: String = ""
-//#if canImport(CryptoKit)
-//        if #available(iOS 13.0, *) {
             hashed = SHA256.hash(data: Data(string.utf8)).compactMap { String(format: "%02x", $0) }.joined()
             return hashed
-//        }
-//#else
-//        if #available(iOS 10.0, *) {
-//            hashed = string.sha256()
-//        }
-//#endif
-//        return hashed
     }
 }
-
-// Hashing Pre iOS 13
-//internal extension String {
-//
-//    /// If we are not using **iOS >= 13** then we cannot use `CryptoKit`. We implement the same hashing using `CommonCrypto`
-//    /// - Returns: A hashed string
-//    func sha256() -> String{
-//        if let stringData = self.data(using: String.Encoding.utf8) {
-//            return stringData.sha256()
-//        }
-//        return ""
-//    }
-//}
-
 
 internal extension String {
     

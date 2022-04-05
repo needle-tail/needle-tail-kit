@@ -8,7 +8,6 @@
 import Foundation
 import BSON
 
-
 public enum UserStatus {
     case wasOffline(ChatDocument)
     case isOnline
@@ -19,20 +18,20 @@ public struct ChatDocument: Codable {
     public let messageId: String
     public let createdAt: Date
     public let recipients: [IRCMessageRecipient]
-    public let document: Document
+    public let chatData: Data
     public let sent: Bool
 
     public init(
         messageId: String,
         recipients: [IRCMessageRecipient],
-        document: Document,
+        chatData: Data,
         sent: Bool
     ) {
         self._id = ObjectId()
         self.createdAt = Date()
         self.messageId = messageId
         self.recipients = recipients
-        self.document = document
+        self.chatData = chatData
         self.sent = sent
     }
 }
