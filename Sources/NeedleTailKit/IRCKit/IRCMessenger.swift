@@ -372,10 +372,8 @@ extension IRCMessenger {
             createdAt: Date(),
             sender: self.deviceId,
             recipient: deviceId,
-            recipients: nil,
             message: message,
-            readReceipt: nil,
-            sent: false
+            readReceipt: nil
         )
         
         let data = try BSONEncoder().encode(packet).makeData()

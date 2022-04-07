@@ -7,7 +7,6 @@
 
 import Foundation
 import CypherMessaging
-import AsyncIRC
 
 public enum MessageType: String, Codable {
     case message = "a"
@@ -24,10 +23,8 @@ public struct MessagePacket: Codable {
     public let createdAt: Date
     public let sender: DeviceId
     public let recipient: DeviceId
-    public var recipients: [IRCMessageRecipient]?
     public let message: RatchetedCypherMessage
     public let readReceipt: ReadReceiptPacket?
-    public var sent: Bool
 }
 
 public struct ReadReceiptPacket: Codable {
