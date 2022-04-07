@@ -301,27 +301,29 @@ public enum RegistrationType {
     case siwa, plain
 }
 
-struct IRCCypherMessage<Message: Codable>: Codable {
-    var message: Message
-    var pushType: PushType
-    var messageId: String
-    var token: String?
-    var type: MessageType
-    
-    init(
-        message: Message,
-        pushType: PushType,
-        messageId: String,
-        token: String?,
-        type: MessageType
-    ) {
-        self.message = message
-        self.pushType = pushType
-        self.messageId = messageId
-        self.token = token
-        self.type = type
-    }
-}
+
+//TODO: - REMOVE: No need
+//struct IRCCypherMessage<Message: Codable>: Codable {
+//    var message: Message
+//    var pushType: PushType
+//    var messageId: String
+//    var token: String?
+//    var type: MessageType
+//
+//    init(
+//        message: Message,
+//        pushType: PushType,
+//        messageId: String,
+//        token: String?,
+//        type: MessageType
+//    ) {
+//        self.message = message
+//        self.pushType = pushType
+//        self.messageId = messageId
+//        self.token = token
+//        self.type = type
+//    }
+//}
 
 
 extension IRCMessenger {
@@ -362,7 +364,20 @@ extension IRCMessenger {
                             messageId: String
     ) async throws {
     
-        let packet = MessagePacket(_id: ObjectId(), pushType: pushType, type: .message, messageId: messageId, createdAt: Date(), sender: self.deviceId, recipient: deviceId, message: message, readReceipt: nil)
+        let packet = MessagePacket(
+            _id: ObjectId(),
+            pushType: pushType,
+            type: .message,
+            messageId: messageId,
+            createdAt: Date(),
+            sender: self.deviceId,
+            recipient: deviceId,
+            recipients: nil,
+            message: message,
+            readReceipt: nil,
+            sent: false
+        )
+        
         let data = try BSONEncoder().encode(packet).makeData()
         do {
             let recipient = try await recipient(name: "\(username.raw)")

@@ -7,35 +7,38 @@
 
 import Foundation
 import CypherMessaging
+import AsyncIRC
 
-    enum MessageType: String, Codable {
-        case message = "a"
-        case multiRecipientMessage = "b"
-        case readReceipt = "c"
-        case ack = "d"
-    }
+public enum MessageType: String, Codable {
+    case message = "a"
+    case multiRecipientMessage = "b"
+    case readReceipt = "c"
+    case ack = "d"
+}
 
-    struct MessagePacket: Codable {
-        let _id: ObjectId
-        let pushType: PushType
-        let type: MessageType
-        let messageId: String
-        let createdAt: Date
-        let sender: DeviceId
-        let recipient: DeviceId
-        let message: RatchetedCypherMessage
-        let readReceipt: ReadReceiptPacket?
+public struct MessagePacket: Codable {
+    public let _id: ObjectId
+    public let pushType: PushType
+    public let type: MessageType
+    public let messageId: String
+    public let createdAt: Date
+    public let sender: DeviceId
+    public let recipient: DeviceId
+    public var recipients: [IRCMessageRecipient]?
+    public let message: RatchetedCypherMessage
+    public let readReceipt: ReadReceiptPacket?
+    public var sent: Bool
+}
+
+public struct ReadReceiptPacket: Codable {
+    public enum State: Int, Codable {
+        case received = 0
+        case displayed = 1
     }
     
-    struct ReadReceiptPacket: Codable {
-        enum State: Int, Codable {
-            case received = 0
-            case displayed = 1
-        }
-        
-        let _id: ObjectId
-        let messageId: String
-        let state: State
-        let sender: UserDeviceId
-        let recipient: UserDeviceId
-    }
+    public let _id: ObjectId
+    public let messageId: String
+    public let state: State
+    public let sender: UserDeviceId
+    public let recipient: UserDeviceId
+}
