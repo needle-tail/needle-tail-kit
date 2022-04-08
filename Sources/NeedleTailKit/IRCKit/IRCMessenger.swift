@@ -365,10 +365,9 @@ extension IRCMessenger {
     ) async throws {
     
         let packet = MessagePacket(
-            _id: ObjectId(),
+            id: messageId, 
             pushType: pushType,
             type: .message,
-            messageId: messageId,
             createdAt: Date(),
             sender: self.deviceId,
             recipient: deviceId,

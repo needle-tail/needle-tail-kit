@@ -16,10 +16,9 @@ public enum MessageType: String, Codable {
 }
 
 public struct MessagePacket: Codable {
-    public let _id: ObjectId
+    public let id: String
     public let pushType: PushType
     public let type: MessageType
-    public let messageId: String
     public let createdAt: Date
     public let sender: DeviceId
     public let recipient: DeviceId

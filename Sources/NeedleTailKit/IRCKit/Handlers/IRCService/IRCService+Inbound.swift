@@ -93,14 +93,14 @@ extension IRCService: IRCClientDelegate {
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 packet.message,
-                                id: packet.messageId,
+                                id: packet.id,
                                 byUser: Username(sender.nick.stringValue),
                                 deviceId: packet.sender
                             )
                         )
                         //Send message ack
-                        print("PACKET_ID", packet._id)
-                        let received = Acknowledgment(acknowledgment: .messageSent(packet._id))
+                        print("PACKET_ID", packet.id)
+                        let received = Acknowledgment(acknowledgment: .messageSent(packet.id))
                         let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
                         await client.acknowledgeMessageReceived(ack)
                         
