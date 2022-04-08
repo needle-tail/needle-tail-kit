@@ -105,15 +105,16 @@ extension IRCClient: IRCDispatcher {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
-        tags: [IRCTags]?
+        tags: [IRCTags]?,
+        userStatus: UserStatus
     ) async throws {
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return
         }
+        print("USER STATUS", userStatus)
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
-    
     
     public func doNick(_ newNick: IRCNickName) async throws {
         switch state {

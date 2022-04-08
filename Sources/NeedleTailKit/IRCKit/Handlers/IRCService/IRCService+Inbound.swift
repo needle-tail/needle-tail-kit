@@ -64,10 +64,11 @@ extension IRCService: IRCClientDelegate {
     
     
     //This is where we receive messages from server via AsyncIRC
-    public func client(_       client : IRCClient,
-                       message        : String,
-                       from    sender : IRCUserID,
-                       for recipients : [ IRCMessageRecipient ]
+    public func client(_
+                       client: IRCClient,
+                       message: String,
+                       from sender: IRCUserID,
+                       for recipients: [ IRCMessageRecipient ]
     ) async {
         await self.updateConnectedClientState(client)
         for recipient in recipients {
@@ -98,6 +99,7 @@ extension IRCService: IRCClientDelegate {
                             )
                         )
                         //Send message ack
+                        print("PACKET_ID", packet._id)
                         let received = Acknowledgment(acknowledgment: .messageSent(packet._id))
                         let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
                         await client.acknowledgeMessageReceived(ack)

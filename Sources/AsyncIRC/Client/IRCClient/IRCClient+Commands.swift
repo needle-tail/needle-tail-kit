@@ -47,8 +47,8 @@ extension IRCClient {
         await send(.otherCommand("READKEYBNDL", [packet]))
     }
     
-    public func acknowledgeMessageReceived(_ acknowledge: String) async {
-        await send(.otherCommand("ACKMESSAGE", [acknowledge]))
+    public func acknowledgeMessageReceived(_ acknowledgement: String) async {
+        await send(.otherCommand("ACKMESSAGE", [acknowledgement]))
     }
     
     public func registerAPN(_ packet: String) async {

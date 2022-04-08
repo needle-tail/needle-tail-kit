@@ -27,7 +27,8 @@ public protocol IRCClientDelegate: AnyObject {
     func client(_ client: IRCClient, notice message:  String,
                 for recipients: [ IRCMessageRecipient ]) async
     func client(_ client: IRCClient,
-                message: String, from user: IRCUserID,
+                message: String,
+                from user: IRCUserID,
                 for recipients: [ IRCMessageRecipient ]) async
     func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async
     func client(_ client: IRCClient, changedNickTo     nick: IRCNickName) async
@@ -47,9 +48,7 @@ public extension IRCClientDelegate {
     func client(_ client: IRCClient, registered nick: IRCNickName,
                 with userInfo: IRCUserInfo) async {}
     func client(_ client: IRCClient, received message: IRCMessage) async {}
-    
     func clientFailedToRegister(_ client: IRCClient) async {}
-    
     func client(_ client: IRCClient, messageOfTheDay: String) async {}
     func client(_ client: IRCClient,
                 notice message: String,

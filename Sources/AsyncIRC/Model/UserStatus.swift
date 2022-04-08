@@ -14,22 +14,20 @@ public enum UserStatus {
 }
 
 public struct ChatDocument: Codable {
-    public let _id: ObjectId
-    public let messageId: String
+    public let id: String
     public let createdAt: Date
     public let recipients: [IRCMessageRecipient]
     public let chatData: Data
     public var sent: Bool
 
     public init(
-        messageId: String,
+        id: String,
         recipients: [IRCMessageRecipient],
         chatData: Data,
         sent: Bool
     ) {
-        self._id = ObjectId()
+        self.id = id
         self.createdAt = Date()
-        self.messageId = messageId
         self.recipients = recipients
         self.chatData = chatData
         self.sent = sent
