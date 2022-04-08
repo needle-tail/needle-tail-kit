@@ -37,20 +37,20 @@ extension IRCClient: IRCDispatcher {
             // <IRCCmd: 353 args=Guest1,=,#ZeeQL,Guest1> localhost -
             // <IRCCmd: 366 args=Guest1,#ZeeQL,End of /NAMES list> localhost -
         case .numeric(.replyNameReply, _ /*let args*/):
-#if false
-            messageOfTheDay += (args.last ?? "") + "\n"
-#else
+//#if false
+//            messageOfTheDay += (args.last ?? "") + "\n"
+//#else
             break
-#endif
+//#endif
         case .numeric(.replyEndOfNames, _):
-#if false
-            if !messageOfTheDay.isEmpty {
-                delegate?.client(self, messageOfTheDay: messageOfTheDay)
-            }
-            messageOfTheDay = ""
-#else
+//#if false
+//            if !messageOfTheDay.isEmpty {
+//                await delegate?.client(self, messageOfTheDay: messageOfTheDay)
+//            }
+//            messageOfTheDay = ""
+//#else
             break
-#endif
+//#endif
         case .numeric(.replyInfo, let info):
             try await delegate?.client(self, info: info)
         case .numeric(.replyKeyBundle, let bundle):
@@ -79,17 +79,18 @@ extension IRCClient: IRCDispatcher {
             /* unexpected stuff */
             
         case .otherNumeric(let code, let args):
-#if false
-            print("OTHER NUM:", code, args)
-#endif
+            logger.trace("otherNumeric Code: - \(code)")
+            logger.trace("otherNumeric Args: - \(args)")
+//#if false
+//
+//#endif
             await delegate?.client(self, received: message)
         case .QUIT(let message):
             await delegate?.client(self, quit: message)
         default:
-#if false
-            print("OTHER COMMAND:", message.command,
-                  message.origin ?? "-", message.target ?? "-")
-#endif
+//#if false
+//                  message.origin ?? "-", message.target ?? "-")
+//#endif
             await delegate?.client(self, received: message)
         }
     }

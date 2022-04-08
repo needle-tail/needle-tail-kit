@@ -64,15 +64,12 @@ extension IRCService: IRCClientDelegate {
     
     
     //This is where we receive messages from server via AsyncIRC
-    
     public func client(_       client : IRCClient,
                        message        : String,
                        from    sender : IRCUserID,
                        for recipients : [ IRCMessageRecipient ]
     ) async {
         await self.updateConnectedClientState(client)
-        // FIXME: We need this because for DMs we use the sender as the
-        //        name
         for recipient in recipients {
             switch recipient {
             case .channel(let name):
@@ -85,7 +82,6 @@ extension IRCService: IRCClientDelegate {
                 
                 do { 
                     guard let data = Data(base64Encoded: message) else { return }
-                    print("decodedData", data)
                     let buffer = ByteBuffer(data: data)
                     let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                     switch packet.type {
@@ -101,6 +97,11 @@ extension IRCService: IRCClientDelegate {
                                 deviceId: packet.sender
                             )
                         )
+                        //Send message ack
+                        let received = Acknowledgment(acknowledgment: .messageSent(packet._id))
+                        let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
+                        await client.acknowledgeMessageReceived(ack)
+                        
                     case .multiRecipientMessage:
                         break
                     case .readReceipt:

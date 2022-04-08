@@ -66,6 +66,7 @@ public protocol IRCDispatcher {
     func doPublishKeyBundle(_ keyBundle: [String]) async throws
     func doReadKeyBundle(_ keyBundle: [String]) async throws
     func doRegisterAPN(_ token: [String]) async throws
+    func doAckMessage(_ acknowledgement: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -145,6 +146,8 @@ public extension IRCDispatcher {
                 try await doReadKeyBundle(keyBundle)
             case .otherCommand("REGAPN", let token):
                 try await doRegisterAPN(token)
+            case .otherCommand("ACKMESSAGE", let ack):
+                try await doAckMessage(ack)
             default:
                 throw IRCDispatcherError.doesNotRespondTo(message)
             }
@@ -236,6 +239,9 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doRegisterAPN(_ token: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doAckMessage(_ acknowledgement: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

@@ -1,12 +1,12 @@
 //
-//  File.swift
+//  Acknowledgment.swift
 //  
 //
 //  Created by Cole M on 3/23/22.
 //
 
 import Foundation
-
+import BSON
 
 public struct Acknowledgment: Codable {
     
@@ -15,6 +15,7 @@ public struct Acknowledgment: Codable {
         case readKeyBundle(String)
         case apn(String)
         case none
+        case messageSent(ObjectId)
     }
 
     public var acknowledgment: AckType

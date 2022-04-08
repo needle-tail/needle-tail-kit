@@ -39,19 +39,21 @@ extension IRCClient {
     
     
     public func publishKeyBundle(_ keyBundle: String) async {
-        await send(.otherCommand("PUBKEYBNDL", [ keyBundle ]))
+        await send(.otherCommand("PUBKEYBNDL", [keyBundle]))
     }
     
     
     public func readKeyBundle(_ packet: String) async {
-        await send(.otherCommand("READKEYBNDL", ["\(packet)"]))
+        await send(.otherCommand("READKEYBNDL", [packet]))
     }
     
+    public func acknowledgeMessageReceived(_ acknowledge: String) async {
+        await send(.otherCommand("ACKMESSAGE", [acknowledge]))
+    }
     
     public func registerAPN(_ packet: String) async {
         await send(.otherCommand("REGAPN", [packet]))
     }
-    
     
     public func changeNick(_ nick: IRCNickName) async {
         await send(.NICK(nick))
