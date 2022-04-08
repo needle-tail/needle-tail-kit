@@ -15,7 +15,7 @@ public struct Acknowledgment: Codable {
         case readKeyBundle(String)
         case apn(String)
         case none
-        case messageSent(ObjectId)
+        case messageSent(String)
     }
 
     public var acknowledgment: AckType
