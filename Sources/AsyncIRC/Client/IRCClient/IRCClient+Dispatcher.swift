@@ -21,7 +21,7 @@ import NIO
 
 extension IRCClient: IRCDispatcher {
     
-    
+    @InboundActor
     public func irc_msgSend(_ message: IRCMessage) async throws {
         
         do {

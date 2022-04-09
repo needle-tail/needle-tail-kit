@@ -88,7 +88,6 @@ public extension IRCDispatcher {
         try await irc_defaultMsgSend(message)
     }
     
-    @InboundActor
     func irc_defaultMsgSend(_ message: IRCMessage) async throws {
         do {
             switch message.command {
