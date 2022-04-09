@@ -8,6 +8,17 @@
 import NIO
 
 
+@globalActor public final actor InboundActor {
+    public static let shared = InboundActor()
+    private init() {}
+}
+
+@globalActor public final actor OutboundActor {
+    public static let shared = OutboundActor()
+    private init() {}
+}
+
+
 extension IRCClient: IRCDispatcher {
     
     

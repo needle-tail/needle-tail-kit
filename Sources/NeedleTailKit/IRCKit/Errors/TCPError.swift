@@ -12,9 +12,8 @@ internal enum IRCClientError: Error {
     case dataGreaterThanMaxBody
     case invalidResponse
     case nilBSONResponse
-    case userConfigIsNil
     case nilMessageData
-    case nilUsedConfig
+    case nilUserConfig
     case nilToken
     case urlResponseNil
     case nilService

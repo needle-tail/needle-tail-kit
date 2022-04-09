@@ -18,24 +18,49 @@ extension IRCService {
     }
     
     
+    //TODO: - we need to suspend the read if it fails and wait until we get a userConfig back from the server, otherwise we will just indefinietly loop through the method because we will never receive the server event.
+    
+    //I think we need a central place that manages KeyBundleState...
+    @OutboundActor
     internal func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
         repeat {
             userConfig = try? await self.stream?.next()
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            waitCount += 1
-            self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
+//            try? await Task.sleep(nanoseconds: 10_000_000_000)
+//            waitCount += 1
         } while await shouldRunCount()
+        
         return userConfig
     }
     
+//    internal func readBundle(from packet: String, returning: @escaping (UserConfig) async throws -> UserConfig?) async {
+//        await client?.readKeyBundle(packet)
+//        repeat {
+//            userConfig = try? await self.stream?.next()
+//        } while userConfig == nil
+//
+//        try? await returning(userConfig!)
+//    }
+    @OutboundActor
+    internal func readBundle(from packet: String, returning: @escaping (UserConfig?) async throws -> UserConfig) async throws -> UserConfig? {
+//        repeat {
+                userConfig = try? await self.stream?.next()
+//        } while await shouldRunCount()
+
+        return try await returning(userConfig)
+    }
+    
+    func fireAnotherFunctionToWait() {
+        
+    }
+    
     private func shouldRunCount() async -> Bool {
-        guard userConfig == nil else {
+        guard stream?.bundle == nil else {
             return false
         }
-        guard waitCount <= 100 else {
-            return false
-        }
+//        guard waitCount <= 100 else {
+//            return false
+//        }
         return true
     }
     

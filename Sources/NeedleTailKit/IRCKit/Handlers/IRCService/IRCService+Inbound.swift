@@ -30,7 +30,7 @@ extension IRCService: IRCClientDelegate {
     /// - Parameters:
     ///   - client: Our ``IRCClient``
     ///   - info: An array of string info sent back from the server
-    
+    @InboundActor
     public func client(_ client: IRCClient, info: [String]) async throws {
         guard let info = info.first else { return }
         guard let data = Data(base64Encoded: info) else { return }
@@ -40,7 +40,7 @@ extension IRCService: IRCClientDelegate {
         logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
     }
     
-    
+    @InboundActor
     public func client(_ client: IRCClient, keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
@@ -99,7 +99,6 @@ extension IRCService: IRCClientDelegate {
                             )
                         )
                         //Send message ack
-                        print("PACKET_ID", packet.id)
                         let received = Acknowledgment(acknowledgment: .messageSent(packet.id))
                         let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
                         await client.acknowledgeMessageReceived(ack)

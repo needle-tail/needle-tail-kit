@@ -118,7 +118,8 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     var waitCount = 0
-    
+    var isReading = true
+    //TODO: - For some reason this is being called repeatedly when receiving messages
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
@@ -129,15 +130,17 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let services = services else { throw IRCClientError.nilService }
         
         var userConfig: UserConfig?
-        
         if !waitingToReadBundle {
             services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
-                if services.client?.channel != nil {
+                if services.client?.channel != nil && isReading {
+                    isReading = false
                     userConfig = await services.readKeyBundle(packet)
                 }
-                try await Task.sleep(nanoseconds: 1_000_000_000)
+//                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
+                self.logger.info("Reading Key Bundle Wait Count Number: \(waitCount)")
+
             } while shouldRunCount()
             services.acknowledgment = Acknowledgment.AckType.none
         } else {
@@ -151,26 +154,34 @@ public class IRCMessenger: CypherServerTransportClient {
                 default:
                     break
                 }
-                try await Task.sleep(nanoseconds: 1_000_000_000)
+//                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
-                self.logger.trace("Reading Key Bundle Wait Count Number: \(waitCount)")
+                self.logger.info("Reading Key Bundle Wait Count Number: \(waitCount)")
+                _ = shouldRunCount()
             } while shouldRunCount()
         }
-        
-        guard let userConfig = userConfig else { throw IRCClientError.nilUsedConfig }
+        print("USER_CONFIG___2", userConfig)
+        guard let userConfig = userConfig else { throw IRCClientError.nilUserConfig }
         services.acknowledgment = .none
         return userConfig
     }
     
     private func shouldRunCount() -> Bool {
+//        if waitCount >= 100 {
+//            waitCount = 0
+//            return false
+//        } 
         if services?.client?.channel == nil {
+            waitCount = 0
             return true
         } else if services?.acknowledgment == Acknowledgment.AckType.none {
+            waitCount = 0
             return true
-        } else if waitCount >= 100 {
+        } else if services?.stream?.bundle != nil {
             waitCount = 0
             return false
         } else {
+            waitCount = 0
             return false
         }
     }

@@ -39,8 +39,9 @@ public protocol IRCClientDelegate: AnyObject {
                 changeTopic: String, of channel: IRCChannelName) async
     func client(_ client: IRCClient, quit: String?) async
     func client(_ client: IRCClient, info: [String]) async throws
-    func client(_ client: IRCClient, keyBundle: [String]) async throws
+    @InboundActor func client(_ client: IRCClient, keyBundle: [String]) async throws
 }
+
 
 // MARK: - Default No-Op Implementations
 public extension IRCClientDelegate {
@@ -68,6 +69,6 @@ public extension IRCClientDelegate {
                 changeTopic: String, of channel: IRCChannelName) async {}
     func client(_ client: IRCClient, quit: String?) async {}
     func client(_ client: IRCClient, info: [String]) async throws {}
-    func client(_ client: IRCClient, keyBundle: [String]) async throws {}
+    @InboundActor func client(_ client: IRCClient, keyBundle: [String]) async throws {}
 }
 
