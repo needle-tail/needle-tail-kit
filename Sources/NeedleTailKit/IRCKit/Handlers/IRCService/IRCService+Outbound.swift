@@ -21,37 +21,17 @@ extension IRCService {
     //TODO: - we need to suspend the read if it fails and wait until we get a userConfig back from the server, otherwise we will just indefinietly loop through the method because we will never receive the server event.
     
     //I think we need a central place that manages KeyBundleState...
-    @OutboundActor
-    internal func readKeyBundle(_ packet: String) async -> UserConfig? {
+    internal
+    func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
+//        try? await Task.sleep(nanoseconds: 30_000_000_000)
         repeat {
             userConfig = try? await self.stream?.next()
-//            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            
 //            waitCount += 1
-        } while await shouldRunCount()
+        } while userConfig == nil
         
         return userConfig
-    }
-    
-//    internal func readBundle(from packet: String, returning: @escaping (UserConfig) async throws -> UserConfig?) async {
-//        await client?.readKeyBundle(packet)
-//        repeat {
-//            userConfig = try? await self.stream?.next()
-//        } while userConfig == nil
-//
-//        try? await returning(userConfig!)
-//    }
-    @OutboundActor
-    internal func readBundle(from packet: String, returning: @escaping (UserConfig?) async throws -> UserConfig) async throws -> UserConfig? {
-//        repeat {
-                userConfig = try? await self.stream?.next()
-//        } while await shouldRunCount()
-
-        return try await returning(userConfig)
-    }
-    
-    func fireAnotherFunctionToWait() {
-        
     }
     
     private func shouldRunCount() async -> Bool {

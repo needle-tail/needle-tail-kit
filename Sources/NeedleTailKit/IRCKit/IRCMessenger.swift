@@ -133,14 +133,10 @@ public class IRCMessenger: CypherServerTransportClient {
         if !waitingToReadBundle {
             services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
-                if services.client?.channel != nil && isReading {
-                    isReading = false
+                if services.client?.channel != nil {
                     userConfig = await services.readKeyBundle(packet)
                 }
-//                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
-                self.logger.info("Reading Key Bundle Wait Count Number: \(waitCount)")
-
             } while shouldRunCount()
             services.acknowledgment = Acknowledgment.AckType.none
         } else {
@@ -154,23 +150,20 @@ public class IRCMessenger: CypherServerTransportClient {
                 default:
                     break
                 }
-//                try await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCount += 1
-                self.logger.info("Reading Key Bundle Wait Count Number: \(waitCount)")
                 _ = shouldRunCount()
             } while shouldRunCount()
         }
-        print("USER_CONFIG___2", userConfig)
         guard let userConfig = userConfig else { throw IRCClientError.nilUserConfig }
         services.acknowledgment = .none
         return userConfig
     }
     
     private func shouldRunCount() -> Bool {
-//        if waitCount >= 100 {
-//            waitCount = 0
-//            return false
-//        } 
+        if waitCount >= 100 {
+            waitCount = 0
+            return false
+        }
         if services?.client?.channel == nil {
             waitCount = 0
             return true

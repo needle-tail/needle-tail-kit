@@ -9,7 +9,6 @@ import NIO
 
 extension IRCClient {
     
-    @OutboundActor
     public func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         do {
             try await channel?.writeAndFlush(message)
@@ -42,8 +41,7 @@ extension IRCClient {
     public func publishKeyBundle(_ keyBundle: String) async {
         await send(.otherCommand("PUBKEYBNDL", [keyBundle]))
     }
-    
-    @OutboundActor
+
     public func readKeyBundle(_ packet: String) async {
         await send(.otherCommand("READKEYBNDL", [packet]))
     }
@@ -115,7 +113,6 @@ extension IRCClient {
     
     
     // This is where we receive all messages from server in the client
-    
     func handlerHandleResult(_ message: IRCMessage) async {
         if case .registering = state {
             if message.command.signalsSuccessfulRegistration {
