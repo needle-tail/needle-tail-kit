@@ -119,7 +119,6 @@ public class IRCMessenger: CypherServerTransportClient {
     
     var waitCount = 0
     var isReading = true
-    //TODO: - For some reason this is being called repeatedly when receiving messages
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
@@ -129,7 +128,7 @@ public class IRCMessenger: CypherServerTransportClient {
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         guard let services = services else { throw IRCClientError.nilService }
         
-        var userConfig: UserConfig?
+        var userConfig: UserConfig? = nil
         if !waitingToReadBundle {
             services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {

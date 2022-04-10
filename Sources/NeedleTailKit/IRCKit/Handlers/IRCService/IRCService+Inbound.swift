@@ -44,7 +44,8 @@ extension IRCService: IRCClientDelegate {
         guard let data = Data(base64Encoded: keyBundle) else { return }
         let buffer = ByteBuffer(data: data)
         let c = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
-        self.stream = KeyBundleSequence(bundle: c).makeAsyncIterator()
+//        self.stream = KeyBundleSequence(bundle: c).makeAsyncIterator()
+        self.userConfig = c
     }
     
     
@@ -88,6 +89,8 @@ extension IRCService: IRCClientDelegate {
                     case .message:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
                         // it to the DB where we can get the message from
+                        print("SENDER",sender.nick.stringValue)
+                        print("Recipient", recipient.stringValue)
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 packet.message,
