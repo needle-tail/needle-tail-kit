@@ -19,7 +19,6 @@ public final class IRCService {
     var userConfig: UserConfig?
     var waitCount = 0
     var logger: Logger
-    var stream: KeyBundleIterator?
     var activeClientOptions: IRCClientOptions?
     var authenticated: AuthenticationState?
     public var acknowledgment: Acknowledgment.AckType = .none

@@ -12,8 +12,6 @@ extension IRCService {
     
     
     // MARK: - Connection
-    
-    
     private func handleAccountChange() async throws {
         try await self.connectIfNecessary()
     }

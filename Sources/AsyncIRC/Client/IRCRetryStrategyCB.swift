@@ -28,7 +28,7 @@ public struct IRCRetryInfo {
   var timesConnected  : Int    = 0
   var lastSocketError : Error? = nil
   
-  mutating func registerSuccessfulConnect() async {
+  mutating func registerSuccessfulConnect() {
     self.timesConnected  += 1
     self.totalRetryTime  = Date()
     self.lastSocketError = nil

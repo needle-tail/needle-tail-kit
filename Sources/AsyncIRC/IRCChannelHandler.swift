@@ -53,13 +53,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public typealias OutboundOut = ByteBuffer
     var logger: Logger
     let consumer = ParseConsumer()
-//    var iterator: ParserSequence.Iterator?
-    
     
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
-//        let seq = ParserSequence(consumer: consumer)
-//        iterator = seq.makeAsyncIterator()
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -115,6 +111,8 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             switch message {
             case.success(let task):
                 return try IRCTaskHelpers.parseMessageTask(task: task.message, ircMessageParser: parser)
+            case .finished:
+                return nil
             default:
                 break
             }

@@ -117,8 +117,9 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.services?.client?.publishKeyBundle(self.keyBundle)
     }
     
+    
+    //TODO: We need to handle errors because if we fail finding a device config inside of CTK then we will run an infinite loop. So we need to complete the task as a success at somepoint in time, probably after our timeout.
     var waitCount = 0
-    var isReading = true
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
@@ -132,7 +133,7 @@ public class IRCMessenger: CypherServerTransportClient {
         if !waitingToReadBundle {
             services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
-                if services.client?.channel != nil {
+                if services.client?.channel != nil{
                     userConfig = await services.readKeyBundle(packet)
                 }
                 waitCount += 1
@@ -169,9 +170,6 @@ public class IRCMessenger: CypherServerTransportClient {
         } else if services?.acknowledgment == Acknowledgment.AckType.none {
             waitCount = 0
             return true
-        } else if services?.stream?.bundle != nil {
-            waitCount = 0
-            return false
         } else {
             waitCount = 0
             return false
@@ -304,29 +302,6 @@ public enum RegistrationType {
     case siwa, plain
 }
 
-
-//TODO: - REMOVE: No need
-//struct IRCCypherMessage<Message: Codable>: Codable {
-//    var message: Message
-//    var pushType: PushType
-//    var messageId: String
-//    var token: String?
-//    var type: MessageType
-//
-//    init(
-//        message: Message,
-//        pushType: PushType,
-//        messageId: String,
-//        token: String?,
-//        type: MessageType
-//    ) {
-//        self.message = message
-//        self.pushType = pushType
-//        self.messageId = messageId
-//        self.token = token
-//        self.type = type
-//    }
-//}
 
 
 extension IRCMessenger {

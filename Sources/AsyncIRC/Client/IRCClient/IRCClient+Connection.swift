@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  IRCClient+Connection.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -54,7 +54,7 @@ extension IRCClient {
         var channel: Channel?
         do {
             channel = try await _connect(host: options.hostname ?? "localhost", port: options.port)
-            await self.retryInfo.registerSuccessfulConnect()
+            self.retryInfo.registerSuccessfulConnect()
             guard case .connecting = self.state else {
                 assertionFailure("called \(#function) but we are not connecting?")
                 return channel

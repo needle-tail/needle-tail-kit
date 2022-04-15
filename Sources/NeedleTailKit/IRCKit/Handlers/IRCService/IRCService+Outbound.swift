@@ -21,13 +21,13 @@ extension IRCService {
         await client?.readKeyBundle(packet)
         waitCount = 0
         repeat {
-            /// We just want to run aloop until the userConfig contains a value
+            /// We just want to run a loop until the userConfig contains a value
         waitCount += 1
         } while runLoop()
         return userConfig
     }
     
-    //We need a better timeout
+    //TODO: - We need a better timeout
     func runLoop() -> Bool {
         if waitCount <= 3213320 && userConfig == nil {
             return true
@@ -71,7 +71,6 @@ extension IRCService {
     
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
         //        guard case .online = userState.state else { return false }
-        print(message.base64EncodedString())
         await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
         return true
     }
