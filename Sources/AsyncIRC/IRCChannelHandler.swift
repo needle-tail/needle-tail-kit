@@ -15,6 +15,8 @@
 import NIO
 import Logging
 import Foundation
+import NeedleTailHelpers
+
 
 @globalActor public final actor NeedleTailKitActor {
     public static let shared = NeedleTailKitActor()
@@ -71,9 +73,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        self.logger.trace("IRCChannelHandler Read")
         var buffer = self.unwrapInboundIn(data)
         let line = buffer.readString(length: buffer.readableBytes) ?? ""
+        self.logger.trace("IRCChannelHandler Read \(line)")
         let message = asyncParse(context: context, line: line)
         message.whenComplete{ switch $0 {
         case .success(let message):
@@ -104,13 +106,13 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let lines = message.components(separatedBy: "\n")
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
-
+        
         await consumer.feedConsumer(lines)
         do {
         for try await message in ParserSequence(consumer: consumer) {
             switch message {
-            case.success(let task):
-                return try IRCTaskHelpers.parseMessageTask(task: task.message, ircMessageParser: parser)
+            case.success(let message):
+                return try IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
             case .finished:
                 return nil
             default:

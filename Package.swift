@@ -12,7 +12,13 @@ let package = Package(
     products: [
         .library(
             name: "NeedleTailKit",
-            targets: ["NeedleTailKit", "AsyncIRC"]),
+            targets: ["NeedleTailKit"]),
+        .library(
+            name: "AsyncIRC",
+            targets: ["AsyncIRC"]),
+        .library(
+            name: "NeedleTailHelpers",
+            targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
         .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", branch: "udp-support-nio-latest"),
@@ -22,7 +28,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
         .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", branch: "feature/async-await"),
         .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0")
     ],
     targets: [
         .target(
@@ -37,6 +43,7 @@ let package = Package(
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "AsyncCollections", package: "async-collections"),
             .product(name: "Crypto", package: "swift-crypto"),
+            .target(name: "NeedleTailHelpers"),
             .target(name: "AsyncIRC")
         ]),
         .target(
@@ -46,14 +53,14 @@ let package = Package(
                 .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),
                 .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "NIOSSL", package: "swift-nio-ssl")
-            ],
-            swiftSettings: [
-                .unsafeFlags([
-                    "-Xfrontend", "-disable-availability-checking",
-                ])
-            ]
-        ),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .target(name: "NeedleTailHelpers")
+            ]),
+        .target(
+            name: "NeedleTailHelpers",
+            dependencies: [
+                .product(name: "CypherMessaging", package: "CypherTextKit")
+            ]),
         .testTarget(
             name: "NeedleTailKitTests",
             dependencies: ["NeedleTailKit"]),
