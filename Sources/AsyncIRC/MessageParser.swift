@@ -221,7 +221,7 @@ public final class IRCMessageParser {
 }
 
 
-enum MessageParserError: Error {
+public enum MessageParserError: Error {
     case rangeNotFound
     case firstCharacterIsNil
     case argumentsAreNil

@@ -16,6 +16,8 @@ public struct Acknowledgment: Codable {
         case apn(String)
         case none
         case messageSent(String)
+        case blocked
+        case unblocked
     }
 
     public var acknowledgment: AckType
