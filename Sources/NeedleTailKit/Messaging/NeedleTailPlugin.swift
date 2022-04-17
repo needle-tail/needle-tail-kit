@@ -37,6 +37,22 @@ public actor NeedleTailPlugin: Plugin {
         NotificationCenter.default.post(name: .newChat, object: nil)
     }
     
+    public func onSendMessage(_ message: SentMessageContext) async throws -> SendMessageAction? {
+        try await magic(message)
+    }
+    
+    func magic(_ context: SentMessageContext) async throws -> SendMessageAction? {
+        let message = context.message
+        if message.messageType == .magic && message.messageSubtype == "@/contacts/friendship/change-state" {
+            let status = message.metadata[0]
+            if status.equals(1) || status.equals(3) {
+                let username = message.metadata[1].makePrimitive() as! String
+                try await NeedleTail.shared.blockUnblockUser(username)
+            }
+        }
+        return nil
+    }
+    
     public func fetchConversations(_
                             messenger: CypherMessenger
     ) async throws {

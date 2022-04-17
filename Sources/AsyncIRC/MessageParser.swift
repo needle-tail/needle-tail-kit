@@ -186,7 +186,7 @@ public final class IRCMessageParser {
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
-            } else if commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PUBKEYBNDL") || commandKey.hasPrefix("REGAPN") || commandKey.hasPrefix("ACKMESSAGE") {
+            } else if commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PUBKEYBNDL") || commandKey.hasPrefix("REGAPN") || commandKey.hasPrefix("ACKMESSAGE") || commandKey.hasPrefix("BLOCKUNBLOCK") {
                 let seperated = stripedMessage.components(separatedBy: ":")
                 args.append(seperated[1])
             }

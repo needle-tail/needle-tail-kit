@@ -342,7 +342,8 @@ extension IRCMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-    
+        
+        
         let packet = MessagePacket(
             id: messageId, 
             pushType: pushType,
