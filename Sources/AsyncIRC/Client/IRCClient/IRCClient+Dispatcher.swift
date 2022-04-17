@@ -42,25 +42,10 @@ extension IRCClient: IRCDispatcher {
                 await delegate?.client(self, messageOfTheDay: messageOfTheDay)
             }
             messageOfTheDay = ""
-            
-            /* name reply */
-            // <IRCCmd: 353 args=Guest1,=,#ZeeQL,Guest1> localhost -
-            // <IRCCmd: 366 args=Guest1,#ZeeQL,End of /NAMES list> localhost -
         case .numeric(.replyNameReply, _ /*let args*/):
-//#if false
-//            messageOfTheDay += (args.last ?? "") + "\n"
-//#else
             break
-//#endif
         case .numeric(.replyEndOfNames, _):
-//#if false
-//            if !messageOfTheDay.isEmpty {
-//                await delegate?.client(self, messageOfTheDay: messageOfTheDay)
-//            }
-//            messageOfTheDay = ""
-//#else
             break
-//#endif
         case .numeric(.replyInfo, let info):
             try await delegate?.client(self, info: info)
         case .numeric(.replyKeyBundle, let bundle):
@@ -85,22 +70,13 @@ extension IRCClient: IRCDispatcher {
                 return print("ERROR: JOIN is missing a proper origin:", message)
             }
             await delegate?.client(self, user: user, left: channels, with: leaveMessage)
-            
-            /* unexpected stuff */
-            
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
-//#if false
-//
-//#endif
             await delegate?.client(self, received: message)
         case .QUIT(let message):
             await delegate?.client(self, quit: message)
         default:
-//#if false
-//                  message.origin ?? "-", message.target ?? "-")
-//#endif
             await delegate?.client(self, received: message)
         }
     }

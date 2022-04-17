@@ -134,8 +134,6 @@ extension IRCService: IRCClientDelegate {
     
     
     // MARK: - Channels
-    
-    
     public func client(_ client: IRCClient,
                        user: IRCUserID,
                        joined channels: [ IRCChannelName ]
@@ -179,7 +177,6 @@ extension IRCService: IRCClientDelegate {
             await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
             break
-            // TODO: update state (nick, userinfo, etc)
         }
     }
     

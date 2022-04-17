@@ -42,8 +42,6 @@ public protocol IRCClientDelegate: AnyObject {
     func client(_ client: IRCClient, keyBundle: [String]) async throws
 }
 
-
-// MARK: - Default No-Op Implementations
 public extension IRCClientDelegate {
     
     func client(_ client: IRCClient, registered nick: IRCNickName,

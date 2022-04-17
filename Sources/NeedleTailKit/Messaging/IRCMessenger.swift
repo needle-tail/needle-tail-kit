@@ -44,6 +44,9 @@ public class IRCMessenger: CypherServerTransportClient {
     var logger: Logger
     
     
+    //Entry wrapper variables
+    var ircMessenger: IRCMessenger?
+    
     public init(
         username: Username,
         deviceId: DeviceId,
@@ -60,6 +63,7 @@ public class IRCMessenger: CypherServerTransportClient {
         self.signer = signer
         self.appleToken = appleToken
     }
+
     
     
     public class func authenticate(
@@ -112,7 +116,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     
     public func publishKeyBundle(_ data: UserConfig) async throws {
-        guard let jwt = makeToken() else { throw IRCClientError.nilToken }
+        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         await self.services?.client?.publishKeyBundle(self.keyBundle)
@@ -122,10 +126,10 @@ public class IRCMessenger: CypherServerTransportClient {
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
-        guard let jwt = makeToken() else { throw IRCClientError.nilToken }
+        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        guard let services = services else { throw IRCClientError.nilService }
+        guard let services = services else { throw NeedleTailError.nilService }
         lazy var date = RunLoop.timeInterval(10)
         var canRun = false
         
@@ -156,21 +160,10 @@ public class IRCMessenger: CypherServerTransportClient {
                 }
             } while await RunLoop.execute(date, ack: services.acknowledgment, canRun: canRun)
         }
-        guard let userConfig = userConfig else { throw IRCClientError.nilUserConfig }
+        guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         services.acknowledgment = .none
         return userConfig
     }
-    
-    
-//    private func shouldRun() async -> Bool {
-//        var canRun = false
-//        if services?.client?.channel == nil {
-//            canRun = true
-//        }
-//        guard let ack = services?.acknowledgment else { return true }
-//        let date = RunLoop.timeInterval(10)
-//        return await RunLoop.execute(date, ack: ack, canRun: canRun)
-//    }
     
     
     public func registerAPNSToken(_ token: Data) async throws {
@@ -366,11 +359,11 @@ extension IRCMessenger {
     public func recipient(name: String) async throws -> IRCMessageRecipient {
         switch type {
         case .channel:
-            guard let name = IRCChannelName(name) else { throw IRCClientError.nilChannelName }
+            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
             return .channel(name)
         case .im:
             print(name)
-            guard let validatedName = IRCNickName(name) else { throw IRCClientError.nilNickName }
+            guard let validatedName = IRCNickName(name) else { throw NeedleTailError.nilNickName }
             return .nickname(validatedName)
         }
     }

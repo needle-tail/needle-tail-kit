@@ -102,7 +102,7 @@ extension IRCClient {
             stop(error: error)
             
         case .stop:
-            stop(error: IRCClientError.ConnectionQuit)
+            stop(error: NeedleTailError.ConnectionQuit)
         }
     }
 #endif

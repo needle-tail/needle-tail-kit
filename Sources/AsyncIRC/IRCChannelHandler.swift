@@ -46,7 +46,7 @@ public let DefaultIRCPort = 6667
  */
 public class IRCChannelHandler : ChannelDuplexHandler {
     
-    public typealias InboundErr  = IRCParserError
+//    public typealias InboundErr  = MessageParserError
     
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
@@ -90,7 +90,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = await self.processMessage(line) else {
-                promise.fail(ParserError.jobFailedToParse)
+                promise.fail(MessageParserError.jobFailedToParse)
                 return try await promise.futureResult.get()
             }
             return message
@@ -134,7 +134,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
-        context.fireErrorCaught(InboundErr.transportError(error))
+        context.fireErrorCaught(MessageParserError.transportError(error))
     }
     
     

@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=5.5) && canImport(_Concurrency)
-
 /**
  * Dispatches incoming IRCMessage's to protocol methods.
  *
@@ -58,8 +56,6 @@ public protocol IRCDispatcher {
         message: String,tags: [IRCTags]?,
         userStatus: UserStatus
     ) async throws
-    
-    
     func doIsOnline (_ nicks: [ IRCNickName ]) async throws
     func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
     func doQuit(_ message: String?) async throws
@@ -67,6 +63,7 @@ public protocol IRCDispatcher {
     func doReadKeyBundle(_ keyBundle: [String]) async throws
     func doRegisterAPN(_ token: [String]) async throws
     func doAckMessage(_ acknowledgement: [String]) async throws
+    func doBlockUnblock(_ packet: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -146,6 +143,8 @@ public extension IRCDispatcher {
                 try await doRegisterAPN(token)
             case .otherCommand("ACKMESSAGE", let ack):
                 try await doAckMessage(ack)
+            case .otherCommand("BLOCKUNBLOCK", let packet):
+                try await doBlockUnblock(packet)
             default:
                 throw IRCDispatcherError.doesNotRespondTo(message)
             }
@@ -242,5 +241,7 @@ public extension IRCDispatcher {
     func doAckMessage(_ acknowledgement: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
+    func doBlockUnblock(_ packet: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
 }
-#endif

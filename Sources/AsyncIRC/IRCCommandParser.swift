@@ -22,7 +22,7 @@ public extension IRCCommand {
      * unexpected input.
      */
     init(_ command: String, arguments: [ String ]) throws {
-        typealias Error = IRCParserError
+        typealias Error = MessageParserError
         
         func expect(argc: Int) throws {
             guard argc == arguments.count else {
@@ -217,7 +217,7 @@ public extension IRCCommand {
         case "CAP":
             try expect(min: 1, max: 2)
             guard let subcmd = CAPSubCommand(rawValue: arguments[0]) else {
-                throw IRCParserError.invalidCAPCommand(arguments[0])
+                throw MessageParserError.invalidCAPCommand(arguments[0])
             }
             let capIDs = arguments.count > 1
             ? arguments[1].components(separatedBy: " ")

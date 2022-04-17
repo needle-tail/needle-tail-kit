@@ -1,5 +1,5 @@
 //
-//  IRCService.swift
+//  IRCService+Outbound.swift
 //  
 //
 //  Created by Cole M on 3/4/22.

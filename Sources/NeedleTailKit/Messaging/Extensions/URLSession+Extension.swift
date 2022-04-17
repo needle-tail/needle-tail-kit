@@ -32,7 +32,6 @@ extension URLSession {
     ) async throws -> (Data, URLResponse) {
         
         var request = URLRequest(url: URL(string: "\(httpHost)/\(urlPath)")!)
-        print(request.url as Any, "URL___")
         request.httpMethod = httpMethod
         request.addValue("application/bson", forHTTPHeaderField: "Content-Type")
         request.addValue(username.raw, forHTTPHeaderField: "X-API-User")
@@ -49,7 +48,7 @@ extension URLSession {
                 
                 if data.count > maxBodySize {
 #if canImport(FoundationNetworking)
-                    guard let url = URL(string: "cartisim.io") else { throw IRCClientError.urlResponseNil }
+                    guard let url = URL(string: "cartisim.io") else { throw NeedleTailError.urlResponseNil }
                     let res = URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)
                     return (Data(), res)
 #else
@@ -75,12 +74,11 @@ extension URLSession {
                 
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
-                    throw IRCClientError.invalidResponse
+                    throw NeedleTailError.invalidResponse
                 }
                 guard httpResponse.statusCode == 200 else {
-                    throw IRCClientError.invalidResponse
+                    throw NeedleTailError.invalidResponse
                 }
-                print("HTTPResponse_____", httpResponse)
                 
             }
             
@@ -102,18 +100,17 @@ extension URLSession {
 #endif
                 
                 guard let httpResponse = decodedBSON?.1 as? HTTPURLResponse else {
-                    throw IRCClientError.invalidResponse
+                    throw NeedleTailError.invalidResponse
                 }
                 guard httpResponse.statusCode == 200 else {
-                    throw IRCClientError.invalidResponse
+                    throw NeedleTailError.invalidResponse
                 }
-                print("HTTPResponse_____", httpResponse)
             }
         } catch {
             throw error
         }
         guard let decodedBSON = decodedBSON else {
-            throw IRCClientError.nilBSONResponse
+            throw NeedleTailError.nilBSONResponse
         }
         
         return decodedBSON

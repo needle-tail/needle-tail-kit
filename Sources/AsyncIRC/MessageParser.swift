@@ -1,60 +1,11 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-nio-irc open source project
-//
-// Copyright (c) 2018-2021 ZeeZide GmbH. and the swift-nio-irc project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftNIOIRC project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
 
 import NIO
 import Foundation
 import AsyncCollections
 import Logging
 
-// Compat, remove me.
-public typealias IRCParserError = IRCMessageParser.Error
-
-
-enum ParserError: Swift.Error {
-    case jobFailedToParse
-}
 
 public final class IRCMessageParser {
-    
-    public enum Error : Swift.Error {
-        case invalidPrefix       (Data)
-        case invalidCommand      (Data)
-        case tooManyArguments    (Data)
-        case invalidArgument     (Data)
-        
-        case invalidArgumentCount(command: String, count: Int, expected: Int)
-        case invalidMask         (command: String, mask: String)
-        case invalidChannelName  (String)
-        case invalidNickName     (String)
-        case invalidMessageTarget(String)
-        case invalidCAPCommand   (String)
-        
-        case transportError(Swift.Error)
-        case syntaxError
-        case notImplemented
-    }
-    
-    enum MessageParserError: Swift.Error {
-        case rangeNotFound
-        case firstCharacterIsNil
-        case argumentsAreNil
-        case commandIsNil
-        case originIsNil
-        case firstIndexChoiceNil
-        case messageWithTagsNil
-        case messageWithWhiteSpaceNil
-    }
     
     enum IRCCommandKey {
         case int   (Int)
@@ -255,7 +206,6 @@ public final class IRCMessageParser {
                 tag.removeAll(where: { $0 == "@" })
                 var ircTag: IRCTags
                 let kvpArray = tag.components(separatedBy: "=")
-//                if  String(tag.characters.suffix(2)) == "==" {
                 if String(tag.suffix(2)) == "==" {
                     ircTag = IRCTags(key: kvpArray[0], value: "\(kvpArray[1])==")
                 } else {
@@ -270,3 +220,28 @@ public final class IRCMessageParser {
     }
 }
 
+
+enum MessageParserError: Error {
+    case rangeNotFound
+    case firstCharacterIsNil
+    case argumentsAreNil
+    case commandIsNil
+    case originIsNil
+    case firstIndexChoiceNil
+    case messageWithTagsNil
+    case messageWithWhiteSpaceNil
+    case invalidPrefix(Data)
+    case invalidCommand(Data)
+    case tooManyArguments(Data)
+    case invalidArgument(Data)
+    case invalidArgumentCount(command: String, count: Int, expected: Int)
+    case invalidMask(command: String, mask: String)
+    case invalidChannelName(String)
+    case invalidNickName(String)
+    case invalidMessageTarget(String)
+    case invalidCAPCommand(String)
+    case transportError(Error)
+    case syntaxError
+    case notImplemented
+    case jobFailedToParse
+}
