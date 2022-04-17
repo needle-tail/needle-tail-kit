@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct BlockUnblock {
+public struct BlockUnblock: Codable {
     public var recipient: String
     public var sender: String
     public var senderDeviceId: String
