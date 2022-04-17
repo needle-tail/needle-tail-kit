@@ -173,8 +173,19 @@ public class IRCMessenger: CypherServerTransportClient {
         await self.services?.registerAPN(packet)
     }
     
+    public func blockUnblockUser(_ recipient: String) async throws {
+        let blockObject = BlockUnblock(
+            recipient: recipient,
+            sender: self.username.raw,
+            senderDeviceId: self.deviceId.raw
+        )
+        let packet = try BSONEncoder().encode(blockObject).makeData().base64EncodedString()
+        await self.services?.blockUnblockUser(packet)
+    }
+    
     private func makeToken() -> String? {
-        return try? JWTSigner(algorithm: signer as! JWTAlgorithm).sign(
+        return try? JWTSigner(algorithm: signer as! JWTAlgorithm)
+            .sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
                 exp: .init(value: Date().addingTimeInterval(3600))

@@ -102,6 +102,10 @@ public final class NeedleTail {
         try await irc?.registerAPNSToken(token)
     }
     
+    public func blockUnblockUser(_ username: String) async throws {
+        try await irc?.blockUnblockUser(username)
+    }
+    
     public func addContact(contact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(contact))
         let contact = try await cypher?.createContact(byUsername: Username(contact))

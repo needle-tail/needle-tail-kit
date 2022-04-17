@@ -54,6 +54,10 @@ extension IRCClient {
         await send(.otherCommand("REGAPN", [packet]))
     }
     
+    public func blockUnblockUser(_ packet: String) async {
+        await send(.otherCommand("BLOCKUNBLOCK", [packet]))
+    }
+    
     public func changeNick(_ nick: IRCNickName) async {
         await send(.NICK(nick))
     }

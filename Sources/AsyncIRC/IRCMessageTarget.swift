@@ -45,7 +45,6 @@ public extension IRCMessageTarget {
 
 public extension IRCMessageTarget {
     
-    
     func sendMessage(_ text: String, to recipients: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
         guard !recipients.isEmpty else { return }
         
