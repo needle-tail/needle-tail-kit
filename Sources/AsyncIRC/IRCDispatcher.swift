@@ -62,8 +62,6 @@ public protocol IRCDispatcher {
     func doPublishKeyBundle(_ keyBundle: [String]) async throws
     func doReadKeyBundle(_ keyBundle: [String]) async throws
     func doRegisterAPN(_ token: [String]) async throws
-    func doAckMessage(_ acknowledgement: [String]) async throws
-    func doBlockUnblock(_ packet: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -76,6 +74,7 @@ public enum IRCDispatcherError : Swift.Error {
     case notRegistered
     case cantChangeModeForOtherUsers
     case nilUserConfig
+    case nilToken
 }
 
 public extension IRCDispatcher {
@@ -135,16 +134,8 @@ public extension IRCDispatcher {
                 
             case .LIST(let channels, let target):
                 try await doList(channels, target)
-            case .otherCommand("PUBKEYBNDL", let keyBundle):
-                try await doPublishKeyBundle(keyBundle)
             case .otherCommand("READKEYBNDL", let keyBundle):
                 try await doReadKeyBundle(keyBundle)
-            case .otherCommand("REGAPN", let token):
-                try await doRegisterAPN(token)
-            case .otherCommand("ACKMESSAGE", let ack):
-                try await doAckMessage(ack)
-            case .otherCommand("BLOCKUNBLOCK", let packet):
-                try await doBlockUnblock(packet)
             default:
                 throw IRCDispatcherError.doesNotRespondTo(message)
             }
@@ -236,12 +227,6 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doRegisterAPN(_ token: [String]) async throws {
-        throw InternalDispatchError.notImplemented(function: #function)
-    }
-    func doAckMessage(_ acknowledgement: [String]) async throws {
-        throw InternalDispatchError.notImplemented(function: #function)
-    }
-    func doBlockUnblock(_ packet: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

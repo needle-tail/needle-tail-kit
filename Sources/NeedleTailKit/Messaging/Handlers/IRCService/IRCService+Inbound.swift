@@ -17,17 +17,12 @@ extension IRCService: IRCClientDelegate {
     
     // MARK: - IRCMessages
     
-    /// This method is used to get extra information from server activity, For instance in our case we are using it to send back acknowledgements of different types of activity.
+    /// This method is used to get extra information from server activity.
     /// - Parameters:
     ///   - client: Our ``IRCClient``
     ///   - info: An array of string info sent back from the server
     public func client(_ client: IRCClient, info: [String]) async throws {
-        guard let info = info.first else { return }
-        guard let data = Data(base64Encoded: info) else { return }
-        let buffer = ByteBuffer(data: data)
-        let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
-        acknowledgment = ack.acknowledgment
-        logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
+    // TODO: Handle Misc. Info
     }
     
     public func client(_ client: IRCClient, keyBundle: [String]) async throws {
@@ -38,7 +33,7 @@ extension IRCService: IRCClientDelegate {
         self.userConfig = config
     }
     
-    
+    /// **NOTICE**
     public func client(_       client: IRCClient,
                        notice message: String,
                        for recipients: [ IRCMessageRecipient ]
@@ -52,7 +47,7 @@ extension IRCService: IRCClientDelegate {
     }
     
     
-    //This is where we receive messages from server via AsyncIRC
+    /// **PRIVMSG** This is where we receive messages from server via AsyncIRC
     public func client(_
                        client: IRCClient,
                        message: String,
@@ -75,22 +70,41 @@ extension IRCService: IRCClientDelegate {
                     let buffer = ByteBuffer(data: data)
                     let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                     switch packet.type {
-                        
+                    case .publishKeyBundle(_):
+                        break
+                    case .registerAPN(_):
+                        break
                     case .message:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
                         // it to the DB where we can get the message from
+                        guard let message = packet.message else { return }
+                        guard let deviceId = packet.sender else { return }
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
-                                packet.message,
+                                message,
                                 id: packet.id,
                                 byUser: Username(sender.nick.stringValue),
-                                deviceId: packet.sender
+                                deviceId: deviceId
                             )
                         )
+                        
                         //Send message ack
                         let received = Acknowledgment(acknowledgment: .messageSent(packet.id))
                         let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
-                        await client.acknowledgeMessageReceived(ack)
+    
+                        let packet = MessagePacket(
+                            id: UUID().uuidString,
+                            pushType: .none,
+                            type: .ack(ack),
+                            createdAt: Date(),
+                            sender: nil,
+                            recipient: nil,
+                            message: nil,
+                            readReceipt: .none
+                        )
+                        
+                        let data = try BSONEncoder().encode(packet).makeData()
+                        _ = try await sendMessage(data, to: recipient, tags: nil)
                         
                     case .multiRecipientMessage:
                         break
@@ -103,8 +117,12 @@ extension IRCService: IRCClientDelegate {
                         case .none:
                             break
                         }
-                    case .ack:
-                        break
+                    case .ack(let ack):
+                        guard let data = Data(base64Encoded: ack) else { return }
+                        let buffer = ByteBuffer(data: data)
+                        let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
+                        acknowledgment = ack.acknowledgment
+                        logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
                     case .blockUnblock:
                         break
                     }
@@ -124,7 +142,7 @@ extension IRCService: IRCClientDelegate {
     }
     
     
-    
+    //???
     public func client(_ client: IRCClient, received message: IRCMessage) async { }
     
     
@@ -185,9 +203,10 @@ extension IRCService: IRCClientDelegate {
     // MARK: - Connection
     
     
-    public func client(_ client        : IRCClient,
-                       registered nick : IRCNickName,
-                       with   userInfo : IRCUserInfo
+    public func client(_
+                       client: IRCClient,
+                       registered nick: IRCNickName,
+                       with userInfo: IRCUserInfo
     ) async {
         await self.updateConnectedClientState(client)
     }

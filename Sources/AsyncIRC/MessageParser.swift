@@ -5,7 +5,7 @@ import AsyncCollections
 import Logging
 
 
-public final class IRCMessageParser {
+public final class MessageParser {
     
     enum IRCCommandKey {
         case int   (Int)
@@ -14,7 +14,7 @@ public final class IRCMessageParser {
     var logger: Logger
     
     init() {
-        self.logger = Logger(label: "IRCMessageParser")
+        self.logger = Logger(label: "MessageParser")
     }
     
     internal func parseMessage(_ message: String) throws -> IRCMessage {
@@ -48,7 +48,7 @@ public final class IRCMessageParser {
         }
         let spreadStriped = stripedMessage.components(separatedBy: " ")
         
-        //This is probably really bad, if we get a origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
+        //If we get an origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
         if stripedMessage.hasPrefix(":") {
             command = spreadStriped[1]
             parameter = spreadStriped[2]
@@ -186,7 +186,7 @@ public final class IRCMessageParser {
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
-            } else if commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PUBKEYBNDL") || commandKey.hasPrefix("REGAPN") || commandKey.hasPrefix("ACKMESSAGE") || commandKey.hasPrefix("BLOCKUNBLOCK") {
+            } else if commandKey.hasPrefix("READKEYBNDL") {
                 let seperated = stripedMessage.components(separatedBy: ":")
                 args.append(seperated[1])
             }

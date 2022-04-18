@@ -21,6 +21,11 @@ public final class NeedleTail {
     
     public var irc: IRCMessenger?
     public var cypher: CypherMessenger?
+    public var messageType: MessageType = .message {
+        didSet {
+            irc?.messageType = messageType
+        }
+    }
     
     init() {}
     
@@ -102,17 +107,8 @@ public final class NeedleTail {
         try await irc?.registerAPNSToken(token)
     }
     
-    public func blockUnblockUser(_ username: String) async throws {
-//        let privateChat = try await self.cypher.createPrivateChat(with: self.username)
-//        try await privateChat.sendRawMessage(
-//            type: .magic,
-//            messageSubtype: "@/block-unblock",
-//            text: "",
-//            metadata: ["":""],
-//            preferredPushType: .none
-//        )
+    public func blockUnblockUser(_ username: String?) async throws {
         irc?.messageType = .blockUnblock
-        try await irc?.blockUnblockUser(username)
     }
    
     public func addContact(contact: String, nick: String = "") async throws {
@@ -127,6 +123,7 @@ public final class NeedleTail {
                 preferredPushType: .contactRequest
             )
     }
+    
     
     public func sendMessage(emitter: NeedleTailPlugin, message: String) async throws {
         _ = try await emitter.selectedChat?.sendRawMessage(

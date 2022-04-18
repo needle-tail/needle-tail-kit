@@ -21,11 +21,11 @@ public actor NeedleTailPlugin: Plugin {
     public static let pluginIdentifier = "needletail"
     
     @MainActor public let consumer = ConversationConsumer()
-    public private(set) var conversations = [TargetConversation.Resolved]()
-    public fileprivate(set) var contacts = [Contact]()
     @MainActor public var selectedChat: PrivateChat?
     @MainActor public var sessions = [PrivateChat]()
     @MainActor public var chats = [AnyChatMessage]()
+    public private(set) var conversations = [TargetConversation.Resolved]()
+    public fileprivate(set) var contacts = [Contact]()
     private let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     
@@ -37,21 +37,20 @@ public actor NeedleTailPlugin: Plugin {
         NotificationCenter.default.post(name: .newChat, object: nil)
     }
     
-    public func onSendMessage(_ message: SentMessageContext) async throws -> SendMessageAction? {
-        try await magic(message)
-    }
-    
-    func magic(_ context: SentMessageContext) async throws -> SendMessageAction? {
-        let message = context.message
-        if message.messageType == .magic && message.messageSubtype == "@/block-unblock" {
-            let status = message.metadata[0]
-            if status.equals(1) || status.equals(3) {
-                let username = message.metadata[1].makePrimitive() as! String
-//                try await NeedleTail.shared.blockUnblockUser(username)
-            }
-        }
-        return .send
-    }
+//    public func onSendMessage(_ message: SentMessageContext) async throws -> SendMessageAction? {
+//        try await magic(message)
+//    }
+//
+//    func magic(_ context: SentMessageContext) async throws -> SendMessageAction? {
+//        let message = context.message
+//        if message.messageType == .magic && message.messageSubtype == "@/contacts/friendship/change-state" {
+//            let status = message.metadata[0]
+//            if status.equals(1) || status.equals(3) {
+//                NeedleTail.shared.irc?.messageType = .blockUnblock
+//            }
+//        }
+//        return .send
+//    }
     
     public func fetchConversations(_
                             messenger: CypherMessenger

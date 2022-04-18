@@ -13,10 +13,10 @@ import NeedleTailHelpers
 //MARK: - Outbound
 extension IRCService {
     
-    
-    internal func publishKeyBundle(_ keyBundle: String) async {
-        await client?.publishKeyBundle(keyBundle)
-    }
+//    
+//    internal func publishKeyBundle(_ keyBundle: String) async {
+//        await client?.publishKeyBundle(keyBundle)
+//    }
     
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
@@ -33,14 +33,10 @@ extension IRCService {
         return userConfig
     }
     
-    func registerAPN(_ packet: String) async {
-        await client?.registerAPN(packet)
-    }
-    
-    func blockUnblockUser(_ packet: String) async {
-        await client?.blockUnblockUser(packet)
-    }
-    
+//    func registerAPN(_ packet: String) async {
+//        await client?.registerAPN(packet)
+//    }
+
     //MARK: - CypherMessageAPI
     public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
         //        guard case .online = userState.state else { return false }

@@ -3,8 +3,8 @@ import Logging
 
 
 enum IRCTaskHelpers {
-     static func parseMessageTask(task: String, ircMessageParser: IRCMessageParser) throws -> IRCMessage {
+     static func parseMessageTask(task: String, messageParser: MessageParser) throws -> IRCMessage {
         Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
-            return try ircMessageParser.parseMessage(task)
+            return try messageParser.parseMessage(task)
     }
 }

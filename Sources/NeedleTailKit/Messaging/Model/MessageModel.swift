@@ -7,13 +7,16 @@
 
 import Foundation
 import CypherMessaging
+import NeedleTailHelpers
 
-public enum MessageType: String, Codable {
-    case message = "a"
-    case multiRecipientMessage = "b"
-    case readReceipt = "c"
-    case ack = "d"
-    case blockUnblock = "e"
+public enum MessageType: Codable {
+    case publishKeyBundle(String)
+    case registerAPN(String)
+    case message
+    case multiRecipientMessage
+    case readReceipt
+    case ack(String)
+    case blockUnblock
 }
 
 public struct MessagePacket: Codable {
@@ -21,9 +24,9 @@ public struct MessagePacket: Codable {
     public let pushType: PushType
     public let type: MessageType
     public let createdAt: Date
-    public let sender: DeviceId
-    public let recipient: DeviceId
-    public let message: RatchetedCypherMessage
+    public let sender: DeviceId?
+    public let recipient: DeviceId?
+    public let message: RatchetedCypherMessage?
     public let readReceipt: ReadReceiptPacket?
 }
 

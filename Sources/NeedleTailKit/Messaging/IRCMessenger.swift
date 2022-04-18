@@ -120,7 +120,21 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
-        await self.services?.client?.publishKeyBundle(self.keyBundle)
+        let recipient = try await recipient(name: "\(username.raw)")
+
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .publishKeyBundle(self.keyBundle),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        
+        let data = try BSONEncoder().encode(packet).makeData()
+        _ = try await services?.sendMessage(data, to: recipient, tags: nil)
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
@@ -170,20 +184,25 @@ public class IRCMessenger: CypherServerTransportClient {
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
-        let packet = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
-        await self.services?.registerAPN(packet)
-    }
-    
-    public func blockUnblockUser(_ recipient: String) async throws {
-        let blockObject = BlockUnblock(
-            recipient: recipient,
-            sender: self.username.raw,
-            senderDeviceId: self.deviceId.raw
+        let token = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
+        let recipient = try await recipient(name: "\(username.raw)")
+        
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .registerAPN(token),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
         )
-        let packet = try BSONEncoder().encode(blockObject).makeData().base64EncodedString()
-        await self.services?.blockUnblockUser(packet)
+        
+        let data = try BSONEncoder().encode(packet).makeData()
+        _ = try await services?.sendMessage(data, to: recipient, tags: nil)
+        
     }
-    
+
     private func makeToken() -> String? {
         return try? JWTSigner(algorithm: signer as! JWTAlgorithm)
             .sign(

@@ -98,7 +98,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         return promise.futureResult
     }
     
-    let parser = IRCMessageParser()
+    let parser = MessageParser()
     
     @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
@@ -112,7 +112,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         for try await message in ParserSequence(consumer: consumer) {
             switch message {
             case.success(let message):
-                return try IRCTaskHelpers.parseMessageTask(task: message, ircMessageParser: parser)
+                return try IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
             case .finished:
                 return nil
             default:

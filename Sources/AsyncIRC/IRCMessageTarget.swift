@@ -38,7 +38,7 @@ public protocol IRCMessageTarget: AnyObject {
 public extension IRCMessageTarget {
     
     
-    func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
+    private func sendMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         await sendMessage(message, chatDoc: chatDoc)
     }
 }
