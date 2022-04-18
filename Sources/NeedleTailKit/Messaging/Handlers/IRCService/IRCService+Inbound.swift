@@ -104,7 +104,9 @@ extension IRCService: IRCClientDelegate {
                             break
                         }
                     case .ack:
-                        ()
+                        break
+                    case .blockUnblock:
+                        break
                     }
                     
                 } catch {
