@@ -103,9 +103,18 @@ public final class NeedleTail {
     }
     
     public func blockUnblockUser(_ username: String) async throws {
+//        let privateChat = try await self.cypher.createPrivateChat(with: self.username)
+//        try await privateChat.sendRawMessage(
+//            type: .magic,
+//            messageSubtype: "@/block-unblock",
+//            text: "",
+//            metadata: ["":""],
+//            preferredPushType: .none
+//        )
+        irc?.messageType = .blockUnblock
         try await irc?.blockUnblockUser(username)
     }
-    
+   
     public func addContact(contact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(contact))
         let contact = try await cypher?.createContact(byUsername: Username(contact))

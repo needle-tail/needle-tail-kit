@@ -13,6 +13,7 @@ public enum MessageType: String, Codable {
     case multiRecipientMessage = "b"
     case readReceipt = "c"
     case ack = "d"
+    case blockUnblock = "e"
 }
 
 public struct MessagePacket: Codable {

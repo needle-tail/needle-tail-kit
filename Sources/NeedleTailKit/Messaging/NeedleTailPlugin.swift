@@ -43,14 +43,14 @@ public actor NeedleTailPlugin: Plugin {
     
     func magic(_ context: SentMessageContext) async throws -> SendMessageAction? {
         let message = context.message
-        if message.messageType == .magic && message.messageSubtype == "@/contacts/friendship/change-state" {
+        if message.messageType == .magic && message.messageSubtype == "@/block-unblock" {
             let status = message.metadata[0]
             if status.equals(1) || status.equals(3) {
                 let username = message.metadata[1].makePrimitive() as! String
-                try await NeedleTail.shared.blockUnblockUser(username)
+//                try await NeedleTail.shared.blockUnblockUser(username)
             }
         }
-        return nil
+        return .send
     }
     
     public func fetchConversations(_

@@ -42,7 +42,8 @@ public class IRCMessenger: CypherServerTransportClient {
     var messenger: CypherMessenger?
     var services: IRCService?
     var logger: Logger
-    
+    var messageType = MessageType.message
+    var readRecipect: ReadReceiptPacket?
     
     //Entry wrapper variables
     var ircMessenger: IRCMessenger?
@@ -342,17 +343,16 @@ extension IRCMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        
-        
+
         let packet = MessagePacket(
-            id: messageId, 
+            id: messageId,
             pushType: pushType,
-            type: .message,
+            type: self.messageType,
             createdAt: Date(),
             sender: self.deviceId,
             recipient: deviceId,
             message: message,
-            readReceipt: nil
+            readReceipt: self.readRecipect
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
