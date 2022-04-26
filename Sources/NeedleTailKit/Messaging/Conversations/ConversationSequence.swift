@@ -38,7 +38,7 @@ extension ConversationSequence {
         }
         
         mutating public func next() async throws -> SequenceResult? {
-            let result = consumer.next()
+            let result = await consumer.next()
             var res: SequenceResult?
             switch result {
             case .ready(let sequence):
@@ -68,20 +68,20 @@ var nextResult = NextResult.preparing
 
 public final class ConversationConsumer {
     
-    internal var wb = NeedleTailStack<TargetConversation.Resolved>()
+    internal var stack = NeedleTailStack<TargetConversation.Resolved>()
     
     public init() {}
     
-    
+    @NeedleTailKitActor
     public func feedConsumer(_ conversation: [TargetConversation.Resolved]) async {
-        wb.enqueue(conversation)
+        await stack.enqueue(elements: conversation)
     }
     
-    func next() -> NextResult {
+    func next() async -> NextResult {
         switch dequeuedConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = wb.dequeue() else { return .finished }
+            guard let message = await stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
             return .preparing

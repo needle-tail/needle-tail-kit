@@ -18,15 +18,15 @@ public class ClientOptions {
     
     public var host: String?
     public var port: Int?
-    public var password: String = ""
-    public var tls: Bool = true
+    public var password: String
+    public var tls: Bool? = true
     public var userInfo: IRCUserInfo?
     
     public init(
-        host: String?,
-        port: Int?,
-        password: String,
-        tls: Bool,
+host: String? = "localhost",
+        port: Int? = 6667,
+        password: String = "",
+        tls: Bool? = true,
         userInfo: IRCUserInfo? = nil
     ) {
         self.host = host

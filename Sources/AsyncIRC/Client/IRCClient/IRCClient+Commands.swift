@@ -69,7 +69,7 @@ extension IRCClient {
             print("Could not gracefully shutdown, Forcing the exit (\(error)")
             exit(0)
         }
-        print("closed server")
+        print("disconnected from server")
     }
     
     

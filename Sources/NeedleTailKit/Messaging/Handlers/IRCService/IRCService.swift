@@ -50,7 +50,8 @@ public final class IRCService {
     
     
     private func clientOptionsForAccount(_ signer: TransportCreationRequest, clientOptions: ClientOptions?) -> IRCClientOptions? {
-        guard let nick = IRCNickName(signer.username.raw) else { return nil }
+        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        guard let nick = IRCNickName(lowerCasedName) else { return nil }
         return IRCClientOptions(
             port: clientOptions?.port ?? 6667,
             host: clientOptions?.host ?? "localhost",

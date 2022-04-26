@@ -19,7 +19,7 @@ public enum IRCCommand {
   case NICK(IRCNickName)
   case USER(IRCUserInfo)
   
-  case ISON([ IRCNickName ])
+  case ISON([IRCNickName])
   
   case QUIT(String?)
   case PING(server: String, server2: String?)
@@ -114,7 +114,7 @@ extension IRCCommand : CustomStringConvertible {
                    info.realname ]
         }
 
-      case .ISON(let nicks): return nicks.map { $0.stringValue }
+    case .ISON(let nicks): return nicks.map { $0.stringValue }
       
       case .QUIT(.none):                          return []
       case .QUIT(.some(let message)):             return [ message ]
@@ -149,14 +149,14 @@ extension IRCCommand : CustomStringConvertible {
       case .MODE(let name, let add, let remove):
         if add.isEmpty && remove.isEmpty { return [ name.stringValue, "" ] }
         else if !add.isEmpty && !remove.isEmpty {
-          return [ name.stringValue,
+            return [ name.stringValue,
                    "+" + add.stringValue, "-" + remove.stringValue ]
         }
         else if !remove.isEmpty {
-          return [ name.stringValue, "-" + remove.stringValue ]
+            return [ name.stringValue, "-" + remove.stringValue ]
         }
         else {
-          return [ name.stringValue, "+" + add.stringValue ]
+            return [ name.stringValue, "+" + add.stringValue ]
         }
       case .CHANNELMODE(let name, let add, let remove):
         if add.isEmpty && remove.isEmpty { return [ name.stringValue, "" ] }

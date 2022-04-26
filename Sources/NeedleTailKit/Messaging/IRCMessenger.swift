@@ -299,6 +299,7 @@ public class IRCMessenger: CypherServerTransportClient {
     // MARK: - Lifecycle
     public func resume(_ regPacket: String? = nil) async {
         do {
+            guard services?.userState.state == .offline else { return }
             try await services?.resume(regPacket)
             self.authenticated = .authenticated
         } catch {
@@ -309,6 +310,7 @@ public class IRCMessenger: CypherServerTransportClient {
     
     
     public func suspend() async {
+        guard services?.userState.state == .online else { return }
         await services?.suspend()
         self.authenticated = .unauthenticated
     }
@@ -376,7 +378,8 @@ extension IRCMessenger {
         
         let data = try BSONEncoder().encode(packet).makeData()
         do {
-            let recipient = try await recipient(name: "\(username.raw)")
+            let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+            let recipient = try await recipient(name: "\(ircUser)")
             _ = try await services?.sendMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")

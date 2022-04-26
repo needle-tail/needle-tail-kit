@@ -3,7 +3,7 @@ import NIO
 import Foundation
 import AsyncCollections
 import Logging
-
+import NeedleTailHelpers
 
 public final class MessageParser {
     
@@ -17,7 +17,8 @@ public final class MessageParser {
         self.logger = Logger(label: "MessageParser")
     }
     
-    internal func parseMessage(_ message: String) throws -> IRCMessage {
+    @NeedleTailKitActor
+    internal func parseMessage(_ message: String) async throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []

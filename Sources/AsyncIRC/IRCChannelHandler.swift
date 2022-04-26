@@ -17,12 +17,6 @@ import Logging
 import Foundation
 import NeedleTailHelpers
 
-
-@globalActor public final actor NeedleTailKitActor {
-    public static let shared = NeedleTailKitActor()
-    private init() {}
-}
-
 public let DefaultIRCPort = 6667
 
 
@@ -46,7 +40,7 @@ public let DefaultIRCPort = 6667
  */
 public class IRCChannelHandler : ChannelDuplexHandler {
     
-//    public typealias InboundErr  = MessageParserError
+    //    public typealias InboundErr  = MessageParserError
     
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
@@ -74,15 +68,23 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         var buffer = self.unwrapInboundIn(data)
-        let line = buffer.readString(length: buffer.readableBytes) ?? ""
-        self.logger.trace("IRCChannelHandler Read \(line)")
-        let message = asyncParse(context: context, line: line)
-        message.whenComplete{ switch $0 {
-        case .success(let message):
-            self.channelRead(context: context, value: message)
-        case .failure(let error):
-            self.logger.error("AsyncParse Failed \(error)")
-        }
+        let lines = buffer.readString(length: buffer.readableBytes) ?? ""
+        self.logger.trace("IRCChannelHandler Read \(lines)")
+        
+        guard !lines.isEmpty else { return }
+        let lineArray = lines.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
+            .filter{ $0 != ""}
+        
+        _ = lineArray.compactMap { string in
+            let message = asyncParse(context: context, line: string)
+            message.whenComplete{ switch $0 {
+            case .success(let message):
+                self.channelRead(context: context, value: message)
+            case .failure(let error):
+                self.logger.error("AsyncParse Failed \(error)")
+            }
+            }
         }
     }
     
@@ -90,7 +92,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
             guard let message = await self.processMessage(line) else {
-                promise.fail(MessageParserError.jobFailedToParse)
                 return try await promise.futureResult.get()
             }
             return message
@@ -102,23 +103,22 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     @NeedleTailKitActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        guard !message.isEmpty else { return nil }
-        let lines = message.components(separatedBy: "\n")
-            .map { $0.replacingOccurrences(of: "\r", with: "") }
-            .filter{ $0 != ""}
+        await consumer.feedConsumer(message)
         
-        await consumer.feedConsumer(lines)
         do {
-        for try await message in ParserSequence(consumer: consumer) {
-            switch message {
+            func parseSequence() async -> ParseSequenceResult? {
+                var sequence = ParserSequence(consumer: consumer).makeAsyncIterator()
+                return try? await sequence.next()
+            }
+            
+            switch await parseSequence() {
             case.success(let message):
-                return try IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
+                return try await IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
             case .finished:
                 return nil
             default:
-                break
+                return nil
             }
-        }
         } catch {
             logger.error("Parser Sequence Error: \(error)")
         }

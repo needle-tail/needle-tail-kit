@@ -1,10 +1,11 @@
 import Foundation
 import Logging
-
+import NeedleTailHelpers
 
 enum IRCTaskHelpers {
-     static func parseMessageTask(task: String, messageParser: MessageParser) throws -> IRCMessage {
+    @NeedleTailKitActor
+     static func parseMessageTask(task: String, messageParser: MessageParser) async throws -> IRCMessage {
         Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
-            return try messageParser.parseMessage(task)
+            return try await messageParser.parseMessage(task)
     }
 }

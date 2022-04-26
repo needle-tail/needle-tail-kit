@@ -37,13 +37,11 @@ extension ParserSequence {
         }
         
         mutating public func next() async throws -> ParseSequenceResult? {
-            let result = consumer.next()
+            let result = await consumer.next()
                 var res: ParseSequenceResult?
                 switch result {
                 case .ready(let sequence):
                     res = .success(sequence)
-                case .preparing:
-                    res = .retry
                 case .finished:
                     res = .finished
                 }
@@ -58,38 +56,38 @@ public enum ConsumedState {
 }
 
 public enum ParseSequenceResult {
-    case success(String), retry, finished
+    case success(String), finished
 }
 
 enum NextParseResult {
-    case ready(String), preparing, finished
+    case ready(String), finished
 }
 
 
 
 public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
-var nextParseResult = NextParseResult.preparing
+var nextParseResult = NextParseResult.finished
 
 public final class ParseConsumer {
     
-    internal var wb = NeedleTailStack<String>()
+    public var stack = NeedleTailStack<String>()
     
     public init() {}
     
-    
-    public func feedConsumer(_ conversation: [String]) async {
-        wb.enqueue(conversation)
+    @NeedleTailKitActor
+    public func feedConsumer(_ conversation: String) async {
+        await stack.enqueue(conversation)
     }
     
-    func next() -> NextParseResult {
+    func next() async -> NextParseResult {
         switch parseConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = wb.dequeue() else { return .finished }
+            guard let message = await stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
-            return .preparing
+            return .finished
         }
     }
 }
