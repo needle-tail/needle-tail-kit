@@ -30,19 +30,6 @@
 import Foundation
 import CypherMessaging
 
-public struct NeedleTailNick: Hashable {
-    public var deviceId: DeviceId
-    public var nick: IRCNickName
-    
-    public init(
-        deviceId: DeviceId,
-        nick: IRCNickName
-    ) {
-        self.deviceId = deviceId
-        self.nick = nick
-    }
-}
-
 public protocol IRCDispatcher {
     
     // MARK: - Dispatching Function
