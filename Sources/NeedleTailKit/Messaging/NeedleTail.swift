@@ -90,7 +90,7 @@ public final class NeedleTail {
         
         //Start Service
         let irc = cypher?.transport as? IRCMessenger
-        await irc?.startService()
+        try await irc?.startService()
         return self.cypher
     }
     

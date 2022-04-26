@@ -83,7 +83,7 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     
-    public func startService(_ packet: String? = nil) async {
+    public func startService(_ appleToken: String = "") async throws {
         if self.services == nil {
             self.services = await IRCService(
                 signer: self.signer,
@@ -93,6 +93,8 @@ public class IRCMessenger: CypherServerTransportClient {
                 delegate: self.delegate
             )
         }
+        let regObject = regRequest(with: appleToken)
+        let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
         await resume(packet)
     }
     
@@ -105,9 +107,7 @@ public class IRCMessenger: CypherServerTransportClient {
         case .siwa, .plain:
             waitingToReadBundle = true
             guard let appleToken = appleToken else { return }
-            let regObject = regRequest(with: appleToken)
-            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-            await self.startService(packet)
+            try await self.startService(appleToken)
         case .none:
             break
         }
@@ -184,13 +184,13 @@ public class IRCMessenger: CypherServerTransportClient {
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
-        let token = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
+        let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
         let recipient = try await recipient(name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .registerAPN(token),
+            type: .registerAPN(payload),
             createdAt: Date(),
             sender: nil,
             recipient: nil,
