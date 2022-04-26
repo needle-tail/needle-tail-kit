@@ -11,7 +11,10 @@ import NIOTransportServices
 import CypherMessaging
 import MessagingHelpers
 import AsyncIRC
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import SwiftUI
+#endif
+
 
 public final class NeedleTail {
     
@@ -133,6 +136,7 @@ public final class NeedleTail {
     }
 }
 
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 //SwiftUI Stuff
 extension NeedleTail: ObservableObject {
     
@@ -315,7 +319,7 @@ extension EnvironmentValues {
         }
     }
 }
-
+#endif
 
 @Sendable
 @MainActor

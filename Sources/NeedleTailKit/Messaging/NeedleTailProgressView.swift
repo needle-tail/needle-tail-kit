@@ -5,6 +5,7 @@
 //  Created by Cole M on 4/19/22.
 //
 
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import SwiftUI
 
 public struct NeedleTailProgressView: View {
@@ -42,3 +43,4 @@ struct NeedleTailProgressView_Previews: PreviewProvider {
         NeedleTailProgressView()
     }
 }
+#endif
