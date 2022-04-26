@@ -1,19 +1,17 @@
 //
-//  IRCMessenger+Entry.swift
+//  NeedleTail.swift
 //  
 //
 //  Created by Cole M on 4/17/22.
 //
-
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import Foundation
 import CypherMessaging
 import NIOTransportServices
 import CypherMessaging
 import MessagingHelpers
 import AsyncIRC
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import SwiftUI
-#endif
 
 
 public final class NeedleTail {
@@ -136,7 +134,6 @@ public final class NeedleTail {
     }
 }
 
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 //SwiftUI Stuff
 extension NeedleTail: ObservableObject {
     
@@ -319,7 +316,6 @@ extension EnvironmentValues {
         }
     }
 }
-#endif
 
 @Sendable
 @MainActor
@@ -362,3 +358,4 @@ public func makeP2PFactories() -> [P2PTransportClientFactory] {
     ]
 }
 
+#endif
