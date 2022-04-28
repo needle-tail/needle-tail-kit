@@ -64,8 +64,8 @@ public final class IRCClient: IRCClientMessageTarget {
     enum State : CustomStringConvertible {
         case disconnected
         case connecting
-        case registering(channel: Channel, nick: IRCNickName, userInfo: IRCUserInfo)
-        case registered (channel: Channel, nick: IRCNickName, userInfo: IRCUserInfo)
+        case registering(channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
+        case registered (channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
         case error      (Error)
         case requestedQuit
         case quit
@@ -77,7 +77,7 @@ public final class IRCClient: IRCClientMessageTarget {
             }
         }
         
-        var nick : IRCNickName? {
+        var nick : NeedleTailNick? {
             get {
                 switch self {
                 case .registering(_, let v, _): return v

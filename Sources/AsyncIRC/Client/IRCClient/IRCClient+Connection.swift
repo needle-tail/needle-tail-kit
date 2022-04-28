@@ -60,7 +60,7 @@ extension IRCClient {
                 return channel
             }
             self.state = .registering(channel: channel!,
-                                      nick:     self.options.nickname,
+                                      nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
                                       userInfo: self.options.userInfo)
             await self._register(regPacket)
         } catch {

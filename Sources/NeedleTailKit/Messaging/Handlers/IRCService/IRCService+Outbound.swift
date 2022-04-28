@@ -15,9 +15,8 @@ extension IRCService {
     
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
-        let date = RunLoop.timeInterval(1)
+        let date = RunLoop.timeInterval(10)
         var canRun = false
-        
         repeat {
             canRun = true
             if userConfig != nil {

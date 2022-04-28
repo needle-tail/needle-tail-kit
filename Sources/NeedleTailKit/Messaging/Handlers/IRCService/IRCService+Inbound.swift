@@ -159,7 +159,7 @@ extension IRCService: IRCClientDelegate {
                        joined channels: [ IRCChannelName ]
     ) async {
         await self.updateConnectedClientState(client)
-        //        channels.forEach { self.registerChannel($0.stringValue) }
+//                channels.forEach { self.registerChannel($0.stringValue) }
     }
     
     
@@ -205,14 +205,14 @@ extension IRCService: IRCClientDelegate {
     
     public func client(_
                        client: IRCClient,
-                       registered nick: IRCNickName,
+                       registered nick: NeedleTailNick,
                        with userInfo: IRCUserInfo
     ) async {
         await self.updateConnectedClientState(client)
     }
     
     
-    public func client(_ client: IRCClient, changedNickTo nick: IRCNickName) async {
+    public func client(_ client: IRCClient, changedNickTo nick: NeedleTailNick) async {
         await self.updateConnectedClientState(client)
     }
     

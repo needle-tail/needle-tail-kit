@@ -51,29 +51,29 @@ public class ConnectOptions: CustomStringConvertible {
 /// Configuration options for the IRC client object
 public class IRCClientOptions: ConnectOptions {
   
-  public var password      : String?
-  public var nickname      : IRCNickName
-  public var userInfo      : IRCUserInfo
-  public var retryStrategy : IRCRetryStrategyCB?
-  
-  public convenience init(nick: String) {
-    self.init(nickname: IRCNickName(nick)!)
-  }
-  
-  public init(port           : Int             = DefaultIRCPort,
-              host           : String          = "localhost",
-              password       : String?         = nil,
-              tls            : Bool            = false,
-              nickname       : IRCNickName,
-              userInfo       : IRCUserInfo?    = nil)
-  {
-    self.password      = password
-    self.nickname      = nickname
+  public var password: String?
+  public var nickname: String
+  public var userInfo: IRCUserInfo
+  public var retryStrategy: IRCRetryStrategyCB?
+//
+//  public convenience init(nick: String) {
+//      self.init(nick: NeedleTailNick(deviceId: nil, nick: nick).stringValue)
+//  }
+  public init(
+              port: Int = DefaultIRCPort,
+              host: String = "localhost",
+              password: String? = nil,
+              tls: Bool = false,
+              nickname: String,
+              userInfo: IRCUserInfo? = nil
+  ) {
+    self.password = password
+    self.nickname = nickname
     self.retryStrategy = nil
     
-    self.userInfo = userInfo ?? IRCUserInfo(username: nickname.stringValue,
+    self.userInfo = userInfo ?? IRCUserInfo(username: nickname,
                                             hostname: host, servername: host,
-                                            realname: "NIO IRC User")
+                                            realname: "Real name is secret")
     
       super.init(hostname: host, port: port, tls: tls)
   }

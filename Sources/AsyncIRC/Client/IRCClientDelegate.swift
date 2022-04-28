@@ -17,9 +17,9 @@
  */
 
 public protocol IRCClientDelegate: AnyObject {
-    func client(_ client        : IRCClient,
-                registered nick : IRCNickName,
-                with   userInfo : IRCUserInfo) async
+    func client(_ client: IRCClient,
+                registered nick: NeedleTailNick,
+                with   userInfo: IRCUserInfo) async
     
     func clientFailedToRegister(_ client: IRCClient) async
     func client(_ client: IRCClient, received message: IRCMessage) async
@@ -31,7 +31,7 @@ public protocol IRCClientDelegate: AnyObject {
                 from user: IRCUserID,
                 for recipients: [ IRCMessageRecipient ]) async
     func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async
-    func client(_ client: IRCClient, changedNickTo     nick: IRCNickName) async
+    func client(_ client: IRCClient, changedNickTo     nick: NeedleTailNick) async
     func client(_ client: IRCClient, user: IRCUserID, joined: [ IRCChannelName ]) async
     func client(_ client: IRCClient, user: IRCUserID, left:   [ IRCChannelName ],
                 with: String?) async
@@ -44,7 +44,7 @@ public protocol IRCClientDelegate: AnyObject {
 
 public extension IRCClientDelegate {
     
-    func client(_ client: IRCClient, registered nick: IRCNickName,
+    func client(_ client: IRCClient, registered nick: NeedleTailNick,
                 with userInfo: IRCUserInfo) async {}
     func client(_ client: IRCClient, received message: IRCMessage) async {}
     func clientFailedToRegister(_ client: IRCClient) async {}
@@ -56,7 +56,7 @@ public extension IRCClientDelegate {
                 message: String, from sender: IRCUserID,
                 for recipients: [ IRCMessageRecipient ]) async {}
     func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async {}
-    func client(_ client: IRCClient, changedNickTo nick: IRCNickName) async {}
+    func client(_ client: IRCClient, changedNickTo nick: NeedleTailNick) async {}
     
     func client(_ client: IRCClient,
                 user: IRCUserID, joined channels: [ IRCChannelName ]) async {}

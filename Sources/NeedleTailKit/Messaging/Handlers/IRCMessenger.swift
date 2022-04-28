@@ -142,10 +142,11 @@ public class IRCMessenger: CypherServerTransportClient {
     /// from **CypherTextKit**'s **registerMessenger()** method.
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
+        //TODO: READ KEY BUNDLE SHOULD NOT BE READING OURSELF WHEN WE ARE ADDING FRIENDS
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         guard let services = services else { throw NeedleTailError.nilService }
-        lazy var date = RunLoop.timeInterval(10)
+        let date = RunLoop.timeInterval(10)
         var canRun = false
         
         var userConfig: UserConfig? = nil
@@ -397,7 +398,7 @@ extension IRCMessenger {
             return .channel(name)
         case .im:
             print(name)
-            guard let validatedName = IRCNickName(name) else { throw NeedleTailError.nilNickName }
+            guard let validatedName = NeedleTailNick(name) else { throw NeedleTailError.nilNickName }
             return .nickname(validatedName)
         }
     }

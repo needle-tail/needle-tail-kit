@@ -112,7 +112,6 @@ public final class NeedleTail {
     }
     
     public func beFriend(_ contact: Contact) async throws {
-//        irc?.messageType = .message
         if await contact.ourFriendshipState == .notFriend, await contact.ourFriendshipState == .undecided {
             try await contact.befriend()
         } else {
@@ -123,7 +122,12 @@ public final class NeedleTail {
     public func addContact(contact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(contact))
         let contact = try await cypher?.createContact(byUsername: Username(contact))
+        
+        
+        //Be Friend is not working properly, The Contact is correct be friend is reading key bundle for current nick.
         try await contact?.befriend()
+        
+        
         try await contact?.setNickname(to: nick)
         _ = try await chat?.sendRawMessage(
             type: .magic,
@@ -133,6 +137,13 @@ public final class NeedleTail {
         )
     }
 }
+
+public class NeedleTailViewModel: ObservableObject {
+    @Published var emitter: NeedleTailEmitter?
+    @Published var cypher: CypherMessenger?
+    public init() {}
+}
+
 
 //SwiftUI Stuff
 extension NeedleTail: ObservableObject {
@@ -144,6 +155,8 @@ extension NeedleTail: ObservableObject {
         public var eventHandler: PluginEventHandler?
         public var view: AnyView
         @StateObject var emitter = makeEventEmitter()
+        @EnvironmentObject var needleTailViewModel: NeedleTailViewModel
+        
         
         public init(
             _ view: AnyView,
@@ -160,19 +173,23 @@ extension NeedleTail: ObservableObject {
         }
         
         public var body: some View {
-            AsyncView(run: { () async throws -> (CypherMessenger?, NeedleTailEmitter) in
-                var messenger: CypherMessenger?
-                messenger = try await NeedleTail.shared.spoolService(
-                    store: store,
-                    clientOptions: clientOptions,
-                    eventHandler: makeEventHandler(emitter: emitter),
-                    p2pFactories: makeP2PFactories()
-                )
-                return (messenger, emitter)
-            }) { (messenger, emitter) in
+            AsyncView(run: { () async throws -> (CypherMessenger?, NeedleTailEmitter?) in
+                if needleTailViewModel.cypher == nil && needleTailViewModel.emitter == nil {
+                    var cypher: CypherMessenger?
+                    cypher = try await NeedleTail.shared.spoolService(
+                        store: store,
+                        clientOptions: clientOptions,
+                        eventHandler: makeEventHandler(emitter: emitter),
+                        p2pFactories: makeP2PFactories()
+                    )
+                    return (cypher, emitter)
+                } else {
+                    return (needleTailViewModel.cypher,  needleTailViewModel.emitter)
+                }
+            }) { (cypher, emitter) in
                 view
-                    .environment(\.emitter, emitter)
-                    .environment(\._messenger, messenger)
+                    .environment(\._emitter, emitter)
+                    .environment(\._messenger, cypher)
             }
         }
     }
@@ -188,6 +205,7 @@ extension NeedleTail: ObservableObject {
         @StateObject var emitter = makeEventEmitter()
         @Binding public var dismiss: Bool
         @Binding var showProgress: Bool
+        @EnvironmentObject var needleTailViewModel: NeedleTailViewModel
         
         public init(
             exists: Bool,
@@ -213,16 +231,19 @@ extension NeedleTail: ObservableObject {
         }
         
         public var body: some View {
+            
             Button(buttonTitle, action: {
+                #if os(iOS)
+                UIApplication.shared.endEditing()
+                #endif
                 showProgress = true
                 Task {
                     if exists {
-                        ///Not reading key bundle
                         try await NeedleTail.shared.addContact(contact: username, nick: nick)
                         showProgress = false
                         dismiss = true
                     } else {
-                        try await NeedleTail.shared.registerNeedleTail(
+                        needleTailViewModel.cypher = try await NeedleTail.shared.registerNeedleTail(
                             appleToken: "",
                             username: username,
                             store: store,
@@ -230,12 +251,13 @@ extension NeedleTail: ObservableObject {
                             p2pFactories: makeP2PFactories(),
                             eventHandler: makeEventHandler(emitter: emitter)
                         )
+                        
+                        needleTailViewModel.emitter = emitter
                         showProgress = false
                         dismiss = true
                     }
                 }
             })
-            .environment(\.emitter, emitter)
         }
     }
     
@@ -303,13 +325,22 @@ extension EnvironmentValues {
     }
     
     private struct EventEmitterKey2: EnvironmentKey {
-        typealias Value = NeedleTailEmitter
-        static let defaultValue = NeedleTailEmitter(sortChats: sortConversations)
+        typealias Value = NeedleTailEmitter?
+        static let defaultValue: NeedleTailEmitter? = nil
+    }
+    
+    public var _emitter: NeedleTailEmitter? {
+        get {
+            self[EventEmitterKey2.self]
+        }
+        set {
+            self[EventEmitterKey2.self] = newValue
+        }
     }
     
     public var emitter: NeedleTailEmitter {
         get {
-            self[EventEmitterKey2.self]
+            self[EventEmitterKey2.self]!
         }
         set {
             self[EventEmitterKey2.self] = newValue

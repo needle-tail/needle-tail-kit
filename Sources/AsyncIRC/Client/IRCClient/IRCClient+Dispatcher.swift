@@ -101,7 +101,7 @@ extension IRCClient: IRCDispatcher {
         await delegate?.client(self, message: message, from: sender, for: recipients)
     }
     
-    public func doNick(_ newNick: IRCNickName) async throws {
+    public func doNick(_ newNick: NeedleTailNick) async throws {
         switch state {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
@@ -118,7 +118,7 @@ extension IRCClient: IRCDispatcher {
     }
     
     
-    public func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws {
+    public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
         guard let myNick = state.nick, myNick == nick else {
             return
         }

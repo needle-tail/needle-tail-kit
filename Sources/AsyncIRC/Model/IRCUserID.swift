@@ -15,11 +15,11 @@
 public struct IRCUserID : Hashable, CustomStringConvertible {
   // TBD: is that really called the user-mask? Or more like "fullusername"?
   
-  public let nick : IRCNickName
+  public let nick: NeedleTailNick
   public let user : String?
   public let host : String?
   
-  public init(nick: IRCNickName, user: String? = nil, host: String? = nil) {
+  public init(nick: NeedleTailNick, user: String? = nil, host: String? = nil) {
     self.nick = nick
     self.user = user
     self.host = host
@@ -41,11 +41,11 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
         self.user = nil
         nickString = String(s[s.startIndex..<atIdx])
       }
-      guard let nick = IRCNickName(nickString) else { return nil }
+      guard let nick = NeedleTailNick(nickString) else { return nil }
       self.nick = nick
     }
     else {
-      guard let nick = IRCNickName(s) else { return nil }
+      guard let nick = NeedleTailNick(s) else { return nil }
       self.nick = nick
       self.user = nil
       self.host = nil

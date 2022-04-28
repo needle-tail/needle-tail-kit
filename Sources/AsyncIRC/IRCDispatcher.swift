@@ -39,11 +39,11 @@ public protocol IRCDispatcher {
     func doPing(_ server: String, server2: String?) async throws
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
-    func doNick(_ nick: IRCNickName, tags: [IRCTags]?) async throws
+    func doNick(_ nick: NeedleTailNick, tags: [IRCTags]?) async throws
     func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) async throws
-    func doModeGet(nick: IRCNickName) async throws
+    func doModeGet(nick: NeedleTailNick) async throws
     func doModeGet(channel: IRCChannelName) async throws
-    func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws
+    func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws
     func doWhoIs(server: String?, usermasks: [ String ]) async throws
     func doWho(mask: String?, operatorsOnly opOnly: Bool) async throws
     
@@ -58,7 +58,7 @@ public protocol IRCDispatcher {
         message: String,tags: [IRCTags]?,
         userStatus: UserStatus
     ) async throws
-    func doIsOnline (_ nicks: [ IRCNickName ]) async throws
+    func doIsOnline (_ nicks: [ NeedleTailNick ]) async throws
     func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
     func doQuit(_ message: String?) async throws
     func doPublishKeyBundle(_ keyBundle: [String]) async throws
@@ -69,8 +69,8 @@ public protocol IRCDispatcher {
 public enum IRCDispatcherError : Swift.Error {
     
     case doesNotRespondTo(IRCMessage)
-    case nicknameInUse(IRCNickName)
-    case noSuchNick   (IRCNickName)
+    case nicknameInUse(NeedleTailNick)
+    case noSuchNick   (NeedleTailNick)
     case noSuchChannel(IRCChannelName)
     case alreadyRegistered
     case notRegistered
@@ -167,19 +167,19 @@ public extension IRCDispatcher {
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doNick(_ nick: IRCNickName, tags: [IRCTags]?) async throws {
+    func doNick(_ nick: NeedleTailNick, tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doModeGet(nick: IRCNickName) async throws {
+    func doModeGet(nick: NeedleTailNick) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doModeGet(channel: IRCChannelName) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doMode(nick: IRCNickName, add: IRCUserMode, remove: IRCUserMode) async throws {
+    func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     
@@ -213,7 +213,7 @@ public extension IRCDispatcher {
     ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doIsOnline(_ nicks: [ IRCNickName ]) async throws {
+    func doIsOnline(_ nicks: [ NeedleTailNick ]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doList(_ channels : [ IRCChannelName ]?, _ target: String?) async throws {

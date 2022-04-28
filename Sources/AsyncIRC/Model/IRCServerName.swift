@@ -25,7 +25,9 @@ public struct IRCServerName : Hashable {
   let normalized : String
   
   public init?(_ s: String) {
-    guard IRCNickName.validate(string: s, validationFlags: []) else {
+      guard NeedleTailNick.validateNick(
+        s, nickRules: NeedleTailNick.NickRules()
+      ) == .isValidated else {
       return nil
     }
     storage    = s

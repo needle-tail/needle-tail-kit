@@ -15,7 +15,7 @@
 public enum IRCMessageRecipient: Codable, Hashable {
   
   case channel (IRCChannelName)
-  case nickname(IRCNickName)
+  case nickname(NeedleTailNick)
   case everything // Note: this doesn't seem to be spec'ed?!
   
   // TODO:
@@ -44,16 +44,21 @@ public enum IRCMessageRecipient: Codable, Hashable {
 public extension IRCMessageRecipient {
   
   init?(_ s: String) {
-    if s == "*"                             { self = .everything       }
-    else if let channel = IRCChannelName(s) { self = .channel(channel) }
-    else if let nick    = IRCNickName   (s) { self = .nickname(nick)   }
-    else                                    { return nil               }
+    if s == "*" {
+        self = .everything
+    } else if let channel = IRCChannelName(s) {
+        self = .channel(channel)
+    } else if let needletail = NeedleTailNick(s) {
+        self = .nickname(needletail)
+    } else {
+        return nil
+    }
   }
   
   var stringValue : String {
     switch self {
       case .channel (let name) : return name.stringValue
-      case .nickname(let name) : return name.stringValue
+    case .nickname(let name) : return name.stringValue
       case .everything         : return "*"
     }
   }

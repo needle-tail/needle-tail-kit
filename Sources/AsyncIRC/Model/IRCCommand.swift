@@ -16,10 +16,10 @@ import struct Foundation.Data
 
 public enum IRCCommand {
   
-  case NICK(IRCNickName)
+  case NICK(NeedleTailNick)
   case USER(IRCUserInfo)
   
-  case ISON([IRCNickName])
+  case ISON([NeedleTailNick])
   
   case QUIT(String?)
   case PING(server: String, server2: String?)
@@ -38,8 +38,8 @@ public enum IRCCommand {
   case PRIVMSG([ IRCMessageRecipient ], String)
   case NOTICE ([ IRCMessageRecipient ], String)
 
-  case MODE(IRCNickName, add: IRCUserMode, remove: IRCUserMode)
-  case MODEGET(IRCNickName)
+  case MODE(NeedleTailNick, add: IRCUserMode, remove: IRCUserMode)
+  case MODEGET(NeedleTailNick)
   case CHANNELMODE(IRCChannelName, add: IRCChannelMode, remove: IRCChannelMode)
   case CHANNELMODE_GET(IRCChannelName)
   case CHANNELMODE_GET_BANMASK(IRCChannelName)

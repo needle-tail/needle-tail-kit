@@ -41,7 +41,7 @@ extension IRCClient {
         await send(.otherCommand("READKEYBNDL", [packet]))
     }
 
-    public func changeNick(_ nick: IRCNickName) async {
+    public func changeNick(_ nick: NeedleTailNick) async {
         await send(.NICK(nick))
     }
     
@@ -75,7 +75,7 @@ extension IRCClient {
     
     func handleRegistrationDone() async {
         guard case .registering(let channel, let nick, let user) = state else {
-            assertionFailure("called \(#function) but we are not registering?")
+//            assertionFailure("called \(#function) but we are not registering?")
             return
         }
         

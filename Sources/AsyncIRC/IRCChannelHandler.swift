@@ -72,12 +72,14 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         self.logger.trace("IRCChannelHandler Read \(lines)")
         
         guard !lines.isEmpty else { return }
-        let lineArray = lines.components(separatedBy: "\n")
+        let messages = lines.components(separatedBy: "\n")
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
-        
-        _ = lineArray.compactMap { string in
-            let message = asyncParse(context: context, line: string)
+      
+        let future = mapMessages(context: context, messages: messages)
+        future.whenComplete { switch $0 {
+        case .success(let string):
+            let message = self.asyncParse(context: context, line: string)
             message.whenComplete{ switch $0 {
             case .success(let message):
                 self.channelRead(context: context, value: message)
@@ -85,7 +87,18 @@ public class IRCChannelHandler : ChannelDuplexHandler {
                 self.logger.error("AsyncParse Failed \(error)")
             }
             }
+        case .failure(let error):
+            self.logger.error("\(error)")
         }
+        }
+    }
+    
+    private func mapMessages(context: ChannelHandlerContext, messages: [String]) -> EventLoopFuture<String> {
+        let promise = context.eventLoop.makePromise(of: String.self)
+        _ = messages.compactMap { string in
+            promise.succeed(string)
+        }
+        return promise.futureResult
     }
     
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
@@ -106,18 +119,13 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         await consumer.feedConsumer(message)
         
         do {
-            func parseSequence() async -> ParseSequenceResult? {
-                var sequence = ParserSequence(consumer: consumer).makeAsyncIterator()
-                return try? await sequence.next()
-            }
-            
-            switch await parseSequence() {
+            for try await result in ParserSequence(consumer: consumer) {
+            switch result {
             case.success(let message):
                 return try await IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
             case .finished:
                 return nil
-            default:
-                return nil
+            }
             }
         } catch {
             logger.error("Parser Sequence Error: \(error)")

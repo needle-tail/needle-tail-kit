@@ -79,7 +79,7 @@ public extension IRCCommand {
             
         case "NICK":
             try expect(argc: 1)
-            guard let nick = IRCNickName(arguments[0]) else {
+            guard let nick = NeedleTailNick(arguments[0]) else {
                 throw Error.invalidNickName(arguments[0])
             }
             self = .NICK(nick)
@@ -193,10 +193,10 @@ public extension IRCCommand {
             
         case "ISON":
             try expect(min: 1)
-            var nicks = [ IRCNickName ]()
+            var nicks = [NeedleTailNick]()
             for arg in arguments {
                 nicks += try arg.split(separator: " ").map(String.init).map {
-                    guard let nick = IRCNickName($0) else {
+                    guard let nick = NeedleTailNick($0) else {
                         throw Error.invalidNickName($0)
                     }
                     return nick

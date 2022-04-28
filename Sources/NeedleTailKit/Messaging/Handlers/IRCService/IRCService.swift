@@ -51,13 +51,13 @@ public final class IRCService {
     
     private func clientOptionsForAccount(_ signer: TransportCreationRequest, clientOptions: ClientOptions?) -> IRCClientOptions? {
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
-        guard let nick = IRCNickName(lowerCasedName) else { return nil }
+        guard let needletail = NeedleTailNick(lowerCasedName) else { return nil }
         return IRCClientOptions(
             port: clientOptions?.port ?? 6667,
             host: clientOptions?.host ?? "localhost",
             password: activeClientOptions?.password,
             tls: clientOptions?.tls ?? true,
-            nickname: nick,
+            nickname: needletail.nick,
             userInfo: clientOptions?.userInfo
         )
     }
