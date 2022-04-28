@@ -9,11 +9,12 @@ import NIO
 
 
 extension IRCClient {
-
+    
     internal func _connect(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
-        state    = .connecting
+//        state = .connecting
+        userState.transition(to: .connecting)
         retryInfo.attempt += 1
         
         return try await clientBootstrap()
@@ -30,7 +31,7 @@ extension IRCClient {
         guard let host = options.hostname else {
             throw Error.notImplemented
         }
-
+        
         if !options.tls {
             bootstrap = try groupManager.makeBootstrap(hostname: host, useTLS: false)
         } else {
@@ -55,13 +56,14 @@ extension IRCClient {
         do {
             channel = try await _connect(host: options.hostname ?? "localhost", port: options.port)
             self.retryInfo.registerSuccessfulConnect()
-            guard case .connecting = self.state else {
-                assertionFailure("called \(#function) but we are not connecting?")
-                return channel
-            }
-            self.state = .registering(channel: channel!,
-                                      nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
-                                      userInfo: self.options.userInfo)
+            userState.transition(to: .registering(
+                        channel: channel!,
+                        nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
+                        userInfo: self.options.userInfo))
+            self.nick?.nick = self.options.nickname
+            self.channel = channel
+            self.userInfo = self.options.userInfo
+            
             await self._register(regPacket)
         } catch {
             await self.close()
@@ -109,23 +111,24 @@ extension IRCClient {
     
     
     func handlerDidDisconnect(_ context: ChannelHandlerContext) async {
-        switch state {
+        switch userState.state {
         case .error:
             break
         case .quit:
             break
         case .registering, .connecting:
             await  delegate?.clientFailedToRegister(self)
-            state = .disconnected
+            userState.transition(to: .disconnect)
         default:
-            state = .disconnected
+            userState.transition(to: .disconnect)
         }
     }
     
     func handlerCaughtError(_ error: Swift.Error,
                             in context: ChannelHandlerContext) {
         retryInfo.lastSocketError = error
-        state = .error(.channelError(error))
+//        state = .error(.channelError(error))
+        
         
         print("IRCClient error:", error)
     }

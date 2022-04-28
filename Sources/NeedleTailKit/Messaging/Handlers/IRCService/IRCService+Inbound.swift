@@ -197,6 +197,8 @@ extension IRCService: IRCClientDelegate {
             await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
             break
+        default:
+            break
         }
     }
     
@@ -224,7 +226,6 @@ extension IRCService: IRCClientDelegate {
     
     public func clientFailedToRegister(_ newClient: IRCClient) async {
         switch self.userState.state {
-            
         case .suspended, .offline:
             assertionFailure("not connecting, still get registration failure")
             return
@@ -233,6 +234,8 @@ extension IRCService: IRCClientDelegate {
             client?.delegate = nil
             self.userState.transition(to: .offline)
             await client?.disconnect()
+        default:
+            break
         }
     }
     

@@ -16,7 +16,6 @@ extension IRCService {
     }
     
     private func connectIfNecessary(_ regPacket: String? = nil) async throws {
-        guard case .offline = userState.state else { return }
         userState.transition(to: .connecting)
         _ = try await client?.connecting(regPacket)
     }
@@ -35,6 +34,8 @@ extension IRCService {
             return
         case .connecting, .online:
             await client?.disconnect()
+        default:
+            break
         }
     }
     

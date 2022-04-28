@@ -7,18 +7,6 @@
 
 import NIO
 
-
-@globalActor public final actor InboundActor {
-    public static let shared = InboundActor()
-    private init() {}
-}
-
-@globalActor public final actor OutboundActor {
-    public static let shared = OutboundActor()
-    private init() {}
-}
-
-
 extension IRCClient: IRCDispatcher {
     
     public func irc_msgSend(_ message: IRCMessage) async throws {
@@ -102,24 +90,22 @@ extension IRCClient: IRCDispatcher {
     }
     
     public func doNick(_ newNick: NeedleTailNick) async throws {
-        switch state {
+        switch userState.state {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
-            state = .registering(channel: channel, nick: newNick, userInfo: info)
-            
+            userState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
         case .registered(let channel, let nick, let info):
             guard nick != newNick else { return }
-            state = .registered(channel: channel, nick: newNick, userInfo: info)
+            userState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
             
         default: return // hmm
         }
-        
         await delegate?.client(self, changedNickTo: newNick)
     }
     
     
     public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
-        guard let myNick = state.nick, myNick == nick else {
+        guard let myNick = self.nick, myNick == nick else {
             return
         }
         

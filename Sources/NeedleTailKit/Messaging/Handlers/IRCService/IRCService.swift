@@ -44,7 +44,7 @@ public final class IRCService {
         activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
 
         guard let options = activeClientOptions else { return }
-        self.client = IRCClient(options: options)
+        self.client = IRCClient(options: options, userState: userState)
         self.client?.delegate = self
     }
     

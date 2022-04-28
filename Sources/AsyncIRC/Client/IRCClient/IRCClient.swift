@@ -14,6 +14,7 @@
 
 import NIO
 import Logging
+import NeedleTailHelpers
 #if canImport(Network)
 import NIOTransportServices
 #endif
@@ -31,20 +32,21 @@ import NIOTransportServices
  */
 public final class IRCClient: IRCClientMessageTarget {
     
-    public var origin: String? { return state.nick?.stringValue }
+    var userState: UserState
+
     public let options: IRCClientOptions
     public let eventLoop: EventLoop
     public weak var delegate: IRCClientDelegate?
     public var tags: [IRCTags]?
     let groupManager: EventLoopGroupManager
-    public var channel : Channel? { get { return state.channel } }
+
     var messageOfTheDay = ""
-    internal var state : State = .disconnected
+//    internal var state : State = .disconnected
     internal var userMode = IRCUserMode()
     var subscribedChannels = Set<IRCChannelName>()
     
     var usermask : String? {
-        guard case .registered(_, let nick, let info) = state else { return nil }
+        guard case .registered(_, let nick, let info) = userState.state else { return nil }
         let host = info.servername ?? options.hostname ?? "??"
         return "\(nick.stringValue)!~\(info.username)@\(host)"
     }
@@ -61,78 +63,86 @@ public final class IRCClient: IRCClientMessageTarget {
         case channelError(Swift.Error)
     }
     
-    enum State : CustomStringConvertible {
-        case disconnected
-        case connecting
-        case registering(channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
-        case registered (channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
-        case error      (Error)
-        case requestedQuit
-        case quit
-        
-        var isRegistered : Bool {
-            switch self {
-            case .registered: return true
-            default:          return false
-            }
-        }
-        
-        var nick : NeedleTailNick? {
-            get {
-                switch self {
-                case .registering(_, let v, _): return v
-                case .registered (_, let v, _): return v
-                default: return nil
-                }
-            }
-        }
-        
-        var userInfo : IRCUserInfo? {
-             get {
-                switch self {
-                case .registering(_, _, let v): return v
-                case .registered (_, _, let v): return v
-                default: return nil
-                }
-            }
-        }
-        
-        var channel : Channel? {
-            get {
-                switch self {
-                case .registering(let channel, _, _): return channel
-                case .registered (let channel, _, _): return channel
-                default: return nil
-                }
-            }
-        }
-        
-        var canStartConnection : Bool {
-            switch self {
-            case .disconnected, .error: return true
-            case .connecting:           return false
-            case .registering:          return false
-            case .registered:           return false
-            case .requestedQuit, .quit: return false
-            }
-        }
-        
-        var description : String {
-            switch self {
-            case .disconnected:                return "disconnected"
-            case .connecting:                  return "connecting..."
-            case .registering(_, let nick, _): return "registering<\(nick)>..."
-            case .registered (_, let nick, _): return "registered<\(nick)>"
-            case .error      (let error):      return "error<\(error)>"
-            case .requestedQuit:               return "quitting..."
-            case .quit:                        return "quit"
-            }
-        }
-    }
+    public var origin: String? { return nick?.nick }
+    var nick: NeedleTailNick?
+    var userInfo: IRCUserInfo?
+//    public var channel : Channel? { get { return userState.state.channel } }
+    public var channel: Channel? 
+    
+//    enum State : CustomStringConvertible {
+//        case disconnected
+//        case connecting
+//        case registering(channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
+//        case registered (channel: Channel, nick: NeedleTailNick, userInfo: IRCUserInfo)
+//        case error      (Error)
+//        case requestedQuit
+//        case quit
+//
+//        var isRegistered : Bool {
+//            switch self {
+//            case .registered: return true
+//            default:          return false
+//            }
+//        }
+//
+//        var nick : NeedleTailNick? {
+//            get {
+//                switch self {
+//                case .registering(_, let v, _): return v
+//                case .registered (_, let v, _): return v
+//                default: return nil
+//                }
+//            }
+//        }
+//
+//        var userInfo : IRCUserInfo? {
+//             get {
+//                switch self {
+//                case .registering(_, _, let v): return v
+//                case .registered (_, _, let v): return v
+//                default: return nil
+//                }
+//            }
+//        }
+//
+//        var channel : Channel? {
+//            get {
+//                switch self {
+//                case .registering(let channel, _, _): return channel
+//                case .registered (let channel, _, _): return channel
+//                default: return nil
+//                }
+//            }
+//        }
+//
+//        var canStartConnection : Bool {
+//            switch self {
+//            case .disconnected, .error: return true
+//            case .connecting:           return false
+//            case .registering:          return false
+//            case .registered:           return false
+//            case .requestedQuit, .quit: return false
+//            }
+//        }
+//
+//        var description : String {
+//            switch self {
+//            case .disconnected:                return "disconnected"
+//            case .connecting:                  return "connecting..."
+//            case .registering(_, let nick, _): return "registering<\(nick)>..."
+//            case .registered (_, let nick, _): return "registered<\(nick)>"
+//            case .error      (let error):      return "error<\(error)>"
+//            case .requestedQuit:               return "quitting..."
+//            case .quit:                        return "quit"
+//            }
+//        }
+//    }
     
     public init(
-        options: IRCClientOptions
+        options: IRCClientOptions,
+        userState: UserState
     ) {
+        self.userState = userState
         self.options = options
         let group: EventLoopGroup?
         self.logger = Logger(label: "NeedleTail Client Logger")

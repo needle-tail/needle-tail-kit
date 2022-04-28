@@ -17,7 +17,7 @@ public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConverti
     }
     
     public var deviceId: DeviceId?
-    public let nick: String
+    public var nick: String
 
     
     public init(

@@ -19,7 +19,7 @@ extension IRCClient {
     
     // MARK: - Commands
     internal func _register(_ regPacket: String?) async {
-        guard case .registering(_, let nick, let user) = state else {
+        guard case .registering(_, let nick, let user) = userState.state else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
@@ -74,12 +74,12 @@ extension IRCClient {
     
     
     func handleRegistrationDone() async {
-        guard case .registering(let channel, let nick, let user) = state else {
+        guard case .registering(let channel, let nick, let user) = userState.state else {
 //            assertionFailure("called \(#function) but we are not registering?")
             return
         }
         
-        state = .registered(channel: channel, nick: nick, userInfo: user)
+        userState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
         await delegate?.client(self, registered: nick, with: user)
         
         self._resubscribe()
@@ -87,7 +87,7 @@ extension IRCClient {
     
     
     func handleRegistrationFailed(with message: IRCMessage) async {
-        guard case .registering(_, let nick, _) = state else {
+        guard case .registering(_, let nick, _) = userState.state else {
             assertionFailure("called \(#function) but we are not registering?")
             return
         }
@@ -101,7 +101,7 @@ extension IRCClient {
     
     // This is where we receive all messages from server in the client
     func handlerHandleResult(_ message: IRCMessage) async {
-        if case .registering = state {
+        if case .registering = userState.state {
             if message.command.signalsSuccessfulRegistration {
                 await handleRegistrationDone()
             }
