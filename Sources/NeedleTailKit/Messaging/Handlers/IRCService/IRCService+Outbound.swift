@@ -28,10 +28,9 @@ extension IRCService {
     }
 
 
-    //MARK: - CypherMessageAPI
-    public func sendMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws -> Bool {
-        //        guard case .online = userState.state else { return false }
-        await client?.sendMessage(message.base64EncodedString(), to: recipient, tags: tags)
-        return true
+    //TODO: Need to work out multiple recipients. Do we want an array or a variatic expression?
+    public func sendNeedleTailMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws {
+        guard userState.state == .online else { return }
+        await client?.sendPrivateMessage(message.base64EncodedString(), to: recipient, tags: tags)
     }
 }

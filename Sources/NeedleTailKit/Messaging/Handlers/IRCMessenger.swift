@@ -134,7 +134,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = try await services?.sendMessage(data, to: recipient, tags: nil)
+        _ = try await services?.sendNeedleTailMessage(data, to: recipient, tags: nil)
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
@@ -142,7 +142,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// from **CypherTextKit**'s **registerMessenger()** method.
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
-        //TODO: READ KEY BUNDLE SHOULD NOT BE READING OURSELF WHEN WE ARE ADDING FRIENDS
+
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         guard let services = services else { throw NeedleTailError.nilService }
@@ -200,7 +200,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = try await services?.sendMessage(data, to: recipient, tags: nil)
+        _ = try await services?.sendNeedleTailMessage(data, to: recipient, tags: nil)
         
     }
 
@@ -300,8 +300,9 @@ public class IRCMessenger: CypherServerTransportClient {
     // MARK: - Lifecycle
     public func resume(_ regPacket: String? = nil) async {
         do {
+            //TODO: State Error
             guard services?.userState.state == .offline else { return }
-            try await services?.resume(regPacket)
+            try await services?.attemptConnection(regPacket)
             self.authenticated = .authenticated
         } catch {
             self.authenticated = .authenticationFailure
@@ -311,14 +312,15 @@ public class IRCMessenger: CypherServerTransportClient {
     
     
     public func suspend() async {
+        //TODO: State Error
         guard services?.userState.state == .online else { return }
-        await services?.suspend()
+        await services?.attemptDisconnect()
         self.authenticated = .unauthenticated
     }
     
     
     public func close() async {
-        await services?.close()
+        await services?.attemptDisconnect()
     }
 }
 
@@ -381,12 +383,12 @@ extension IRCMessenger {
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(name: "\(ircUser)")
-            _ = try await services?.sendMessage(data, to: recipient, tags: [
+            try await services?.sendNeedleTailMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")
             ])
         } catch {
-            print(error)
+            logger.error("\(error)")
         }
     }
     

@@ -7,29 +7,29 @@
 
 import NIO
 
+enum IRCClientErrors: Error {
+    case notImplemented
+}
 
 extension IRCClient {
     
-    internal func _connect(host: String, port: Int) async throws -> Channel {
+    internal func createChannel(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
-//        state = .connecting
-        userState.transition(to: .connecting)
         retryInfo.attempt += 1
         
-        return try await clientBootstrap()
+        return try await createBootstrap()
             .connect(host: host, port: port).get()
     }
     
-    //Shutdown the program
     public func disconnect() async {
-        await close()
+        await shutdownClient()
     }
     
-    private func clientBootstrap() async throws -> NIOClientTCPBootstrap {
+    private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         let bootstrap: NIOClientTCPBootstrap
         guard let host = options.hostname else {
-            throw Error.notImplemented
+            throw IRCClientErrors.notImplemented
         }
         
         if !options.tls {
@@ -51,22 +51,23 @@ extension IRCClient {
     }
     
     
-    public func connecting(_ regPacket: String?) async throws -> Channel? {
+    public func startClient(_ regPacket: String?) async throws -> Channel? {
         var channel: Channel?
         do {
-            channel = try await _connect(host: options.hostname ?? "localhost", port: options.port)
+            channel = try await createChannel(host: options.hostname ?? "localhost", port: options.port)
             self.retryInfo.registerSuccessfulConnect()
             userState.transition(to: .registering(
                         channel: channel!,
                         nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
                         userInfo: self.options.userInfo))
+            
             self.nick?.nick = self.options.nickname
             self.channel = channel
             self.userInfo = self.options.userInfo
             
-            await self._register(regPacket)
+            await self.registerNeedletailSession(regPacket)
         } catch {
-            await self.close()
+            await self.shutdownClient()
         }
         assert(channel != nil, "channel is nil")
         return channel

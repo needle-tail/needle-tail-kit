@@ -100,9 +100,11 @@ public final class MessageParser {
             }
             
             if commandKey.hasPrefix("PRIVMSG") {
+                if origin?.contains("!") != nil {
                 guard let array = origin?.components(separatedBy: "!") else { throw MessageParserError.originIsNil }
                 let newOrigin = String(array[0]).dropFirst()
                 origin = String(newOrigin)
+                }
             }
             
             ircMessage = IRCMessage(origin: origin,
@@ -181,8 +183,8 @@ public final class MessageParser {
             } else if commandKey.hasPrefix("PRIVMSG") {
                 let initialBreak = stripedMessage.components(separatedBy: " ")
                 var newArgArray: [String] = []
-                newArgArray.append(initialBreak[2])
-                newArgArray.append(String("\(initialBreak[3])".dropFirst()))
+                newArgArray.append(initialBreak[initialBreak.count <= 3 ? 1 : 2])
+                newArgArray.append(String("\(initialBreak[initialBreak.count <= 3 ? 2 : 3])".dropFirst()))
                 args = newArgArray
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")

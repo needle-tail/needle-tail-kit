@@ -9,6 +9,8 @@ import NIO
 
 extension IRCClient: IRCDispatcher {
     
+    /// This is the client side message command processor. We decide what to do with each IRCMessage here
+    /// - Parameter message: Our IRCMessage
     public func irc_msgSend(_ message: IRCMessage) async throws {
         
         do {
@@ -67,63 +69,5 @@ extension IRCClient: IRCDispatcher {
         default:
             await delegate?.client(self, received: message)
         }
-    }
-    
-    
-    public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
-        await delegate?.client(self, notice: message, for: recipients)
-    }
-    
-    
-    public func doMessage(
-        sender: IRCUserID?,
-        recipients: [ IRCMessageRecipient ],
-        message: String,
-        tags: [IRCTags]?,
-        userStatus: UserStatus
-    ) async throws {
-        guard let sender = sender else { // should never happen
-            assertionFailure("got empty message sender!")
-            return
-        }
-        await delegate?.client(self, message: message, from: sender, for: recipients)
-    }
-    
-    public func doNick(_ newNick: NeedleTailNick) async throws {
-        switch userState.state {
-        case .registering(let channel, let nick, let info):
-            guard nick != newNick else { return }
-            userState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
-        case .registered(let channel, let nick, let info):
-            guard nick != newNick else { return }
-            userState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
-            
-        default: return // hmm
-        }
-        await delegate?.client(self, changedNickTo: newNick)
-    }
-    
-    
-    public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
-        guard let myNick = self.nick, myNick == nick else {
-            return
-        }
-        
-        var newMode = userMode
-        newMode.subtract(remove)
-        newMode.formUnion(add)
-        if newMode != userMode {
-            userMode = newMode
-            await delegate?.client(self, changedUserModeTo: newMode)
-        }
-    }
-    
-    
-    public func doPing(_ server: String, server2: String? = nil) async throws {
-        let msg: IRCMessage
-        
-        msg = IRCMessage(origin: origin, // probably wrong
-                         command: .PONG(server: server, server2: server))
-        await sendMessage(msg, chatDoc: nil)
     }
 }

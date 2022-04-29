@@ -33,7 +33,7 @@ final class Handler : ChannelInboundHandler {
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         Task {
             let value = unwrapInboundIn(data)
-            await client.handlerHandleResult(value)
+            await client.processReceivedMessages(value)
         }
     }
     

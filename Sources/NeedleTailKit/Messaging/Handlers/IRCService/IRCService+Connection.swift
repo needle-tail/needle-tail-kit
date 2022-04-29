@@ -9,25 +9,12 @@ import Foundation
 
 extension IRCService {
     
-    
-    // MARK: - Connection
-    private func handleAccountChange() async throws {
-        try await self.connectIfNecessary()
-    }
-    
-    private func connectIfNecessary(_ regPacket: String? = nil) async throws {
+    func attemptConnection(_ regPacket: String? = nil) async throws {
         userState.transition(to: .connecting)
-        _ = try await client?.connecting(regPacket)
+        _ = try await client?.startClient(regPacket)
     }
 
-
-    // MARK: - Lifecycle
-    public func resume(_ regPacket: String? = nil) async throws {
-        try await connectIfNecessary(regPacket)
-    }
-    
-    
-    public func suspend() async {
+    func attemptDisconnect() async {
         defer { userState.transition(to: .suspended) }
         switch userState.state {
         case .suspended, .offline:
@@ -37,10 +24,5 @@ extension IRCService {
         default:
             break
         }
-    }
-    
-    
-    public func close() async {
-        await client?.disconnect()
     }
 }

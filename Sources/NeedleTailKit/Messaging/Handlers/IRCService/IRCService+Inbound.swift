@@ -79,6 +79,10 @@ extension IRCService: IRCClientDelegate {
                         // it to the DB where we can get the message from
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
+                        print("Message__", message)
+                        print("ID___", packet.id)
+                        print("SENDER", sender.nick.stringValue)
+                        print("DEVICEID___", deviceId)
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,
@@ -104,7 +108,7 @@ extension IRCService: IRCClientDelegate {
                         )
                         
                         let data = try BSONEncoder().encode(packet).makeData()
-                        _ = try await sendMessage(data, to: recipient, tags: nil)
+                        _ = try await sendNeedleTailMessage(data, to: recipient, tags: nil)
                         
                     case .multiRecipientMessage:
                         break
@@ -194,7 +198,7 @@ extension IRCService: IRCClientDelegate {
             print("going online:", client)
             self.userState.transition(to: .online)
             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-            await client.sendMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+            await client.sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
             break
         default:
