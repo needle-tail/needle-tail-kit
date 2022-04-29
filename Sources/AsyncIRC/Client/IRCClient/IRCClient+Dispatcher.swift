@@ -6,11 +6,13 @@
 //
 
 import NIO
+import NeedleTailHelpers
 
 extension IRCClient: IRCDispatcher {
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
+    @NeedleTailKitActor
     public func irc_msgSend(_ message: IRCMessage) async throws {
         
         do {

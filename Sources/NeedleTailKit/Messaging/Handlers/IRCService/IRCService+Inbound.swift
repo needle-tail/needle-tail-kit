@@ -48,6 +48,7 @@ extension IRCService: IRCClientDelegate {
     
     
     /// **PRIVMSG** This is where we receive messages from server via AsyncIRC
+    @NeedleTailKitActor
     public func client(_
                        client: IRCClient,
                        message: String,

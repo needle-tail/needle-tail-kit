@@ -55,12 +55,12 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     }
     
     public func channelActive(context: ChannelHandlerContext) {
-        self.logger.trace("IRCChannelHandler is Active")
+        self.logger.info("IRCChannelHandler is Active")
         context.fireChannelActive()
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
-        self.logger.trace("IRCChannelHandler is Inactive")
+        self.logger.info("IRCChannelHandler is Inactive")
         context.fireChannelInactive()
     }
     
@@ -69,16 +69,18 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         var buffer = self.unwrapInboundIn(data)
         let lines = buffer.readString(length: buffer.readableBytes) ?? ""
-        self.logger.trace("IRCChannelHandler Read \(lines)")
+        self.logger.info("IRCChannelHandler Read \(lines)")
         
         guard !lines.isEmpty else { return }
         let messages = lines.components(separatedBy: "\n")
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
+       
       
         let future = mapMessages(context: context, messages: messages)
         future.whenComplete { switch $0 {
         case .success(let string):
+
             let message = self.asyncParse(context: context, line: string)
             message.whenComplete{ switch $0 {
             case .success(let message):
@@ -86,7 +88,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
             case .failure(let error):
                 self.logger.error("AsyncParse Failed \(error)")
             }
-            }
+        }
         case .failure(let error):
             self.logger.error("\(error)")
         }

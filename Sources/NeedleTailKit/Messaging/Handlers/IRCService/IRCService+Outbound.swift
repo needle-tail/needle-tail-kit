@@ -13,6 +13,7 @@ import NeedleTailHelpers
 //MARK: - Outbound
 extension IRCService {
     
+    @NeedleTailKitActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
         let date = RunLoop.timeInterval(10)
@@ -29,6 +30,7 @@ extension IRCService {
 
 
     //TODO: Need to work out multiple recipients. Do we want an array or a variatic expression?
+    @NeedleTailKitActor
     public func sendNeedleTailMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws {
         guard userState.state == .online else { return }
         await client?.sendPrivateMessage(message.base64EncodedString(), to: recipient, tags: tags)

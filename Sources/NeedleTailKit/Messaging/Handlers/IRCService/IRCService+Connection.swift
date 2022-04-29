@@ -6,9 +6,11 @@
 //
 
 import Foundation
+import NeedleTailHelpers
 
 extension IRCService {
     
+    @NeedleTailKitActor
     func attemptConnection(_ regPacket: String? = nil) async throws {
         userState.transition(to: .connecting)
         _ = try await client?.startClient(regPacket)

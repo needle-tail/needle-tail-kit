@@ -1,4 +1,5 @@
 import CypherMessaging
+import NeedleTailHelpers
 
 public protocol IRCMessengerProtocol: AnyObject {
     var origin: String? { get }
@@ -37,6 +38,7 @@ public extension IRCMessengerProtocol {
         }
     }
     
+    @NeedleTailKitActor
     func createNeedleTailMessage(_
               command: IRCCommand,
               tags: [IRCTags]? = nil

@@ -140,6 +140,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
+    @NeedleTailKitActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
 
@@ -297,7 +298,7 @@ public class IRCMessenger: CypherServerTransportClient {
         
     }
     
-    // MARK: - Lifecycle
+    @NeedleTailKitActor
     public func resume(_ regPacket: String? = nil) async {
         do {
             //TODO: State Error
@@ -360,6 +361,7 @@ extension IRCMessenger {
 
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
+    @NeedleTailKitActor
     public func sendMessage(_
                             message: RatchetedCypherMessage,
                             toUser username: Username,

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NeedleTailHelpers
 
 extension IRCClient {
     
@@ -13,6 +14,7 @@ extension IRCClient {
     /// - Parameters:
     ///   - message: Our IRCMessage
     ///   - chatDoc: Not needed/used for clients and shouldn't be.
+    @NeedleTailKitActor
     public func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         do {
             try await channel?.writeAndFlush(message)
@@ -23,6 +25,7 @@ extension IRCClient {
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
+    @NeedleTailKitActor
     func registerNeedletailSession(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = userState.state else {
             assertionFailure("called \(#function) but we are not connecting?")
@@ -44,6 +47,7 @@ extension IRCClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
+    @NeedleTailKitActor
     public func readKeyBundle(_ packet: String) async {
         await createNeedleTailMessage(.otherCommand("READKEYBNDL", [packet]))
     }
@@ -59,7 +63,7 @@ extension IRCClient {
             // TODO: issues JOIN commands
         }
     }
-    
+    @NeedleTailKitActor
     public func sendPrivateMessage(_ message: String, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
         await sendIRCMessage(message, to: recipient, tags: tags)
     }

@@ -6,6 +6,7 @@
 //
 
 import NIO
+import NeedleTailHelpers
 
 enum IRCClientErrors: Error {
     case notImplemented
@@ -13,6 +14,7 @@ enum IRCClientErrors: Error {
 
 extension IRCClient {
     
+    @NeedleTailKitActor
     internal func createChannel(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
@@ -26,6 +28,7 @@ extension IRCClient {
         await shutdownClient()
     }
     
+    @NeedleTailKitActor
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         let bootstrap: NIOClientTCPBootstrap
         guard let host = options.hostname else {
@@ -50,7 +53,7 @@ extension IRCClient {
             }
     }
     
-    
+    @NeedleTailKitActor
     public func startClient(_ regPacket: String?) async throws -> Channel? {
         var channel: Channel?
         do {
