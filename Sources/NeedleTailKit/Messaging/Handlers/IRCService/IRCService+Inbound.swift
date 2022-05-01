@@ -25,6 +25,7 @@ extension IRCService: IRCClientDelegate {
     // TODO: Handle Misc. Info
     }
     
+    @NeedleTailActor
     public func client(_ client: IRCClient, keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
@@ -48,7 +49,7 @@ extension IRCService: IRCClientDelegate {
     
     
     /// **PRIVMSG** This is where we receive messages from server via AsyncIRC
-    @NeedleTailKitActor
+//    @NeedleTailActor
     public func client(_
                        client: IRCClient,
                        message: String,
@@ -197,7 +198,7 @@ extension IRCService: IRCClientDelegate {
             return
         case .connecting:
             print("going online:", client)
-            self.userState.transition(to: .online)
+            userState.transition(to: .online)
             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
             await client.sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:
@@ -237,7 +238,7 @@ extension IRCService: IRCClientDelegate {
         case .connecting, .online:
             print("Closing client ...")
             client?.delegate = nil
-            self.userState.transition(to: .offline)
+            userState.transition(to: .offline)
             await client?.disconnect()
         default:
             break

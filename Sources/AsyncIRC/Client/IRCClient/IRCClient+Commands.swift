@@ -6,6 +6,7 @@
 //
 
 import NIO
+import NeedleTailHelpers
 
 extension IRCClient {
     
@@ -18,11 +19,11 @@ extension IRCClient {
         }
     }
     
-    
+    @NeedleTailActor
     func shutdownClient() async {
         do {
             _ = try await channel?.close(mode: .all)
-            try await self.groupManager.syncShutdown()
+            try await self.groupManager.shutdown()
             messageOfTheDay = ""
         } catch {
             print("Could not gracefully shutdown, Forcing the exit (\(error)")

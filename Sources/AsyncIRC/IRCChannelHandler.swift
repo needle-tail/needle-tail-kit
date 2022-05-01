@@ -38,6 +38,7 @@ public let DefaultIRCPort = 6667
  *     [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
  *
  */
+
 public class IRCChannelHandler : ChannelDuplexHandler {
     
     //    public typealias InboundErr  = MessageParserError
@@ -80,7 +81,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let future = mapMessages(context: context, messages: messages)
         future.whenComplete { switch $0 {
         case .success(let string):
-
+print("String", string)
             let message = self.asyncParse(context: context, line: string)
             message.whenComplete{ switch $0 {
             case .success(let message):
@@ -106,9 +107,11 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     private func asyncParse(context: ChannelHandlerContext, line: String) -> EventLoopFuture<IRCMessage> {
         let promise = context.eventLoop.makePromise(of: IRCMessage.self)
         promise.completeWithTask {
+           
             guard let message = await self.processMessage(line) else {
                 return try await promise.futureResult.get()
             }
+            print("LINE__", message)
             return message
         }
         return promise.futureResult
@@ -116,8 +119,9 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     let parser = MessageParser()
     
-    @NeedleTailKitActor
+    @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
+        print("MESSAGE_____", message)
         await consumer.feedConsumer(message)
         
         do {

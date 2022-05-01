@@ -13,7 +13,8 @@ import NeedleTailHelpers
 //MARK: - Outbound
 extension IRCService {
     
-    @NeedleTailKitActor
+//TODO: We cannot use an actore to send a budle and wait for the read because our call will never finish and let go of the suspension in order to process the incoming packet.
+    @KeyBundleActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await client?.readKeyBundle(packet)
         let date = RunLoop.timeInterval(10)
@@ -25,12 +26,13 @@ extension IRCService {
             }
             /// We just want to run a loop until the userConfig contains a value or stop on the timeout
         } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
+        assert(userConfig != nil, "User Config is nil")
         return userConfig
     }
 
 
     //TODO: Need to work out multiple recipients. Do we want an array or a variatic expression?
-    @NeedleTailKitActor
+    @NeedleTailActor
     public func sendNeedleTailMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]?) async throws {
         guard userState.state == .online else { return }
         await client?.sendPrivateMessage(message.base64EncodedString(), to: recipient, tags: tags)

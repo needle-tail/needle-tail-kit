@@ -72,7 +72,7 @@ public final class ConversationConsumer {
     
     public init() {}
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     public func feedConsumer(_ conversation: [TargetConversation.Resolved]) async {
         await stack.enqueue(elements: conversation)
     }

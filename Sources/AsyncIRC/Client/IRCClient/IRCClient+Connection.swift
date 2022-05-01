@@ -14,7 +14,7 @@ enum IRCClientErrors: Error {
 
 extension IRCClient {
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     internal func createChannel(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
@@ -24,11 +24,12 @@ extension IRCClient {
             .connect(host: host, port: port).get()
     }
     
+    @NeedleTailActor
     public func disconnect() async {
         await shutdownClient()
     }
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         let bootstrap: NIOClientTCPBootstrap
         guard let host = options.hostname else {
@@ -53,13 +54,13 @@ extension IRCClient {
             }
     }
     
-    @NeedleTailKitActor
-    public func startClient(_ regPacket: String?) async throws -> Channel? {
+    @NeedleTailActor
+    public func startClient(_ regPacket: String?) async throws {
         var channel: Channel?
         do {
             channel = try await createChannel(host: options.hostname ?? "localhost", port: options.port)
             self.retryInfo.registerSuccessfulConnect()
-            userState.transition(to: .registering(
+           userState.transition(to: .registering(
                         channel: channel!,
                         nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
                         userInfo: self.options.userInfo))
@@ -73,7 +74,6 @@ extension IRCClient {
             await self.shutdownClient()
         }
         assert(channel != nil, "channel is nil")
-        return channel
     }
     
     // MARK: - Retry
@@ -121,8 +121,8 @@ extension IRCClient {
         case .quit:
             break
         case .registering, .connecting:
-            await  delegate?.clientFailedToRegister(self)
-            userState.transition(to: .disconnect)
+            await delegate?.clientFailedToRegister(self)
+           userState.transition(to: .disconnect)
         default:
             userState.transition(to: .disconnect)
         }

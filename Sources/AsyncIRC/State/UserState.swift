@@ -10,8 +10,8 @@ import NIOCore
 
 public struct UserState: StateMachine {
 
-    let identifier: String
-    public init(identifier: String) {
+    public let identifier: UUID
+    public init(identifier: UUID) {
         self.identifier = identifier
     }
     // MARK: StateMachine
@@ -24,9 +24,8 @@ public struct UserState: StateMachine {
             return false
             }
         }
-        
-        case suspended
-        case offline
+    
+        case connecting
         case registering(
             channel: Channel,
             nick: NeedleTailNick,
@@ -35,8 +34,9 @@ public struct UserState: StateMachine {
             channel: Channel,
             nick: NeedleTailNick,
             userInfo: IRCUserInfo)
-        case connecting
         case online
+        case suspended
+        case offline
         case disconnect
         case error
         case quit

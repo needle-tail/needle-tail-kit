@@ -16,7 +16,7 @@ public final class MessageParser {
         self.logger = Logger(label: "MessageParser")
     }
     
-    @NeedleTailKitActor
+    @ParsingActor
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?

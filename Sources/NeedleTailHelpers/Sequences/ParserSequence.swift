@@ -75,9 +75,10 @@ public final class ParseConsumer {
     
     public init() {}
     
-    @NeedleTailKitActor
+    @ParsingActor
     public func feedConsumer(_ conversation: String) async {
         await stack.enqueue(conversation)
+        print("FED__", stack.enqueueStack)
     }
     
     func next() async -> NextParseResult {

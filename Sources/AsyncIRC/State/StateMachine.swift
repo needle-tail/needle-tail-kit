@@ -14,7 +14,7 @@ protocol StateMachine {
     /// Must contain set of allowed next states for each state.
 //    static var stateTransitions: [State: Set<State>] { get }
 //    func canTransition(to nextState: State) -> Bool
-    mutating func transition(to nextState: State)
+    mutating func transition(to nextState: State) async
 }
 
 extension StateMachine {

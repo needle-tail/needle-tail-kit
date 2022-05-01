@@ -10,20 +10,53 @@ import NeedleTailHelpers
 
 extension IRCService {
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     func attemptConnection(_ regPacket: String? = nil) async throws {
-        userState.transition(to: .connecting)
-        _ = try await client?.startClient(regPacket)
+        switch userState.state {
+        case .registering(channel: _, nick: _, userInfo: _):
+            break
+        case .registered(channel: _, nick: _, userInfo: _):
+            break
+        case .connecting:
+            break
+        case .online:
+            break
+        case .suspended, .offline:
+            userState.transition(to: .connecting)
+            try await client?.startClient(regPacket)
+            print("STATE___3", userState.state)
+        case .disconnect:
+            break
+        case .error:
+            break
+        case .quit:
+            break
+        }
     }
 
-    func attemptDisconnect() async {
-        defer { userState.transition(to: .suspended) }
+    @NeedleTailActor
+    func attemptDisconnect(_ isSuspending: Bool) async {
+        if isSuspending {
+            userState.transition(to: .suspended)
+        }
         switch userState.state {
+        case .registering(channel: _, nick: _, userInfo: _):
+            break
+        case .registered(channel: _, nick: _, userInfo: _):
+            break
+        case .connecting:
+            break
+        case .online:
+            await client?.disconnect()
+            client = nil
+            authenticated = .unauthenticated
         case .suspended, .offline:
             return
-        case .connecting, .online:
-            await client?.disconnect()
-        default:
+        case .disconnect:
+            break
+        case .error:
+            break
+        case .quit:
             break
         }
     }

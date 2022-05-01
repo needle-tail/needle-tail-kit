@@ -16,6 +16,7 @@ extension IRCMessengerProtocol {
 public extension IRCMessengerProtocol {
 
     //TODO: AFTER WE WORK ON GROUP MESSAGES SEE IF WE CAN REMOVE ARRAY OR RECIPIENTS AND DO THE SAME FOR NOTICE
+    @NeedleTailActor
     func sendIRCMessage(_ message: String, to recipient: IRCMessageRecipient..., tags: [IRCTags]? = nil) async {
         guard !recipient.isEmpty else { return }
         let lines = message.components(separatedBy: "\n")
@@ -26,7 +27,7 @@ public extension IRCMessengerProtocol {
         }
     }
     
-    
+    @NeedleTailActor
     func sendIRCNotice(_ message: String, to recipients: [IRCMessageRecipient]) async {
         guard !recipients.isEmpty else { return }
         let lines = message.components(separatedBy: "\n")
@@ -38,8 +39,17 @@ public extension IRCMessengerProtocol {
         }
     }
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     func createNeedleTailMessage(_
+              command: IRCCommand,
+              tags: [IRCTags]? = nil
+    ) async {
+            let message = IRCMessage(command: command, tags: tags)
+            await sendAndFlushMessage(message, chatDoc: nil)
+    }
+    
+    @KeyBundleActor
+    func sendKeyBundleRequest(_
               command: IRCCommand,
               tags: [IRCTags]? = nil
     ) async {

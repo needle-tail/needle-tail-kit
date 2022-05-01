@@ -1,5 +1,6 @@
 import NIO
 import NIOSSL
+import NeedleTailHelpers
 #if canImport(Network)
 import Network
 import NIOTransportServices
@@ -45,7 +46,7 @@ public class EventLoopGroupManager {
     }
     
     deinit {
-        assert(self.group == nil, "Please call EventLoopGroupManager.syncShutdown .")
+        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
     }
 }
 
@@ -74,11 +75,14 @@ extension EventLoopGroupManager {
     /// `EventLoopGroup` runs on.
     ///
     /// This method _must_ be called when you're done with this `EventLoopGroupManager`.
-    public func syncShutdown() async throws {
+    @NeedleTailActor
+    public func shutdown() async throws {
         switch self.provider {
         case .createNew:
-            try self.group?.syncShutdownGracefully()
+            try await self.group?.shutdownGracefully()
+            print("shutdown new group")
         case .shared:
+            print("shutdown shared group \(String(describing: group))")
             () // nothing to do.
         }
         self.group = nil

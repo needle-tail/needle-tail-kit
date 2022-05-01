@@ -94,12 +94,14 @@ public final class NeedleTail {
         return self.cypher
     }
     
+    //IRC Becomes nil on network loss. Fix by regreistering the IRCSession with the current CypherMessenger
     public func resumeService() async {
+        print("IRC___", irc)
         await irc?.resume()
     }
     
-    public func suspendService() async {
-        await irc?.suspend()
+    public func serviceInterupted(_ isSuspending: Bool = false) async {
+        await irc?.suspend(isSuspending)
     }
     
     public func registerAPN(_ token: Data) async throws {

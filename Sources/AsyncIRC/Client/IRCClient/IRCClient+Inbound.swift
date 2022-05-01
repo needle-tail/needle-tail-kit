@@ -12,7 +12,7 @@ extension IRCClient {
 
     /// This is where we receive all messages from server in the client
     /// - Parameter message: Our IRCMessage that we received
-    @NeedleTailKitActor
+    @NeedleTailActor
     func processReceivedMessages(_ message: IRCMessage) async {
         if case .registering = userState.state {
             if message.command.signalsSuccessfulRegistration {
@@ -39,7 +39,7 @@ extension IRCClient {
         await delegate?.client(self, notice: message, for: recipients)
     }
     
-    @NeedleTailKitActor
+    @NeedleTailActor
     public func doMessage(
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
@@ -47,7 +47,6 @@ extension IRCClient {
         tags: [IRCTags]?,
         userStatus: UserStatus
     ) async throws {
-        print("SENDER_____", sender)
         guard let sender = sender else { // should never happen
             assertionFailure("got empty message sender!")
             return

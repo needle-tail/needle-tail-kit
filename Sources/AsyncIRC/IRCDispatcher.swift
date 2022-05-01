@@ -29,6 +29,7 @@
  */
 import Foundation
 import CypherMessaging
+import NeedleTailHelpers
 
 public protocol IRCDispatcher {
     
@@ -81,11 +82,12 @@ public enum IRCDispatcherError : Swift.Error {
 
 public extension IRCDispatcher {
     
-    
+    @NeedleTailActor
     func irc_msgSend(_ message: IRCMessage) async throws {
         try await irc_defaultMsgSend(message)
     }
     
+    @NeedleTailActor
     func irc_defaultMsgSend(_ message: IRCMessage) async throws {
         do {
             switch message.command {
