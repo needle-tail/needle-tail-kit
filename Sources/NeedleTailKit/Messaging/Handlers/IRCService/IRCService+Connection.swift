@@ -24,7 +24,6 @@ extension IRCService {
         case .suspended, .offline:
             userState.transition(to: .connecting)
             try await client?.startClient(regPacket)
-            print("STATE___3", userState.state)
         case .disconnect:
             break
         case .error:

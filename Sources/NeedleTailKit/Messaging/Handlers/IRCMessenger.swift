@@ -179,7 +179,6 @@ public class IRCMessenger: CypherServerTransportClient {
         }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         services.acknowledgment = .none
-        print("CONFIG", userConfig)
         assert(userConfig != nil, "User Config is nil")
         return userConfig
     }
@@ -379,7 +378,6 @@ extension IRCMessenger {
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(name: "\(ircUser)")
-            print("SERVICES____", services)
             try await services?.sendNeedleTailMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")

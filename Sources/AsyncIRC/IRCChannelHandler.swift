@@ -81,7 +81,6 @@ public class IRCChannelHandler : ChannelDuplexHandler {
         let future = mapMessages(context: context, messages: messages)
         future.whenComplete { switch $0 {
         case .success(let string):
-print("String", string)
             let message = self.asyncParse(context: context, line: string)
             message.whenComplete{ switch $0 {
             case .success(let message):
@@ -111,7 +110,6 @@ print("String", string)
             guard let message = await self.processMessage(line) else {
                 return try await promise.futureResult.get()
             }
-            print("LINE__", message)
             return message
         }
         return promise.futureResult
@@ -121,7 +119,6 @@ print("String", string)
     
     @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        print("MESSAGE_____", message)
         await consumer.feedConsumer(message)
         
         do {
