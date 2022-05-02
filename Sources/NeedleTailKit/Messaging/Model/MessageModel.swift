@@ -28,6 +28,26 @@ public struct MessagePacket: Codable {
     public let recipient: DeviceId?
     public let message: RatchetedCypherMessage?
     public let readReceipt: ReadReceiptPacket?
+    
+    public init(
+        id: String,
+        pushType: PushType,
+        type: MessageType,
+        createdAt: Date,
+        sender: DeviceId?,
+        recipient: DeviceId?,
+        message: RatchetedCypherMessage?,
+        readReceipt: ReadReceiptPacket?
+    ) {
+        self.id = id
+        self.pushType = pushType
+        self.type = type
+        self.createdAt = createdAt
+        self.sender = sender
+        self.recipient = recipient
+        self.message = message
+        self.readReceipt = readReceipt
+    }
 }
 
 public struct ReadReceiptPacket: Codable {

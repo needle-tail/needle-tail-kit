@@ -7,12 +7,15 @@
 
 import Foundation
 import NIOCore
+import Logging
 
 public struct UserState: StateMachine {
 
     public let identifier: UUID
+    private var logger: Logger
     public init(identifier: UUID) {
         self.identifier = identifier
+        self.logger = Logger(label: "UserState:")
     }
     // MARK: StateMachine
     public enum State: Equatable {
@@ -38,7 +41,7 @@ public struct UserState: StateMachine {
         case suspended
         case offline
         case disconnect
-        case error
+        case error(error: Error)
         case quit
         
     }
@@ -56,5 +59,27 @@ public struct UserState: StateMachine {
     public mutating func transition(to nextState: State) {
 //        precondition(self.canTransition(to: nextState), "Invalid state transition (\(self.state) -> \(nextState))!")
         self.state = nextState
+        switch self.state {
+        case .connecting:
+            logger.info("The client is transitioning to a connecting state")
+        case .registering(channel: let channel, nick: let nick, userInfo: let userInfo):
+            logger.info("client is transitioning to a registering state with channel: \(channel), and Nick: \(nick) has UserInfo: \(userInfo)")
+        case .registered(channel: let channel, nick: let nick, userInfo: let userInfo):
+            logger.info("The client is transitioning to a registered state with channel: \(channel), and Nick: \(nick) has UserInfo: \(userInfo)")
+        case .online:
+            logger.info("The client is transitioning to an online state")
+        case .suspended:
+            logger.info("The client is transitioning to a suspended state")
+        case .offline:
+            logger.info("The client is transitioning to an offline state")
+        case .disconnect:
+            logger.info("The client is transitioning to a disconnected state")
+        case .error(let error):
+            logger.info("The client is transitioning to an error state \(error)")
+        case .quit:
+            logger.info("The client is transitioning to quited state")
+        }
+        
+        
     }
 }

@@ -6,6 +6,7 @@
 //
 
 import NIO
+import Logging
 
 
 // MARK: - Handler
@@ -14,14 +15,16 @@ final class Handler : ChannelInboundHandler {
     
     typealias InboundIn = IRCMessage
     
-    let client : IRCClient
+    let client: IRCClient
+    let logger: Logger
     
     init(client: IRCClient) {
+        self.logger = Logger(label: "Handler: ")
         self.client = client
     }
     
     func channelActive(context: ChannelHandlerContext) {
-        print("Client Handler Active")
+        logger.info("Client Handler Active")
     }
     
     func channelInactive(context: ChannelHandlerContext) {
@@ -32,8 +35,12 @@ final class Handler : ChannelInboundHandler {
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         Task {
-            let value = unwrapInboundIn(data)
-            await client.processReceivedMessages(value)
+            do {
+            let message = unwrapInboundIn(data)
+                try await client.processReceivedMessages(message)
+            } catch {
+                logger.error("handle dispatcher error: \(error)")
+            }
         }
     }
     

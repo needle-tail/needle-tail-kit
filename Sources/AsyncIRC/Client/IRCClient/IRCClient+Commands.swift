@@ -33,18 +33,19 @@ extension IRCClient {
     }
     
     
-    func handleRegistrationDone() async {
-        guard case .registering(let channel, let nick, let user) = userState.state else {
-//            assertionFailure("called \(#function) but we are not registering?")
-            return
-        }
-        
-        userState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
-        await delegate?.client(self, registered: nick, with: user)
-        
-        //TODO: JOIN CHANNELS in resubscribe
-        self._resubscribe()
-    }
+//    @NeedleTailActor
+//    func handleRegistrationDone() async {
+//        guard case .registering(let channel, let nick, let user) = userState.state else {
+////            assertionFailure("called \(#function) but we are not registering?")
+//            return
+//        }
+//
+//        userState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+//        await delegate?.client(self, registered: nick, with: user)
+//
+//        //TODO: JOIN CHANNELS in resubscribe
+////        self._resubscribe()
+//    }
     
     
     func handleRegistrationFailed(with message: IRCMessage) async {

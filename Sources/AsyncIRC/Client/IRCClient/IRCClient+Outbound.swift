@@ -59,6 +59,7 @@ extension IRCClient {
         await createNeedleTailMessage(.NICK(nick))
     }
     
+    @NeedleTailActor
     func _resubscribe() {
         if !subscribedChannels.isEmpty {
             // TODO: issues JOIN commands

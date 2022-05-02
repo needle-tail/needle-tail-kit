@@ -13,26 +13,28 @@ extension IRCClient {
     /// This is where we receive all messages from server in the client
     /// - Parameter message: Our IRCMessage that we received
     @NeedleTailActor
-    func processReceivedMessages(_ message: IRCMessage) async {
-        if case .registering = userState.state {
-            if message.command.signalsSuccessfulRegistration {
-                await handleRegistrationDone()
-            }
-            
-            if case .numeric(.errorNicknameInUse, _) = message.command {
-                return await handleRegistrationFailed(with: message)
-            }
-            else if message.command.isErrorReply {
-                return await handleRegistrationFailed(with: message)
-            }
-        }
-        
-        do {
-            try await irc_msgSend(message)
-        } catch {
-            logger.error("handle dispatcher error: \(error)")
-        }
-    }
+//    func processReceivedMessages(_ message: IRCMessage) async {
+//        //TODO: We are never finishing irc_msgSend because our actor is finishing properly. Rework handleRegistrationDone()
+////        if case .registering = userState.state {
+////            if message.command.signalsSuccessfulRegistration {
+////                await handleRegistrationDone()
+////            }
+////
+////            if case .numeric(.errorNicknameInUse, _) = message.command {
+////                return await handleRegistrationFailed(with: message)
+////            }
+////            else if message.command.isErrorReply {
+////                return await handleRegistrationFailed(with: message)
+////            }
+////        }
+//        
+//        //WORK IT HERE
+//        do {
+//            try await processReceivedMessages(message)
+//        } catch {
+//            logger.error("handle dispatcher error: \(error)")
+//        }
+//    }
     
     
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {

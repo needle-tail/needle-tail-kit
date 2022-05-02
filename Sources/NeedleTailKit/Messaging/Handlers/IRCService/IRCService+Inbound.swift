@@ -35,28 +35,28 @@ extension IRCService: IRCClientDelegate {
     }
     
     /// **NOTICE**
-    public func client(_       client: IRCClient,
-                       notice message: String,
-                       for recipients: [ IRCMessageRecipient ]
-    ) async {
-        await self.updateConnectedClientState(client)
-        
-        // FIXME: this is not quite right, mirror what we do in message
-        //        self.conversationsForRecipients(recipients).forEach {
-        //          $0.addNotice(message)
-        //        }
-    }
+//    public func client(_       client: IRCClient,
+//                       notice message: String,
+//                       for recipients: [ IRCMessageRecipient ]
+//    ) async {
+//        await self.updateConnectedClientState(client)
+//
+//        // FIXME: this is not quite right, mirror what we do in message
+//        //        self.conversationsForRecipients(recipients).forEach {
+//        //          $0.addNotice(message)
+//        //        }
+//    }
     
     
     /// **PRIVMSG** This is where we receive messages from server via AsyncIRC
-//    @NeedleTailActor
+    @NeedleTailActor
     public func client(_
                        client: IRCClient,
                        message: String,
                        from sender: IRCUserID,
                        for recipients: [ IRCMessageRecipient ]
     ) async {
-        await self.updateConnectedClientState(client)
+//        await self.updateConnectedClientState(client)
         for recipient in recipients {
             switch recipient {
             case .channel(let name):
@@ -96,12 +96,12 @@ extension IRCService: IRCClientDelegate {
                         
                         //Send message ack
                         let received = Acknowledgment(acknowledgment: .messageSent(packet.id))
-                        let ack = try BSONEncoder().encode(received).makeData().base64EncodedString()
+                        let ack = try BSONEncoder().encode(received).makeData()
     
                         let packet = MessagePacket(
                             id: UUID().uuidString,
                             pushType: .none,
-                            type: .ack(ack),
+                            type: .ack(ack.base64EncodedString()),
                             createdAt: Date(),
                             sender: nil,
                             recipient: nil,
@@ -129,6 +129,19 @@ extension IRCService: IRCClientDelegate {
                         let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                         acknowledgment = ack.acknowledgment
                         logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
+                        
+                        switch userState.state {
+                        case .registering(channel: let channel, nick: let nick, userInfo: let user):
+                        userState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                            
+                            userState.transition(to: .online)
+                            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
+                            await client.sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+                        default:
+                            break
+                        }
+                        
+                        
                     case .blockUnblock:
                         break
                     }
@@ -149,86 +162,86 @@ extension IRCService: IRCClientDelegate {
     
     
     //???
-    public func client(_ client: IRCClient, received message: IRCMessage) async { }
+//    public func client(_ client: IRCClient, received message: IRCMessage) async { }
+//
+//
+//
+//    public func client(_ client: IRCClient, messageOfTheDay message: String) async {
+//        await self.updateConnectedClientState(client)
+//        //        self.messageOfTheDay = message
+//    }
+//
+//
+//    // MARK: - Channels
+//    public func client(_ client: IRCClient,
+//                       user: IRCUserID,
+//                       joined channels: [ IRCChannelName ]
+//    ) async {
+//        await self.updateConnectedClientState(client)
+////                channels.forEach { self.registerChannel($0.stringValue) }
+//    }
     
     
-    
-    public func client(_ client: IRCClient, messageOfTheDay message: String) async {
-        await self.updateConnectedClientState(client)
-        //        self.messageOfTheDay = message
-    }
-    
-    
-    // MARK: - Channels
-    public func client(_ client: IRCClient,
-                       user: IRCUserID,
-                       joined channels: [ IRCChannelName ]
-    ) async {
-        await self.updateConnectedClientState(client)
-//                channels.forEach { self.registerChannel($0.stringValue) }
-    }
+//    public func client(_ client: IRCClient,
+//                       user: IRCUserID,
+//                       left channels: [ IRCChannelName ],
+//                       with message: String?
+//    ) async {
+//        await self.updateConnectedClientState(client)
+//        //        channels.forEach { self.unregisterChannel($0.stringValue) }
+//    }
     
     
-    public func client(_ client: IRCClient,
-                       user: IRCUserID,
-                       left channels: [ IRCChannelName ],
-                       with message: String?
-    ) async {
-        await self.updateConnectedClientState(client)
-        //        channels.forEach { self.unregisterChannel($0.stringValue) }
-    }
+//    public func client(_ client: IRCClient,
+//                       changeTopic welcome: String,
+//                       of channel: IRCChannelName
+//    ) async {
+//        await self.updateConnectedClientState(client)
+//        // TODO: operation
+//    }
     
-    
-    public func client(_ client: IRCClient,
-                       changeTopic welcome: String,
-                       of channel: IRCChannelName
-    ) async {
-        await self.updateConnectedClientState(client)
-        // TODO: operation
-    }
-    
-    
-    private func updateConnectedClientState(_ client: IRCClient) async {
-        switch self.userState.state {
-        case .suspended:
-            assertionFailure("not connecting, still getting connected client info")
-            return
-        case .offline:
-            assertionFailure("not connecting, still getting connected client info")
-            return
-        case .connecting:
-            print("going online:", client)
-            userState.transition(to: .online)
-            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-            await client.sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
-        case .online:
-            break
-        default:
-            break
-        }
-    }
+//    @NeedleTailActor
+//    private func updateConnectedClientState(_ client: IRCClient) async {
+//        switch self.userState.state {
+//        case .suspended:
+//            assertionFailure("not connecting, still getting connected client info")
+//            return
+//        case .offline:
+//            assertionFailure("not connecting, still getting connected client info")
+//            return
+//        case .connecting, .registered(channel: let channel, nick: let nick, userInfo: let user):
+//            print("going online:", client)
+//            userState.transition(to: .online)
+//            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
+//            await client.sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+//        case .online:
+//            break
+//        default:
+//            break
+//        }
+//    }
     
     // MARK: - Connection
+//
+//    @NeedleTailActor
+//    public func client(_
+//                       client: IRCClient,
+//                       registered nick: NeedleTailNick,
+//                       with userInfo: IRCUserInfo
+//    ) async {
+//        await self.updateConnectedClientState(client)
+//    }
     
-    
-    public func client(_
-                       client: IRCClient,
-                       registered nick: NeedleTailNick,
-                       with userInfo: IRCUserInfo
-    ) async {
-        await self.updateConnectedClientState(client)
-    }
-    
-    
-    public func client(_ client: IRCClient, changedNickTo nick: NeedleTailNick) async {
-        await self.updateConnectedClientState(client)
-    }
-    
-    
-    public func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async {
-        await self.updateConnectedClientState(client)
-    }
-    
+//
+//    public func client(_ client: IRCClient, changedNickTo nick: NeedleTailNick) async {
+//        await self.updateConnectedClientState(client)
+//    }
+//
+//
+//    public func client(_ client: IRCClient, changedUserModeTo mode: IRCUserMode) async {
+//        await self.updateConnectedClientState(client)
+//    }
+//
     
     public func clientFailedToRegister(_ newClient: IRCClient) async {
         switch self.userState.state {
