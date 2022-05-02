@@ -14,22 +14,65 @@ extension IRCClient: IRCDispatcher {
     /// - Parameter message: Our IRCMessage
     @NeedleTailActor
     public func processReceivedMessages(_ message: IRCMessage) async throws {
-        
-//        do {
-            try await needlTailIRCMessage(message)
-//        } catch let error as IRCDispatcherError {
-//            guard case .doesNotRespondTo = error else { throw error }
-//        } catch { throw error }
-        
         switch message.command {
-            /* Message of the Day coalescing */
+        case .PING(let server, let server2):
+            try await delegate?.doPing(server, server2: server2)
+        case .PRIVMSG(let recipients, let payload):
+            let sender = IRCUserID(message.origin ?? "")
+            let tags = message.tags
+            try await delegate?.doMessage(sender: sender,
+                                recipients: recipients,
+                                message: payload,
+                                tags: tags,
+                                userStatus: .isOnline)
+        case .NOTICE(let recipients, let message):
+            try await delegate?.doNotice(recipients: recipients, message: message)
+        case .NICK(let nickName):
+            try await delegate?.doNick(nickName, tags: message.tags)
+        case .USER(let info):
+            try await delegate?.doUserInfo(info, tags: message.tags)
+        case .ISON(let nicks):
+            try await delegate?.doIsOnline(nicks)
+        case .MODEGET(let nickName):
+            try await delegate?.doModeGet(nick: nickName)
+        case .CAP(let subcmd, let capIDs):
+            try await delegate?.doCAP(subcmd, capIDs)
+        case .QUIT(let message):
+            try await delegate?.doQuit(message)
+//            await clientDelegate?.client(self, quit: message)
+        case .CHANNELMODE_GET(let channelName):
+            try await delegate?.doModeGet(channel: channelName)
+        case .CHANNELMODE_GET_BANMASK(let channelName):
+            try await delegate?.doGetBanMask(channelName)
+        case .MODE(let nickName, let add, let remove):
+            try await delegate?.doMode(nick: nickName, add: add, remove: remove)
+        case .WHOIS(let server, let masks):
+            try await delegate?.doWhoIs(server: server, usermasks: masks)
+        case .WHO(let mask, let opOnly):
+            try await delegate?.doWho(mask: mask, operatorsOnly: opOnly)
+        case .JOIN(let channels, _):
+//            guard let origin = message.origin, let user = IRCUserID(origin) else {
+//                return print("ERROR: JOIN is missing a proper origin:", message)
+//            }
+            try await delegate?.doJoin(channels)
+//            await clientDelegate?.client(self, user: user, joined: channels)
+        case .PART(let channels, let leaveMessage):
+            guard let origin = message.origin, let user = IRCUserID(origin) else {
+                return print("ERROR: JOIN is missing a proper origin:", message)
+            }
+//            await clientDelegate?.client(self, user: user, left: channels, with: leaveMessage)
+        case .LIST(let channels, let target):
+            try await doList(channels, target)
+        case .otherCommand("READKEYBNDL", let keyBundle):
+            try await delegate?.doReadKeyBundle(keyBundle)
+//            try await clientDelegate?.client(self, keyBundle: keyBundle)
         case .numeric(.replyMotDStart, let args):
             messageOfTheDay = (args.last ?? "") + "\n"
         case .numeric(.replyMotD, let args):
             messageOfTheDay += (args.last ?? "") + "\n"
         case .numeric(.replyEndOfMotD, _):
             if !messageOfTheDay.isEmpty {
-                await delegate?.client(self, messageOfTheDay: messageOfTheDay)
+//                await clientDelegate?.client(self, messageOfTheDay: messageOfTheDay)
             }
             messageOfTheDay = ""
         case .numeric(.replyNameReply, _ /*let args*/):
@@ -37,37 +80,23 @@ extension IRCClient: IRCDispatcher {
         case .numeric(.replyEndOfNames, _):
             break
         case .numeric(.replyInfo, let info):
-            try await delegate?.client(self, info: info)
-        case .numeric(.replyKeyBundle, let bundle):
-            try await delegate?.client(self, keyBundle: bundle)
+            break
+//            try await clientDelegate?.client(self, info: info)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
                 return print("ERROR: topic args incomplete:", message)
             }
-            await delegate?.client(self, changeTopic: args[2], of: channel)
-            
-            /* join/part, we need the origin here ... (fix dispatcher) */
-            
-        case .JOIN(let channels, _):
-            guard let origin = message.origin, let user = IRCUserID(origin) else {
-                return print("ERROR: JOIN is missing a proper origin:", message)
-            }
-            await delegate?.client(self, user: user, joined: channels)
-            
-        case .PART(let channels, let leaveMessage):
-            guard let origin = message.origin, let user = IRCUserID(origin) else {
-                return print("ERROR: JOIN is missing a proper origin:", message)
-            }
-            await delegate?.client(self, user: user, left: channels, with: leaveMessage)
+            break
+//            await clientDelegate?.client(self, changeTopic: args[2], of: channel)
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
-            await delegate?.client(self, received: message)
-        case .QUIT(let message):
-            await delegate?.client(self, quit: message)
+            break
+//            await clientDelegate?.client(self, received: message)
         default:
-            await delegate?.client(self, received: message)
+            break
+//            await clientDelegate?.client(self, received: message)
         }
     }
 }

@@ -31,10 +31,7 @@ import Foundation
 import CypherMessaging
 import NeedleTailHelpers
 
-public protocol IRCDispatcher {
-    
-    // MARK: - Dispatching Function
-//    func irc_msgSend(_ message: IRCMessage) async throws
+public protocol IRCDispatcher: AnyObject {
     
     // MARK: - Implementations
     func doPing(_ server: String, server2: String?) async throws
@@ -78,82 +75,6 @@ public enum IRCDispatcherError : Swift.Error {
     case cantChangeModeForOtherUsers
     case nilUserConfig
     case nilToken
-}
-
-public extension IRCDispatcher {
-    
-//    @NeedleTailActor
-//    func irc_msgSend(_ message: IRCMessage) async throws {
-//        try await irc_defaultMsgSend(message)
-//    }
-    
-    @NeedleTailActor
-    func needlTailIRCMessage(_ message: IRCMessage) async throws {
-        do {
-            switch message.command {
-                
-            case .PING(let server, let server2):
-                try await doPing(server, server2: server2)
-            case .PRIVMSG(let recipients, let payload):
-                let sender = IRCUserID(message.origin ?? "")
-                let tags = message.tags
-                try await doMessage(sender: sender,
-                                    recipients: recipients,
-                                    message: payload,
-                                    tags: tags,
-                                    userStatus: .isOnline)
-            case .NOTICE(let recipients, let message):
-                try await doNotice(recipients: recipients, message: message)
-            case .NICK(let nickName):
-                try await doNick(nickName, tags: message.tags)
-            case .USER(let info):
-                try await doUserInfo(info, tags: message.tags)
-            case .ISON(let nicks):
-                try await doIsOnline(nicks)
-            case .MODEGET(let nickName):
-                try await doModeGet(nick: nickName)
-            case .CAP(let subcmd, let capIDs):
-                try await doCAP(subcmd, capIDs)
-            case .QUIT(let message):
-                try await doQuit(message)
-            case .CHANNELMODE_GET(let channelName):
-                try await doModeGet(channel: channelName)
-            case .CHANNELMODE_GET_BANMASK(let channelName):
-                try await doGetBanMask(channelName)
-                
-            case .MODE(let nickName, let add, let remove):
-                try await doMode(nick: nickName, add: add, remove: remove)
-                
-            case .WHOIS(let server, let masks):
-                try await doWhoIs(server: server, usermasks: masks)
-                
-            case .WHO(let mask, let opOnly):
-                try await doWho(mask: mask, operatorsOnly: opOnly)
-                
-            case .JOIN(let channels, _): try await doJoin(channels)
-            case .JOIN0:                 try await doPartAll()
-                
-            case .PART(let channels, let message):
-                try await doPart(channels, message: message)
-                
-            case .LIST(let channels, let target):
-                try await doList(channels, target)
-            case .otherCommand("READKEYBNDL", let keyBundle):
-                try await doReadKeyBundle(keyBundle)
-            default:
-                throw IRCDispatcherError.doesNotRespondTo(message)
-            }
-        }
-        catch let error as InternalDispatchError {
-            switch error {
-            case .notImplemented:
-                throw IRCDispatcherError.doesNotRespondTo(message)
-            }
-        }
-        catch {
-            throw error
-        }
-    }
 }
 
 fileprivate enum InternalDispatchError : Swift.Error {

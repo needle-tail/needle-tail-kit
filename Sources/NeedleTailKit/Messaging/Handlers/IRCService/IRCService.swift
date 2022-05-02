@@ -17,16 +17,12 @@ public final class IRCService {
     var client: IRCClient?
     var userState: UserState
     var clientOptions: ClientOptions?
-    var userConfig: UserConfig?
     var waitCount = 0
     var logger: Logger
     var activeClientOptions: IRCClientOptions?
     var authenticated: AuthenticationState?
-    public var acknowledgment: Acknowledgment.AckType = .none
     public let signer: TransportCreationRequest
-    public var conversations: [ DecryptedModel<ConversationModel> ]?
-    public var transportDelegate: CypherTransportClientDelegate?
-    public weak var ircDelegate: IRCClientDelegate?
+    public var conversations: [DecryptedModel<ConversationModel>]?
     
     public init(
         signer: TransportCreationRequest,
@@ -40,12 +36,10 @@ public final class IRCService {
         self.authenticated = authenticated
         self.userState = userState
         self.clientOptions = clientOptions
-        self.transportDelegate = delegate
         activeClientOptions = self.clientOptionsForAccount(signer, clientOptions: clientOptions)
 
         guard let options = activeClientOptions else { return }
-        self.client = IRCClient(options: options, userState: userState)
-        self.client?.delegate = self
+        self.client = IRCClient(options: options, userState: userState, transportDelegate: delegate)
     }
     
     

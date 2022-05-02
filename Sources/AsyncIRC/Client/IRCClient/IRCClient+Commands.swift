@@ -11,13 +11,13 @@ import NeedleTailHelpers
 extension IRCClient {
     
     
-    internal func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
-        assert(eventLoop.inEventLoop, "threading issue")
-        
-        if let error = error {
-            self.retryInfo.lastSocketError = error
-        }
-    }
+//    internal func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
+//        assert(eventLoop.inEventLoop, "threading issue")
+//
+//        if let error = error {
+//            self.retryInfo.lastSocketError = error
+//        }
+//    }
     
     @NeedleTailActor
     func shutdownClient() async {
@@ -48,15 +48,15 @@ extension IRCClient {
 //    }
     
     
-    func handleRegistrationFailed(with message: IRCMessage) async {
-        guard case .registering(_, let nick, _) = userState.state else {
-            assertionFailure("called \(#function) but we are not registering?")
-            return
-        }
-        // TODO: send to delegate
-        print("ERROR: registration of \(nick) failed:", message)
-        
-        await delegate?.clientFailedToRegister(self)
-        _closeOnUnexpectedError()
-    }
+//    func handleRegistrationFailed(with message: IRCMessage) async {
+//        guard case .registering(_, let nick, _) = userState.state else {
+//            assertionFailure("called \(#function) but we are not registering?")
+//            return
+//        }
+//        // TODO: send to delegate
+//        print("ERROR: registration of \(nick) failed:", message)
+//        
+////        await clientDelegate?.clientFailedToRegister(self)
+//        _closeOnUnexpectedError()
+//    }
 }

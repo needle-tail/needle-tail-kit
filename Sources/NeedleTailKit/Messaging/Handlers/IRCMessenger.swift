@@ -134,7 +134,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = try await services?.sendNeedleTailMessage(data, to: recipient, tags: nil)
+        _ = await services?.client?.sendPrivateMessage(data, to: recipient, tags: nil)
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
@@ -153,33 +153,33 @@ public class IRCMessenger: CypherServerTransportClient {
         var userConfig: UserConfig? = nil
         
         if !waitingToReadBundle {
-            services.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
+            services.client?.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
                 canRun = true
                 if services.client?.channel != nil {
-                    userConfig = await services.readKeyBundle(packet)
+                    userConfig = await services.client?.readKeyBundle(packet)
+                    
                     canRun = false
                 }
-            } while await RunLoop.execute(date, ack: services.acknowledgment, canRun: canRun)
-            services.acknowledgment = Acknowledgment.AckType.none
+            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
+            services.client?.acknowledgment = Acknowledgment.AckType.none
         } else {
             repeat {
-                switch services.acknowledgment {
+                switch services.client?.acknowledgment {
                 case .registered(let registered):
                     canRun = true
                     if Bool(registered) != nil {
-                        userConfig = await services.readKeyBundle(packet)
+                        userConfig = await services.client?.readKeyBundle(packet)
                         canRun = false
                     }
                     waitingToReadBundle = false
                 default:
                     break
                 }
-            } while await RunLoop.execute(date, ack: services.acknowledgment, canRun: canRun)
+            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
         }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
-        services.acknowledgment = .none
-        assert(userConfig != nil, "User Config is nil")
+        services.client?.acknowledgment = .none
         return userConfig
     }
     
@@ -202,7 +202,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = try await services?.sendNeedleTailMessage(data, to: recipient, tags: nil)
+        _ = await services?.client?.sendPrivateMessage(data, to: recipient, tags: nil)
         
     }
 
@@ -378,7 +378,7 @@ extension IRCMessenger {
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(name: "\(ircUser)")
-            try await services?.sendNeedleTailMessage(data, to: recipient, tags: [
+            await services?.client?.sendPrivateMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")
             ])
@@ -447,21 +447,5 @@ extension DataProtocol {
 extension URLResponse {
     convenience public init?(_ url: URL) {
         self.init(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: "")
-    }
-}
-
-
-
-public struct UserDeviceId: Hashable, Codable {
-    let user: Username
-    let device: DeviceId
-}
-
-struct Token: JWTPayload {
-    let device: UserDeviceId
-    let exp: ExpirationClaim
-    
-    func verify(using signer: JWTSigner) throws {
-        try exp.verifyNotExpired()
     }
 }

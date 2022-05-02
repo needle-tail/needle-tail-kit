@@ -2,6 +2,8 @@ import CypherMessaging
 import NeedleTailHelpers
 
 public protocol IRCMessengerProtocol: AnyObject {
+    var userConfig: UserConfig? { get set }
+    var acknowledgment: Acknowledgment.AckType  { get set }
     var origin: String? { get }
     var target: String { get }
     var tags: [IRCTags]? { get }
@@ -9,8 +11,9 @@ public protocol IRCMessengerProtocol: AnyObject {
 }
 
 extension IRCMessengerProtocol {
-    //Default value
     public var target: String { get { return "" } set{} }
+    public var userConfig: UserConfig? { get { return nil } set{} }
+    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 }
 
 public extension IRCMessengerProtocol {

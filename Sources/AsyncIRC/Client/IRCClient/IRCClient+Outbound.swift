@@ -7,6 +7,7 @@
 
 import Foundation
 import NeedleTailHelpers
+import CypherMessaging
 
 extension IRCClient {
     
@@ -47,10 +48,21 @@ extension IRCClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    @KeyBundleActor
-    public func readKeyBundle(_ packet: String) async {
-        await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
-    }
+        @KeyBundleActor
+        public func readKeyBundle(_ packet: String) async -> UserConfig? {
+            await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
+            let date = RunLoop.timeInterval(10)
+            var canRun = false
+            repeat {
+                canRun = true
+                if userConfig != nil {
+                    canRun = false
+                }
+                /// We just want to run a loop until the userConfig contains a value or stop on the timeout
+            } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
+            assert(userConfig != nil, "User Config is nil")
+            return userConfig
+        }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
@@ -66,7 +78,7 @@ extension IRCClient {
         }
     }
     @NeedleTailActor
-    public func sendPrivateMessage(_ message: String, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
-        await sendIRCMessage(message, to: recipient, tags: tags)
+    public func sendPrivateMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
+        await sendIRCMessage(message.base64EncodedString(), to: recipient, tags: tags)
     }
 }

@@ -12,7 +12,7 @@ import CypherMessaging
 import MessagingHelpers
 import AsyncIRC
 import SwiftUI
-
+import NeedleTailHelpers
 
 public final class NeedleTail {
     

@@ -121,7 +121,7 @@ extension IRCClient {
         case .quit:
             break
         case .registering, .connecting:
-            await delegate?.clientFailedToRegister(self)
+//            await clientDelegate?.clientFailedToRegister(self)
            userState.transition(to: .disconnect)
         default:
             userState.transition(to: .disconnect)

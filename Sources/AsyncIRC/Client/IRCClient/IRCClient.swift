@@ -1,6 +1,7 @@
 import NIO
 import Logging
 import NeedleTailHelpers
+import CypherMessaging
 #if canImport(Network)
 import NIOTransportServices
 #endif
@@ -8,12 +9,12 @@ import NIOTransportServices
 public final class IRCClient: IRCMessengerProtocol {
     
     //IRCMessengerProtocol
+    public var userConfig: UserConfig?
+    public var acknowledgment: Acknowledgment.AckType = .none
     public var origin: String? { return nick?.stringValue }
     public var tags: [IRCTags]?
-    
     public let options: IRCClientOptions
     public let eventLoop: EventLoop
-    public weak var delegate: IRCClientDelegate?
     public var channel: Channel?
     var usermask : String? {
         guard case .registered(_, let nick, let info) = userState.state else { return nil }
@@ -29,11 +30,13 @@ public final class IRCClient: IRCMessengerProtocol {
     var userInfo: IRCUserInfo?
     var userState: UserState
     var userMode = IRCUserMode()
-    
+    weak var delegate: IRCDispatcher?
+    weak var transportDelegate: CypherTransportClientDelegate?
     
     public init(
         options: IRCClientOptions,
-        userState: UserState
+        userState: UserState,
+        transportDelegate: CypherTransportClientDelegate?
     ) {
         self.userState = userState
         self.options = options
@@ -53,6 +56,8 @@ public final class IRCClient: IRCMessengerProtocol {
         self.eventLoop = group!.next()
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
+        self.delegate = self
+        self.transportDelegate = transportDelegate
     }
     
     deinit {

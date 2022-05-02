@@ -1,5 +1,5 @@
 //
-//  IRCService+Model.swift
+//  MessageModel.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -7,7 +7,7 @@
 
 import Foundation
 import CypherMessaging
-import NeedleTailHelpers
+import JWTKit
 
 public enum MessageType: Codable {
     case publishKeyBundle(String)
@@ -61,4 +61,34 @@ public struct ReadReceiptPacket: Codable {
     public let state: State
     public let sender: UserDeviceId
     public let recipient: UserDeviceId
+}
+
+public struct UserDeviceId: Hashable, Codable {
+    public let user: Username
+    public let device: DeviceId
+    
+    public init(
+        user: Username,
+        device: DeviceId
+    ) {
+        self.user = user
+        self.device = device
+    }
+}
+
+public struct Token: JWTPayload {
+    public let device: UserDeviceId
+    public let exp: ExpirationClaim
+    
+    public init(
+        device: UserDeviceId,
+        exp: ExpirationClaim
+    ) {
+        self.device = device
+        self.exp = exp
+    }
+    
+    public func verify(using signer: JWTSigner) throws {
+        try exp.verifyNotExpired()
+    }
 }
