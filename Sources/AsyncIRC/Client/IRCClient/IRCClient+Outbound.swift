@@ -43,7 +43,6 @@ extension IRCClient {
             await createNeedleTailMessage(.NICK(nick))
         }
         await createNeedleTailMessage(.USER(user))
-        print("REGEISTERED___")
     }
     
     /// Request from the server a users key bundle

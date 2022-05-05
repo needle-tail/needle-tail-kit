@@ -96,7 +96,6 @@ public final class NeedleTail {
     
     //IRC Becomes nil on network loss. Fix by regreistering the IRCSession with the current CypherMessenger
     public func resumeService() async {
-        print("IRC___", irc)
         await irc?.resume()
     }
     

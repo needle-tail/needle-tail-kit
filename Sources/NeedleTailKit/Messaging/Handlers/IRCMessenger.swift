@@ -303,9 +303,12 @@ public class IRCMessenger: CypherServerTransportClient {
     public func resume(_ regPacket: String? = nil) async {
         do {
             //TODO: State Error
+            print(userState.state)
+            guard userState.state == .offline || userState.state == .suspended else { return }
             try await services?.attemptConnection(regPacket)
             self.authenticated = .authenticated
         } catch {
+            userState.transition(to: .offline)
             self.authenticated = .authenticationFailure
             await resume(regPacket)
         }

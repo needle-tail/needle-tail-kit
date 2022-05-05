@@ -8,7 +8,8 @@
 import Foundation
 import CypherMessaging
 
-public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
+public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
+    
     public var description: String {
         return nick
     }
