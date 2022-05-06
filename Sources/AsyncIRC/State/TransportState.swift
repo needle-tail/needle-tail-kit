@@ -1,5 +1,5 @@
 //
-//  UserState.swift
+//  TransportState.swift
 //  
 //
 //  Created by Cole M on 11/28/21.
@@ -9,17 +9,18 @@ import Foundation
 import NIOCore
 import Logging
 
-public struct UserState: StateMachine {
+public struct TransportState: StateMachine {
 
     public let identifier: UUID
     private var logger: Logger
+    
     public init(identifier: UUID) {
         self.identifier = identifier
-        self.logger = Logger(label: "UserState:")
+        self.logger = Logger(label: "TransportState:")
     }
     // MARK: StateMachine
     public enum State: Equatable {
-        public static func == (lhs: UserState.State, rhs: UserState.State) -> Bool {
+        public static func == (lhs: TransportState.State, rhs: TransportState.State) -> Bool {
             switch (lhs, rhs) {
             case (.offline, .offline), (.online, .online):
             return true
@@ -46,7 +47,7 @@ public struct UserState: StateMachine {
         
     }
 
-    public var state: State = .offline
+    public var current: State = .offline
 //    static let stateTransitions: [State: Set<State> = [
 //        .suspended: [.offline],
 //        .offline: [.connecting],
@@ -58,8 +59,8 @@ public struct UserState: StateMachine {
     
     public mutating func transition(to nextState: State) {
 //        precondition(self.canTransition(to: nextState), "Invalid state transition (\(self.state) -> \(nextState))!")
-        self.state = nextState
-        switch self.state {
+        self.current = nextState
+        switch self.current {
         case .connecting:
             logger.info("The client is transitioning to a connecting state")
         case .registering(channel: let channel, nick: let nick, userInfo: let userInfo):

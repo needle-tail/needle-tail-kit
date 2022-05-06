@@ -35,7 +35,7 @@ public final class NeedleTail {
         appleToken: String,
         username: String,
         store: CypherMessengerStore,
-        clientOptions: ClientOptions,
+        clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler
     ) async throws -> CypherMessenger? {
@@ -48,18 +48,18 @@ public final class NeedleTail {
         
         cypher = try await CypherMessenger.registerMessenger(
             username: Username(username),
-            appPassword: clientOptions.password,
+            appPassword: clientInfo.password,
             usingTransport: { request async throws -> IRCMessenger in
                 
                 if self.irc == nil {
                     self.irc = try await IRCMessenger.authenticate(
                         transportRequest: request,
-                        options: clientOptions
+                        clientInfo: clientInfo
                     )
                 }
                 
                 guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
-                try await ircMessenger.registerBundle(type: type, options: clientOptions)
+                try await ircMessenger.registerBundle(type: type, clientInfo: clientInfo)
                 return ircMessenger
             },
             p2pFactories: p2pFactories,
@@ -70,14 +70,19 @@ public final class NeedleTail {
     }
     
     @discardableResult
-    public func spoolService(store: CypherMessengerStore, clientOptions: ClientOptions, eventHandler: PluginEventHandler, p2pFactories: [P2PTransportClientFactory]) async throws -> CypherMessenger? {
+    public func spoolService(
+        store: CypherMessengerStore,
+        clientInfo: ClientContext.ServerClientInfo,
+        eventHandler: PluginEventHandler,
+        p2pFactories: [P2PTransportClientFactory]
+    ) async throws -> CypherMessenger? {
         cypher = try await CypherMessenger.resumeMessenger(
-            appPassword: clientOptions.password,
+            appPassword: clientInfo.password,
             usingTransport: { request -> IRCMessenger in
                 
                 self.irc = try await IRCMessenger.authenticate(
                     transportRequest: request,
-                    options: clientOptions
+                    clientInfo: clientInfo
                 )
                 
                 guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
@@ -153,7 +158,7 @@ extension NeedleTail: ObservableObject {
     
     public struct SpoolView: View {
         public var store: CypherMessengerStore
-        public var clientOptions: ClientOptions
+        public var clientInfo: ClientContext.ServerClientInfo
         public var p2pFactories: [P2PTransportClientFactory]? = []
         public var eventHandler: PluginEventHandler?
         public var view: AnyView
@@ -164,13 +169,13 @@ extension NeedleTail: ObservableObject {
         public init(
             _ view: AnyView,
             store: CypherMessengerStore,
-            clientOptions: ClientOptions,
+            clientInfo: ClientContext.ServerClientInfo,
             p2pFactories: [P2PTransportClientFactory]? = [],
             eventHandler: PluginEventHandler? = nil
         ) {
             self.view = view
             self.store = store
-            self.clientOptions = clientOptions
+            self.clientInfo = clientInfo
             self.p2pFactories = p2pFactories
             self.eventHandler = eventHandler
         }
@@ -181,7 +186,7 @@ extension NeedleTail: ObservableObject {
                     var cypher: CypherMessenger?
                     cypher = try await NeedleTail.shared.spoolService(
                         store: store,
-                        clientOptions: clientOptions,
+                        clientInfo: clientInfo,
                         eventHandler: makeEventHandler(emitter: emitter),
                         p2pFactories: makeP2PFactories()
                     )
@@ -204,7 +209,7 @@ extension NeedleTail: ObservableObject {
         public var nick: String = ""
         public var password: String = ""
         public var store: CypherMessengerStore
-        public var options: ClientOptions
+        public var clientInfo: ClientContext.ServerClientInfo
         @StateObject var emitter = makeEventEmitter()
         @Binding public var dismiss: Bool
         @Binding var showProgress: Bool
@@ -217,7 +222,7 @@ extension NeedleTail: ObservableObject {
             password: String,
             nick: String,
             store: CypherMessengerStore,
-            options: ClientOptions,
+            clientInfo: ClientContext.ServerClientInfo,
             dismiss: Binding<Bool>,
             showProgress: Binding<Bool>
         ) {
@@ -227,8 +232,8 @@ extension NeedleTail: ObservableObject {
             self.nick = nick
             self.password = password
             self.store = store
-            self.options = options
-            self.options.password = password
+            self.clientInfo = clientInfo
+            self.clientInfo.password = password
             self._dismiss = dismiss
             self._showProgress = showProgress
         }
@@ -250,7 +255,7 @@ extension NeedleTail: ObservableObject {
                             appleToken: "",
                             username: username,
                             store: store,
-                            clientOptions: options,
+                            clientInfo: clientInfo,
                             p2pFactories: makeP2PFactories(),
                             eventHandler: makeEventHandler(emitter: emitter)
                         )

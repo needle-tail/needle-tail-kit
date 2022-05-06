@@ -54,7 +54,7 @@ public protocol IRCDispatcher: AnyObject {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
-        userStatus: UserStatus
+        userStatus: OnlineStatus
     ) async throws
     func doIsOnline (_ nicks: [ NeedleTailNick ]) async throws
     func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
@@ -132,7 +132,7 @@ public extension IRCDispatcher {
                    recipients: [ IRCMessageRecipient ],
                    message: String,
                    tags: [IRCTags]? = nil,
-                   userStatus: UserStatus
+                   userStatus: OnlineStatus
     ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }

@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  IRCTags.swift
 //  
 //
 //  Created by Cole M on 12/11/21.

@@ -80,7 +80,7 @@
 //    
 ////    @NeedleTailActor
 ////    private func updateConnectedClientState(_ client: IRCClient) async {
-////        switch self.userState.state {
+////        switch self.transportState.current {
 ////        case .suspended:
 ////            assertionFailure("not connecting, still getting connected client info")
 ////            return
@@ -122,7 +122,7 @@
 ////
 //    
 //    public func clientFailedToRegister(_ newClient: IRCClient) async {
-//        switch self.userState.state {
+//        switch self.transportState.current {
 //        case .suspended, .offline:
 //            assertionFailure("not connecting, still get registration failure")
 //            return

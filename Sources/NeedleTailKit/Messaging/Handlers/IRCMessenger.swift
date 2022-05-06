@@ -35,8 +35,8 @@ public class IRCMessenger: CypherServerTransportClient {
     private let username: Username
     private let appleToken: String?
     public var registrationType: RegistrationType?
-    private var userState: UserState
-    private var clientOptions: ClientOptions?
+    private var transportState: TransportState
+    private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
     var messenger: CypherMessenger?
@@ -53,12 +53,12 @@ public class IRCMessenger: CypherServerTransportClient {
         deviceId: DeviceId,
         signer: TransportCreationRequest,
         appleToken: String?,
-        userState: UserState,
-        clientOptions: ClientOptions?
+        transportState: TransportState,
+        clientInfo: ClientContext.ServerClientInfo
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
-        self.userState = userState
-        self.clientOptions = clientOptions
+        self.transportState = transportState
+        self.clientInfo = clientInfo
         self.username = username
         self.deviceId = deviceId
         self.signer = signer
@@ -70,15 +70,15 @@ public class IRCMessenger: CypherServerTransportClient {
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
-        options: ClientOptions?
+        clientInfo: ClientContext.ServerClientInfo
     ) async throws -> IRCMessenger {
         return try await IRCMessenger(
             username: transportRequest.username,
             deviceId: transportRequest.deviceId,
             signer: transportRequest,
             appleToken: appleToken,
-            userState: UserState(identifier: UUID()),
-            clientOptions: options
+            transportState: TransportState(identifier: UUID()),
+            clientInfo: clientInfo
         )
     }
     
@@ -88,8 +88,8 @@ public class IRCMessenger: CypherServerTransportClient {
             self.services = await IRCService(
                 signer: self.signer,
                 authenticated: self.authenticated,
-                userState: self.userState,
-                clientOptions: clientOptions,
+                transportState: self.transportState,
+                clientInfo: clientInfo,
                 delegate: self.delegate
             )
         }
@@ -101,7 +101,7 @@ public class IRCMessenger: CypherServerTransportClient {
     
     public func registerBundle(
         type: RegistrationType?,
-        options: ClientOptions
+        clientInfo: ClientContext.ServerClientInfo
     ) async throws {
         switch type {
         case .siwa, .plain:
@@ -206,7 +206,13 @@ public class IRCMessenger: CypherServerTransportClient {
     }
 
     private func makeToken() -> String? {
-        return try? JWTSigner(algorithm: signer as! JWTAlgorithm)
+        var signerAlgorithm: JWTAlgorithm
+        #if os(Linux)
+        signerAlgorithm = signer as! JWTAlgorithm
+        #else
+        signerAlgorithm = signer
+        #endif
+        return try? JWTSigner(algorithm: signerAlgorithm)
             .sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
@@ -302,12 +308,11 @@ public class IRCMessenger: CypherServerTransportClient {
     public func resume(_ regPacket: String? = nil) async {
         do {
             //TODO: State Error
-            print(userState.state)
-            guard userState.state == .offline || userState.state == .suspended else { return }
+            guard transportState.current == .offline || transportState.current == .suspended else { return }
             try await services?.attemptConnection(regPacket)
             self.authenticated = .authenticated
         } catch {
-            userState.transition(to: .offline)
+            transportState.transition(to: .offline)
             self.authenticated = .authenticationFailure
             await resume(regPacket)
         }
@@ -379,7 +384,6 @@ extension IRCMessenger {
         let data = try BSONEncoder().encode(packet).makeData()
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
-            print("USER TO BECOME RECIPIENT", ircUser)
             let recipient = try await recipient(name: "\(ircUser)")
             await services?.client?.sendPrivateMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),

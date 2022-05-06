@@ -8,7 +8,7 @@
 import Foundation
 import BSON
 
-public enum UserStatus {
+public enum OnlineStatus {
     case wasOffline(ChatDocument)
     case isOnline
 }

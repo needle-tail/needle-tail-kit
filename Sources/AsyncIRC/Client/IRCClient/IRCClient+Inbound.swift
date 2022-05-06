@@ -15,7 +15,7 @@ extension IRCClient {
 //TODO: JUST LIKE MESSAGE
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
 //        await clientDelegate?.client(self, notice: message, for: recipients)
-        await respondToUserState()
+        await respondToTransportState()
     }
     
     @NeedleTailActor
@@ -32,7 +32,7 @@ extension IRCClient {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
-        userStatus: UserStatus
+        userStatus: OnlineStatus
     ) async throws {
         for recipient in recipients {
             switch recipient {
@@ -102,11 +102,11 @@ extension IRCClient {
                         acknowledgment = ack.acknowledgment
                         logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
                         
-                        switch userState.state {
+                        switch transportState.current {
                         case .registering(channel: let channel, nick: let nick, userInfo: let user):
-                        userState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                        transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
                             
-                            userState.transition(to: .online)
+                            transportState.transition(to: .online)
                             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
                             await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
                         default:
@@ -130,18 +130,18 @@ extension IRCClient {
     }
     
     public func doNick(_ newNick: NeedleTailNick) async throws {
-        switch userState.state {
+        switch transportState.current {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
-            userState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
+            transportState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
         case .registered(let channel, let nick, let info):
             guard nick != newNick else { return }
-            userState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
+            transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
             
         default: return // hmm
         }
 //        await clientDelegate?.client(self, changedNickTo: newNick)
-        await respondToUserState()
+        await respondToTransportState()
     }
     
     
@@ -156,18 +156,18 @@ extension IRCClient {
         if newMode != userMode {
             userMode = newMode
 //            await clientDelegate?.client(self, changedUserModeTo: newMode)
-            await respondToUserState()
+            await respondToTransportState()
         }
     }
     
     public func doJoin(_ channels: [IRCChannelName]) async throws {
         print("DO JOINING CHANNELS", channels)
-        await respondToUserState()
+        await respondToTransportState()
     }
     
     public func doModeGet(nick: NeedleTailNick) async throws {
         print("DO MODE GET - NICK: \(nick)")
-        await respondToUserState()
+        await respondToTransportState()
     }
     
     public func doPing(_ server: String, server2: String? = nil) async throws {
@@ -179,15 +179,15 @@ extension IRCClient {
     }
     
     @NeedleTailActor
-    private func respondToUserState() async  {
-        switch userState.state {
+    private func respondToTransportState() async  {
+        switch transportState.current {
         case .connecting:
             break
         case .registering(channel: _, nick: _, userInfo: _):
             break
         case .registered(channel: _, nick: _, userInfo: _):
             print("going online:", self)
-            userState.transition(to: .online)
+            transportState.transition(to: .online)
             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
             await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
         case .online:

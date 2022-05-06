@@ -1,7 +1,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 
-public protocol IRCMessengerProtocol: AnyObject {
+public protocol AsyncIRCDelegate: AnyObject {
     var userConfig: UserConfig? { get set }
     var acknowledgment: Acknowledgment.AckType  { get set }
     var origin: String? { get }
@@ -10,13 +10,13 @@ public protocol IRCMessengerProtocol: AnyObject {
     func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async
 }
 
-extension IRCMessengerProtocol {
+extension AsyncIRCDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
     public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 }
 
-public extension IRCMessengerProtocol {
+public extension AsyncIRCDelegate {
 
     //TODO: AFTER WE WORK ON GROUP MESSAGES SEE IF WE CAN REMOVE ARRAY OR RECIPIENTS AND DO THE SAME FOR NOTICE
     @NeedleTailActor

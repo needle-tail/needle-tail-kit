@@ -27,14 +27,12 @@ extension IRCClient {
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailActor
     func registerNeedletailSession(_ regPacket: String?) async {
-        guard case .registering(_, let nick, let user) = userState.state else {
+        guard case .registering(_, let nick, let user) = transportState.current else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
         
-        if let pwd = options.password {
-            await createNeedleTailMessage(.otherCommand("PASS", [ pwd ]))
-        }
+            await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
@@ -42,6 +40,7 @@ extension IRCClient {
         } else {
             await createNeedleTailMessage(.NICK(nick))
         }
+        
         await createNeedleTailMessage(.USER(user))
     }
     

@@ -12,7 +12,7 @@ extension IRCService {
     
     @NeedleTailActor
     func attemptConnection(_ regPacket: String? = nil) async throws {
-        switch userState.state {
+        switch transportState.current {
         case .registering(channel: _, nick: _, userInfo: _):
             break
         case .registered(channel: _, nick: _, userInfo: _):
@@ -22,7 +22,7 @@ extension IRCService {
         case .online:
             break
         case .suspended, .offline:
-            userState.transition(to: .connecting)
+            transportState.transition(to: .connecting)
             try await client?.startClient(regPacket)
         case .disconnect:
             break
@@ -36,9 +36,9 @@ extension IRCService {
     @NeedleTailActor
     func attemptDisconnect(_ isSuspending: Bool) async {
         if isSuspending {
-            userState.transition(to: .suspended)
+            transportState.transition(to: .suspended)
         }
-        switch userState.state {
+        switch transportState.current {
         case .registering(channel: _, nick: _, userInfo: _):
             break
         case .registered(channel: _, nick: _, userInfo: _):

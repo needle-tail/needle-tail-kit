@@ -9,7 +9,7 @@ import Foundation
 
 protocol StateMachine {
     associatedtype State
-    var state: State { get }
+    var current: State { get }
     /// States transitions definition.
     /// Must contain set of allowed next states for each state.
 //    static var stateTransitions: [State: Set<State>] { get }

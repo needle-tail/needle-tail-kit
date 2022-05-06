@@ -15,7 +15,7 @@ extension IRCClient {
 //        assert(eventLoop.inEventLoop, "threading issue")
 //
 //        if let error = error {
-//            self.retryInfo.lastSocketError = error
+    
 //        }
 //    }
     
@@ -35,7 +35,7 @@ extension IRCClient {
     
 //    @NeedleTailActor
 //    func handleRegistrationDone() async {
-//        guard case .registering(let channel, let nick, let user) = userState.state else {
+//        guard case .registering(let channel, let nick, let user) = transportState.current else {
 ////            assertionFailure("called \(#function) but we are not registering?")
 //            return
 //        }
@@ -49,7 +49,7 @@ extension IRCClient {
     
     
 //    func handleRegistrationFailed(with message: IRCMessage) async {
-//        guard case .registering(_, let nick, _) = userState.state else {
+//        guard case .registering(_, let nick, _) = transportState.current else {
 //            assertionFailure("called \(#function) but we are not registering?")
 //            return
 //        }

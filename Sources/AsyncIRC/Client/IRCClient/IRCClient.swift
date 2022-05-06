@@ -6,40 +6,41 @@ import CypherMessaging
 import NIOTransportServices
 #endif
 
-public final class IRCClient: IRCMessengerProtocol {
+public final class IRCClient: AsyncIRCDelegate {
     
-    //IRCMessengerProtocol
+    //AsyncIRCProtocol
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
     public var origin: String? { return nick?.stringValue }
     public var tags: [IRCTags]?
-    public let options: IRCClientOptions
+    public let clientInfo: ClientContext.ServerClientInfo
+    public let clientContext: ClientContext
     public let eventLoop: EventLoop
     public var channel: Channel?
     var usermask : String? {
-        guard case .registered(_, let nick, let info) = userState.state else { return nil }
-        let host = info.servername ?? options.hostname ?? "??"
+        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
+        let host = info.servername ?? clientInfo.hostname
         return "\(nick.stringValue)!~\(info.username)@\(host)"
     }
     let groupManager: EventLoopGroupManager
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var logger: Logger
-    var retryInfo = IRCRetryInfo()
     var nick: NeedleTailNick?
     var userInfo: IRCUserInfo?
-    var userState: UserState
+    var transportState: TransportState
     var userMode = IRCUserMode()
     weak var delegate: IRCDispatcher?
     weak var transportDelegate: CypherTransportClientDelegate?
     
     public init(
-        options: IRCClientOptions,
-        userState: UserState,
+        clientContext: ClientContext,
+        transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?
     ) {
-        self.userState = userState
-        self.options = options
+        self.transportState = transportState
+        self.clientContext = clientContext
+        self.clientInfo = clientContext.clientInfo
         let group: EventLoopGroup?
         self.logger = Logger(label: "NeedleTail Client Logger")
 #if canImport(Network)
