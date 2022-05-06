@@ -62,10 +62,10 @@ extension IRCClient {
             self.retryInfo.registerSuccessfulConnect()
            userState.transition(to: .registering(
                         channel: channel!,
-                        nick: NeedleTailNick(deviceId: nil, nick: self.options.nickname),
+                        nick: NeedleTailNick(deviceId: nil, name: self.options.nickname),
                         userInfo: self.options.userInfo))
             
-            self.nick?.nick = self.options.nickname
+            self.nick?.name = self.options.nickname
             self.channel = channel
             self.userInfo = self.options.userInfo
             

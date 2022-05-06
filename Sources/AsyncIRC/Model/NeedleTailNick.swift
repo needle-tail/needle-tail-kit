@@ -11,32 +11,32 @@ import CypherMessaging
 public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
     
     public var description: String {
-        return nick
+        return name
     }
     public var stringValue: String {
-        return nick
+        return name
     }
     
     public var deviceId: DeviceId?
-    public var nick: String
+    public var name: String
 
     
     public init(
         deviceId: DeviceId?,
-        nick: String
+        name: String
     ) {
         self.deviceId = deviceId
-        self.nick = nick
+        self.name = name
     }
     
-    public init?(_ nick: String, nickRules: NickRules = NickRules()) {
-        guard NeedleTailNick.validateNick(nick, nickRules: nickRules) == .isValidated else { return nil }
-        self.nick = nick.ircLowercased()
+    public init?(_ name: String, nameRules: NameRules = NameRules()) {
+        guard NeedleTailNick.validateName(name, nameRules: nameRules) == .isValidated else { return nil }
+        self.name = name.ircLowercased()
     }
     
     
     public func hash(into hasher: inout Hasher) {
-        nick.hash(into: &hasher)
+        name.hash(into: &hasher)
     }
     
     public static func ==(lhs: NeedleTailNick, rhs: NeedleTailNick) -> Bool {
@@ -44,27 +44,27 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     }
     
     //We want to validate our Nick
-    public enum ValidatedNickStatus {
+    public enum ValidatedNameStatus {
         case isValidated, failedValidation
     }
-    public struct NickRules {
+    public struct NameRules {
         public var allowsStartingDigit: Bool = true
         public var lengthLimit: Int = 1024
         
         public init() {}
     }
     
-    public static func validateNick(_ nick: String, nickRules: NickRules) -> ValidatedNickStatus {
-        guard nick.count > 1, nick.count >= 9, nick.count <= 1024 else { return .failedValidation }
+    public static func validateName(_ name: String, nameRules: NameRules) -> ValidatedNameStatus {
+        guard name.count > 1, name.count >= 9, name.count <= 1024 else { return .failedValidation }
             
             var firstCharacterSet: CharacterSet
-            if nickRules.allowsStartingDigit {
+            if nameRules.allowsStartingDigit {
                 firstCharacterSet = CharacterSets.letterDigitOrSpecial
             } else {
                 firstCharacterSet = CharacterSets.letterOrSpecial
             }
             let rest = CharacterSets.letterDigitSpecialOrDash
-            let scalars = nick.unicodeScalars
+            let scalars = name.unicodeScalars
             guard firstCharacterSet.contains(scalars[scalars.startIndex]) else { return .failedValidation }
             for scalar in scalars.dropFirst() {
                 guard rest.contains(scalar) else { return .failedValidation }

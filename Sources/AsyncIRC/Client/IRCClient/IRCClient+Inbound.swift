@@ -53,9 +53,8 @@ extension IRCClient {
                         break
                     case .registerAPN(_):
                         break
-                    case .message:
-                        // We get the Message from IRC and Pass it off to CypherTextKit where it will queue it in a job and save
-                        // it to the DB where we can get the message from
+                    case .message, .beFriend:
+                        // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
                         try await self.transportDelegate?.receiveServerEvent(
@@ -115,19 +114,7 @@ extension IRCClient {
                         }
                     case .blockUnblock:
                         break
-                    case .beFriend:
-                        guard let message = packet.message else { return }
-                        guard let deviceId = packet.sender else { return }
-                        try await self.transportDelegate?.receiveServerEvent(
-                            .messageSent(
-                                message,
-                                id: packet.id,
-                                byUser: Username(recipient.stringValue),
-                                deviceId: deviceId
-                            )
-                        )
                     }
-                    
                 } catch {
                     print(error)
                 }

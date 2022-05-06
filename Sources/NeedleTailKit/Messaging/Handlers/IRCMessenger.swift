@@ -178,6 +178,7 @@ public class IRCMessenger: CypherServerTransportClient {
         }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         services.client?.acknowledgment = .none
+        print("USER_CONFIG", userConfig)
         return userConfig
     }
     
@@ -378,6 +379,7 @@ extension IRCMessenger {
         let data = try BSONEncoder().encode(packet).makeData()
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+            print("USER TO BECOME RECIPIENT", ircUser)
             let recipient = try await recipient(name: "\(ircUser)")
             await services?.client?.sendPrivateMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),

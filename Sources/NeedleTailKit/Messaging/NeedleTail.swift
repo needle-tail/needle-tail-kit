@@ -137,6 +137,7 @@ public final class NeedleTail {
             text: "",
             preferredPushType: .contactRequest
         )
+        messageType = .message
     }
 }
 
