@@ -113,10 +113,19 @@ extension IRCClient {
                         default:
                             break
                         }
-                        
-                        
                     case .blockUnblock:
                         break
+                    case .beFriend:
+                        guard let message = packet.message else { return }
+                        guard let deviceId = packet.sender else { return }
+                        try await self.transportDelegate?.receiveServerEvent(
+                            .messageSent(
+                                message,
+                                id: packet.id,
+                                byUser: Username(recipient.stringValue),
+                                deviceId: deviceId
+                            )
+                        )
                     }
                     
                 } catch {

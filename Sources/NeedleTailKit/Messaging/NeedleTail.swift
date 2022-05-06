@@ -121,11 +121,12 @@ public final class NeedleTail {
     }
     
     public func addContact(contact: String, nick: String = "") async throws {
+        guard contact != self.cypher?.username.raw else { fatalError("Cannot be friends with ourself") }
         let chat = try await cypher?.createPrivateChat(with: Username(contact))
         let contact = try await cypher?.createContact(byUsername: Username(contact))
-        
-        
+
         //Be Friend is not working properly, The Contact is correct be friend is reading key bundle for current nick.
+        messageType = .beFriend
         try await contact?.befriend()
         
         

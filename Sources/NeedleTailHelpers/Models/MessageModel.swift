@@ -17,6 +17,7 @@ public enum MessageType: Codable {
     case readReceipt
     case ack(String)
     case blockUnblock
+    case beFriend
 }
 
 public struct MessagePacket: Codable {

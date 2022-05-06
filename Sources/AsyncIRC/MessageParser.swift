@@ -171,8 +171,6 @@ public final class MessageParser {
             args.append(contentsOf: newArray)
             }
         case .string(let commandKey):
-            print("COMMANDKEY", commandKey)
-            print("stripedMessage___", stripedMessage)
             if commandKey.hasPrefix("NICK") {
                 args.append(parameter)
             } else if commandKey.hasPrefix("USER") {
@@ -195,7 +193,6 @@ public final class MessageParser {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == ":" {
                     stripedMessage = String(stripedMessage.dropFirst())
-                    print("Strip__", stripedMessage)
                 }
                 let seperated = stripedMessage.components(separatedBy: ":")
                 args.append(seperated[1])

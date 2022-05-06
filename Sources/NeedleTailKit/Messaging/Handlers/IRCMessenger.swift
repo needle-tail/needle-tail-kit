@@ -137,19 +137,18 @@ public class IRCMessenger: CypherServerTransportClient {
         _ = await services?.client?.sendPrivateMessage(data, to: recipient, tags: nil)
     }
     
-    /// When we initially create a user we need to read the key bundle upon registration. Since the User first is created on the Server a **UserConfig** exists.
+    /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
     @KeyBundleActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
-
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         guard let services = services else { throw NeedleTailError.nilService }
         let date = RunLoop.timeInterval(10)
         var canRun = false
-        
+        print("USERNAME", username)
         var userConfig: UserConfig? = nil
         
         if !waitingToReadBundle {
@@ -158,7 +157,6 @@ public class IRCMessenger: CypherServerTransportClient {
                 canRun = true
                 if services.client?.channel != nil {
                     userConfig = await services.client?.readKeyBundle(packet)
-                    
                     canRun = false
                 }
             } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
