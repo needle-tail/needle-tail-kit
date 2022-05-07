@@ -32,7 +32,7 @@ extension IRCClient {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
-        userStatus: OnlineStatus
+        onlineStatus: OnlineStatus
     ) async throws {
         for recipient in recipients {
             switch recipient {

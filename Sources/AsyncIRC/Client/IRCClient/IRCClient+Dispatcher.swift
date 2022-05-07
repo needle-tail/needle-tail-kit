@@ -24,7 +24,7 @@ extension IRCClient: IRCDispatcher {
                                 recipients: recipients,
                                 message: payload,
                                 tags: tags,
-                                userStatus: .isOnline)
+                                onlineStatus: .isOnline)
         case .NOTICE(let recipients, let message):
             try await delegate?.doNotice(recipients: recipients, message: message)
         case .NICK(let nickName):
