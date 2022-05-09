@@ -7,24 +7,8 @@
 
 import Foundation
 
-protocol StateMachine {
+public protocol StateMachine {
     associatedtype State
     var current: State { get }
-    /// States transitions definition.
-    /// Must contain set of allowed next states for each state.
-//    static var stateTransitions: [State: Set<State>] { get }
-//    func canTransition(to nextState: State) -> Bool
     mutating func transition(to nextState: State) async
-}
-
-extension StateMachine {
-//    static func isStateTransitionAllowed(from state: State, to nextState: State) -> Bool {
-//        guard let validNextStates = self.stateTransitions[state] else {
-//            fatalError("No transitions for \(state) defined in stateTransitions")
-//        }
-//        return validNextStates.contains(nextState)
-//    }
-//    func canTransition(to nextState: State) -> Bool {
-//        return type(of: self).isStateTransitionAllowed(from: self.state, to: nextState)
-//    }
 }
