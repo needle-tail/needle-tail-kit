@@ -51,7 +51,7 @@ public protocol IRCDispatcher: AnyObject {
     func doGetBanMask(_ channel  : IRCChannelName) async throws
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
     func doMessage(
-        sender: IRCUserID?,
+        sender: IRCUserID,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
         onlineStatus: OnlineStatus
@@ -69,7 +69,7 @@ public enum IRCDispatcherError : Swift.Error {
     
     case doesNotRespondTo(IRCMessage)
     case nicknameInUse(NeedleTailNick)
-    case noSuchNick   (NeedleTailNick)
+    case noSuchNick(NeedleTailNick)
     case noSuchChannel(IRCChannelName)
     case alreadyRegistered
     case notRegistered
@@ -129,11 +129,12 @@ public extension IRCDispatcher {
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doMessage(sender: IRCUserID?,
-                   recipients: [ IRCMessageRecipient ],
-                   message: String,
-                   tags: [IRCTags]? = nil,
-                   onlineStatus: OnlineStatus
+    func doMessage(
+        sender: IRCUserID,
+        recipients: [ IRCMessageRecipient ],
+        message: String,
+        tags: [IRCTags]? = nil,
+        onlineStatus: OnlineStatus
     ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }

@@ -1,4 +1,4 @@
-internal enum NeedleTailError: Error {
+public enum NeedleTailError: Error {
     case invalidResponse
     case nilBSONResponse
     case nilUserConfig
@@ -8,4 +8,5 @@ internal enum NeedleTailError: Error {
     case nilChannelName
     case nilNickName
     case nilIRCMessenger
+    case nilUserId
 }

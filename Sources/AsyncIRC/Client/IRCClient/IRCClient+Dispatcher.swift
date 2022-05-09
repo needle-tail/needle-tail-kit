@@ -18,7 +18,7 @@ extension IRCClient: IRCDispatcher {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
         case .PRIVMSG(let recipients, let payload):
-            let sender = IRCUserID(message.origin ?? "")
+            guard let sender = IRCUserID(message.origin ?? "") else { throw NeedleTailError.nilUserId }
             let tags = message.tags
             try await delegate?.doMessage(sender: sender,
                                 recipients: recipients,
