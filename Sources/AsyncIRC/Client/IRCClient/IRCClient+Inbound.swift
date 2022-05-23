@@ -10,11 +10,16 @@ import CypherMessaging
 import BSON
 import NeedleTailHelpers
 
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 extension IRCClient: AsyncIRCNotificationsDelegate {
     
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await respondToTransportState()
     }
+}
+#endif
+
+extension IRCClient {
     
     @NeedleTailActor
     public func doReadKeyBundle(_ keyBundle: [String]) async throws {
