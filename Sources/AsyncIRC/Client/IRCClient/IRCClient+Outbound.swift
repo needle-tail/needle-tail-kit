@@ -43,6 +43,33 @@ extension IRCClient {
         
         await createNeedleTailMessage(.USER(user))
     }
+
+    public func addNewDevice(_
+                             deviceConfig: String,
+                             nick: String
+    ) async throws {
+        //1. Get Recipient Which should be ourself that we sent from the server
+        guard let data = Data(base64Encoded: nick) else { return }
+        let buffer = ByteBuffer(data: data)
+        let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+        let recipient = IRCMessageRecipient.nickname(nick)
+        
+        //2. Create Packet with the deviceConfig we genereated for ourself
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .newDevice(deviceConfig),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        
+        //3. Send our deviceConfig to the registered online master device which should be the recipient we generate from the nick since the nick is the same account as the device we are trying to register and should be the only online device. If we have another device online we will have to filter it by master device on the server.
+        let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        await sendIRCMessage(message, to: recipient, tags: nil)
+    }
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet

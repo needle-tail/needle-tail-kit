@@ -10,11 +10,9 @@ import CypherMessaging
 import BSON
 import NeedleTailHelpers
 
-extension IRCClient {
-
-//TODO: JUST LIKE MESSAGE
+extension IRCClient: AsyncIRCNotificationsDelegate {
+    
     public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
-//        await clientDelegate?.client(self, notice: message, for: recipients)
         await respondToTransportState()
     }
     
@@ -27,9 +25,63 @@ extension IRCClient {
         self.userConfig = config
     }
     
+    //Sent to ourself in order to create the UserDeviceConfig, We then send it to the master device in order to add the device to the Masters UserConfig. We then can register into that User.
+    @NeedleTailActor
+    public func doNewDevice(_ info: [String]) async throws {
+        if info.count == 1 {
+            //This will only be called as a response from the server telling ourself to start the new device process
+            guard let config = try await cypher?.createDeviceRegisteryRequest() else { return }
+            let data = try BSONEncoder().encode(config).makeData().base64EncodedString()
+            try await addNewDevice(data, nick: info[0])
+        } else if info.count == 3 {
+            //5. We received the request from our other device, lets approve of the request and finish adding the device.
+            //This will be fired by the recipient AKA the Master device
+            //First alert the master device that it has another device that wants to be added.
+            await alertUI()
+            if alertType == .registryRequestRejected {
+                // We need to tell the server who was rejected
+                guard let data = Data(base64Encoded: info[2]) else { return }
+                let buffer = ByteBuffer(data: data)
+                let rejectedNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+                let message = try await createAcknowledgment(.registryRequestRejected(rejectedNick.name, rejectedNick.deviceId?.raw ?? ""))
+                guard let needletail = NeedleTailNick(self.cypher?.username.raw ?? "") else { return }
+                await sendPrivateMessage(message, to: .nickname(needletail), tags: nil)
+                return
+            }
+            guard let data = Data(base64Encoded: info[1]) else { return }
+            let buffer = ByteBuffer(data: data)
+            let config = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
+            // When we add an extra device the CTK will publish the config for us on the server.
+            try await cypher?.addDevice(config)
+            //6. We then need to let the new device know it can finish logging in a new session the the same needletailnick
+            await registerNeedletailSession(registrationPacket)
+            
+        }
+    }
+    
+    @NeedleTailActor
+    func alertUI() async {
+        notifications.received.send(.registryRequest)
+        while proceedNewDeivce == false {}
+    }
+    
+    @NeedleTailActor
+    public func respond(to alert: AlertType) async {
+        switch alert {
+        case .registryRequestAccepted:
+            proceedNewDeivce = true
+            alertType = .registryRequestAccepted
+        case .registryRequestRejected:
+            proceedNewDeivce = true
+            alertType = .registryRequestRejected
+        default:
+            break
+        }
+    }
+    
     @NeedleTailActor
     public func doMessage(
-        sender: IRCUserID?,
+        sender: IRCUserID,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
         onlineStatus: OnlineStatus
@@ -49,6 +101,11 @@ extension IRCClient {
                     let buffer = ByteBuffer(data: data)
                     let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                     switch packet.type {
+                    case .newDevice(let config):
+                        guard let data = Data(base64Encoded: config) else { return }
+                        let buffer = ByteBuffer(data: data)
+                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
+                        try await cypher?.addDevice(deviceConfig)
                     case .publishKeyBundle(_):
                         break
                     case .registerAPN(_):
@@ -61,27 +118,12 @@ extension IRCClient {
                             .messageSent(
                                 message,
                                 id: packet.id,
-                                byUser: Username(sender!.nick.stringValue),
+                                byUser: Username(sender.nick.stringValue),
                                 deviceId: deviceId
                             )
                         )
-                        
-                        //Send message ack
-                        let received = Acknowledgment(acknowledgment: .messageSent(packet.id))
-                        let ack = try BSONEncoder().encode(received).makeData()
-    
-                        let packet = MessagePacket(
-                            id: UUID().uuidString,
-                            pushType: .none,
-                            type: .ack(ack.base64EncodedString()),
-                            createdAt: Date(),
-                            sender: nil,
-                            recipient: nil,
-                            message: nil,
-                            readReceipt: .none
-                        )
-                        
-                        let data = try BSONEncoder().encode(packet).makeData()
+  
+                        let data = try await createAcknowledgment(.messageSent(packet.id))
                         _ = await sendPrivateMessage(data, to: recipient, tags: nil)
                         
                     case .multiRecipientMessage:
@@ -104,7 +146,7 @@ extension IRCClient {
                         
                         switch transportState.current {
                         case .registering(channel: let channel, nick: let nick, userInfo: let user):
-                        transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                            transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
                             
                             transportState.transition(to: .online)
                             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
@@ -129,6 +171,25 @@ extension IRCClient {
         }
     }
     
+    private func createAcknowledgment(_ ackType: Acknowledgment.AckType) async throws -> Data {
+        //Send message ack
+        let received = Acknowledgment(acknowledgment: ackType)
+        let ack = try BSONEncoder().encode(received).makeData()
+        
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .ack(ack.base64EncodedString()),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        
+        return try BSONEncoder().encode(packet).makeData()
+    }
+    
     public func doNick(_ newNick: NeedleTailNick) async throws {
         switch transportState.current {
         case .registering(let channel, let nick, let info):
@@ -140,22 +201,22 @@ extension IRCClient {
             
         default: return // hmm
         }
-//        await clientDelegate?.client(self, changedNickTo: newNick)
+        //        await clientDelegate?.client(self, changedNickTo: newNick)
         await respondToTransportState()
     }
     
     
     public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
-        guard let myNick = self.nick, myNick == nick else {
-            return
-        }
+        //        guard let myNick = self.nick?.name, myNick == nick.name else {
+        //            return
+        //        }
         
         var newMode = userMode
         newMode.subtract(remove)
         newMode.formUnion(add)
         if newMode != userMode {
             userMode = newMode
-//            await clientDelegate?.client(self, changedUserModeTo: newMode)
+            //            await clientDelegate?.client(self, changedUserModeTo: newMode)
             await respondToTransportState()
         }
     }
@@ -190,6 +251,7 @@ extension IRCClient {
             transportState.transition(to: .online)
             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
             await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+            registrationPacket = ""
         case .online:
             break
         case .suspended:

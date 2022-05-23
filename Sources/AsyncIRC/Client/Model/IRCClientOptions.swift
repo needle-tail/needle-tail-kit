@@ -26,17 +26,17 @@ public struct ClientContext {
     }
     
     public var userInfo: IRCUserInfo
-    public var nickname: String
+    public var nickname: NeedleTailNick
     public var clientInfo: ServerClientInfo
     
     public init(
         clientInfo: ServerClientInfo,
-        nickname: String = ""
+        nickname: NeedleTailNick
     ) {
         self.clientInfo = clientInfo
         self.nickname = nickname
         self.userInfo = IRCUserInfo(
-            username: nickname,
+            username: nickname.stringValue,
             hostname: clientInfo.hostname,
             servername: clientInfo.hostname,
             realname: "Real name is secret")

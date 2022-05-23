@@ -18,6 +18,7 @@ public enum MessageType: Codable {
     case ack(String)
     case blockUnblock
     case beFriend
+    case newDevice(String)
 }
 
 public struct MessagePacket: Codable {

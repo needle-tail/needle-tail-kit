@@ -9,35 +9,42 @@ import NIOTransportServices
 public final class IRCClient: AsyncIRCDelegate {
     
     //AsyncIRCProtocol
+    var cypher: CypherMessenger?
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
-    public var origin: String? { return nick?.stringValue }
+    public var origin: String? { return clientContext.nickname.name }
     public var tags: [IRCTags]?
     public let clientInfo: ClientContext.ServerClientInfo
     public let clientContext: ClientContext
     public let eventLoop: EventLoop
     public var channel: Channel?
-    var usermask : String? {
-        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
-        let host = info.servername ?? clientInfo.hostname
-        return "\(nick.stringValue)!~\(info.username)@\(host)"
-    }
+//    var usermask : String? {
+//        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
+//        let host = info.servername ?? clientInfo.hostname
+//        return "\(nick.stringValue)!~\(info.username)@\(host)"
+//    }
     let groupManager: EventLoopGroupManager
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var logger: Logger
-    var nick: NeedleTailNick?
+    var proceedNewDeivce = false
+    var alertType: AlertType = .registryRequestRejected
+//    var nick: NeedleTailNick? { return clientContext.nickname }
     var userInfo: IRCUserInfo?
     var transportState: TransportState
     var userMode = IRCUserMode()
+    var notifications = AsyncIRCNotifications()
+    var registrationPacket = ""
     weak var delegate: IRCDispatcher?
     weak var transportDelegate: CypherTransportClientDelegate?
     
     public init(
+        cypher: CypherMessenger?,
         clientContext: ClientContext,
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?
     ) {
+        self.cypher = cypher
         self.transportState = transportState
         self.clientContext = clientContext
         self.clientInfo = clientContext.clientInfo

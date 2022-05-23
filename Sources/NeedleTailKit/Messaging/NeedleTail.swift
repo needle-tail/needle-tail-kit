@@ -22,6 +22,7 @@ public final class NeedleTail {
     public typealias NTPrivateChat = PrivateChat
     public var irc: IRCMessenger?
     public var cypher: CypherMessenger?
+    public weak var delegate: AsyncIRCNotificationsDelegate?
     public var messageType: MessageType = .message {
         didSet {
             irc?.messageType = messageType
@@ -99,9 +100,8 @@ public final class NeedleTail {
         return self.cypher
     }
     
-    //IRC Becomes nil on network loss. Fix by regreistering the IRCSession with the current CypherMessenger
-    public func resumeService() async {
-        await irc?.resume()
+    public func resumeService() async throws {
+        try await irc?.startService()
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
@@ -129,12 +129,8 @@ public final class NeedleTail {
         guard contact != self.cypher?.username.raw else { fatalError("Cannot be friends with ourself") }
         let chat = try await cypher?.createPrivateChat(with: Username(contact))
         let contact = try await cypher?.createContact(byUsername: Username(contact))
-
-        //Be Friend is not working properly, The Contact is correct be friend is reading key bundle for current nick.
         messageType = .beFriend
         try await contact?.befriend()
-        
-        
         try await contact?.setNickname(to: nick)
         _ = try await chat?.sendRawMessage(
             type: .magic,
@@ -143,6 +139,10 @@ public final class NeedleTail {
             preferredPushType: .contactRequest
         )
         messageType = .message
+    }
+    
+    public func acceptRegistryRequest() async {
+        await delegate?.respond(to: .registryRequestAccepted)
     }
 }
 

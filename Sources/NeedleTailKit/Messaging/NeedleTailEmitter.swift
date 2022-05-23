@@ -8,6 +8,7 @@
 import Foundation
 import CypherMessaging
 import Combine
+import NeedleTailHelpers
 
 public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
     public var id = UUID()

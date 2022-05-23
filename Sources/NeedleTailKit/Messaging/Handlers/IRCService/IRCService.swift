@@ -13,7 +13,8 @@ import NIOTransportServices
 
 public final class IRCService {
     
-    var messenger: CypherMessenger?
+    var cypher: CypherMessenger?
+    var messenger: IRCMessenger?
     var client: IRCClient?
     var transportState: TransportState
     var clientInfo: ClientContext.ServerClientInfo
@@ -36,10 +37,13 @@ public final class IRCService {
         self.transportState = transportState
         self.clientInfo = clientInfo
         
-        
         let activeClientOptions = self.clientOptionsForAccount(signer, clientInfo: clientInfo)
         guard let context = activeClientOptions else { return }
-        self.client = IRCClient(clientContext: context, transportState: transportState, transportDelegate: delegate)
+        self.client = IRCClient(
+            cypher: cypher,
+            clientContext: context,
+            transportState: transportState,
+            transportDelegate: delegate)
     }
     
     
@@ -47,16 +51,12 @@ public final class IRCService {
                                          signer: TransportCreationRequest,
                                          clientInfo: ClientContext.ServerClientInfo
     ) -> ClientContext? {
-        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
         guard let nick = NeedleTailNick(lowerCasedName) else { return nil }
         return ClientContext(
             clientInfo: clientInfo,
-            nickname: nick.name
+            nickname: nick
         )
     }
-    
-    
-    
-    
 }
 

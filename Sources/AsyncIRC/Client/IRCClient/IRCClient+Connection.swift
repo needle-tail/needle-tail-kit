@@ -50,13 +50,11 @@ extension IRCClient {
             channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
            transportState.transition(to: .registering(
                         channel: channel!,
-                        nick: NeedleTailNick(deviceId: nil, name: clientContext.nickname),
+                        nick: clientContext.nickname,
                         userInfo: clientContext.userInfo))
             
-            self.nick?.name = clientContext.nickname
             self.channel = channel
             self.userInfo = clientContext.userInfo
-            
             await self.registerNeedletailSession(regPacket)
         } catch {
             await self.shutdownClient()

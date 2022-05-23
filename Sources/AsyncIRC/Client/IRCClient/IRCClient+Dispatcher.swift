@@ -63,9 +63,10 @@ extension IRCClient: IRCDispatcher {
 //            await clientDelegate?.client(self, user: user, left: channels, with: leaveMessage)
         case .LIST(let channels, let target):
             try await doList(channels, target)
+        case .otherCommand("NEWDEVICE", let user):
+            try await delegate?.doNewDevice(user)
         case .otherCommand("READKEYBNDL", let keyBundle):
             try await delegate?.doReadKeyBundle(keyBundle)
-//            try await clientDelegate?.client(self, keyBundle: keyBundle)
         case .numeric(.replyMotDStart, let args):
             messageOfTheDay = (args.last ?? "") + "\n"
         case .numeric(.replyMotD, let args):

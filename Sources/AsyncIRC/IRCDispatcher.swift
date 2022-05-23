@@ -63,6 +63,7 @@ public protocol IRCDispatcher: AnyObject {
     func doReadKeyBundle(_ keyBundle: [String]) async throws
     func doRegisterAPN(_ token: [String]) async throws
     func doPassword(_ password: [String]) async throws
+    func doNewDevice(_ info: [String]) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -157,6 +158,9 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doPassword(_ password: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doNewDevice(_ info: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

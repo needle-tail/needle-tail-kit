@@ -14,7 +14,7 @@
 
 extension String {
   // You wonder why, admit it! ;-)
-  func ircLowercased() -> String {
+public  func ircLowercased() -> String {
     return String(lowercased().map { c in
       switch c {
         case "[":  return "{"
