@@ -64,11 +64,15 @@ extension IRCClient {
         }
     }
     
+//TODO: LINUX STUFF
     @NeedleTailActor
     func alertUI() async {
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
         notifications.received.send(.registryRequest)
         while proceedNewDeivce == false {}
+#endif
     }
+
     
     @NeedleTailActor
     public func respond(to alert: AlertType) async {
