@@ -65,7 +65,7 @@ extension IRCClient {
             message: nil,
             readReceipt: .none
         )
-        
+        print("Sending deviceConfig____")
         //3. Send our deviceConfig to the registered online master device which should be the recipient we generate from the nick since the nick is the same account as the device we are trying to register and should be the only online device. If we have another device online we will have to filter it by master device on the server.
         let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         await sendIRCMessage(message, to: recipient, tags: nil)

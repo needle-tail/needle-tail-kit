@@ -13,6 +13,9 @@ import MessagingHelpers
 import AsyncIRC
 import SwiftUI
 import NeedleTailHelpers
+#if os(macOS)
+import Cocoa
+#endif
 
 public final class NeedleTail {
     
@@ -51,14 +54,12 @@ public final class NeedleTail {
             username: Username(username),
             appPassword: clientInfo.password,
             usingTransport: { request async throws -> IRCMessenger in
-                
                 if self.irc == nil {
                     self.irc = try await IRCMessenger.authenticate(
                         transportRequest: request,
                         clientInfo: clientInfo
                     )
                 }
-                
                 guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
                 try await ircMessenger.registerBundle(type: type, clientInfo: clientInfo)
                 return ircMessenger
@@ -80,12 +81,10 @@ public final class NeedleTail {
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
             usingTransport: { request -> IRCMessenger in
-                
                 self.irc = try await IRCMessenger.authenticate(
                     transportRequest: request,
                     clientInfo: clientInfo
                 )
-                
                 guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
                 return ircMessenger
             },
@@ -95,8 +94,12 @@ public final class NeedleTail {
         )
         
         //Start Service
+#if os(macOS)
+        NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
+#endif
         let irc = cypher?.transport as? IRCMessenger
         try await irc?.startService()
+        self.delegate = irc?.services?.client
         return self.cypher
     }
     
@@ -140,6 +143,25 @@ public final class NeedleTail {
         )
         messageType = .message
     }
+#if os(macOS)
+    @objc private func showRegistryRequestAlert() {
+        let alert = NSAlert()
+        alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", switchRun: true)
+        let run = alert.runModal()
+        switch run {
+        case .alertFirstButtonReturn:
+            logger.info("Cancel")
+        case .alertSecondButtonReturn:
+            logger.info("Added device")
+            Task {
+            await acceptRegistryRequest()
+            }
+        default:
+            break
+        }
+        
+    }
+#endif
     
     public func acceptRegistryRequest() async {
         await delegate?.respond(to: .registryRequestAccepted)
@@ -241,9 +263,9 @@ extension NeedleTail: ObservableObject {
         public var body: some View {
             
             Button(buttonTitle, action: {
-                #if os(iOS)
+#if os(iOS)
                 UIApplication.shared.endEditing()
-                #endif
+#endif
                 showProgress = true
                 Task {
                     if exists {

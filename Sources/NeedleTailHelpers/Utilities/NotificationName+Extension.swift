@@ -10,4 +10,5 @@ import Foundation
 
 extension Notification.Name {
     public static let newChat = Notification.Name("newChat")
+    public static let registryRequest = Notification.Name("registryRequest")
 }

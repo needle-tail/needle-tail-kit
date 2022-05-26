@@ -31,19 +31,24 @@ extension IRCClient {
     }
     
     //Sent to ourself in order to create the UserDeviceConfig, We then send it to the master device in order to add the device to the Masters UserConfig. We then can register into that User.
+    //TODO: Not being called
     @NeedleTailActor
     public func doNewDevice(_ info: [String]) async throws {
+        print("INFO_COUNT___", info.count)
         if info.count == 1 {
             //This will only be called as a response from the server telling ourself to start the new device process
             guard let config = try await cypher?.createDeviceRegisteryRequest() else { return }
+            print("CREATE DEVICE CONFIG", config)
             let data = try BSONEncoder().encode(config).makeData().base64EncodedString()
             try await addNewDevice(data, nick: info[0])
         } else if info.count == 3 {
+            print("We received the request from our other device___")
             //5. We received the request from our other device, lets approve of the request and finish adding the device.
             //This will be fired by the recipient AKA the Master device
             //First alert the master device that it has another device that wants to be added.
             await alertUI()
             if alertType == .registryRequestRejected {
+                print("REJECTED REQUEST")
                 // We need to tell the server who was rejected
                 guard let data = Data(base64Encoded: info[2]) else { return }
                 let buffer = ByteBuffer(data: data)
@@ -59,6 +64,7 @@ extension IRCClient {
             // When we add an extra device the CTK will publish the config for us on the server.
             try await cypher?.addDevice(config)
             //6. We then need to let the new device know it can finish logging in a new session the the same needletailnick
+            print("ATTEMPTING NEW DEVICE REGISTRATION___")
             await registerNeedletailSession(registrationPacket)
             
         }
@@ -68,7 +74,9 @@ extension IRCClient {
     @NeedleTailActor
     func alertUI() async {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+        print("Alerting UI")
         notifications.received.send(.registryRequest)
+        NotificationCenter.default.post(name: .registryRequest, object: nil)
         while proceedNewDeivce == false {}
 #endif
     }
