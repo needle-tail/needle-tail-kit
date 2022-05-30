@@ -93,7 +93,7 @@ extension IRCClient {
         try await cypher?.transport.delegate?.receiveServerEvent(.requestDeviceRegistery(config))
     }
     
-//TODO: LINUX STUFF
+    //TODO: LINUX STUFF
     @NeedleTailActor
     func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
@@ -101,10 +101,10 @@ extension IRCClient {
         notifications.received.send(.registryRequest)
         NotificationCenter.default.post(name: .registryRequest, object: nil)
         while proceedNewDeivce == false {}
-        return alertType
 #endif
+        return alertType
     }
-
+    
     
     @NeedleTailActor
     public func respond(to alert: AlertType) async {
@@ -165,7 +165,7 @@ extension IRCClient {
                                 deviceId: deviceId
                             )
                         )
-  
+                        
                         let data = try await createAcknowledgment(.messageSent(packet.id))
                         _ = await sendPrivateMessage(data, to: recipient, tags: nil)
                         
