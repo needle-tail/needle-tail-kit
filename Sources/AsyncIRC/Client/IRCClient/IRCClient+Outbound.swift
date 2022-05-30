@@ -26,7 +26,7 @@ extension IRCClient {
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailActor
-    func registerNeedletailSession(_ regPacket: String?) async {
+    public func registerNeedletailSession(_ regPacket: String?) async {
         guard case .registering(_, let nick, let user) = transportState.current else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
@@ -44,28 +44,44 @@ extension IRCClient {
         await createNeedleTailMessage(.USER(user))
     }
 
-    public func addNewDevice(_
-                             deviceConfig: String,
-                             nick: String
-    ) async throws {
-        //1. Get Recipient Which should be ourself that we sent from the server
-        guard let data = Data(base64Encoded: nick) else { return }
-        let buffer = ByteBuffer(data: data)
-        let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+    // 1. We want to tell the master device that we want to register
+    @NeedleTailActor
+    public func sendDeviceRegistryRequest(_ nick: NeedleTailNick) async throws {
         let recipient = IRCMessageRecipient.nickname(nick)
-        
-        //2. Create Packet with the deviceConfig we genereated for ourself
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .newDevice(deviceConfig),
+            type: .requestRegistry,
             createdAt: Date(),
             sender: nil,
             recipient: nil,
             message: nil,
             readReceipt: .none
         )
-        print("Sending deviceConfig____")
+        let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        await sendIRCMessage(message, to: recipient, tags: nil)
+    }
+    
+    // 4.
+    @NeedleTailActor
+    public func sendFinishRegistryMessage(toMaster
+                                          deviceConfig: UserDeviceConfig,
+                                          nick: NeedleTailNick
+    ) async throws {
+        //1. Get Recipient Which should be ourself that we sent from the server
+        let recipient = IRCMessageRecipient.nickname(nick)
+        let config = try BSONEncoder().encode(deviceConfig).makeData().base64EncodedString()
+        //2. Create Packet with the deviceConfig we genereated for ourself
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .newDevice(config),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
         //3. Send our deviceConfig to the registered online master device which should be the recipient we generate from the nick since the nick is the same account as the device we are trying to register and should be the only online device. If we have another device online we will have to filter it by master device on the server.
         let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         await sendIRCMessage(message, to: recipient, tags: nil)
@@ -85,7 +101,6 @@ extension IRCClient {
                 }
                 /// We just want to run a loop until the userConfig contains a value or stop on the timeout
             } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
-            assert(userConfig != nil, "User Config is nil")
             return userConfig
         }
     

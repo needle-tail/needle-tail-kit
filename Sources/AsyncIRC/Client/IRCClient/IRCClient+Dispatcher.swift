@@ -63,8 +63,12 @@ extension IRCClient: IRCDispatcher {
 //            await clientDelegate?.client(self, user: user, left: channels, with: leaveMessage)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-        case .otherCommand("NEWDEVICE", let user):
-            try await delegate?.doNewDevice(user)
+        case .otherCommand("REGISTRYREQUEST", let request):
+            try await receivedRegistryRequest(fromChild: request)
+        case .otherCommand("REGISTRYRESPONSE", let response):
+            try await receivedRegistryResponse(fromMaster: response)
+        case .otherCommand("NEWDEVICE", let config):
+            try await finishRegistryRequest(config)
         case .otherCommand("READKEYBNDL", let keyBundle):
             try await delegate?.doReadKeyBundle(keyBundle)
         case .numeric(.replyMotDStart, let args):

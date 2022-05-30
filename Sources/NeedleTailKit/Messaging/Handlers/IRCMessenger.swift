@@ -31,7 +31,7 @@ public class IRCMessenger: CypherServerTransportClient {
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .im
     private let deviceId: DeviceId
-    private(set) var signer: TransportCreationRequest
+    public private(set) var signer: TransportCreationRequest
     private let username: Username
     private let appleToken: String?
     public var registrationType: RegistrationType?
@@ -44,9 +44,8 @@ public class IRCMessenger: CypherServerTransportClient {
     var logger: Logger
     var messageType = MessageType.message
     var readRecipect: ReadReceiptPacket?
-    
-    //Entry wrapper variables
     var ircMessenger: IRCMessenger?
+    
     
     public init(
         username: Username,
@@ -148,11 +147,10 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let services = services else { throw NeedleTailError.nilService }
         let date = RunLoop.timeInterval(10)
         var canRun = false
-        print("USERNAME", username)
         var userConfig: UserConfig? = nil
         
-        if !waitingToReadBundle {
-            services.client?.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
+//        if !waitingToReadBundle {
+//            services.client?.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
                 canRun = true
                 if services.client?.channel != nil {
@@ -160,22 +158,22 @@ public class IRCMessenger: CypherServerTransportClient {
                     canRun = false
                 }
             } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
-            services.client?.acknowledgment = Acknowledgment.AckType.none
-        } else {
-            repeat {
-                switch services.client?.acknowledgment {
-                case .registered(let registered):
-                    canRun = true
-                    if Bool(registered) != nil {
-                        userConfig = await services.client?.readKeyBundle(packet)
-                        canRun = false
-                    }
-                    waitingToReadBundle = false
-                default:
-                    break
-                }
-            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
-        }
+//            services.client?.acknowledgment = Acknowledgment.AckType.none
+//        } else {
+//            repeat {
+//                switch services.client?.acknowledgment {
+//                case .registered(let registered):
+//                    canRun = true
+//                    if Bool(registered) != nil {
+//                        userConfig = await services.client?.readKeyBundle(packet)
+//                        canRun = false
+//                    }
+//                    waitingToReadBundle = false
+//                default:
+//                    break
+//                }
+//            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
+//        }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         services.client?.acknowledgment = .none
         print("USER_CONFIG", userConfig)
@@ -341,7 +339,38 @@ extension IRCMessenger {
     
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {}
     
-    public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {}
+    /// For our IRC Setup we need to react when we are trying to register a new device by doing the following.
+    /// 1. Send the new Device Config to the Server in order to notify the current Nick that we want to request registry.
+    /// 2. The other party(**Master Device**) will then need to respond to the request and send us the **newDeviceState**
+    /// 3. Loop until we get back a response from the server with the decision made by the master device whether or not that we accepted the registration request.
+    /// 4. If the decision was to accept the registration we can notify CTK that we received the approval we we can finsish setting up the local device
+    /// 5. When this method is complete then NTK should finish registering the new device into the IRC Session
+    public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
+        print("We are requesting a Device Registry with this configuration: ", config)
+        //Master nick
+        let keyBundle = await services?.client?.readKeyBundle("")
+        let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
+        let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
+        
+        try await services?.client?.sendDeviceRegistryRequest(nick)
+        let date = RunLoop.timeInterval(10)
+        var canRun = false
+        repeat {
+            canRun = true
+            if newDeviceState == .waiting {
+                canRun = false
+            }
+            /// We just want to run a loop until the newDeviceState isn't .waiting or stop on the timeout
+        } while await RunLoop.execute(date, canRun: canRun)
+        switch newDeviceState {
+        case .accepted:
+            try await services?.client?.sendFinishRegistryMessage(toMaster: config, nick: nick)
+        case .rejected:
+            return
+        case .waiting:
+            return
+        }
+    }
     
     public struct SetToken: Codable {
         let token: String

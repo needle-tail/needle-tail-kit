@@ -30,54 +30,78 @@ extension IRCClient {
         self.userConfig = config
     }
     
-    //Sent to ourself in order to create the UserDeviceConfig, We then send it to the master device in order to add the device to the Masters UserConfig. We then can register into that User.
-    //TODO: Not being called
+    // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
     @NeedleTailActor
-    public func doNewDevice(_ info: [String]) async throws {
-        print("INFO_COUNT___", info.count)
-        if info.count == 1 {
-            //This will only be called as a response from the server telling ourself to start the new device process
-            guard let config = try await cypher?.createDeviceRegisteryRequest() else { return }
-            print("CREATE DEVICE CONFIG", config)
-            let data = try BSONEncoder().encode(config).makeData().base64EncodedString()
-            try await addNewDevice(data, nick: info[0])
-        } else if info.count == 3 {
-            print("We received the request from our other device___")
-            //5. We received the request from our other device, lets approve of the request and finish adding the device.
-            //This will be fired by the recipient AKA the Master device
-            //First alert the master device that it has another device that wants to be added.
-            await alertUI()
-            if alertType == .registryRequestRejected {
-                print("REJECTED REQUEST")
-                // We need to tell the server who was rejected
-                guard let data = Data(base64Encoded: info[2]) else { return }
-                let buffer = ByteBuffer(data: data)
-                let rejectedNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-                let message = try await createAcknowledgment(.registryRequestRejected(rejectedNick.name, rejectedNick.deviceId?.raw ?? ""))
-                guard let needletail = NeedleTailNick(self.cypher?.username.raw ?? "") else { return }
-                await sendPrivateMessage(message, to: .nickname(needletail), tags: nil)
-                return
-            }
-            guard let data = Data(base64Encoded: info[1]) else { return }
-            let buffer = ByteBuffer(data: data)
-            let config = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-            // When we add an extra device the CTK will publish the config for us on the server.
-            try await cypher?.addDevice(config)
-            //6. We then need to let the new device know it can finish logging in a new session the the same needletailnick
-            print("ATTEMPTING NEW DEVICE REGISTRATION___")
-            await registerNeedletailSession(registrationPacket)
+    public func receivedRegistryRequest(fromChild info: [String]) async throws {
+        guard let data = Data(base64Encoded: info[1]) else { return }
+        let buffer = ByteBuffer(data: data)
+        let childNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+        var message: Data?
+        switch await alertUI() {
+        case .registryRequest:
+            break
+        case .registryRequestAccepted:
             
+            let accepted = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
+            let packet = MessagePacket(
+                id: UUID().uuidString,
+                pushType: .none,
+                type: .acceptedRegistry(accepted),
+                createdAt: Date(),
+                sender: nil,
+                recipient: nil,
+                message: nil,
+                readReceipt: .none
+            )
+            
+            message = try BSONEncoder().encode(packet).makeData()
+        case .registryRequestRejected:
+            
+            let rejected = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
+            let packet = MessagePacket(
+                id: UUID().uuidString,
+                pushType: .none,
+                type: .rejectedRegistry(rejected),
+                createdAt: Date(),
+                sender: nil,
+                recipient: nil,
+                message: nil,
+                readReceipt: .none
+            )
+            
+            message = try BSONEncoder().encode(packet).makeData()
         }
+        guard let message = message else { return }
+        await sendPrivateMessage(message, to: .nickname(childNick), tags: nil)
+    }
+    
+    // 3. The Child Device will call this.
+    @NeedleTailActor
+    public func receivedRegistryResponse(fromMaster info: [String]) async throws {
+        guard let data = Data(base64Encoded: info[2]) else { return }
+        let buffer = ByteBuffer(data: data)
+        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
+        newDeviceState = registryStatus
+    }
+    
+    // 5. The Master Device will call this to finish the registry.
+    @NeedleTailActor
+    public func finishRegistryRequest(_ info: [String]) async throws {
+        guard let data = Data(base64Encoded: info[2]) else { return }
+        let buffer = ByteBuffer(data: data)
+        let config = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
+        try await cypher?.transport.delegate?.receiveServerEvent(.requestDeviceRegistery(config))
     }
     
 //TODO: LINUX STUFF
     @NeedleTailActor
-    func alertUI() async {
+    func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
         print("Alerting UI")
         notifications.received.send(.registryRequest)
         NotificationCenter.default.post(name: .registryRequest, object: nil)
         while proceedNewDeivce == false {}
+        return alertType
 #endif
     }
 
@@ -88,9 +112,11 @@ extension IRCClient {
         case .registryRequestAccepted:
             proceedNewDeivce = true
             alertType = .registryRequestAccepted
+            newDeviceState = .accepted
         case .registryRequestRejected:
             proceedNewDeivce = true
             alertType = .registryRequestRejected
+            newDeviceState = .rejected
         default:
             break
         }
@@ -172,6 +198,12 @@ extension IRCClient {
                             break
                         }
                     case .blockUnblock:
+                        break
+                    case .acceptedRegistry:
+                        break
+                    case .requestRegistry:
+                        break
+                    case .rejectedRegistry:
                         break
                     }
                 } catch {

@@ -10,7 +10,7 @@ import Cocoa
 
 
 extension NSAlert {
-    func configuredAlert(title: String, text: String, singleButton: Bool = false, switchRun: Bool = false)  {
+    public func configuredAlert(title: String, text: String, singleButton: Bool = false, switchRun: Bool = false)  {
         self.messageText = title
         self.informativeText = text
         self.alertStyle = NSAlert.Style.warning
@@ -23,7 +23,7 @@ extension NSAlert {
         }
     }
     
-    func configuredCustomButtonAlert(title: String, text: String, firstButtonTitle: String, singleButton: Bool = false, secondButtonTitle: String, thirdButtonTitle: String, switchRun: Bool = false)  {
+   public func configuredCustomButtonAlert(title: String, text: String, firstButtonTitle: String, singleButton: Bool = false, secondButtonTitle: String, thirdButtonTitle: String, switchRun: Bool = false)  {
         self.messageText = title
         self.informativeText = text
         self.alertStyle = NSAlert.Style.warning

@@ -18,7 +18,6 @@ extension IRCClient {
     internal func createChannel(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
-        
         return try await createBootstrap()
             .connect(host: host, port: port).get()
     }

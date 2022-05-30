@@ -53,10 +53,10 @@ public final class NeedleTail {
         cypher = try await CypherMessenger.registerMessenger(
             username: Username(username),
             appPassword: clientInfo.password,
-            usingTransport: { request async throws -> IRCMessenger in
+            usingTransport: { transportRequest async throws -> IRCMessenger in
                 if self.irc == nil {
                     self.irc = try await IRCMessenger.authenticate(
-                        transportRequest: request,
+                        transportRequest: transportRequest,
                         clientInfo: clientInfo
                     )
                 }
@@ -80,9 +80,9 @@ public final class NeedleTail {
     ) async throws -> CypherMessenger? {
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
-            usingTransport: { request -> IRCMessenger in
+            usingTransport: { transportRequest -> IRCMessenger in
                 self.irc = try await IRCMessenger.authenticate(
-                    transportRequest: request,
+                    transportRequest: transportRequest,
                     clientInfo: clientInfo
                 )
                 guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
@@ -92,7 +92,6 @@ public final class NeedleTail {
             database: store,
             eventHandler: eventHandler
         )
-        
         //Start Service
 #if os(macOS)
         NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
@@ -105,6 +104,7 @@ public final class NeedleTail {
     
     public func resumeService() async throws {
         try await irc?.startService()
+
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
@@ -146,13 +146,14 @@ public final class NeedleTail {
 #if os(macOS)
     @objc private func showRegistryRequestAlert() {
         let alert = NSAlert()
-        alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", switchRun: true)
+        alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)
         let run = alert.runModal()
         switch run {
         case .alertFirstButtonReturn:
-            logger.info("Cancel")
+//            logger.info("Cancel")
+            break
         case .alertSecondButtonReturn:
-            logger.info("Added device")
+//            logger.info("Added device")
             Task {
             await acceptRegistryRequest()
             }

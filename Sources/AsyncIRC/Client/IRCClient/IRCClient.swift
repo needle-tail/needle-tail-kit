@@ -36,7 +36,7 @@ public final class IRCClient: AsyncIRCDelegate {
     #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
     var notifications = AsyncIRCNotifications()
     #endif
-    var registrationPacket = ""
+    public var registrationPacket = ""
     weak var delegate: IRCDispatcher?
     weak var transportDelegate: CypherTransportClientDelegate?
     

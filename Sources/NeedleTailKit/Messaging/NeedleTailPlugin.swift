@@ -50,11 +50,11 @@ public class NeedleTailPlugin: Plugin {
 //        }
 //    }
 //
-//    public func onDeviceRegistery(_ deviceId: DeviceId, messenger: CypherMessenger) async throws {
-//        DispatchQueue.main.async {
+    public func onDeviceRegistery(_ deviceId: DeviceId, messenger: CypherMessenger) async throws {
+        DispatchQueue.main.async {
 //            emitter.userDevicesChanged.send()
-//        }
-//    }
+        }
+    }
 //
 //    public func onMessageChange(_ message: AnyChatMessage) {
 //        DispatchQueue.main.async {

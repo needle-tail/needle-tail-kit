@@ -13,6 +13,7 @@ public struct Acknowledgment: Codable {
     public enum AckType: Codable, Equatable {
         case registered(String)
         case registryRequestRejected(String, String)
+        case registryRequestAccepted(String, String)
         case newDevice(String)
         case readKeyBundle(String)
         case apn(String)
