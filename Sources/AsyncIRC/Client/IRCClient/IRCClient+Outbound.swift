@@ -58,6 +58,7 @@ extension IRCClient {
             message: nil,
             readReceipt: .none
         )
+        print("REC__", recipient)
         let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         await sendIRCMessage(message, to: recipient, tags: nil)
     }
