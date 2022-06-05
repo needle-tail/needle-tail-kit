@@ -41,10 +41,10 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
         self.user = nil
         nickString = String(s[s.startIndex..<atIdx])
       }
-      guard let nick = NeedleTailNick(nickString) else { return nil }
+      guard let nick = NeedleTailNick(deviceId: nil, name: nickString) else { return nil }
       self.nick = nick
     } else {
-      guard let nick = NeedleTailNick(s) else { return nil }
+      guard let nick = NeedleTailNick(deviceId: nil, name: s) else { return nil }
       self.nick = nick
       self.user = nil
       self.host = nil

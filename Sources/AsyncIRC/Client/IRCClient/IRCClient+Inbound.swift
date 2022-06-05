@@ -34,9 +34,11 @@ extension IRCClient {
     //TODO: We either need to multiplex this method flow or call it inside of doMessage so we can send it to the proper sender instead of ourself.
     @NeedleTailActor
     public func receivedRegistryRequest(fromChild info: [String]) async throws {
-        guard let data = Data(base64Encoded: info[0]) else { return }
+        print("INFO___", info)
+        guard let data = Data(base64Encoded: info[1]) else { return }
         let buffer = ByteBuffer(data: data)
         let childNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+        print("CHILDNICK___", childNick)
         var message: Data?
         switch await alertUI() {
         case .registryRequest:

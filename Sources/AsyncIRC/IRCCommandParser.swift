@@ -80,16 +80,12 @@ public extension IRCCommand {
                          server2: arguments.count > 1 ? arguments[1] : nil)
             
         case "NICK":
-            //TODO: Invalid Is throwing
-            print("NICK ARGS___", arguments)
             try expect(argc: 1)
             let splitNick = arguments[0].components(separatedBy: ":")
             let deviceId = DeviceId(splitNick[1])
-//            guard
-                let nick = NeedleTailNick(deviceId: deviceId, name: splitNick[0])
-//            else {
-//                throw Error.invalidNickName(arguments[0])
-//            }
+            guard let nick = NeedleTailNick(deviceId: deviceId, name: splitNick[0]) else {
+                throw Error.invalidNickName(arguments[0])
+            }
             self = .NICK(nick)
             
         case "MODE":
@@ -204,7 +200,7 @@ public extension IRCCommand {
             var nicks = [NeedleTailNick]()
             for arg in arguments {
                 nicks += try arg.split(separator: " ").map(String.init).map {
-                    guard let nick = NeedleTailNick($0) else {
+                    guard let nick = NeedleTailNick(deviceId: nil, name: $0) else {
                         throw Error.invalidNickName($0)
                     }
                     return nick

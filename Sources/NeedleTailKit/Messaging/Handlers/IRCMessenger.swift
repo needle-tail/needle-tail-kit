@@ -119,7 +119,7 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
-        let recipient = try await recipient(name: "\(username.raw)")
+        let recipient = try await recipient(deviceId: self.deviceId, name: "\(username.raw)")
 
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -185,7 +185,7 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
-        let recipient = try await recipient(name: "\(username.raw)")
+        let recipient = try await recipient(deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -353,8 +353,11 @@ extension IRCMessenger {
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         let keyBundle = await services?.client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
-        let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
-
+//        let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
+        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
+        guard let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: lowerCasedName) else {
+            return
+        }
         try await services?.client?.sendDeviceRegistryRequest(nick)
         let date = RunLoop.timeInterval(10)
         var canRun = false
@@ -416,7 +419,7 @@ extension IRCMessenger {
         let data = try BSONEncoder().encode(packet).makeData()
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
-            let recipient = try await recipient(name: "\(ircUser)")
+            let recipient = try await recipient(deviceId: self.deviceId, name: "\(ircUser)")
             await services?.client?.sendPrivateMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")
@@ -427,14 +430,13 @@ extension IRCMessenger {
     }
     
     
-    public func recipient(name: String) async throws -> IRCMessageRecipient {
+    public func recipient(deviceId: DeviceId, name: String) async throws -> IRCMessageRecipient {
         switch type {
         case .channel:
             guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
             return .channel(name)
         case .im:
-            print(name)
-            guard let validatedName = NeedleTailNick(name) else { throw NeedleTailError.nilNickName }
+            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .nickname(validatedName)
         }
     }

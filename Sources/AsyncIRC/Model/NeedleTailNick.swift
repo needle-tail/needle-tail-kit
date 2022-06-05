@@ -22,19 +22,15 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     public var name: String
 
     
-    public init(
+    public init?(
         deviceId: DeviceId?,
-        name: String
+        name: String,
+        nameRules: NameRules = NameRules()
     ) {
         self.deviceId = deviceId
-        self.name = name
-    }
-    
-    public init?(_ name: String, nameRules: NameRules = NameRules()) {
         guard NeedleTailNick.validateName(name, nameRules: nameRules) == .isValidated else { return nil }
         self.name = name.ircLowercased()
     }
-    
     
     public func hash(into hasher: inout Hasher) {
         name.hash(into: &hasher)

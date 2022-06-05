@@ -137,9 +137,7 @@ extension IRCChannelHandler {
             
         case .PRIVMSG(let recipients, let message),
                 .NOTICE (let recipients, let message):
-            print("RECIPIENT__", recipients)
             buffer.writeCSVArgument(recipients.lazy.map { $0.stringValue })
-            print("RECIPIENT__MAPPED", recipients.lazy.map { $0.stringValue })
             buffer.writeLastArgument(message)
 
         case .CAP(let subcmd, let capIDs):
