@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CypherProtocol
+
 public extension IRCCommand {
     
     /**
@@ -81,9 +83,13 @@ public extension IRCCommand {
             //TODO: Invalid Is throwing
             print("NICK ARGS___", arguments)
             try expect(argc: 1)
-            guard let nick = NeedleTailNick(arguments[0]) else {
-                throw Error.invalidNickName(arguments[0])
-            }
+            let splitNick = arguments[0].components(separatedBy: ":")
+            let deviceId = DeviceId(splitNick[1])
+//            guard
+                let nick = NeedleTailNick(deviceId: deviceId, name: splitNick[0])
+//            else {
+//                throw Error.invalidNickName(arguments[0])
+//            }
             self = .NICK(nick)
             
         case "MODE":
