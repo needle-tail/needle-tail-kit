@@ -35,6 +35,7 @@ extension IRCClient {
             await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
+            print("Registering", nick)
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
             await createNeedleTailMessage(.NICK(nick), tags: [tag])
         } else {
@@ -58,7 +59,6 @@ extension IRCClient {
             message: nil,
             readReceipt: .none
         )
-print("SDR__", recipient)
         let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         await sendIRCMessage(message, to: recipient, tags: nil)
     }

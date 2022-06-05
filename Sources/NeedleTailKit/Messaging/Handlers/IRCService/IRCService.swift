@@ -52,7 +52,7 @@ public final class IRCService {
                                          clientInfo: ClientContext.ServerClientInfo
     ) -> ClientContext? {
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-        guard let nick = NeedleTailNick(lowerCasedName) else { return nil }
+        let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName)
         return ClientContext(
             clientInfo: clientInfo,
             nickname: nick

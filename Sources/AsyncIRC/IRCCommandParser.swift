@@ -57,8 +57,6 @@ public extension IRCCommand {
         }
         
         func splitRecipientString(_ s: String) throws -> [ IRCMessageRecipient ] {
-            print("ARGS___", arguments)
-            print("STRING TO SPLIT", s)
           return try arguments[0].split(separator: ",").map {
               guard let n = IRCMessageRecipient(String($0)) else {
               throw Error.invalidMessageTarget(String($0))
@@ -80,6 +78,8 @@ public extension IRCCommand {
                          server2: arguments.count > 1 ? arguments[1] : nil)
             
         case "NICK":
+            //TODO: Invalid Is throwing
+            print("NICK ARGS___", arguments)
             try expect(argc: 1)
             guard let nick = NeedleTailNick(arguments[0]) else {
                 throw Error.invalidNickName(arguments[0])
