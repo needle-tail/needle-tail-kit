@@ -57,8 +57,10 @@ public extension IRCCommand {
         }
         
         func splitRecipientString(_ s: String) throws -> [ IRCMessageRecipient ] {
+            print("ARGS___", arguments)
+            print("STRING TO SPLIT", s)
           return try arguments[0].split(separator: ",").map {
-            guard let n = IRCMessageRecipient(String($0)) else {
+              guard let n = IRCMessageRecipient(String($0)) else {
               throw Error.invalidMessageTarget(String($0))
             }
             return n
@@ -206,6 +208,7 @@ public extension IRCCommand {
             
         case "PRIVMSG":
             try expect(argc: 2)
+            print("RECIPIENT_STRING___", arguments[0])
             let targets = try splitRecipientString(arguments[0])
             self = .PRIVMSG(targets, arguments[1])
             

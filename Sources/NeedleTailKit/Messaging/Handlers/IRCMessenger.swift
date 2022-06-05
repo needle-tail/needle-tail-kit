@@ -354,7 +354,7 @@ extension IRCMessenger {
         let keyBundle = await services?.client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
         let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
-        
+
         try await services?.client?.sendDeviceRegistryRequest(nick)
         let date = RunLoop.timeInterval(10)
         var canRun = false
