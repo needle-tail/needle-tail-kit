@@ -11,7 +11,7 @@ import CypherMessaging
 public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
     
     public var description: String {
-        return name
+        return "NeedleTailNick(deviceId: \(String(describing: deviceId)), name: \(name))"
     }
     public var stringValue: String {
         return name

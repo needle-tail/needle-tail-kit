@@ -348,7 +348,10 @@ extension IRCMessenger {
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         print("We are requesting a Device Registry with this configuration: ", config)
         //Master nick
-        let keyBundle = await services?.client?.readKeyBundle("")
+        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
+        let readBundleObject = readBundleRequest(jwt, recipient: username)
+        let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
+        let keyBundle = await services?.client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
         let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
         

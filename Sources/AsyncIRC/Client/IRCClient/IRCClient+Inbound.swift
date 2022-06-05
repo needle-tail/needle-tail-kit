@@ -31,9 +31,10 @@ extension IRCClient {
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
+    //TODO: We either need to multiplex this method flow or call it inside of doMessage so we can send it to the proper sender instead of ourself.
     @NeedleTailActor
     public func receivedRegistryRequest(fromChild info: [String]) async throws {
-        guard let data = Data(base64Encoded: info[1]) else { return }
+        guard let data = Data(base64Encoded: info[0]) else { return }
         let buffer = ByteBuffer(data: data)
         let childNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
         var message: Data?
@@ -97,6 +98,7 @@ extension IRCClient {
     @NeedleTailActor
     func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+    //TODO: We are alerting self not MasterDevice
         print("Alerting UI")
         notifications.received.send(.registryRequest)
         NotificationCenter.default.post(name: .registryRequest, object: nil)

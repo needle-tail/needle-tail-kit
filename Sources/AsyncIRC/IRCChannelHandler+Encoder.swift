@@ -139,7 +139,7 @@ extension IRCChannelHandler {
                 .NOTICE (let recipients, let message):
             buffer.writeCSVArgument(recipients.lazy.map { $0.stringValue })
             buffer.writeLastArgument(message)
-            
+
         case .CAP(let subcmd, let capIDs):
             buffer.writeInteger(cSpace)
             buffer.writeString(subcmd.commandAsString)
