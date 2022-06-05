@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CypherProtocol
+
 public enum IRCMessageRecipient: Codable, Hashable {
   
   case channel (IRCChannelName)
@@ -44,11 +46,16 @@ public enum IRCMessageRecipient: Codable, Hashable {
 public extension IRCMessageRecipient {
   
   init?(_ s: String) {
+      var nick: NeedleTailNick?
+      if s.contains(":") {
+          let split = s.components(separatedBy: ":")
+          nick = NeedleTailNick(deviceId: DeviceId(split[1]), name: split[0])
+      }
     if s == "*" {
         self = .everything
     } else if let channel = IRCChannelName(s) {
         self = .channel(channel)
-    } else if let needletail = NeedleTailNick(s) {
+    } else if let needletail = nick {
         self = .nickname(needletail)
     } else {
         return nil

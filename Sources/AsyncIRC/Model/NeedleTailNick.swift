@@ -14,7 +14,7 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
         return "NeedleTailNick(deviceId: \(String(describing: deviceId)), name: \(name))"
     }
     public var stringValue: String {
-        print("ENCODER__", name)
+        print("ENCODER__", stringValue)
         guard let deviceId = deviceId else { return "" }
         return "\(name):\(deviceId)"
     }

@@ -208,7 +208,6 @@ public extension IRCCommand {
             
         case "PRIVMSG":
             try expect(argc: 2)
-            print("RECIPIENT_STRING___", arguments[0])
             let targets = try splitRecipientString(arguments[0])
             self = .PRIVMSG(targets, arguments[1])
             
