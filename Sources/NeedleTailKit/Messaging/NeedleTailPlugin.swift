@@ -50,6 +50,10 @@ public class NeedleTailPlugin: Plugin {
 //        }
 //    }
 //
+    
+//    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
+//
+//    }
     public func onDeviceRegistery(_ deviceId: DeviceId, messenger: CypherMessenger) async throws {
         DispatchQueue.main.async {
 //            emitter.userDevicesChanged.send()

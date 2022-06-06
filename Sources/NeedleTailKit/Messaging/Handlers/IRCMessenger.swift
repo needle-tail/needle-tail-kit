@@ -380,6 +380,10 @@ extension IRCMessenger {
         }
     }
     
+    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
+        try await messenger.addDevice(config)
+    }
+    
     public struct SetToken: Codable {
         let token: String
     }
