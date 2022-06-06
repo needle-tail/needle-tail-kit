@@ -75,20 +75,10 @@ extension IRCClient {
         newDeviceState = deviceState
     }
     
-    // 5. The Master Device will call this to finish the registry.
-//    @NeedleTailActor
-//    public func finishRegistryRequest(_ info: [String]) async throws {
-//        guard let data = Data(base64Encoded: info[2]) else { return }
-//        let buffer = ByteBuffer(data: data)
-//        let config = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-//        try await cypher?.transport.delegate?.receiveServerEvent(.requestDeviceRegistery(config))
-//    }
-    
     //TODO: LINUX STUFF
     @NeedleTailActor
     func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-    //TODO: We are alerting self not MasterDevice
         print("Alerting UI")
         notifications.received.send(.registryRequest)
         NotificationCenter.default.post(name: .registryRequest, object: nil)

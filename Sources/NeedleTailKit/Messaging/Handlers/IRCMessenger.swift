@@ -176,7 +176,6 @@ public class IRCMessenger: CypherServerTransportClient {
 //        }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         services.client?.acknowledgment = .none
-        print("USER_CONFIG", userConfig)
         return userConfig
     }
     

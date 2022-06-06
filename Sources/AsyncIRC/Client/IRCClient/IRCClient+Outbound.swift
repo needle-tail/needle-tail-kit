@@ -35,7 +35,6 @@ extension IRCClient {
             await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
-            print("Registering", nick)
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
             await createNeedleTailMessage(.NICK(nick), tags: [tag])
         } else {
@@ -47,8 +46,8 @@ extension IRCClient {
 
     // 1. We want to tell the master device that we want to register
     @NeedleTailActor
-    public func sendDeviceRegistryRequest(_ masternNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
-        let recipient = IRCMessageRecipient.nickname(masternNick)
+    public func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
+        let recipient = IRCMessageRecipient.nickname(masterNick)
         let child = try BSONEncoder().encode(childNick).makeData().base64EncodedString()
         let packet = MessagePacket(
             id: UUID().uuidString,
