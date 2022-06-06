@@ -19,8 +19,9 @@ public enum MessageType: Codable {
     case blockUnblock
     case beFriend
     case newDevice(String)
-    case requestRegistry
+    case requestRegistry(String)
     case acceptedRegistry(String)
+    case temporarilyRegisterSession
     case rejectedRegistry(String)
 }
 

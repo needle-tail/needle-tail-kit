@@ -47,12 +47,13 @@ extension IRCClient {
 
     // 1. We want to tell the master device that we want to register
     @NeedleTailActor
-    public func sendDeviceRegistryRequest(_ nick: NeedleTailNick) async throws {
-        let recipient = IRCMessageRecipient.nickname(nick)
+    public func sendDeviceRegistryRequest(_ masternNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
+        let recipient = IRCMessageRecipient.nickname(masternNick)
+        let child = try BSONEncoder().encode(childNick).makeData().base64EncodedString()
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .requestRegistry,
+            type: .requestRegistry(child),
             createdAt: Date(),
             sender: nil,
             recipient: nil,

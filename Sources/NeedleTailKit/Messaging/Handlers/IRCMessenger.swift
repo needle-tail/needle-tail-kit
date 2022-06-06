@@ -353,12 +353,14 @@ extension IRCMessenger {
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         let keyBundle = await services?.client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
-//        let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: self.username.raw)
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-        guard let nick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: lowerCasedName) else {
+        guard let masterNick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: lowerCasedName) else {
             return
         }
-        try await services?.client?.sendDeviceRegistryRequest(nick)
+        guard let childNick = NeedleTailNick(deviceId: self.deviceId, name: lowerCasedName) else {
+            return
+        }
+        try await services?.client?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
         let date = RunLoop.timeInterval(10)
         var canRun = false
         repeat {
@@ -370,7 +372,7 @@ extension IRCMessenger {
         } while await RunLoop.execute(date, canRun: canRun)
         switch newDeviceState {
         case .accepted:
-            try await services?.client?.sendFinishRegistryMessage(toMaster: config, nick: nick)
+            try await services?.client?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
         case .rejected:
             return
         case .waiting:

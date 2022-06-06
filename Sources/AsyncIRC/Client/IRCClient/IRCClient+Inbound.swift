@@ -31,60 +31,48 @@ extension IRCClient {
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
-    //TODO: We either need to multiplex this method flow or call it inside of doMessage so we can send it to the proper sender instead of ourself.
     @NeedleTailActor
-    public func receivedRegistryRequest(fromChild info: [String]) async throws {
-        print("INFO___", info)
-        guard let data = Data(base64Encoded: info[1]) else { return }
-        let buffer = ByteBuffer(data: data)
-        let childNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-        print("CHILDNICK___", childNick)
-        var message: Data?
+    public func receivedRegistryRequest(fromChild nick: NeedleTailNick) async throws {
         switch await alertUI() {
         case .registryRequest:
             break
         case .registryRequestAccepted:
-            
-            let accepted = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
-            let packet = MessagePacket(
-                id: UUID().uuidString,
-                pushType: .none,
-                type: .acceptedRegistry(accepted),
-                createdAt: Date(),
-                sender: nil,
-                recipient: nil,
-                message: nil,
-                readReceipt: .none
-            )
-            
-            message = try BSONEncoder().encode(packet).makeData()
+            let encodedState = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
+            try await sendMessageTypePacket(.acceptedRegistry(encodedState), nick: nick)
         case .registryRequestRejected:
-            
-            let rejected = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
-            let packet = MessagePacket(
-                id: UUID().uuidString,
-                pushType: .none,
-                type: .rejectedRegistry(rejected),
-                createdAt: Date(),
-                sender: nil,
-                recipient: nil,
-                message: nil,
-                readReceipt: .none
-            )
-            
-            message = try BSONEncoder().encode(packet).makeData()
-        }
-        guard let message = message else { return }
-        await sendPrivateMessage(message, to: .nickname(childNick), tags: nil)
+            let encodedState = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
+            try await sendMessageTypePacket(.rejectedRegistry(encodedState), nick: nick)
     }
+    }
+    
+    @NeedleTailActor
+    private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
+    var message: Data?
+    let packet = MessagePacket(
+        id: UUID().uuidString,
+        pushType: .none,
+        type: type,
+        createdAt: Date(),
+        sender: nil,
+        recipient: nil,
+        message: nil,
+        readReceipt: .none
+    )
+        
+        message = try BSONEncoder().encode(packet).makeData()
+        guard let message = message else { return }
+        await sendPrivateMessage(message, to: .nickname(nick), tags: nil)
+}
+
     
     // 3. The Child Device will call this.
     @NeedleTailActor
-    public func receivedRegistryResponse(fromMaster info: [String]) async throws {
-        guard let data = Data(base64Encoded: info[2]) else { return }
-        let buffer = ByteBuffer(data: data)
-        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
-        newDeviceState = registryStatus
+    public func receivedRegistryResponse(fromMaster deviceState: NewDeviceState, nick: NeedleTailNick) async throws {
+        //Temporarily Register Nick to Session
+        if deviceState == .accepted {
+        try await sendMessageTypePacket(.temporarilyRegisterSession, nick: nick)
+        }
+        newDeviceState = deviceState
     }
     
     // 5. The Master Device will call this to finish the registry.
@@ -141,18 +129,13 @@ extension IRCClient {
                 //                c.addMessage(message, from: sender)
                 //              }
                 break
-            case .nickname:
+            case .nickname(let nick):
                 
                 do {
                     guard let data = Data(base64Encoded: message) else { return }
                     let buffer = ByteBuffer(data: data)
                     let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                     switch packet.type {
-                    case .newDevice(let config):
-                        guard let data = Data(base64Encoded: config) else { return }
-                        let buffer = ByteBuffer(data: data)
-                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-                        try await cypher?.addDevice(deviceConfig)
                     case .publishKeyBundle(_):
                         break
                     case .registerAPN(_):
@@ -203,12 +186,23 @@ extension IRCClient {
                         }
                     case .blockUnblock:
                         break
-                    case .acceptedRegistry:
+                    case .requestRegistry(let childNick):
+                        guard let data = Data(base64Encoded: childNick) else { return }
+                        let buffer = ByteBuffer(data: data)
+                        let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+                        try await receivedRegistryRequest(fromChild: nick)
+                    case .acceptedRegistry(let status), .rejectedRegistry(let status):
+                        guard let data = Data(base64Encoded: status) else { return }
+                        let buffer = ByteBuffer(data: data)
+                        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
+                        try await receivedRegistryResponse(fromMaster: registryStatus, nick: nick)
+                    case .temporarilyRegisterSession:
                         break
-                    case .requestRegistry:
-                        break
-                    case .rejectedRegistry:
-                        break
+                    case .newDevice(let config):
+                        guard let data = Data(base64Encoded: config) else { return }
+                        let buffer = ByteBuffer(data: data)
+                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
+                        try await cypher?.addDevice(deviceConfig)
                     }
                 } catch {
                     print(error)
