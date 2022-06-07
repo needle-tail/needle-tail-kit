@@ -6,7 +6,9 @@
 //
 
 import NIO
+import BSON
 import NeedleTailHelpers
+import Foundation
 
 extension IRCClient: IRCDispatcher {
     
@@ -18,7 +20,13 @@ extension IRCClient: IRCDispatcher {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
         case .PRIVMSG(let recipients, let payload):
-            guard let sender = IRCUserID(message.origin ?? "") else { throw NeedleTailError.nilUserId }
+            guard let data = Data(base64Encoded: message.origin ?? "") else { return }
+            let buffer = ByteBuffer(data: data)
+            let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+            guard let sender = IRCUserID(
+                senderNick.name,
+                deviceId: senderNick.deviceId
+            ) else { throw NeedleTailError.invalidUserId }
             let tags = message.tags
             try await delegate?.doMessage(sender: sender,
                                 recipients: recipients,

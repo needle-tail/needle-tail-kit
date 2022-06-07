@@ -11,6 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+import CypherMessaging
 
 public struct IRCUserID : Hashable, CustomStringConvertible {
   // TBD: is that really called the user-mask? Or more like "fullusername"?
@@ -25,7 +26,7 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
     self.host = host
   }
   
-  public init?(_ s: String) {
+    public init?(_ s: String, deviceId: DeviceId? = nil) {
     if let atIdx = s.firstIndex(of: "@") {
       let hs = s.index(after: atIdx)
       self.host = String(s[hs..<s.endIndex])
@@ -36,15 +37,14 @@ public struct IRCUserID : Hashable, CustomStringConvertible {
         self.user = String(s[hs..<atIdx])
         
         nickString = String(s[s.startIndex..<exIdx])
-      }
-      else {
+      } else {
         self.user = nil
         nickString = String(s[s.startIndex..<atIdx])
       }
-      guard let nick = NeedleTailNick(deviceId: nil, name: nickString) else { return nil }
+      guard let nick = NeedleTailNick(deviceId: deviceId, name: nickString) else { return nil }
       self.nick = nick
     } else {
-      guard let nick = NeedleTailNick(deviceId: nil, name: s) else { return nil }
+      guard let nick = NeedleTailNick(deviceId: deviceId, name: s) else { return nil }
       self.nick = nick
       self.user = nil
       self.host = nil

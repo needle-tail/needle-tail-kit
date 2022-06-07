@@ -54,7 +54,7 @@ extension IRCClient {
             pushType: .none,
             type: .requestRegistry(child),
             createdAt: Date(),
-            sender: nil,
+            sender: childNick.deviceId,
             recipient: nil,
             message: nil,
             readReceipt: .none
