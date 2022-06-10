@@ -40,7 +40,8 @@ public class IRCMessenger: CypherServerTransportClient {
     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
     var messenger: CypherMessenger?
-    var services: IRCService?
+//    var services: IRCService?
+    var client: NeedleTailTransportClient?
     var logger: Logger
     var messageType = MessageType.message
     var readRecipect: ReadReceiptPacket?
@@ -81,16 +82,23 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
-    
+    var channel: Channel?
     public func startService(_ appleToken: String = "") async throws {
-        if self.services == nil {
-            self.services = await IRCService(
-                signer: self.signer,
-                authenticated: self.authenticated,
-                transportState: self.transportState,
-                clientInfo: clientInfo,
-                delegate: self.delegate
-            )
+        if client == nil {
+        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
+        guard let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName) else { return }
+        let clientContext = ClientContext(
+            clientInfo: self.clientInfo,
+            nickname: nick
+        )
+        
+        self.client = await NeedleTailTransportClient(
+            cypher: self.messenger, 
+            transportState: self.transportState,
+            transportDelegate: self.delegate,
+            signer: self.signer,
+            authenticated: self.authenticated,
+            clientContext: clientContext)
         }
         let regObject = regRequest(with: appleToken)
         let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
@@ -133,7 +141,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await services?.client?.sendPrivateMessage(data, to: recipient, tags: nil)
+        _ = await client?.sendPrivateMessage(data, to: recipient, tags: nil)
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -144,38 +152,18 @@ public class IRCMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        guard let services = services else { throw NeedleTailError.nilService }
+        guard let client = self.client else { throw NeedleTailError.nilClient }
         let date = RunLoop.timeInterval(10)
         var canRun = false
         var userConfig: UserConfig? = nil
-        
-//        if !waitingToReadBundle {
-//            services.client?.acknowledgment = Acknowledgment.AckType.readKeyBundle("")
             repeat {
                 canRun = true
-                if services.client?.channel != nil {
-                    userConfig = await services.client?.readKeyBundle(packet)
+                if await client.channel != nil {
+                    userConfig = await client.readKeyBundle(packet)
                     canRun = false
                 }
-            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
-//            services.client?.acknowledgment = Acknowledgment.AckType.none
-//        } else {
-//            repeat {
-//                switch services.client?.acknowledgment {
-//                case .registered(let registered):
-//                    canRun = true
-//                    if Bool(registered) != nil {
-//                        userConfig = await services.client?.readKeyBundle(packet)
-//                        canRun = false
-//                    }
-//                    waitingToReadBundle = false
-//                default:
-//                    break
-//                }
-//            } while await RunLoop.execute(date, ack: services.client?.acknowledgment, canRun: canRun)
-//        }
+            } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
-        services.client?.acknowledgment = .none
         return userConfig
     }
     
@@ -198,7 +186,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await services?.client?.sendPrivateMessage(data, to: recipient, tags: nil)
+        _ = await client?.sendPrivateMessage(data, to: recipient, tags: nil)
         
     }
 
@@ -213,7 +201,7 @@ public class IRCMessenger: CypherServerTransportClient {
             .sign(
             Token(
                 device: UserDeviceId(user: self.username, device: self.deviceId),
-                exp: .init(value: Date().addingTimeInterval(3600))
+                exp: ExpirationClaim(value: Date().addingTimeInterval(3600))
             )
         )
     }
@@ -292,10 +280,10 @@ public class IRCMessenger: CypherServerTransportClient {
     // MARK: - services Lookup
     
     
-    internal func serviceWithID(_ id: String) -> IRCService? {
-        guard let uuid = UUID(uuidString: id) else { return nil }
-        return serviceWithID(uuid.uuidString)
-    }
+//    internal func serviceWithID(_ id: String) -> IRCService? {
+//        guard let uuid = UUID(uuidString: id) else { return nil }
+//        return serviceWithID(uuid.uuidString)
+//    }
     
     public func removeAccountWithID(_ id: UUID) {
         
@@ -306,7 +294,7 @@ public class IRCMessenger: CypherServerTransportClient {
         do {
             //TODO: State Error
             guard transportState.current == .offline || transportState.current == .suspended else { return }
-            try await services?.attemptConnection(regPacket)
+            try await client?.attemptConnection(regPacket)
             self.authenticated = .authenticated
         } catch {
             transportState.transition(to: .offline)
@@ -318,7 +306,8 @@ public class IRCMessenger: CypherServerTransportClient {
     @NeedleTailActor
     public func suspend(_ isSuspending: Bool = false) async {
         //TODO: State Error
-        await services?.attemptDisconnect(isSuspending)
+        await client?.attemptDisconnect(isSuspending)
+        client = nil
     }
 }
 
@@ -350,7 +339,7 @@ extension IRCMessenger {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        let keyBundle = await services?.client?.readKeyBundle(packet)
+        let keyBundle = await client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
         guard let masterNick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: lowerCasedName) else {
@@ -359,7 +348,7 @@ extension IRCMessenger {
         guard let childNick = NeedleTailNick(deviceId: self.deviceId, name: lowerCasedName) else {
             return
         }
-        try await services?.client?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
+        try await client?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
         let date = RunLoop.timeInterval(10)
         var canRun = false
         repeat {
@@ -371,10 +360,12 @@ extension IRCMessenger {
         } while await RunLoop.execute(date, canRun: canRun)
         switch newDeviceState {
         case .accepted:
-            try await services?.client?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
+            try await client?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
         case .rejected:
+            print("REJECTED__")
             return
         case .waiting:
+            print("WAITING__")
             return
         }
     }
@@ -425,7 +416,7 @@ extension IRCMessenger {
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(deviceId: self.deviceId, name: "\(ircUser)")
-            await services?.client?.sendPrivateMessage(data, to: recipient, tags: [
+            await client?.sendPrivateMessage(data, to: recipient, tags: [
                 IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
                 IRCTags(key: "recipientDeviceId", value: "\(deviceId)")
             ])

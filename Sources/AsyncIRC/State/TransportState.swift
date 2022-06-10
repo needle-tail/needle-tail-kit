@@ -9,6 +9,7 @@ import Foundation
 import NIOCore
 import Logging
 
+
 public struct TransportState: StateMachine {
 
     public let identifier: UUID

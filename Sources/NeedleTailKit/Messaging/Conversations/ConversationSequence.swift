@@ -8,6 +8,7 @@
 import CypherMessaging
 import MessagingHelpers
 import NeedleTailHelpers
+import AsyncIRC
 
 public struct ConversationSequence: AsyncSequence {
     public typealias Element = SequenceResult
@@ -72,7 +73,6 @@ public final class ConversationConsumer {
     
     public init() {}
     
-    @NeedleTailActor
     public func feedConsumer(_ conversation: [TargetConversation.Resolved]) async {
         await stack.enqueue(elements: conversation)
     }

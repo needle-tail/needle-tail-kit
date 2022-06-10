@@ -9,20 +9,20 @@ import Foundation
 import CypherMessaging
 import BSON
 import NeedleTailHelpers
+import AsyncIRC
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-extension IRCClient: AsyncIRCNotificationsDelegate {
+extension NeedleTailTransportClient: AsyncIRCNotificationsDelegate {
     
-    public func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
+     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
         await respondToTransportState()
     }
 }
 #endif
 
-extension IRCClient {
+extension NeedleTailTransportClient {
     
-    @NeedleTailActor
-    public func doReadKeyBundle(_ keyBundle: [String]) async throws {
+     func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
         let buffer = ByteBuffer(data: data)
@@ -31,8 +31,7 @@ extension IRCClient {
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
-    @NeedleTailActor
-    public func receivedRegistryRequest(fromChild nick: NeedleTailNick) async throws {
+     func receivedRegistryRequest(fromChild nick: NeedleTailNick) async throws {
         switch await alertUI() {
         case .registryRequest:
             break
@@ -45,7 +44,6 @@ extension IRCClient {
     }
     }
     
-    @NeedleTailActor
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
     var message: Data?
     let packet = MessagePacket(
@@ -66,8 +64,7 @@ extension IRCClient {
 
     
     // 3. The Child Device will call this.
-    @NeedleTailActor
-    public func receivedRegistryResponse(fromMaster deviceState: NewDeviceState, nick: NeedleTailNick) async throws {
+     func receivedRegistryResponse(fromMaster deviceState: NewDeviceState, nick: NeedleTailNick) async throws {
         //Temporarily Register Nick to Session
         if deviceState == .accepted {
         try await sendMessageTypePacket(.temporarilyRegisterSession, nick: nick)
@@ -76,7 +73,6 @@ extension IRCClient {
     }
     
     //TODO: LINUX STUFF
-    @NeedleTailActor
     func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
         print("Alerting UI")
@@ -88,8 +84,7 @@ extension IRCClient {
     }
     
     
-    @NeedleTailActor
-    public func respond(to alert: AlertType) async {
+     func respond(to alert: AlertType) async {
         switch alert {
         case .registryRequestAccepted:
             proceedNewDeivce = true
@@ -104,8 +99,7 @@ extension IRCClient {
         }
     }
     
-    @NeedleTailActor
-    public func doMessage(
+     func doMessage(
         sender: IRCUserID,
         recipients: [ IRCMessageRecipient ],
         message: String,tags: [IRCTags]?,
@@ -229,7 +223,7 @@ extension IRCClient {
         return try BSONEncoder().encode(packet).makeData()
     }
     
-    public func doNick(_ newNick: NeedleTailNick) async throws {
+     func doNick(_ newNick: NeedleTailNick) async throws {
         switch transportState.current {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
@@ -245,7 +239,7 @@ extension IRCClient {
     }
     
     
-    public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
+     func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
         //        guard let myNick = self.nick?.name, myNick == nick.name else {
         //            return
         //        }
@@ -260,17 +254,17 @@ extension IRCClient {
         }
     }
     
-    public func doJoin(_ channels: [IRCChannelName]) async throws {
+     func doJoin(_ channels: [IRCChannelName]) async throws {
         print("DO JOINING CHANNELS", channels)
         await respondToTransportState()
     }
     
-    public func doModeGet(nick: NeedleTailNick) async throws {
+     func doModeGet(nick: NeedleTailNick) async throws {
         print("DO MODE GET - NICK: \(nick)")
         await respondToTransportState()
     }
     
-    public func doPing(_ server: String, server2: String? = nil) async throws {
+     func doPing(_ server: String, server2: String? = nil) async throws {
         let msg: IRCMessage
         
         msg = IRCMessage(origin: origin, // probably wrong
@@ -278,7 +272,6 @@ extension IRCClient {
         await sendAndFlushMessage(msg, chatDoc: nil)
     }
     
-    @NeedleTailActor
     private func respondToTransportState() async  {
         switch transportState.current {
         case .connecting:

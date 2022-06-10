@@ -70,7 +70,7 @@ public final class NeedleTail {
         )
         return cypher
     }
-    
+
     @discardableResult
     public func spoolService(
         store: CypherMessengerStore,
@@ -98,7 +98,7 @@ public final class NeedleTail {
 #endif
         let irc = cypher?.transport as? IRCMessenger
         try await irc?.startService()
-        self.delegate = irc?.services?.client
+        self.delegate = irc?.client
         return self.cypher
     }
     

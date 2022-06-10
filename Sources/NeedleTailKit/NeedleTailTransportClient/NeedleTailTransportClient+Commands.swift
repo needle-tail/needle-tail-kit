@@ -1,5 +1,5 @@
 //
-//  IRCClient+Commands.swift
+//  NeedleTailTransportClient+Commands.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -8,7 +8,7 @@
 import NIO
 import NeedleTailHelpers
 
-extension IRCClient {
+extension NeedleTailTransportClient {
     
     
 //    internal func _closeOnUnexpectedError(_ error: Swift.Error? = nil) {
@@ -19,10 +19,9 @@ extension IRCClient {
 //        }
 //    }
     
-    @NeedleTailActor
     func shutdownClient() async {
         do {
-            _ = try await channel?.close(mode: .all)
+            _ = try await channel?.close(mode: .all).get()
             try await self.groupManager.shutdown()
             messageOfTheDay = ""
         } catch {

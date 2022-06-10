@@ -4,7 +4,7 @@ public enum NeedleTailError: Error {
     case nilUserConfig
     case nilToken
     case urlResponseNil
-    case nilService
+    case nilClient
     case nilChannelName
     case nilNickName
     case nilIRCMessenger

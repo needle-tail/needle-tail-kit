@@ -1,18 +1,16 @@
 import NIOCore
+import AsyncIRC
 
-
-
-
-public struct ClientContext {
+ public struct ClientContext {
     
-    public struct ServerClientInfo: Codable {
+     public struct ServerClientInfo: Codable {
         
-        public var hostname: String
-        public var port: Int
-        public var password: String
-        public var tls: Bool = true
+         var hostname: String
+         var port: Int
+         var password: String
+         var tls: Bool = true
         
-        public init(
+         public init(
             hostname: String = "localhost",
             port: Int = 6667,
             password: String = "",
@@ -25,11 +23,11 @@ public struct ClientContext {
         }
     }
     
-    public var userInfo: IRCUserInfo
-    public var nickname: NeedleTailNick
-    public var clientInfo: ServerClientInfo
+     var userInfo: IRCUserInfo
+     var nickname: NeedleTailNick
+     var clientInfo: ServerClientInfo
     
-    public init(
+     init(
         clientInfo: ServerClientInfo,
         nickname: NeedleTailNick
     ) {
@@ -40,19 +38,17 @@ public struct ClientContext {
             hostname: clientInfo.hostname,
             servername: clientInfo.hostname,
             realname: "Real name is secret")
-        
-//        super.init(hostname: hostname, port: port, password: password, tls: tls)
     }
     
     
-    public var description: String {
+     var description: String {
         var ms = "<\(type(of: self)):"
         appendToDescription(&ms)
         ms += ">"
         return ms
     }
     
-    public func appendToDescription(_ ms: inout String) {
+     func appendToDescription(_ ms: inout String) {
         ms += " \(clientInfo.hostname):\(clientInfo.port)"
         ms += " \(nickname)"
         ms += " \(userInfo)"

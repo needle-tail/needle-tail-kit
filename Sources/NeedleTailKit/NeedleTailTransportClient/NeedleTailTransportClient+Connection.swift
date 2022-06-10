@@ -1,33 +1,31 @@
 //
-//  IRCClient+Connection.swift
+//  NeedleTailTransportClient+Connection.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
 //
 
 import NIO
+import AsyncIRC
 import NeedleTailHelpers
 
 enum IRCClientErrors: Error {
     case notImplemented
 }
 
-extension IRCClient {
+extension NeedleTailTransportClient {
     
-    @NeedleTailActor
-    internal func createChannel(host: String, port: Int) async throws -> Channel {
+    func createChannel(host: String, port: Int) async throws -> Channel {
         messageOfTheDay = ""
         userMode = IRCUserMode()
         return try await createBootstrap()
             .connect(host: host, port: port).get()
     }
     
-    @NeedleTailActor
-    public func disconnect() async {
+     func disconnect() async {
         await shutdownClient()
     }
     
-    @NeedleTailActor
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         return try groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.hours(1))
@@ -37,13 +35,12 @@ extension IRCClient {
                 return channel.pipeline
                     .addHandlers([
                         IRCChannelHandler(logger: self.logger),
-                        Handler(client: self)
+                        NeedleTailInboundHandler(client: self)
                     ])
             }
     }
     
-    @NeedleTailActor
-    public func startClient(_ regPacket: String?) async throws {
+     func startClient(_ regPacket: String?) async throws {
         var channel: Channel?
         do {
             channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
@@ -80,5 +77,52 @@ extension IRCClient {
     func handlerCaughtError(_ error: Swift.Error,
                             in context: ChannelHandlerContext) {
         print("IRCClient error:", error)
+    }
+    
+     func attemptConnection(_ regPacket: String? = nil) async throws {
+        switch transportState.current {
+        case .registering(channel: _, nick: _, userInfo: _):
+            break
+        case .registered(channel: _, nick: _, userInfo: _):
+            break
+        case .connecting:
+            break
+        case .online:
+            break
+        case .suspended, .offline:
+            transportState.transition(to: .connecting)
+            try await startClient(regPacket)
+        case .disconnect:
+            break
+        case .error:
+            break
+        case .quit:
+            break
+        }
+    }
+
+     func attemptDisconnect(_ isSuspending: Bool) async {
+        if isSuspending {
+            transportState.transition(to: .suspended)
+        }
+        switch transportState.current {
+        case .registering(channel: _, nick: _, userInfo: _):
+            break
+        case .registered(channel: _, nick: _, userInfo: _):
+            break
+        case .connecting:
+            break
+        case .online:
+            await disconnect()
+            authenticated = .unauthenticated
+        case .suspended, .offline:
+            return
+        case .disconnect:
+            break
+        case .error:
+            break
+        case .quit:
+            break
+        }
     }
 }

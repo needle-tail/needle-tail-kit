@@ -1,21 +1,22 @@
 //
-//  IRCClient+IRCDispatcher.swift
+//  NeedleTailTransportClient+IRCDispatcher.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import NIO
+import NIOCore
 import BSON
 import NeedleTailHelpers
+import AsyncIRC
 import Foundation
 
-extension IRCClient: IRCDispatcher {
+extension NeedleTailTransportClient: IRCDispatcher {
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
-    @NeedleTailActor
-    public func processReceivedMessages(_ message: IRCMessage) async throws {
+    @NeedleTailTransportClientActor
+    func processReceivedMessages(_ message: IRCMessage) async throws {
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)

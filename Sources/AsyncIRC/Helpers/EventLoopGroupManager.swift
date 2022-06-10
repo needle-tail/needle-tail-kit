@@ -75,7 +75,6 @@ extension EventLoopGroupManager {
     /// `EventLoopGroup` runs on.
     ///
     /// This method _must_ be called when you're done with this `EventLoopGroupManager`.
-    @NeedleTailActor
     public func shutdown() async throws {
         switch self.provider {
         case .createNew:

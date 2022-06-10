@@ -1,5 +1,5 @@
 //
-//  Handler.swift
+//  NeedleTailInboundHandler.swift
 //  
 //
 //  Created by Cole M on 3/4/22.
@@ -7,27 +7,26 @@
 
 import NIO
 import Logging
+import AsyncIRC
 
-
-// MARK: - Handler
-
-final class Handler : ChannelInboundHandler {
+final class NeedleTailInboundHandler : ChannelInboundHandler {
     
     typealias InboundIn = IRCMessage
     
-    let client: IRCClient
+    let client: NeedleTailTransportClient
     let logger: Logger
     
-    init(client: IRCClient) {
-        self.logger = Logger(label: "Handler: ")
+    init(client: NeedleTailTransportClient) {
+        self.logger = Logger(label: "NeedleTailInboundHandler: ")
         self.client = client
     }
     
     func channelActive(context: ChannelHandlerContext) {
-        logger.info("Client Handler Active")
+        logger.info("Channel Active")
     }
     
     func channelInactive(context: ChannelHandlerContext) {
+        logger.info("Channel Inactive")
         Task {
             await client.handlerDidDisconnect(context)
         }
@@ -44,6 +43,7 @@ final class Handler : ChannelInboundHandler {
         }
     }
     
+    @NeedleTailTransportClientActor
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         self.client.handlerCaughtError(error, in: context)
         context.close(promise: nil)

@@ -15,7 +15,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public typealias OutboundOut = ByteBuffer
     var logger: Logger
     let consumer = ParseConsumer()
-    
+    var channel: Channel?
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
     }
