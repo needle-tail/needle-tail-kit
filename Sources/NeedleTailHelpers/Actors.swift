@@ -7,10 +7,10 @@
 
 import Foundation
 
-//@globalActor public final actor ParsingActor {
-//    public static let shared = ParsingActor()
-//    private init() {}
-//}
+@globalActor public final actor ParsingActor {
+    public static let shared = ParsingActor()
+    private init() {}
+}
 
 @globalActor public actor NeedleTailTransportActor {
     public static let shared = NeedleTailTransportActor()

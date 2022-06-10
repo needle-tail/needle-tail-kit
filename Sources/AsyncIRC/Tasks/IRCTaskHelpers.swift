@@ -2,7 +2,7 @@ import Logging
 import NeedleTailHelpers
 
 enum IRCTaskHelpers {
-    @NeedleTailTransportActor
+    @ParsingActor
     static func parseMessageTask(
         task: String,
         messageParser: MessageParser

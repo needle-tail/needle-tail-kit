@@ -75,7 +75,7 @@ public final class ParseConsumer {
     
     public init() {}
     
-    @NeedleTailTransportActor
+    @ParsingActor
     public func feedConsumer(_ conversation: String) async {
         await stack.enqueue(conversation)
     }

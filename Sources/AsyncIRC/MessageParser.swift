@@ -16,7 +16,7 @@ public final class MessageParser {
         self.logger = Logger(label: "MessageParser")
     }
     
-    @NeedleTailTransportActor
+    @ParsingActor
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
@@ -118,7 +118,7 @@ public final class MessageParser {
     }
     
     
-    @NeedleTailTransportActor
+    @ParsingActor
     func parseCommand(
         command: String,
         commandKey: IRCCommandKey
@@ -141,7 +141,7 @@ public final class MessageParser {
         return commandKey
     }
     
-    @NeedleTailTransportActor
+    @ParsingActor
     func parseArgument(
         commandKey: IRCCommandKey,
         message: String,
@@ -202,7 +202,7 @@ public final class MessageParser {
     }
     
     // https://ircv3.net/specs/extensions/message-tags.html#format
-    @NeedleTailTransportActor
+    @ParsingActor
     func parseTags(
         tags: String = ""
     ) throws -> [IRCTags]? {
