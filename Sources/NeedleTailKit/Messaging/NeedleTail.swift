@@ -23,12 +23,12 @@ public final class NeedleTail {
     public typealias NTAnyChatMessage = AnyChatMessage
     public typealias NTContact = Contact
     public typealias NTPrivateChat = PrivateChat
-    public var irc: IRCMessenger?
+    public var ntm: NeedleTailMessenger?
     public var cypher: CypherMessenger?
     public weak var delegate: AsyncIRCNotificationsDelegate?
     public var messageType: MessageType = .message {
         didSet {
-            irc?.messageType = messageType
+            ntm?.messageType = messageType
         }
     }
     
@@ -53,21 +53,23 @@ public final class NeedleTail {
         cypher = try await CypherMessenger.registerMessenger(
             username: Username(username),
             appPassword: clientInfo.password,
-            usingTransport: { transportRequest async throws -> IRCMessenger in
-                if self.irc == nil {
-                    self.irc = try await IRCMessenger.authenticate(
+            usingTransport: { transportRequest async throws -> NeedleTailMessenger in
+                if self.ntm == nil {
+                    self.ntm = try await NeedleTailMessenger.authenticate(
                         transportRequest: transportRequest,
                         clientInfo: clientInfo
                     )
                 }
-                guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
-                try await ircMessenger.registerBundle(type: type, clientInfo: clientInfo)
-                return ircMessenger
+                guard let ntm = self.ntm else { throw NeedleTailError.nilNTM }
+                await ntm.createClient()
+                return ntm
             },
             p2pFactories: p2pFactories,
             database: store,
             eventHandler: eventHandler
         )
+        let ntm = cypher?.transport as? NeedleTailMessenger
+        try await ntm?.registerBundle(type: type, clientInfo: clientInfo)
         return cypher
     }
 
@@ -80,12 +82,12 @@ public final class NeedleTail {
     ) async throws -> CypherMessenger? {
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
-            usingTransport: { transportRequest -> IRCMessenger in
-                self.irc = try await IRCMessenger.authenticate(
+            usingTransport: { transportRequest -> NeedleTailMessenger in
+                self.ntm = try await NeedleTailMessenger.authenticate(
                     transportRequest: transportRequest,
                     clientInfo: clientInfo
                 )
-                guard let ircMessenger = self.irc else { throw NeedleTailError.nilIRCMessenger }
+                guard let ircMessenger = self.ntm else { throw NeedleTailError.nilNTM }
                 return ircMessenger
             },
             p2pFactories: p2pFactories,
@@ -96,27 +98,27 @@ public final class NeedleTail {
 #if os(macOS)
         NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
 #endif
-        let irc = cypher?.transport as? IRCMessenger
-        try await irc?.startService()
-        self.delegate = irc?.client
+        let ntm = cypher?.transport as? NeedleTailMessenger
+        try await ntm?.registerSession()
+        self.delegate = ntm?.client
         return self.cypher
     }
     
     public func resumeService() async throws {
-        try await irc?.startService()
+        try await ntm?.registerSession()
 
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
-        await irc?.suspend(isSuspending)
+        await ntm?.suspend(isSuspending)
     }
     
     public func registerAPN(_ token: Data) async throws {
-        try await irc?.registerAPNSToken(token)
+        try await ntm?.registerAPNSToken(token)
     }
     
     public func blockUnblockUser(_ contact: Contact) async throws {
-        irc?.messageType = .blockUnblock
+        ntm?.messageType = .blockUnblock
         try await contact.block()
     }
     

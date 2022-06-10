@@ -7,6 +7,6 @@ public enum NeedleTailError: Error {
     case nilClient
     case nilChannelName
     case nilNickName
-    case nilIRCMessenger
+    case nilNTM
     case invalidUserId
 }

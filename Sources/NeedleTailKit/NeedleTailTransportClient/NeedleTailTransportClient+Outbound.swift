@@ -27,6 +27,11 @@ extension NeedleTailTransportClient {
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
     func registerNeedletailSession(_ regPacket: String?) async {
+        transportState.transition(to: .registering(
+                     channel: channel!,
+                     nick: clientContext.nickname,
+                     userInfo: clientContext.userInfo))
+        
         guard case .registering(_, let nick, let user) = transportState.current else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
@@ -88,19 +93,21 @@ extension NeedleTailTransportClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-        @KeyBundleActor
+        @NeedleTailTransportActor
          func readKeyBundle(_ packet: String) async -> UserConfig? {
+             print("Client READ BUNDLE")
             await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
             let date = RunLoop.timeInterval(10)
             var canRun = false
             repeat {
                 canRun = true
-                if await userConfig != nil {
+                if userConfig != nil {
                     canRun = false
                 }
                 /// We just want to run a loop until the userConfig contains a value or stop on the timeout
             } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
-            return await userConfig
+             print("Received Response From Server for Read Key Bundle: \(userConfig)")
+            return userConfig
         }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name

@@ -1,5 +1,5 @@
 //
-//  IRCMessenger.swift
+//  NeedleTailMessenger.swift
 //
 //
 //  Created by Cole M on 9/19/21.
@@ -24,7 +24,7 @@ import FoundationNetworking
 import NIOTransportServices
 #endif
 
-public class IRCMessenger: CypherServerTransportClient {
+public class NeedleTailMessenger: CypherServerTransportClient {
     public var isConnected: Bool = true
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
@@ -45,7 +45,7 @@ public class IRCMessenger: CypherServerTransportClient {
     var logger: Logger
     var messageType = MessageType.message
     var readRecipect: ReadReceiptPacket?
-    var ircMessenger: IRCMessenger?
+    var ircMessenger: NeedleTailMessenger?
     
     
     public init(
@@ -71,8 +71,8 @@ public class IRCMessenger: CypherServerTransportClient {
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
         clientInfo: ClientContext.ServerClientInfo
-    ) async throws -> IRCMessenger {
-        return try await IRCMessenger(
+    ) async throws -> NeedleTailMessenger {
+        return try await NeedleTailMessenger(
             username: transportRequest.username,
             deviceId: transportRequest.deviceId,
             signer: transportRequest,
@@ -82,8 +82,7 @@ public class IRCMessenger: CypherServerTransportClient {
         )
     }
     
-    var channel: Channel?
-    public func startService(_ appleToken: String = "") async throws {
+    public func createClient() async {
         if client == nil {
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
         guard let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName) else { return }
@@ -92,17 +91,24 @@ public class IRCMessenger: CypherServerTransportClient {
             nickname: nick
         )
         
-        self.client = await NeedleTailTransportClient(
-            cypher: self.messenger, 
+        client = await NeedleTailTransportClient(
+            cypher: self.messenger,
             transportState: self.transportState,
             transportDelegate: self.delegate,
             signer: self.signer,
             authenticated: self.authenticated,
             clientContext: clientContext)
         }
+        await connect()
+    }
+    
+    public func registerSession(_ appleToken: String = "") async throws {
+        if await client?.channel == nil {
+            await createClient()
+        }
         let regObject = regRequest(with: appleToken)
         let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-        await resume(packet)
+        await client?.registerNeedletailSession(packet)
     }
     
     
@@ -114,7 +120,7 @@ public class IRCMessenger: CypherServerTransportClient {
         case .siwa, .plain:
             waitingToReadBundle = true
             guard let appleToken = appleToken else { return }
-            try await self.startService(appleToken)
+            try await self.registerSession(appleToken)
         case .none:
             break
         }
@@ -147,7 +153,7 @@ public class IRCMessenger: CypherServerTransportClient {
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
-    @KeyBundleActor
+    @NeedleTailTransportActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -156,13 +162,17 @@ public class IRCMessenger: CypherServerTransportClient {
         let date = RunLoop.timeInterval(10)
         var canRun = false
         var userConfig: UserConfig? = nil
+        print("CLIENT", client)
+        print("CHANNEL", client.channel)
             repeat {
                 canRun = true
-                if await client.channel != nil {
+                if client.channel != nil {
+                    print("SEND TO CLIENT")
                     userConfig = await client.readKeyBundle(packet)
                     canRun = false
                 }
             } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
+        print("Config___", userConfig)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
@@ -290,16 +300,16 @@ public class IRCMessenger: CypherServerTransportClient {
     }
     
     @NeedleTailTransportActor
-    public func resume(_ regPacket: String? = nil) async {
+    public func connect() async {
         do {
             //TODO: State Error
             guard transportState.current == .offline || transportState.current == .suspended else { return }
-            try await client?.attemptConnection(regPacket)
+            try await client?.attemptConnection()
             self.authenticated = .authenticated
         } catch {
             transportState.transition(to: .offline)
             self.authenticated = .authenticationFailure
-            await resume(regPacket)
+            await connect()
         }
     }
     
@@ -317,7 +327,7 @@ public enum RegistrationType {
 
 
 
-extension IRCMessenger {
+extension NeedleTailMessenger {
     
     public func reconnect() async throws {}
     

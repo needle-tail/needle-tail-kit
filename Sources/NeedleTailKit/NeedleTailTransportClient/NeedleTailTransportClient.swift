@@ -52,7 +52,7 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
         signer: TransportCreationRequest,
         authenticated: AuthenticationState,
         clientContext: ClientContext
-    ) {
+    ) async {
         self.cypher = cypher
         self.transportState = transportState
         self.clientContext = clientContext

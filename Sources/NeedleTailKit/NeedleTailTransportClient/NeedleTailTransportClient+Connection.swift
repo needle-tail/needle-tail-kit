@@ -40,24 +40,18 @@ extension NeedleTailTransportClient {
             }
     }
     
-     func startClient(_ regPacket: String?) async throws {
+     func startClient() async throws {
         var channel: Channel?
         do {
             channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
-           transportState.transition(to: .registering(
-                        channel: channel!,
-                        nick: clientContext.nickname,
-                        userInfo: clientContext.userInfo))
-            
             self.channel = channel
             self.userInfo = clientContext.userInfo
-            await self.registerNeedletailSession(regPacket)
         } catch {
             await self.shutdownClient()
         }
         assert(channel != nil, "channel is nil")
     }
-    
+
     
     
     func handlerDidDisconnect(_ context: ChannelHandlerContext) async {
@@ -79,7 +73,7 @@ extension NeedleTailTransportClient {
         print("IRCClient error:", error)
     }
     
-     func attemptConnection(_ regPacket: String? = nil) async throws {
+     func attemptConnection() async throws {
         switch transportState.current {
         case .registering(channel: _, nick: _, userInfo: _):
             break
@@ -91,7 +85,7 @@ extension NeedleTailTransportClient {
             break
         case .suspended, .offline:
             transportState.transition(to: .connecting)
-            try await startClient(regPacket)
+            try await startClient()
         case .disconnect:
             break
         case .error:

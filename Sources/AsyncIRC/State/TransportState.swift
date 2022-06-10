@@ -51,17 +51,8 @@ public class TransportState: StateMachine {
     }
 
     public var current: State = .offline
-//    static let stateTransitions: [State: Set<State> = [
-//        .suspended: [.offline],
-//        .offline: [.connecting],
-//        .registering(channel:Channel, nick:NeedleTailNick, userInfo:IRCUserInfo): [.connecting],
-//        .connecting: [.suspended, .offline, .online],
-//        .online: [.connecting, .offline, .suspended],
-//    ]
-    
     
     public func transition(to nextState: State) {
-//        precondition(self.canTransition(to: nextState), "Invalid state transition (\(self.state) -> \(nextState))!")
         self.current = nextState
         switch self.current {
         case .connecting:
