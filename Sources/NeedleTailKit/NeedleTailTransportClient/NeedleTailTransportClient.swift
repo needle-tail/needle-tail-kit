@@ -7,7 +7,7 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-@NeedleTailTransportClientActor
+@NeedleTailTransportActor
 final class NeedleTailTransportClient: AsyncIRCDelegate {
     
     //AsyncIRCProtocol

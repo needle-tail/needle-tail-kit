@@ -289,7 +289,7 @@ public class IRCMessenger: CypherServerTransportClient {
         
     }
     
-    @NeedleTailActor
+    @NeedleTailTransportActor
     public func resume(_ regPacket: String? = nil) async {
         do {
             //TODO: State Error
@@ -303,7 +303,7 @@ public class IRCMessenger: CypherServerTransportClient {
         }
     }
     
-    @NeedleTailActor
+    @NeedleTailTransportActor
     public func suspend(_ isSuspending: Bool = false) async {
         //TODO: State Error
         await client?.attemptDisconnect(isSuspending)
@@ -392,7 +392,7 @@ extension IRCMessenger {
 
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
-    @NeedleTailActor
+    @NeedleTailTransportActor
     public func sendMessage(_
                             message: RatchetedCypherMessage,
                             toUser username: Username,

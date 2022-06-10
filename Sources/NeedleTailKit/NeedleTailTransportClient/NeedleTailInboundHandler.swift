@@ -8,6 +8,7 @@
 import NIO
 import Logging
 import AsyncIRC
+import NeedleTailHelpers
 
 final class NeedleTailInboundHandler : ChannelInboundHandler {
     
@@ -43,7 +44,7 @@ final class NeedleTailInboundHandler : ChannelInboundHandler {
         }
     }
     
-    @NeedleTailTransportClientActor
+    @NeedleTailTransportActor
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         self.client.handlerCaughtError(error, in: context)
         context.close(promise: nil)

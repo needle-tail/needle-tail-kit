@@ -8,9 +8,11 @@
 import Foundation
 import NIOCore
 import Logging
+import NeedleTailHelpers
 
 
-public struct TransportState: StateMachine {
+@NeedleTailTransportActor
+public class TransportState: StateMachine {
 
     public let identifier: UUID
     private var logger: Logger
@@ -58,7 +60,7 @@ public struct TransportState: StateMachine {
 //    ]
     
     
-    public mutating func transition(to nextState: State) {
+    public func transition(to nextState: State) {
 //        precondition(self.canTransition(to: nextState), "Invalid state transition (\(self.state) -> \(nextState))!")
         self.current = nextState
         switch self.current {

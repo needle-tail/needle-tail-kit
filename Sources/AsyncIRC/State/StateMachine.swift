@@ -6,9 +6,11 @@
 //
 
 import Foundation
+import NeedleTailHelpers
 
+@NeedleTailTransportActor
 public protocol StateMachine {
     associatedtype State
     var current: State { get }
-    mutating func transition(to nextState: State) async
+    func transition(to nextState: State) async
 }

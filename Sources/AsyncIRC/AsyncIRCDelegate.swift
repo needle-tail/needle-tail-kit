@@ -1,7 +1,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 
-@NeedleTailTransportClientActor
+@NeedleTailTransportActor
 public protocol AsyncIRCDelegate: AnyObject {
     var userConfig: UserConfig? { get set }
     var acknowledgment: Acknowledgment.AckType  { get set }

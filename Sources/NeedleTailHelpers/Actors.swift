@@ -12,9 +12,8 @@ import Foundation
     private init() {}
 }
 
-@globalActor public final actor NeedleTailActor {
-    public static let shared = NeedleTailActor()
-    private init() {}
+@globalActor public actor NeedleTailTransportActor {
+    public static let shared = NeedleTailTransportActor()
 }
 
 @globalActor public final actor KeyBundleActor {
