@@ -114,7 +114,6 @@ extension NeedleTailTransportClient {
                 //              }
                 break
             case .nickname(let nick):
-                
                 do {
                     guard let data = Data(base64Encoded: message) else { return }
                     let buffer = ByteBuffer(data: data)
@@ -171,6 +170,7 @@ extension NeedleTailTransportClient {
                     case .blockUnblock:
                         break
                     case .requestRegistry(let childNick):
+                        print("receivedRegistry____")
                         guard let data = Data(base64Encoded: childNick) else { return }
                         let buffer = ByteBuffer(data: data)
                         let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
