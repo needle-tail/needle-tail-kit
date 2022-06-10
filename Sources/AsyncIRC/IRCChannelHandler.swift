@@ -80,7 +80,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     let parser = MessageParser()
     
-    @ParsingActor
+    @NeedleTailTransportActor
     public func processMessage(_ message: String) async -> IRCMessage? {
         await consumer.feedConsumer(message)
         
