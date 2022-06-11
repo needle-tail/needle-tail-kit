@@ -375,6 +375,10 @@ extension NeedleTailMessenger {
             print("WAITING__")
             shouldProceedRegistration = false
             return
+        case .isOffline:
+            print("Offline__")
+            shouldProceedRegistration = false
+            return
         }
     }
     
