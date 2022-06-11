@@ -25,7 +25,7 @@ import NIOTransportServices
 #endif
 
 public class NeedleTailMessenger: CypherServerTransportClient {
-    public var isConnected: Bool = true
+    public var isConnected: Bool = false
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
@@ -40,7 +40,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
     var messenger: CypherMessenger?
-//    var services: IRCService?
     var client: NeedleTailTransportClient?
     var logger: Logger
     var messageType = MessageType.message
@@ -82,6 +81,28 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
     }
     
+
+    
+    public func startSession(_ type: RegistrationType?) async throws {
+        switch type {
+        case .siwa(let apple):
+            try await self.registerSession(apple)
+        case .plain:
+            try await self.registerSession()
+        default:
+            break
+        }
+    }
+    
+    public func registerSession(_ appleToken: String = "") async throws {
+        if await client?.channel == nil {
+            await createClient()
+        }
+        let regObject = regRequest(with: appleToken)
+        let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+        await client?.registerNeedletailSession(packet)
+    }
+    
     public func createClient() async {
         if client == nil {
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
@@ -102,29 +123,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         await connect()
     }
     
-    public func registerSession(_ appleToken: String = "") async throws {
-        if await client?.channel == nil {
-            await createClient()
-        }
-        let regObject = regRequest(with: appleToken)
-        let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-        await client?.registerNeedletailSession(packet)
-    }
-    
-    
-    public func registerBundle(
-        type: RegistrationType?,
-        clientInfo: ClientContext.ServerClientInfo
-    ) async throws {
-        switch type {
-        case .siwa, .plain:
-            waitingToReadBundle = true
-            guard let appleToken = appleToken else { return }
-            try await self.registerSession(appleToken)
-        case .none:
-            break
-        }
-    }
     
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
@@ -302,6 +300,9 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             guard transportState.current == .offline || transportState.current == .suspended else { return }
             try await client?.attemptConnection()
             self.authenticated = .authenticated
+            if client?.channel != nil {
+                self.isConnected = true
+            }
         } catch {
             transportState.transition(to: .offline)
             self.authenticated = .authenticationFailure
@@ -318,7 +319,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
 }
 
 public enum RegistrationType {
-    case siwa, plain
+    case siwa(String), plain
 }
 
 

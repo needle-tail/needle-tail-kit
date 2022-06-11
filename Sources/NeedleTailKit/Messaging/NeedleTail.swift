@@ -34,6 +34,16 @@ public final class NeedleTail {
     
     public static let shared = NeedleTail()
     
+    func registrationType(_ appleToken: String = "") -> RegistrationType? {
+        var type: RegistrationType?
+        if !appleToken.isEmpty {
+            type = .siwa(appleToken)
+        } else {
+            type = .plain
+        }
+        return type
+    }
+    
     @discardableResult
     public func registerNeedleTail(
         appleToken: String,
@@ -43,38 +53,39 @@ public final class NeedleTail {
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler
     ) async throws -> CypherMessenger? {
-        var type: RegistrationType?
-        if !appleToken.isEmpty {
-            type = .siwa
-        } else {
-            type = .plain
+ 
+        
+        if cypher == nil {
+            cypher = try await CypherMessenger.registerMessenger(
+                username: Username(username),
+                appPassword: clientInfo.password,
+                usingTransport: { transportRequest async throws -> NeedleTailMessenger in
+                    if self.ntm == nil {
+                        self.ntm = try await NeedleTailMessenger.authenticate(
+                            transportRequest: transportRequest,
+                            clientInfo: clientInfo
+                        )
+                    }
+                    guard let ntm = self.ntm else { throw NeedleTailError.nilNTM }
+                    await ntm.createClient()
+                    return ntm
+                },
+                p2pFactories: p2pFactories,
+                database: store,
+                eventHandler: eventHandler
+            )
         }
         
-        cypher = try await CypherMessenger.registerMessenger(
-            username: Username(username),
-            appPassword: clientInfo.password,
-            usingTransport: { transportRequest async throws -> NeedleTailMessenger in
-                if self.ntm == nil {
-                    self.ntm = try await NeedleTailMessenger.authenticate(
-                        transportRequest: transportRequest,
-                        clientInfo: clientInfo
-                    )
-                }
-                guard let ntm = self.ntm else { throw NeedleTailError.nilNTM }
-                await ntm.createClient()
-                return ntm
-            },
-            p2pFactories: p2pFactories,
-            database: store,
-            eventHandler: eventHandler
-        )
         let ntm = cypher?.transport as? NeedleTailMessenger
-        try await ntm?.registerBundle(type: type, clientInfo: clientInfo)
+        if ntm?.shouldProceedRegistration == true && ntm?.isConnected == true {
+            try await ntm?.startSession(registrationType(appleToken))
+        }
         return cypher
     }
 
     @discardableResult
     public func spoolService(
+        appleToken: String,
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         eventHandler: PluginEventHandler,
@@ -99,14 +110,13 @@ public final class NeedleTail {
         NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
 #endif
         let ntm = cypher?.transport as? NeedleTailMessenger
-        try await ntm?.registerSession()
+        try await ntm?.startSession(registrationType(appleToken))
         self.delegate = ntm?.client
         return self.cypher
     }
     
-    public func resumeService() async throws {
-        try await ntm?.registerSession()
-
+    public func resumeService(_ appleToken: String = "") async throws {
+        try await ntm?.startSession(registrationType(appleToken))
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
@@ -210,6 +220,7 @@ extension NeedleTail: ObservableObject {
                 if needleTailViewModel.cypher == nil && needleTailViewModel.emitter == nil {
                     var cypher: CypherMessenger?
                     cypher = try await NeedleTail.shared.spoolService(
+                        appleToken: "",
                         store: store,
                         clientInfo: clientInfo,
                         eventHandler: makeEventHandler(emitter: emitter),

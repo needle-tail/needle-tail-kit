@@ -189,7 +189,7 @@ public final class MessageParser {
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
-            } else if commandKey.hasPrefix("REGISTRYREQUEST") || commandKey.hasPrefix("REGISTRYRESPONSE") || commandKey.hasPrefix("NEWDEVICE") || commandKey.hasPrefix("READKEYBNDL") {
+            } else if commandKey.hasPrefix("REGISTRYREQUEST") || commandKey.hasPrefix("REGISTRYRESPONSE") || commandKey.hasPrefix("NEWDEVICE") || commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PASS") {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == ":" {
                     stripedMessage = String(stripedMessage.dropFirst())
