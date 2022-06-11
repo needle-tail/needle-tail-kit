@@ -31,8 +31,8 @@ public struct NeedleTailStack<T>: NeedleTailQueue {
         return !dequeueStack.isEmpty ? dequeueStack.last : enqueueStack.first
     }
     
-    @ParsingActor
-    public mutating func enqueue(_ element: T? = nil, elements: [T]? = nil) async {
+    
+    public mutating func enqueue(_ element: T? = nil, elements: [T]? = nil) {
         //If stack is empty we want to set the array to the enqueue stack
         if enqueueStack.isEmpty {
             dequeueStack = enqueueStack
@@ -45,7 +45,7 @@ public struct NeedleTailStack<T>: NeedleTailQueue {
         }
     }
 
-    public mutating func dequeue() async -> T? {
+    public mutating func dequeue() -> T? {
         
         if dequeueStack.isEmpty {
             dequeueStack = enqueueStack.reversed()

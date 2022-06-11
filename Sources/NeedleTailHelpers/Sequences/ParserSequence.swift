@@ -36,8 +36,8 @@ extension ParserSequence {
             self.consumer = consumer
         }
         
-        mutating public func next() async throws -> ParseSequenceResult? {
-            let result = await consumer.next()
+        mutating public func next() throws -> ParseSequenceResult? {
+            let result = consumer.next()
                 var res: ParseSequenceResult?
                 switch result {
                 case .ready(let sequence):
@@ -75,16 +75,15 @@ public final class ParseConsumer {
     
     public init() {}
     
-    @ParsingActor
-    public func feedConsumer(_ conversation: String) async {
-        await stack.enqueue(conversation)
+    public func feedConsumer(_ conversation: String) {
+        stack.enqueue(conversation)
     }
     
-    func next() async -> NextParseResult {
+    func next() -> NextParseResult {
         switch parseConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = await stack.dequeue() else { return .finished }
+            guard let message = stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
             return .finished

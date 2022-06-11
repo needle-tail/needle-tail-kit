@@ -74,14 +74,14 @@ public final class ConversationConsumer {
     public init() {}
     
     public func feedConsumer(_ conversation: [TargetConversation.Resolved]) async {
-        await stack.enqueue(elements: conversation)
+        stack.enqueue(elements: conversation)
     }
     
     func next() async -> NextResult {
         switch dequeuedConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = await stack.dequeue() else { return .finished }
+            guard let message = stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
             return .preparing
