@@ -176,7 +176,7 @@ extension NeedleTailTransportClient {
                         let buffer = ByteBuffer(data: data)
                         let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
                         try await receivedRegistryRequest(fromChild: nick)
-                    case .acceptedRegistry(let status), .rejectedRegistry(let status):
+                    case .acceptedRegistry(let status), .rejectedRegistry(let status), .isOffline(let status):
                         guard let data = Data(base64Encoded: status) else { return }
                         let buffer = ByteBuffer(data: data)
                         let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))

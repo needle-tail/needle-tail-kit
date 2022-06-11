@@ -46,7 +46,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var messageType = MessageType.message
     var readRecipect: ReadReceiptPacket?
     var ircMessenger: NeedleTailMessenger?
-    
+    var shouldProceedRegistration = true
     
     public init(
         username: Username,
@@ -369,9 +369,11 @@ extension NeedleTailMessenger {
             try await client?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
         case .rejected:
             print("REJECTED__")
+            shouldProceedRegistration = false
             return
         case .waiting:
             print("WAITING__")
+            shouldProceedRegistration = false
             return
         }
     }

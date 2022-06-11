@@ -8,6 +8,6 @@
 import Foundation
 
 public enum NewDeviceState: Codable {
-    case accepted, rejected, waiting
+    case accepted, rejected, waiting, isOffline
 }
 public var newDeviceState: NewDeviceState = .waiting

@@ -21,6 +21,7 @@ public enum MessageType: Codable {
     case newDevice(String)
     case requestRegistry(String)
     case acceptedRegistry(String)
+    case isOffline(String)
     case temporarilyRegisterSession
     case rejectedRegistry(String)
 }
