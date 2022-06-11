@@ -164,8 +164,9 @@ extension NeedleTailTransportClient {
                             await createNeedleTailMessage(.USER(user))
                             
                             transportState.transition(to: .online)
-                            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-                            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+                            //TODO: GOURP CHAT("CHANNELS")
+//                            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
+//                            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
                         default:
                             break
                         }
