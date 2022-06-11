@@ -10,7 +10,7 @@ import CypherMessaging
 import NeedleTailHelpers
 
 public class NeedleTailHandler: AsyncIRCNotifications {
-    @MainActor public let consumer = ConversationConsumer()
+    @NeedleTailTransportActor public let consumer = ConversationConsumer()
     @MainActor public var selectedChat: PrivateChat?
     @MainActor public var sessions = [PrivateChat]()
     @MainActor public var cursor: AnyChatMessageCursor?

@@ -7,6 +7,7 @@
 
 import Foundation
 
+@NeedleTailTransportActor
 public protocol NeedleTailQueue {
     associatedtype Element
     mutating func enqueue(_ element: Element?, elements: [Element]?) async
@@ -16,7 +17,8 @@ public protocol NeedleTailQueue {
 }
 
 
-public struct NeedleTailStack<T>: NeedleTailQueue {
+@NeedleTailTransportActor
+public class NeedleTailStack<T>: NeedleTailQueue {
     
    public init() {}
     
@@ -32,7 +34,7 @@ public struct NeedleTailStack<T>: NeedleTailQueue {
     }
     
     
-    public mutating func enqueue(_ element: T? = nil, elements: [T]? = nil) {
+    public func enqueue(_ element: T? = nil, elements: [T]? = nil) {
         //If stack is empty we want to set the array to the enqueue stack
         if enqueueStack.isEmpty {
             dequeueStack = enqueueStack
@@ -45,7 +47,7 @@ public struct NeedleTailStack<T>: NeedleTailQueue {
         }
     }
 
-    public mutating func dequeue() -> T? {
+    public func dequeue() -> T? {
         
         if dequeueStack.isEmpty {
             dequeueStack = enqueueStack.reversed()

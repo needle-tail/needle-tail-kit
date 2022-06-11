@@ -34,16 +34,6 @@ public final class NeedleTail {
     
     public static let shared = NeedleTail()
     
-    func registrationType(_ appleToken: String = "") -> RegistrationType? {
-        var type: RegistrationType?
-        if !appleToken.isEmpty {
-            type = .siwa(appleToken)
-        } else {
-            type = .plain
-        }
-        return type
-    }
-    
     @discardableResult
     public func registerNeedleTail(
         appleToken: String,
@@ -67,6 +57,7 @@ public final class NeedleTail {
                         )
                     }
                     guard let ntm = self.ntm else { throw NeedleTailError.nilNTM }
+                    ntm.initalRegistration = true
                     await ntm.createClient()
                     return ntm
                 },
@@ -74,11 +65,6 @@ public final class NeedleTail {
                 database: store,
                 eventHandler: eventHandler
             )
-        }
-        
-        let ntm = cypher?.transport as? NeedleTailMessenger
-        if ntm?.shouldProceedRegistration == true && ntm?.isConnected == true {
-            try await ntm?.startSession(registrationType(appleToken))
         }
         return cypher
     }
@@ -110,13 +96,13 @@ public final class NeedleTail {
         NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
 #endif
         let ntm = cypher?.transport as? NeedleTailMessenger
-        try await ntm?.startSession(registrationType(appleToken))
+        try await ntm?.startSession(ntm?.registrationType(appleToken))
         self.delegate = ntm?.client
         return self.cypher
     }
     
     public func resumeService(_ appleToken: String = "") async throws {
-        try await ntm?.startSession(registrationType(appleToken))
+        try await ntm?.startSession(ntm?.registrationType(appleToken))
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {

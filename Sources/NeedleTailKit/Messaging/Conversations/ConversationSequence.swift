@@ -67,6 +67,7 @@ public var consumedState = ConsumedState.consumed
 public var dequeuedConsumedState = ConsumedState.consumed
 var nextResult = NextResult.preparing
 
+@NeedleTailTransportActor
 public final class ConversationConsumer {
     
     internal var stack = NeedleTailStack<TargetConversation.Resolved>()

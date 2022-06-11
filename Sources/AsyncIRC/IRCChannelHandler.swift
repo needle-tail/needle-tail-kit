@@ -14,7 +14,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
     var logger: Logger
-    let consumer = ParseConsumer()
+    @NeedleTailTransportActor let consumer = ParseConsumer()
     var channel: Channel?
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
@@ -82,7 +82,7 @@ public class IRCChannelHandler : ChannelDuplexHandler {
     
     @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        consumer.feedConsumer(message)
+        await consumer.feedConsumer(message)
         
         do {
             for try await result in ParserSequence(consumer: consumer) {

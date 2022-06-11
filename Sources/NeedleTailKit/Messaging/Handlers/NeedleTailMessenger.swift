@@ -34,7 +34,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public private(set) var signer: TransportCreationRequest
     private let username: Username
     private let appleToken: String?
-    public var registrationType: RegistrationType?
     private var transportState: TransportState
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
@@ -46,7 +45,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var readRecipect: ReadReceiptPacket?
     var ircMessenger: NeedleTailMessenger?
     var shouldProceedRegistration = true
-    
+    var initalRegistration = false
     public init(
         username: Username,
         deviceId: DeviceId,
@@ -81,8 +80,18 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
     }
     
-
     
+    public func registrationType(_ appleToken: String = "") -> RegistrationType? {
+        var type: RegistrationType?
+        if !appleToken.isEmpty {
+            type = .siwa(appleToken)
+        } else {
+            type = .plain
+        }
+        return type
+    }
+
+    @NeedleTailTransportActor
     public func startSession(_ type: RegistrationType?) async throws {
         switch type {
         case .siwa(let apple):
@@ -94,8 +103,9 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         }
     }
     
+    @NeedleTailTransportActor
     public func registerSession(_ appleToken: String = "") async throws {
-        if await client?.channel == nil {
+        if client?.channel == nil {
             await createClient()
         }
         let regObject = regRequest(with: appleToken)
@@ -128,6 +138,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     @NeedleTailTransportActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
+        if shouldProceedRegistration == true && isConnected == true && initalRegistration {
+            try await startSession(registrationType(appleToken ?? ""))
+        }
+        
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
