@@ -71,7 +71,7 @@ var nextParseResult = NextParseResult.finished
 
 public final class ParseConsumer {
     
-    public var stack = NeedleTailArray<String>()
+    public var stack = NeedleTailStack<String>()
     
     public init() {}
     
