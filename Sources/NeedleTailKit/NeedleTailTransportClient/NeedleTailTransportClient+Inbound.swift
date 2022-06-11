@@ -28,6 +28,7 @@ extension NeedleTailTransportClient {
         let buffer = ByteBuffer(data: data)
         let config = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         self.userConfig = config
+         print("Received Response From Server for Read Key Bundle: \(userConfig)")
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device

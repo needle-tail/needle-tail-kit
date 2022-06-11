@@ -18,6 +18,7 @@ extension NeedleTailTransportClient {
     ///   - chatDoc: Not needed/used for clients and shouldn't be.
     func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
         do {
+            print("Sent message \(message)")
             try await channel?.writeAndFlush(message)
         } catch {
             logger.error("\(error)")
@@ -43,6 +44,7 @@ extension NeedleTailTransportClient {
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
             await createNeedleTailMessage(.NICK(nick), tags: [tag])
         } else {
+            
             await createNeedleTailMessage(.NICK(nick))
         }
         
@@ -106,7 +108,6 @@ extension NeedleTailTransportClient {
                 }
                 /// We just want to run a loop until the userConfig contains a value or stop on the timeout
             } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
-             print("Received Response From Server for Read Key Bundle: \(userConfig)")
             return userConfig
         }
     

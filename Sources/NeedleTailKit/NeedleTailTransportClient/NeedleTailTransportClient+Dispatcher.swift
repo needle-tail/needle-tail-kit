@@ -17,6 +17,7 @@ extension NeedleTailTransportClient: IRCDispatcher {
     /// - Parameter message: Our IRCMessage
     @NeedleTailTransportActor
     func processReceivedMessages(_ message: IRCMessage) async throws {
+        print("RECEIVED_MESSAGE", message)
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)

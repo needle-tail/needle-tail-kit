@@ -128,7 +128,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
-    
+    @NeedleTailTransportActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
@@ -162,17 +162,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let date = RunLoop.timeInterval(10)
         var canRun = false
         var userConfig: UserConfig? = nil
-        print("CLIENT", client)
-        print("CHANNEL", client.channel)
             repeat {
                 canRun = true
                 if client.channel != nil {
-                    print("SEND TO CLIENT")
                     userConfig = await client.readKeyBundle(packet)
                     canRun = false
                 }
             } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
-        print("Config___", userConfig)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }

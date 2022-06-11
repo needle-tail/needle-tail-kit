@@ -20,7 +20,9 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     var cypher: CypherMessenger?
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
-    public var origin: String? { return clientContext.nickname.name }
+    public var origin: String? {
+        return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
+    }
     public var tags: [IRCTags]?
     public let clientContext: ClientContext
     public let clientInfo: ClientContext.ServerClientInfo
