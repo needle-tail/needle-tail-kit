@@ -214,7 +214,7 @@ public final class MessageParser {
                 tag.removeAll(where: { $0 == "@" })
                 var ircTag: IRCTags
                 let kvpArray = tag.components(separatedBy: "=")
-                if String(tag.suffix(2)) == "==" {
+                if String(tag.suffix(2)) == "==" || String(tag.suffix(1)) == "=" {
                     ircTag = IRCTags(key: kvpArray[0], value: "\(kvpArray[1])==")
                 } else {
                     ircTag = IRCTags(key: kvpArray[0], value: kvpArray[1])
