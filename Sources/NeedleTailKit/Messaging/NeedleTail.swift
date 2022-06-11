@@ -43,8 +43,6 @@ public final class NeedleTail {
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler
     ) async throws -> CypherMessenger? {
- 
-        
         if cypher == nil {
             cypher = try await CypherMessenger.registerMessenger(
                 username: Username(username),

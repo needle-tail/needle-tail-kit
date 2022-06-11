@@ -21,20 +21,14 @@ extension NeedleTailTransportClient: IRCDispatcher {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
         case .PRIVMSG(let recipients, let payload):
-            print(message.origin)
             guard let data = Data(base64Encoded: message.origin ?? "") else { throw NeedleTailError.nilData }
-            print("data", data)
             let buffer = ByteBuffer(data: data)
-            print("buffer", buffer)
             let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-            print("senderNick", senderNick)
             guard let sender = IRCUserID(
                 senderNick.name,
                 deviceId: senderNick.deviceId
             ) else { throw NeedleTailError.invalidUserId }
-            print("sender", sender)
             let tags = message.tags
-            print("TAGS", tags)
             try await delegate?.doMessage(sender: sender,
                                 recipients: recipients,
                                 message: payload,
