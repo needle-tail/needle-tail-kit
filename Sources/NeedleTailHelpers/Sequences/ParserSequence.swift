@@ -36,9 +36,8 @@ extension ParserSequence {
             self.consumer = consumer
         }
         
-        @NeedleTailTransportActor
-        mutating public func next() throws -> ParseSequenceResult? {
-            let result = consumer.next()
+        mutating public func next() async throws -> ParseSequenceResult? {
+            let result = await consumer.next()
                 var res: ParseSequenceResult?
                 switch result {
                 case .ready(let sequence):
@@ -70,18 +69,18 @@ public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.finished
 
-@NeedleTailTransportActor
 public final class ParseConsumer {
     
-    public var stack = NeedleTailStack<String>()
+    public var stack = NeedleTailArray<String>()
     
     public init() {}
     
+
     public func feedConsumer(_ conversation: String) {
         stack.enqueue(conversation)
     }
     
-    func next() -> NextParseResult {
+    func next() async -> NextParseResult {
         switch parseConsumedState {
         case .consumed:
             consumedState = .waiting

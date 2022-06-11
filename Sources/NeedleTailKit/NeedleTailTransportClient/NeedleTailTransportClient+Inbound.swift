@@ -161,6 +161,7 @@ extension NeedleTailTransportClient {
                         switch transportState.current {
                         case .registering(channel: let channel, nick: let nick, userInfo: let user):
                             transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                            await createNeedleTailMessage(.USER(user))
                             
                             transportState.transition(to: .online)
                             let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)

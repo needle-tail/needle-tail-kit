@@ -46,6 +46,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var ircMessenger: NeedleTailMessenger?
     var shouldProceedRegistration = true
     var initalRegistration = false
+    
     public init(
         username: Username,
         deviceId: DeviceId,
@@ -136,12 +137,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
-    @NeedleTailTransportActor
+    @KeyBundleActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
         if shouldProceedRegistration == true && isConnected == true && initalRegistration {
             try await startSession(registrationType(appleToken ?? ""))
+            repeat {} while await client?.acknowledgment != .registered("true")
         }
-        
+                            
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
@@ -160,6 +162,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let data = try BSONEncoder().encode(packet).makeData()
         _ = await client?.sendPrivateMessage(data, to: recipient, tags: nil)
+//        client?.acknowledgment = .none
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -294,18 +297,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let existingUser: Username?
     }
     
-    
-    // MARK: - services Lookup
-    
-    
-//    internal func serviceWithID(_ id: String) -> IRCService? {
-//        guard let uuid = UUID(uuidString: id) else { return nil }
-//        return serviceWithID(uuid.uuidString)
-//    }
-    
-    public func removeAccountWithID(_ id: UUID) {
-        
-    }
     
     @NeedleTailTransportActor
     public func connect() async {

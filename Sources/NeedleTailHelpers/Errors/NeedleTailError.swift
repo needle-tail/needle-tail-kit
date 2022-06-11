@@ -8,5 +8,6 @@ public enum NeedleTailError: Error {
     case nilChannelName
     case nilNickName
     case nilNTM
+    case nilData
     case invalidUserId
 }

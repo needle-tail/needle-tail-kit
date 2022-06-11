@@ -48,8 +48,6 @@ extension NeedleTailTransportClient {
             
             await createNeedleTailMessage(.NICK(nick))
         }
-        
-        await createNeedleTailMessage(.USER(user))
     }
 
     // 1. We want to tell the master device that we want to register
@@ -118,13 +116,6 @@ extension NeedleTailTransportClient {
         await createNeedleTailMessage(.NICK(nick))
     }
     
-//    @NeedleTailActor
-//    func _resubscribe() {
-//        if !subscribedChannels.isEmpty {
-//            // TODO: issues JOIN commands
-//        }
-//    }
-
      func sendPrivateMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
         await sendIRCMessage(message.base64EncodedString(), to: recipient, tags: tags)
     }

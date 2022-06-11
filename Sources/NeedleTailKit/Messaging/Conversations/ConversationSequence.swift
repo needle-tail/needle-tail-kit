@@ -70,7 +70,7 @@ var nextResult = NextResult.preparing
 @NeedleTailTransportActor
 public final class ConversationConsumer {
     
-    internal var stack = NeedleTailStack<TargetConversation.Resolved>()
+    internal var stack = NeedleTailArray<TargetConversation.Resolved>()
     
     public init() {}
     
