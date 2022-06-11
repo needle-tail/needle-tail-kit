@@ -14,7 +14,7 @@ import AsyncIRC
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 extension NeedleTailTransportClient: AsyncIRCNotificationsDelegate {
     
-     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws {
+     func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
     }
 }
@@ -28,7 +28,6 @@ extension NeedleTailTransportClient {
         let buffer = ByteBuffer(data: data)
         let config = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         self.userConfig = config
-         print("Received Response From Server for Read Key Bundle: \(userConfig)")
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device

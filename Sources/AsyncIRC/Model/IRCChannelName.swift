@@ -25,8 +25,11 @@
  * - shall not contain ASCII 7 (^G)
  * - shall not contain a ','
  */
-public struct IRCChannelName : Codable, Hashable, CustomStringConvertible {
-  
+import NeedleTailHelpers
+import AsyncKit
+
+public class IRCChannelName: Codable, Hashable, CustomStringConvertible {
+    
   public typealias StringLiteralType = String
   
   let storage    : String
