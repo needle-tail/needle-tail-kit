@@ -51,6 +51,20 @@ extension NeedleTailTransportClient {
         }
     }
     
+    //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
+    public func recipient(conversationType: ConversationType, deviceId: DeviceId?, name: String) async throws -> IRCMessageRecipient {
+        switch conversationType {
+        case .needleTailChannel, .groupMessage(_):
+            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
+//            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
+            return .channel(name)
+        case .privateMessage:
+            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
+            return .nickname(validatedName)
+        }
+    }
+    
+    
     func createNeedleTailChannel(
         name: String,
         admin: Username,
@@ -68,6 +82,74 @@ extension NeedleTailTransportClient {
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         guard let channel = IRCChannelName(name) else { return }
         await createNeedleTailMessage(.JOIN(channels: [channel], keys: [data]))
+    }
+    
+    func createPrivateMessage(
+        messageId: String,
+        pushType: PushType,
+        message: RatchetedCypherMessage,
+        fromDevice: DeviceId,
+        toUser: Username,
+        toDevice: DeviceId,
+        messageType: MessageType,
+        conversationType: ConversationType,
+        readReceipt: ReadReceiptPacket
+    ) async throws {
+        let packet = MessagePacket(
+            id: messageId,
+            pushType: pushType,
+            type: messageType,
+            createdAt: Date(),
+            sender: fromDevice,
+            recipient: toDevice,
+            message: message,
+            readReceipt: readReceipt
+        )
+        
+        let data = try BSONEncoder().encode(packet).makeData()
+        do {
+            let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
+            let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
+            await sendPrivateMessage(data, to: recipient, tags: nil)
+        } catch {
+            logger.error("\(error)")
+        }
+    }
+    
+    func createGroupMessage(
+        messageId: String,
+        pushType: PushType,
+        message: RatchetedCypherMessage,
+        channelName: String,
+        fromDevice: DeviceId,
+        toUser: Username,
+        toDevice: DeviceId,
+        messageType: MessageType,
+        conversationType: ConversationType,
+        readReceipt: ReadReceiptPacket
+    ) async throws {
+        
+       //We look up all device identities on the server and create the NeedleTailNick there
+        let packet = MessagePacket(
+            id: messageId,
+            pushType: pushType,
+            type: messageType,
+            createdAt: Date(),
+            sender: fromDevice,
+            recipient: toDevice,
+            message: message,
+            readReceipt: readReceipt,
+            channelName: channelName
+        )
+        
+        let data = try BSONEncoder().encode(packet).makeData()
+        do {
+            //Channel Recipient
+            let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: channelName)
+            await sendPrivateMessage(data, to: recipient, tags: nil)
+        } catch {
+            logger.error("\(error)")
+        }
     }
 
 

@@ -43,7 +43,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var client: NeedleTailTransportClient?
     var logger: Logger
     var messageType = MessageType.message
-    var readRecipect: ReadReceiptPacket?
+    var readReceipt: ReadReceiptPacket?
     var ircMessenger: NeedleTailMessenger?
     var shouldProceedRegistration = true
     var initalRegistration = false
@@ -64,7 +64,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         self.signer = signer
         self.appleToken = appleToken
     }
-
+    
     
     
     public class func authenticate(
@@ -92,7 +92,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         }
         return type
     }
-
+    
     @NeedleTailTransportActor
     public func startSession(_ type: RegistrationType?) async throws {
         switch type {
@@ -117,20 +117,20 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     public func createClient() async {
         if client == nil {
-        let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-        guard let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName) else { return }
-        let clientContext = ClientContext(
-            clientInfo: self.clientInfo,
-            nickname: nick
-        )
-        
-        client = await NeedleTailTransportClient(
-            cypher: self.messenger,
-            transportState: self.transportState,
-            transportDelegate: self.delegate,
-            signer: self.signer,
-            authenticated: self.authenticated,
-            clientContext: clientContext)
+            let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
+            guard let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName) else { return }
+            let clientContext = ClientContext(
+                clientInfo: self.clientInfo,
+                nickname: nick
+            )
+            
+            client = await NeedleTailTransportClient(
+                cypher: self.messenger,
+                transportState: self.transportState,
+                transportDelegate: self.delegate,
+                signer: self.signer,
+                authenticated: self.authenticated,
+                clientContext: clientContext)
         }
         await connect()
     }
@@ -144,12 +144,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             try await startSession(registrationType(appleToken ?? ""))
             repeat {} while await client?.acknowledgment != .registered("true")
         }
-                            
+        
         guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
-        let recipient = try await recipient(deviceId: self.deviceId, name: "\(username.raw)")
-
+        guard let client = client else { return }
+        let recipient = try await client.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
+        
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
@@ -162,8 +163,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await client?.sendPrivateMessage(data, to: recipient, tags: nil)
-//        client?.acknowledgment = .none
+        _ = await client.sendPrivateMessage(data, to: recipient, tags: nil)
+        //        client?.acknowledgment = .none
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -178,13 +179,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let date = RunLoop.timeInterval(10)
         var canRun = false
         var userConfig: UserConfig? = nil
-            repeat {
-                canRun = true
-                if client.channel != nil {
-                    userConfig = await client.readKeyBundle(packet)
-                    canRun = false
-                }
-            } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
+        repeat {
+            canRun = true
+            if client.channel != nil {
+                userConfig = await client.readKeyBundle(packet)
+                canRun = false
+            }
+        } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
@@ -194,7 +195,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
-        let recipient = try await recipient(deviceId: deviceId, name: "\(username.raw)")
+        guard let client = client else { return }
+        let recipient = try await client.recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -208,24 +210,24 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await client?.sendPrivateMessage(data, to: recipient, tags: nil)
+        _ = await client.sendPrivateMessage(data, to: recipient, tags: nil)
         
     }
-
+    
     private func makeToken() -> String? {
         var signerAlgorithm: JWTAlgorithm
-        #if os(Linux)
+#if os(Linux)
         signerAlgorithm = signer as! JWTAlgorithm
-        #else
+#else
         signerAlgorithm = signer
-        #endif
+#endif
         return try? JWTSigner(algorithm: signerAlgorithm)
             .sign(
-            Token(
-                device: UserDeviceId(user: self.username, device: self.deviceId),
-                exp: ExpirationClaim(value: Date().addingTimeInterval(3600))
+                Token(
+                    device: UserDeviceId(user: self.username, device: self.deviceId),
+                    exp: ExpirationClaim(value: Date().addingTimeInterval(3600))
+                )
             )
-        )
     }
     
     private func regRequest(with appleToken: String) -> AuthPacket {
@@ -408,7 +410,7 @@ extension NeedleTailMessenger {
     public func readPublishedBlob<C>(byId id: String, as type: C.Type) async throws -> ReferencedBlob<C>? where C : Decodable, C : Encodable {
         fatalError()
     }
-
+    
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
     @NeedleTailTransportActor
@@ -419,105 +421,45 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
+        guard let client = client else { return }
+        guard let readReceipt = readReceipt else { return }
         switch type {
         case .needleTailChannel:
             guard let metadata = needleTailChannelMetaData else { return }
-            try await client?.createNeedleTailChannel(
-            name: metadata.name,
-            admin: metadata.admin,
-            organizers: metadata.organizers,
-            members: metadata.members,
-            permissions: .inviteOnly)
+            try await client.createNeedleTailChannel(
+                name: metadata.name,
+                admin: metadata.admin,
+                organizers: metadata.organizers,
+                members: metadata.members,
+                permissions: .inviteOnly)
         case .groupMessage(let name):
-            try await createGroupMessage(
+            try await client.createGroupMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
-                channelName: name
-            )
+                channelName: name,
+                fromDevice: self.deviceId,
+                toUser: username,
+                toDevice: deviceId,
+                messageType: .message,
+                conversationType: type,
+                readReceipt: readReceipt)
         case .privateMessage:
-            try await createPrivateMessage(
+            try await client.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
-                message: message
-            )
-        }
-    }
-    
-    public func recipient(deviceId: DeviceId?, name: String) async throws -> IRCMessageRecipient {
-        switch type {
-        case .needleTailChannel, .groupMessage(_):
-            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
-            return .channel(name)
-        case .privateMessage:
-            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
-            return .nickname(validatedName)
-        }
-    }
-    
-    func createPrivateMessage(
-        messageId: String,
-        pushType: PushType,
-        message: RatchetedCypherMessage
-    ) async throws {
-        let packet = MessagePacket(
-            id: messageId,
-            pushType: pushType,
-            type: self.messageType,
-            createdAt: Date(),
-            sender: self.deviceId,
-            recipient: deviceId,
-            message: message,
-            readReceipt: self.readRecipect
-        )
-        
-        let data = try BSONEncoder().encode(packet).makeData()
-        do {
-            let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
-            let recipient = try await recipient(deviceId: self.deviceId, name: "\(ircUser)")
-            await client?.sendPrivateMessage(data, to: recipient, tags: nil)
-        } catch {
-            logger.error("\(error)")
-        }
-    }
-    
-    func createGroupMessage(
-        messageId: String,
-        pushType: PushType,
-        message: RatchetedCypherMessage,
-        channelName: String
-    ) async throws {
-        
-        let packet = MessagePacket(
-            id: messageId,
-            pushType: pushType,
-            type: self.messageType,
-            createdAt: Date(),
-            sender: self.deviceId,
-            recipient: deviceId,
-            message: message,
-            readReceipt: self.readRecipect,
-            channelName: ""
-        )
-        
-        let data = try BSONEncoder().encode(packet).makeData()
-        do {
-            //Channel Recipient
-            let recipient = try await recipient(deviceId: self.deviceId, name: channelName)
-            await client?.sendPrivateMessage(data, to: recipient, tags: nil)
-        } catch {
-            logger.error("\(error)")
+                message: message,
+                fromDevice: self.deviceId,
+                toUser: username,
+                toDevice: deviceId,
+                messageType: .message,
+                conversationType: type,
+                readReceipt: readReceipt)
         }
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
         fatalError("AsyncIRC Doesn't support sendMultiRecipientMessage() in this manner")
-    }
-    
-    public enum ConversationType: Equatable {
-        case needleTailChannel
-        case groupMessage(String)
-        case privateMessage
     }
 }
 
