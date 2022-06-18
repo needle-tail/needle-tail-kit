@@ -29,8 +29,9 @@ extension NeedleTailTransportClient {
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailTransportActor
     func registerNeedletailSession(_ regPacket: String?) async {
+        guard let channel = channel else { return }
         transportState.transition(to: .registering(
-                     channel: channel!,
+                     channel: channel,
                      nick: clientContext.nickname,
                      userInfo: clientContext.userInfo))
         
@@ -38,7 +39,7 @@ extension NeedleTailTransportClient {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
-        
+
             await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
@@ -49,6 +50,26 @@ extension NeedleTailTransportClient {
             await createNeedleTailMessage(.NICK(nick))
         }
     }
+    
+    func createNeedleTailChannel(
+        name: String,
+        admin: Username,
+        organizers: Set<Username>,
+        members: Set<Username>,
+        permissions: IRCChannelMode
+    ) async throws {
+        let packet = NeedleTailChannelPacket(
+            name: name,
+            admin: admin,
+            organizers: organizers,
+            members: members,
+            permissions: permissions
+        )
+        let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        guard let channel = IRCChannelName(name) else { return }
+        await createNeedleTailMessage(.JOIN(channels: [channel], keys: [data]))
+    }
+
 
     // 1. We want to tell the master device that we want to register
     public func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick, childNick: NeedleTailNick) async throws {

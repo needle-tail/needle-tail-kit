@@ -29,7 +29,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
-    public var type : ConversationType = .im
+    public var type : ConversationType = .privateMessage
+    var needleTailChannelMetaData: NeedleTailChannelPacket?
     private let deviceId: DeviceId
     public private(set) var signer: TransportCreationRequest
     private let username: Username
@@ -418,7 +419,47 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-
+        switch type {
+        case .needleTailChannel:
+            guard let metadata = needleTailChannelMetaData else { return }
+            try await client?.createNeedleTailChannel(
+            name: metadata.name,
+            admin: metadata.admin,
+            organizers: metadata.organizers,
+            members: metadata.members,
+            permissions: .inviteOnly)
+        case .groupMessage(let name):
+            try await createGroupMessage(
+                messageId: messageId,
+                pushType: pushType,
+                message: message,
+                channelName: name
+            )
+        case .privateMessage:
+            try await createPrivateMessage(
+                messageId: messageId,
+                pushType: pushType,
+                message: message
+            )
+        }
+    }
+    
+    public func recipient(deviceId: DeviceId?, name: String) async throws -> IRCMessageRecipient {
+        switch type {
+        case .needleTailChannel, .groupMessage(_):
+            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
+            return .channel(name)
+        case .privateMessage:
+            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
+            return .nickname(validatedName)
+        }
+    }
+    
+    func createPrivateMessage(
+        messageId: String,
+        pushType: PushType,
+        message: RatchetedCypherMessage
+    ) async throws {
         let packet = MessagePacket(
             id: messageId,
             pushType: pushType,
@@ -434,24 +475,38 @@ extension NeedleTailMessenger {
         do {
             let ircUser = username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(deviceId: self.deviceId, name: "\(ircUser)")
-            await client?.sendPrivateMessage(data, to: recipient, tags: [
-                IRCTags(key: "senderDeviceId", value: "\(self.deviceId)"),
-                IRCTags(key: "recipientDeviceId", value: "\(deviceId)")
-            ])
+            await client?.sendPrivateMessage(data, to: recipient, tags: nil)
         } catch {
             logger.error("\(error)")
         }
     }
     
-    
-    public func recipient(deviceId: DeviceId, name: String) async throws -> IRCMessageRecipient {
-        switch type {
-        case .channel:
-            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
-            return .channel(name)
-        case .im:
-            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
-            return .nickname(validatedName)
+    func createGroupMessage(
+        messageId: String,
+        pushType: PushType,
+        message: RatchetedCypherMessage,
+        channelName: String
+    ) async throws {
+        
+        let packet = MessagePacket(
+            id: messageId,
+            pushType: pushType,
+            type: self.messageType,
+            createdAt: Date(),
+            sender: self.deviceId,
+            recipient: deviceId,
+            message: message,
+            readReceipt: self.readRecipect,
+            channelName: ""
+        )
+        
+        let data = try BSONEncoder().encode(packet).makeData()
+        do {
+            //Channel Recipient
+            let recipient = try await recipient(deviceId: self.deviceId, name: channelName)
+            await client?.sendPrivateMessage(data, to: recipient, tags: nil)
+        } catch {
+            logger.error("\(error)")
         }
     }
     
@@ -460,8 +515,9 @@ extension NeedleTailMessenger {
     }
     
     public enum ConversationType: Equatable {
-        case channel
-        case im
+        case needleTailChannel
+        case groupMessage(String)
+        case privateMessage
     }
 }
 

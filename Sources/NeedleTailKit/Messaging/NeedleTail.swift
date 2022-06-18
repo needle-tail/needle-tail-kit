@@ -139,6 +139,47 @@ public final class NeedleTail {
         )
         messageType = .message
     }
+    
+    //We are not using CTK for groups. All messages are sent in one-on-one conversations. This includes group chat communication, that will also be routed in private chats. What we want to do is create a group. The Organizer of the group will do this. The organizer can then do the following.
+    // - Name the group
+    // - add initial members
+    // - add other organizers to the group
+    //How are we going to save groups to a device? Let's build a plug that will do the following
+    //1. The admin creates the group encrypts it and saves it to disk then sends it to the NeedleTailChannel.
+    //2. The Channel then is operating. it will then join the members and organizers of the Channel and emit the needed information to them if they are online, of not it will save that information until they are online and when they come online they will receive the event and be able to respond to the request. If accepted the Client will save to disk the Channel, if not it will reject it and tell the server. Either way the pending request will be deleted from the DB and all clients will be notified of the current status.
+    //3. The Channel will exisit as long as the server is up. The DB will know the channel name and the Nicks assosiated with it along with their roles. The channels will be brought online when the server spools up.
+    //4. The Channel acts as a passthrough of private messages and who receives them. The Logic Should be the exact same as PRIVMSG except we specify a channel recipient.
+    //5. Basic Flow - DoJoin(Creates the channel if it does not exist with organizers and intial members) -> DoMessage(Sends Messages to that Channel)
+    func createLocalChannel(
+        name: String,
+        admin: Username,
+        organizers: Set<Username>,
+        members: Set<Username>,
+        permissions: IRCChannelMode
+    ) async throws {
+        
+        //Set MessageType
+        ntm?.type = .needleTailChannel
+        
+        //Build our server message
+        ntm?.needleTailChannelMetaData = NeedleTailChannelPacket(
+            name: name,
+            admin: admin,
+            organizers: organizers,
+            members: members,
+            permissions: permissions)
+    
+        //This will kick off a sendMessage flow
+       let group = try await cypher?.createGroupChat(with: members)
+        
+        //Update any organizers Locally
+        guard var config = await group?.getGroupConfig() else { return }
+        for organizer in organizers {
+            guard !config.blob.moderators.contains(organizer) else { return }
+            config.blob.promoteAdmin(organizer)
+        }
+    }
+    
 #if os(macOS)
     @objc private func showRegistryRequestAlert() {
         let alert = NSAlert()
@@ -166,8 +207,8 @@ public final class NeedleTail {
 }
 
 public class NeedleTailViewModel: ObservableObject {
-    @Published var emitter: NeedleTailEmitter?
-    @Published var cypher: CypherMessenger?
+    @Published public var emitter: NeedleTailEmitter?
+    @Published public var cypher: CypherMessenger?
     public init() {}
 }
 
@@ -224,9 +265,12 @@ extension NeedleTail: ObservableObject {
     
     public struct RegisterOrAddButton: View {
         public var exists: Bool = true
+        public var createContact: Bool = true
+        public var createChannel: Bool = true
         public var buttonTitle: String = ""
-        public var username: String = ""
+        public var username: Username = ""
         public var nick: String = ""
+        public var channelPacket: NeedleTailChannelPacket?
         public var password: String = ""
         public var store: CypherMessengerStore
         public var clientInfo: ClientContext.ServerClientInfo
@@ -237,16 +281,22 @@ extension NeedleTail: ObservableObject {
         
         public init(
             exists: Bool,
+            createContact: Bool,
+            createChannel: Bool,
             buttonTitle: String,
-            username: String,
+            username: Username,
             password: String,
             nick: String,
+            channelPacket: NeedleTailChannelPacket?,
             store: CypherMessengerStore,
             clientInfo: ClientContext.ServerClientInfo,
             dismiss: Binding<Bool>,
             showProgress: Binding<Bool>
         ) {
             self.exists = exists
+            self.createContact = createContact
+            self.createChannel = createChannel
+            self.channelPacket = channelPacket
             self.buttonTitle = buttonTitle
             self.username = username
             self.nick = nick
@@ -266,14 +316,25 @@ extension NeedleTail: ObservableObject {
 #endif
                 showProgress = true
                 Task {
-                    if exists {
-                        try await NeedleTail.shared.addContact(contact: username, nick: nick)
+                    if createContact {
+                        try await NeedleTail.shared.addContact(contact: username.raw, nick: nick)
+                        showProgress = false
+                        dismiss = true
+                    } else if createChannel {
+                        guard let packet = channelPacket else { return }
+                        try await NeedleTail.shared.createLocalChannel(
+                            name: packet.name,
+                            admin: packet.admin,
+                            organizers: packet.organizers,
+                            members: packet.members,
+                            permissions: packet.permissions
+                        )
                         showProgress = false
                         dismiss = true
                     } else {
                         needleTailViewModel.cypher = try await NeedleTail.shared.registerNeedleTail(
                             appleToken: "",
-                            username: username,
+                            username: username.raw,
                             store: store,
                             clientInfo: clientInfo,
                             p2pFactories: makeP2PFactories(),

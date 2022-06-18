@@ -12,7 +12,9 @@ import NeedleTailHelpers
 public class NeedleTailHandler: AsyncIRCNotifications {
     @NeedleTailTransportActor public let consumer = ConversationConsumer()
     @MainActor public var selectedChat: PrivateChat?
+    @MainActor public var cypher: CypherMessenger?
     @MainActor public var sessions = [PrivateChat]()
+    @MainActor public var groupChats = [GroupChat]()
     @MainActor public var cursor: AnyChatMessageCursor?
     @MainActor public var chats: [AnyChatMessage] = []
     
@@ -37,6 +39,10 @@ public class NeedleTailHandler: AsyncIRCNotifications {
         try await messenger.listContacts()
     }
     
+    public func fetchGroupChats(_ messenger: CypherMessenger) async throws -> [GroupChat] {
+        return await groupChats
+    }
+    
     @MainActor
     public func fetchChats(
         messenger: CypherMessenger,
@@ -45,50 +51,54 @@ public class NeedleTailHandler: AsyncIRCNotifications {
         do {
             try await fetchConversations(messenger)
             do {
-            for try await result in ConversationSequence(consumer: consumer) {
-
-                switch result {
-                case .success(let result):
+                for try await result in ConversationSequence(consumer: consumer) {
+                    
                     switch result {
-                    case .privateChat(let privateChat):
-                        print(privateChat)
-                        //Append Sessions no matter what
-                        sessions.append(privateChat)
-                        guard let username = contact?.username else { return nil }
-                        if privateChat.conversation.members.contains(username) {
-                            selectedChat = privateChat
-                            self.cursor = try await privateChat.cursor(sortedBy: .descending)
-                            self.chats = try await privateChat.allMessages(sortedBy: .descending)
-                            return self.cursor
+                    case .success(let result):
+                        switch result {
+                        case .privateChat(let privateChat):
+                            print(privateChat)
+                            //Append Sessions no matter what
+                            sessions.append(privateChat)
+                            guard let username = contact?.username else { return nil }
+                            if privateChat.conversation.members.contains(username) {
+                                selectedChat = privateChat
+                                self.cursor = try await privateChat.cursor(sortedBy: .descending)
+                                self.chats = try await privateChat.allMessages(sortedBy: .descending)
+                                return self.cursor
+                            }
+                        case .groupChat(let groupChat):
+                            groupChats.append(groupChat)
+                        case .internalChat(_):
+                            return nil
                         }
-                    case .groupChat(_):
+                    case .retry:
                         return nil
-                    case .internalChat(_):
+                    case .finished:
                         return nil
                     }
-                case .retry:
-                    return nil
-                case .finished:
-                    return nil
                 }
-            }
             } catch {
                 print(error)
             }
-        
+            
         } catch {
             print(error)
         }
         return nil
     }
-
-//MARK: Outbound
+    
+    //MARK: Outbound
     public func sendMessage(message: String) async throws {
         _ = try await selectedChat?.sendRawMessage(
             type: .text,
             text: message,
             preferredPushType: .message
         )
+    }
+    
+    public func sendGroupMessage(message: String) async throws {
+
     }
     
     public func deleteContact(_ contact: Contact) async throws {

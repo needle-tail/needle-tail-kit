@@ -35,6 +35,7 @@ public struct MessagePacket: Codable {
     public let recipient: DeviceId?
     public let message: RatchetedCypherMessage?
     public let readReceipt: ReadReceiptPacket?
+    public let channelName: String?
     
     public init(
         id: String,
@@ -44,7 +45,8 @@ public struct MessagePacket: Codable {
         sender: DeviceId?,
         recipient: DeviceId?,
         message: RatchetedCypherMessage?,
-        readReceipt: ReadReceiptPacket?
+        readReceipt: ReadReceiptPacket?,
+        channelName: String? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -54,48 +56,7 @@ public struct MessagePacket: Codable {
         self.recipient = recipient
         self.message = message
         self.readReceipt = readReceipt
+        self.channelName = channelName
     }
 }
 
-public struct ReadReceiptPacket: Codable {
-    public enum State: Int, Codable {
-        case received = 0
-        case displayed = 1
-    }
-    
-    public let _id: ObjectId
-    public let messageId: String
-    public let state: State
-    public let sender: UserDeviceId
-    public let recipient: UserDeviceId
-}
-
-public struct UserDeviceId: Hashable, Codable {
-    public let user: Username
-    public let device: DeviceId
-    
-    public init(
-        user: Username,
-        device: DeviceId
-    ) {
-        self.user = user
-        self.device = device
-    }
-}
-
-public struct Token: JWTPayload {
-    public let device: UserDeviceId
-    public let exp: ExpirationClaim
-    
-    public init(
-        device: UserDeviceId,
-        exp: ExpirationClaim
-    ) {
-        self.device = device
-        self.exp = exp
-    }
-    
-    public func verify(using signer: JWTSigner) throws {
-        try exp.verifyNotExpired()
-    }
-}

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Foundation.Data
+import NeedleTailHelpers
 
 public enum IRCCommand {
   

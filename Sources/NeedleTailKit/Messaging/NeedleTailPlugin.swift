@@ -104,7 +104,6 @@ public class NeedleTailPlugin: Plugin {
 //        emitter.customConfigChanged.send()
 //    }
     
-    
 }
 
 

@@ -72,14 +72,6 @@ extension NeedleTailTransportClient: IRCDispatcher {
 //            await clientDelegate?.client(self, user: user, left: channels, with: leaveMessage)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-        case .otherCommand("REGISTRYREQUEST", let request):
-            break
-        case .otherCommand("REGISTRYRESPONSE", let response):
-            break
-//            try await receivedRegistryResponse(fromMaster: response)
-        case .otherCommand("NEWDEVICE", let config):
-//            try await finishRegistryRequest(config)
-            break
         case .otherCommand("READKEYBNDL", let keyBundle):
             try await delegate?.doReadKeyBundle(keyBundle)
         case .numeric(.replyMotDStart, let args):

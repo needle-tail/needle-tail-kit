@@ -107,12 +107,11 @@ extension NeedleTailTransportClient {
     ) async throws {
         for recipient in recipients {
             switch recipient {
-            case .channel(let name):
-                print(name)
-                //              if let c = self.registerChannel(name.stringValue) {
-                //                c.addMessage(message, from: sender)
-                //              }
+            case .everything:
                 break
+                //              self.conversations.values.forEach {
+                //                $0.addMessage(message, from: sender)
+                //              }
             case .nickname(let nick):
                 do {
                     guard let data = Data(base64Encoded: message) else { return }
@@ -163,9 +162,10 @@ extension NeedleTailTransportClient {
                             await createNeedleTailMessage(.USER(user))
                             
                             transportState.transition(to: .online)
-                            //TODO: GOURP CHAT("CHANNELS")
-//                            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-//                            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+
+                            // Everyone can join administrator, this primarily will be used for beta for report issues
+                            let channels = await ["#Administrator"].asyncCompactMap(IRCChannelName.init)
+                            await createNeedleTailMessage(.JOIN(channels: channels, keys: nil))
                         default:
                             break
                         }
@@ -197,11 +197,31 @@ extension NeedleTailTransportClient {
                 }
                 
                 break
-            case .everything:
-                break
-                //              self.conversations.values.forEach {
-                //                $0.addMessage(message, from: sender)
-                //              }
+            case .channel(let channelName):
+                print(channelName)
+                
+                guard let data = Data(base64Encoded: message) else { return }
+                let buffer = ByteBuffer(data: data)
+                let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
+                switch packet.type {
+                case .message:
+                // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
+                guard let message = packet.message else { return }
+                guard let deviceId = packet.sender else { return }
+                try await self.transportDelegate?.receiveServerEvent(
+                    .messageSent(
+                        message,
+                        id: packet.id,
+                        byUser: Username(sender.nick.stringValue),
+                        deviceId: deviceId
+                    )
+                )
+                
+                let data = try await createAcknowledgment(.messageSent(packet.id))
+                _ = await sendPrivateMessage(data, to: recipient, tags: nil)
+                default:
+                    break
+                }
             }
         }
     }
@@ -283,8 +303,9 @@ extension NeedleTailTransportClient {
         case .registered(channel: _, nick: _, userInfo: _):
             print("going online:", self)
             transportState.transition(to: .online)
-            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
+//            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
+//            print("Respond To State")
+//            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
             registrationPacket = ""
         case .online:
             break

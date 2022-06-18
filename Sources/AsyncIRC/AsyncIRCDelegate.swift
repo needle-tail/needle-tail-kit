@@ -26,6 +26,7 @@ public extension AsyncIRCDelegate {
             .map { $0.replacingOccurrences(of: "\r", with: "") }
         _ = await lines.asyncMap {
             let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipient, $0), tags: tags)
+            print("MESSAGE___", message)
             await self.sendAndFlushMessage(message, chatDoc: nil)
         }
     }
@@ -37,6 +38,7 @@ public extension AsyncIRCDelegate {
 
         _ = await lines.asyncMap {
             let message = IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: self.tags)
+            print("NOTICE___", message)
             await self.sendAndFlushMessage(message, chatDoc: nil)
         }
     }
@@ -46,6 +48,7 @@ public extension AsyncIRCDelegate {
               tags: [IRCTags]? = nil
     ) async {
             let message = IRCMessage(command: command, tags: tags)
+        print("NTMESSAGE___", message)
             await sendAndFlushMessage(message, chatDoc: nil)
     }
     
@@ -54,6 +57,7 @@ public extension AsyncIRCDelegate {
               tags: [IRCTags]? = nil
     ) async {
             let message = IRCMessage(command: command, tags: tags)
+        print("KEYBUNDLE___", message)
             await sendAndFlushMessage(message, chatDoc: nil)
     }
 }
