@@ -116,7 +116,7 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     
-    func doJoin(_ channels: [ IRCChannelName ]) async throws {
+    func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doPart(_ channels: [ IRCChannelName ], message: String?) async throws {

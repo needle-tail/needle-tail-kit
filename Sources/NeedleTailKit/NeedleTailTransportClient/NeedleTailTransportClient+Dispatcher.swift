@@ -68,7 +68,9 @@ extension NeedleTailTransportClient: IRCDispatcher {
             guard let origin = message.origin, let user = IRCUserID(origin) else {
                 return print("ERROR: JOIN is missing a proper origin:", message)
             }
-//            await clientDelegate?.client(self, user: user, left: channels, with: leaveMessage)
+            print("DO PART ORIGIN: \(origin)")
+            print("DO PART USER: \(user)")
+            try await delegate?.doPart(channels, message: leaveMessage)
         case .LIST(let channels, let target):
             try await doList(channels, target)
         case .otherCommand("READKEYBNDL", let keyBundle):
@@ -87,14 +89,14 @@ extension NeedleTailTransportClient: IRCDispatcher {
         case .numeric(.replyEndOfNames, _):
             break
         case .numeric(.replyInfo, let info):
-            break
+            handleInfo(info)
 //            try await clientDelegate?.client(self, info: info)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
                 return print("ERROR: topic args incomplete:", message)
             }
-            break
+            handleTopic(args[2], on: channel)
 //            await clientDelegate?.client(self, changeTopic: args[2], of: channel)
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")

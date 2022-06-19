@@ -300,9 +300,13 @@ extension NeedleTailTransportClient {
             break
         case .registering(channel: _, nick: _, userInfo: _):
             break
-        case .registered(channel: _, nick: _, userInfo: _):
+        case .registered(channel: let channel, nick: let nick, userInfo: let info):
             print("going online:", self)
             transportState.transition(to: .online)
+            print("Channel: \(channel)")
+            print("Nick: \(nick)")
+            print("Info: \(info)")
+            //TODO: We can notify our selves when members join our channels(Come Online)
 //            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
 //            print("Respond To State")
 //            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
@@ -321,5 +325,15 @@ extension NeedleTailTransportClient {
         case .quit:
             break
         }
+    }
+    
+    func handleInfo(_ info: [String]) {
+        for message in info {
+            print("Handle Info", message)
+        }
+    }
+    
+    func handleTopic(_ topic: String, on channel: IRCChannelName) {
+            print("Handle Topic \(topic), on channel \(channel)")
     }
 }
