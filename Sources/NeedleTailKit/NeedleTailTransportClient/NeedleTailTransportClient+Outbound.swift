@@ -80,8 +80,9 @@ extension NeedleTailTransportClient {
             permissions: permissions
         )
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let tag = IRCTags(key: "channelPacket", value: data)
         guard let channel = IRCChannelName(name) else { return }
-        await createNeedleTailMessage(.JOIN(channels: [channel], keys: [data]))
+        await createNeedleTailMessage(.JOIN(channels: [channel], keys: [data]), tags: [tag])
     }
     
     func createPrivateMessage(

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import CypherProtocol
+import NeedleTailHelpers
 
 public enum IRCMessageRecipient: Codable, Hashable {
   

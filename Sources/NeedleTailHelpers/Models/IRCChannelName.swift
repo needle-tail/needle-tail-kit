@@ -25,7 +25,6 @@
  * - shall not contain ASCII 7 (^G)
  * - shall not contain a ','
  */
-import NeedleTailHelpers
 import AsyncKit
 
 public class IRCChannelName: Codable, Hashable, CustomStringConvertible {

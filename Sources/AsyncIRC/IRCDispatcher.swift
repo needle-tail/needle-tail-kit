@@ -46,7 +46,7 @@ public protocol IRCDispatcher: AnyObject {
     func doWhoIs(server: String?, usermasks: [ String ]) async throws
     func doWho(mask: String?, operatorsOnly opOnly: Bool) async throws
     
-    func doJoin(_ channels: [ IRCChannelName ]) async throws
+    func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
     func doPart(_ channels: [ IRCChannelName ], message: String?) async throws
     func doPartAll()async throws
     func doGetBanMask(_ channel  : IRCChannelName) async throws

@@ -58,7 +58,7 @@ public extension IRCCommand {
             return n
           }
         }
-        
+
         func splitRecipientString(_ s: String) throws -> [ IRCMessageRecipient ] {
           return try arguments[0].split(separator: ",").map {
               guard let n = IRCMessageRecipient(String($0)) else {
@@ -173,8 +173,7 @@ public extension IRCCommand {
             try expect(min: 1, max: 2)
             if arguments[0] == "0" {
                 self = .JOIN0
-            }
-            else {
+            } else {
                 let channels = try splitChannelsString(arguments[0])
                 let keys = arguments.count > 1
                 ? arguments[1].split(separator: ",").map(String.init)

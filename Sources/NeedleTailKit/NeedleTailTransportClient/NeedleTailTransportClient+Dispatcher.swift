@@ -17,18 +17,21 @@ extension NeedleTailTransportClient: IRCDispatcher {
     /// - Parameter message: Our IRCMessage
     @NeedleTailTransportActor
     func processReceivedMessages(_ message: IRCMessage) async throws {
+        
+        guard let data = Data(base64Encoded: message.origin ?? "") else { throw NeedleTailError.nilData }
+        let buffer = ByteBuffer(data: data)
+        let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+        guard let sender = IRCUserID(
+            senderNick.name,
+            deviceId: senderNick.deviceId
+        ) else { throw NeedleTailError.invalidUserId }
+        let tags = message.tags
+
+        
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
         case .PRIVMSG(let recipients, let payload):
-            guard let data = Data(base64Encoded: message.origin ?? "") else { throw NeedleTailError.nilData }
-            let buffer = ByteBuffer(data: data)
-            let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-            guard let sender = IRCUserID(
-                senderNick.name,
-                deviceId: senderNick.deviceId
-            ) else { throw NeedleTailError.invalidUserId }
-            let tags = message.tags
             try await delegate?.doMessage(sender: sender,
                                 recipients: recipients,
                                 message: payload,
@@ -60,11 +63,7 @@ extension NeedleTailTransportClient: IRCDispatcher {
         case .WHO(let mask, let opOnly):
             try await delegate?.doWho(mask: mask, operatorsOnly: opOnly)
         case .JOIN(let channels, _):
-//            guard let origin = message.origin, let user = IRCUserID(origin) else {
-//                return print("ERROR: JOIN is missing a proper origin:", message)
-//            }
-            try await delegate?.doJoin(channels)
-//            await clientDelegate?.client(self, user: user, joined: channels)
+            try await delegate?.doJoin(channels, tags: tags)
         case .PART(let channels, let leaveMessage):
             guard let origin = message.origin, let user = IRCUserID(origin) else {
                 return print("ERROR: JOIN is missing a proper origin:", message)

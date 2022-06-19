@@ -276,7 +276,7 @@ extension NeedleTailTransportClient {
         }
     }
     
-     func doJoin(_ channels: [IRCChannelName]) async throws {
+    func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         print("DO JOINING CHANNELS", channels)
         await respondToTransportState()
     }

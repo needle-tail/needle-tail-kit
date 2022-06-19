@@ -25,7 +25,7 @@ public enum IRCCommand {
   case QUIT(String?)
   case PING(server: String, server2: String?)
   case PONG(server: String, server2: String?)
-  
+  //Keys are passwords for a Channe.
   case JOIN(channels: [ IRCChannelName ], keys: [ String ]?)
   
   /// JOIN-0 is actually "unsubscribe all channels"
