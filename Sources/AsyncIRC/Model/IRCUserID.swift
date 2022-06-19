@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 import CypherMessaging
+import NeedleTailHelpers
 
 public struct IRCUserID : Hashable, CustomStringConvertible {
   // TBD: is that really called the user-mask? Or more like "fullusername"?

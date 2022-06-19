@@ -1,5 +1,6 @@
 import NIOCore
 import AsyncIRC
+import NeedleTailHelpers
 
  public struct ClientContext {
     

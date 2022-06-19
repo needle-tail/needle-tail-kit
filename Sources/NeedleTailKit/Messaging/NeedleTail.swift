@@ -160,7 +160,7 @@ public final class NeedleTail {
         
         //Set MessageType
         ntm?.type = .needleTailChannel
-        
+        guard let admin = NeedleTailNick(deviceId: ntm?.deviceId, name: admin.raw) else { return }
         //Build our server message
         ntm?.needleTailChannelMetaData = NeedleTailChannelPacket(
             name: name,
@@ -270,7 +270,11 @@ extension NeedleTail: ObservableObject {
         public var buttonTitle: String = ""
         public var username: Username = ""
         public var nick: String = ""
-        public var channelPacket: NeedleTailChannelPacket?
+        public var channelName: String?
+        public var admin: Username?
+        public var organizers: Set<Username>?
+        public var members: Set<Username>?
+        public var permissions: IRCChannelMode?
         public var password: String = ""
         public var store: CypherMessengerStore
         public var clientInfo: ClientContext.ServerClientInfo
@@ -287,7 +291,11 @@ extension NeedleTail: ObservableObject {
             username: Username,
             password: String,
             nick: String,
-            channelPacket: NeedleTailChannelPacket?,
+            channelName: String? = nil,
+            admin: Username? = nil,
+            organizers: Set<Username>? = nil,
+            members: Set<Username>? = nil,
+            permissions: IRCChannelMode? = nil,
             store: CypherMessengerStore,
             clientInfo: ClientContext.ServerClientInfo,
             dismiss: Binding<Bool>,
@@ -296,7 +304,11 @@ extension NeedleTail: ObservableObject {
             self.exists = exists
             self.createContact = createContact
             self.createChannel = createChannel
-            self.channelPacket = channelPacket
+            self.channelName = channelName
+            self.admin = admin
+            self.organizers = organizers
+            self.members = members
+            self.permissions = permissions
             self.buttonTitle = buttonTitle
             self.username = username
             self.nick = nick
@@ -321,13 +333,17 @@ extension NeedleTail: ObservableObject {
                         showProgress = false
                         dismiss = true
                     } else if createChannel {
-                        guard let packet = channelPacket else { return }
+                        guard let channelName = channelName else { return }
+                        guard let admin = admin else { return }
+                        guard let organizers = organizers else { return }
+                        guard let members = members else { return }
+                        guard let permissions = permissions else { return }
                         try await NeedleTail.shared.createLocalChannel(
-                            name: packet.name,
-                            admin: packet.admin,
-                            organizers: packet.organizers,
-                            members: packet.members,
-                            permissions: packet.permissions
+                            name: channelName,
+                            admin: admin,
+                            organizers: organizers,
+                            members: members,
+                            permissions: permissions
                         )
                         showProgress = false
                         dismiss = true

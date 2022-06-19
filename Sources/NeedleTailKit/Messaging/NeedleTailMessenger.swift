@@ -31,7 +31,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .privateMessage
     var needleTailChannelMetaData: NeedleTailChannelPacket?
-    private let deviceId: DeviceId
+    let deviceId: DeviceId
     public private(set) var signer: TransportCreationRequest
     private let username: Username
     private let appleToken: String?

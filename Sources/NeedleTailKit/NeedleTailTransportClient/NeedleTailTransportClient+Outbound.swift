@@ -67,7 +67,7 @@ extension NeedleTailTransportClient {
     
     func createNeedleTailChannel(
         name: String,
-        admin: Username,
+        admin: NeedleTailNick,
         organizers: Set<Username>,
         members: Set<Username>,
         permissions: IRCChannelMode
