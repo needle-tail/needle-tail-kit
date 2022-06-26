@@ -124,10 +124,9 @@ extension IRCChannelHandler {
             buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
             if let keys = keys { buffer.writeCSVArgument(keys) }
             
-        case .PART(let channels, let message):
+        case .PART(let channels):
             buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
-            if let message = message { buffer.writeLastArgument(message) }
-            
+
         case .LIST(let channels, let target):
             if let channels = channels {
                 buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })

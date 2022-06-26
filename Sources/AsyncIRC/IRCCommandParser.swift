@@ -184,8 +184,7 @@ public extension IRCCommand {
         case "PART":
             try expect(min: 1, max: 2)
             let channels = try splitChannelsString(arguments[0])
-            self = .PART(channels: channels,
-                         message: arguments.count > 1 ? arguments[1] : nil)
+            self = .PART(channels: channels)
             
         case "LIST":
             try expect(max: 2)

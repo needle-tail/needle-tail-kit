@@ -164,8 +164,17 @@ extension NeedleTailTransportClient {
                             transportState.transition(to: .online)
 
                             // Everyone can join administrator, this primarily will be used for beta for report issues
-                            let channels = await ["#Administrator"].asyncCompactMap(IRCChannelName.init)
-                            await createNeedleTailMessage(.JOIN(channels: channels, keys: nil))
+                            let packet = NeedleTailChannelPacket(
+                                name: "#Administrator",
+                                admin: nick,
+                                organizers: [Username(nick.stringValue)],
+                                members: [Username(nick.stringValue)],
+                                permissions: .inviteOnly
+                            )
+                            let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+                            let tag = IRCTags(key: "channelPacket", value: data)
+                            guard let channel = IRCChannelName("#Administrator") else { return }
+                            await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
                         default:
                             break
                         }
@@ -279,6 +288,17 @@ extension NeedleTailTransportClient {
     func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         print("DO JOINING CHANNELS", channels)
         await respondToTransportState()
+    }
+    
+    func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
+        print("PARTING CHANNEL")
+        
+        guard let tag = tags?.first?.value else { return }
+        guard let data = Data(base64Encoded: tag) else  { return }
+        let channelPacket = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: Document(data: data))
+        
+        //TODO: Present to UI
+        print("CHANNEL PART MESSAGE", channelPacket.partMessage)
     }
     
      func doModeGet(nick: NeedleTailNick) async throws {

@@ -32,8 +32,8 @@ public enum IRCCommand {
   case JOIN0
   
   /// Unsubscribe the given channels.
-  case PART(channels: [ IRCChannelName ],  message: String?)
-  
+  case PART(channels: [ IRCChannelName ])
+    
   case LIST(channels: [ IRCChannelName ]?, target: String?)
   
   case PRIVMSG([ IRCMessageRecipient ], String)
@@ -132,11 +132,9 @@ extension IRCCommand : CustomStringConvertible {
       
       case .JOIN0: return [ "0" ]
       
-      case .PART(let channels, .none):
+      case .PART(let channels):
         return [ channels.map { $0.stringValue }.joined(separator: ",") ]
-      case .PART(let channels, .some(let m)):
-        return [ channels.map { $0.stringValue }.joined(separator: ","), m ]
-
+        
       case .LIST(let channels, .none):
         guard let channels = channels else { return [] }
         return [ channels.map { $0.stringValue }.joined(separator: ",") ]
@@ -241,12 +239,9 @@ extension IRCCommand : CustomStringConvertible {
         let names = channels.map { $0.stringValue}
         return "JOIN \(names.joined(separator: ","))"
              + " keys: \(keys.joined(separator: ","))"
-      case .PART(let channels, .none):
+      case .PART(let channels):
         let names = channels.map { $0.stringValue}
         return "PART \(names.joined(separator: ","))"
-      case .PART(let channels, .some(let message)):
-        let names = channels.map { $0.stringValue}
-        return "PART \(names.joined(separator: ",")) '\(message)'"
       case .LIST(.none, .none):
         return "LIST *"
       case .LIST(.none, .some(let target)):

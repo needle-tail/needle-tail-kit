@@ -82,7 +82,32 @@ extension NeedleTailTransportClient {
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         let tag = IRCTags(key: "channelPacket", value: data)
         guard let channel = IRCChannelName(name) else { return }
-        await createNeedleTailMessage(.JOIN(channels: [channel], keys: [data]), tags: [tag])
+        //Keys are Passwords for Channels
+        await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
+    }
+    
+    
+    func partNeedleTailChannel(
+        name: String,
+        admin: NeedleTailNick,
+        organizers: Set<Username>,
+        members: Set<Username>,
+        permissions: IRCChannelMode,
+        message: String
+    ) async throws {
+        let packet = NeedleTailChannelPacket(
+            name: name,
+            admin: admin,
+            organizers: organizers,
+            members: members,
+            permissions: permissions,
+            destroy: true,
+            partMessage: message
+        )
+        let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let tag = IRCTags(key: "channelPacket", value: data)
+        guard let channel = IRCChannelName(name) else { return }
+        await createNeedleTailMessage(.PART(channels: [channel]), tags: [tag])
     }
     
     func createPrivateMessage(

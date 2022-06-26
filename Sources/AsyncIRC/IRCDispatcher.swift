@@ -47,7 +47,7 @@ public protocol IRCDispatcher: AnyObject {
     func doWho(mask: String?, operatorsOnly opOnly: Bool) async throws
     
     func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
-    func doPart(_ channels: [ IRCChannelName ], message: String?) async throws
+    func doPart(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
     func doPartAll()async throws
     func doGetBanMask(_ channel  : IRCChannelName) async throws
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
@@ -119,7 +119,7 @@ public extension IRCDispatcher {
     func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doPart(_ channels: [ IRCChannelName ], message: String?) async throws {
+    func doPart(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doPartAll() async throws {
