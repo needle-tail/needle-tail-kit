@@ -66,6 +66,7 @@ extension NeedleTailTransportClient {
     
     @BlobActor
     func publishBlob(_ packet: String) async throws {
+        print("BLOB___", packet)
         await sendBlobs(.otherCommand("BLOBS", [packet]))
         let date = RunLoop.timeInterval(10)
         var canRun = false

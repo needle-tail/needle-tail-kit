@@ -70,6 +70,8 @@ extension NeedleTailTransportClient: IRCDispatcher {
             try await doList(channels, target)
         case .otherCommand("READKEYBNDL", let keyBundle):
             try await delegate?.doReadKeyBundle(keyBundle)
+        case .otherCommand("BLOBS", let blob):
+            try await delegate?.doBlobs(blob)
         case .numeric(.replyMotDStart, let args):
             messageOfTheDay = (args.last ?? "") + "\n"
         case .numeric(.replyMotD, let args):

@@ -295,6 +295,12 @@ extension NeedleTailTransportClient {
             await respondToTransportState()
         }
     }
+    
+    @NeedleTailTransportActor
+    func doBlobs(_ blobs: [String]) async throws {
+        guard let blob = blobs.first else { throw NeedleTailError.nilBlob }
+        self.channelBlob = blob
+    }
 
     @NeedleTailTransportActor
     func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {

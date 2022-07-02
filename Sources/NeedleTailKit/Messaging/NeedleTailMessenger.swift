@@ -415,11 +415,12 @@ extension NeedleTailMessenger {
     @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
+        print("STRING)__", blobString)
         try await client?.publishBlob(blobString)
 
         guard let channelBlob = await client?.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
-        let blob = try BSONDecoder().decode(Blob<C>.self, from: Document(data: data))
+        let blob = try BSONDecoder().decode(NeedleTailHelpers.Blob<C>.self, from: Document(data: data))
         return ReferencedBlob(id: blob._id, blob: blob.document)
     }
     
