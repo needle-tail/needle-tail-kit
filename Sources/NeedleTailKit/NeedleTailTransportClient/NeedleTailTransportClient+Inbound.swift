@@ -164,17 +164,29 @@ extension NeedleTailTransportClient {
                             transportState.transition(to: .online)
 
                             // Everyone can join administrator, this primarily will be used for beta for report issues
-                            let packet = NeedleTailChannelPacket(
-                                name: "#Administrator",
-                                admin: nick,
+                            
+                            let channelName = "#Administrator"
+                            
+//                            let packet = NeedleTailChannelPacket(
+//                                name: channelName,
+//                                admin: nick,
+//                                organizers: [Username(nick.stringValue)],
+//                                members: [Username(nick.stringValue)],
+//                                permissions: .channelOperator
+//                            )
+                            
+                            try await messenger.createLocalChannel(
+                                name: channelName,
+                                admin: cypher.username,
                                 organizers: [Username(nick.stringValue)],
                                 members: [Username(nick.stringValue)],
-                                permissions: .inviteOnly
+                                permissions: .channelOperator
                             )
-                            let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-                            let tag = IRCTags(key: "channelPacket", value: data)
-                            guard let channel = IRCChannelName("#Administrator") else { return }
-                            await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
+                            
+//                            let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+//                            let tag = IRCTags(key: "channelPacket", value: data)
+//                            guard let channel = IRCChannelName("#Administrator") else { return }
+//                            await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
                         default:
                             break
                         }
@@ -198,8 +210,7 @@ extension NeedleTailTransportClient {
                         guard let data = Data(base64Encoded: config) else { return }
                         let buffer = ByteBuffer(data: data)
                         let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-//                        try await cypher?.addDevice(deviceConfig)
-                        try await cypher?.transport.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
+                        try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
                     }
                 } catch {
                     print(error)
@@ -284,21 +295,31 @@ extension NeedleTailTransportClient {
             await respondToTransportState()
         }
     }
-    
+
+    @NeedleTailTransportActor
     func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
-        print("DO JOINING CHANNELS", channels)
+        logger.info("Joining channels: \(channels)")
         await respondToTransportState()
+        
+        guard let tag = tags?.first?.value else { return }
+        self.channelBlob = tag
+        
+        guard let data = Data(base64Encoded: tag) else  { return }
+        
+        //TODO: This will be a Blob to decode set the property so CTK can create a local Channel
+        let onlineNicks = try BSONDecoder().decode([NeedleTailNick].self, from: Document(data: data))
+        print(onlineNicks.map({ $0 }))
+        await messenger.plugin.onMembersOnline(onlineNicks)
     }
     
     func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         print("PARTING CHANNEL")
+        await respondToTransportState()
         
         guard let tag = tags?.first?.value else { return }
         guard let data = Data(base64Encoded: tag) else  { return }
         let channelPacket = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: Document(data: data))
-        
-        //TODO: Present to UI
-        print("CHANNEL PART MESSAGE", channelPacket.partMessage)
+        await messenger.plugin.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
     }
     
      func doModeGet(nick: NeedleTailNick) async throws {
@@ -320,16 +341,8 @@ extension NeedleTailTransportClient {
             break
         case .registering(channel: _, nick: _, userInfo: _):
             break
-        case .registered(channel: let channel, nick: let nick, userInfo: let info):
-            print("going online:", self)
+        case .registered(channel: _, nick: _, userInfo: _):
             transportState.transition(to: .online)
-            print("Channel: \(channel)")
-            print("Nick: \(nick)")
-            print("Info: \(info)")
-            //TODO: We can notify our selves when members join our channels(Come Online)
-//            let channels = await ["#NIO", "Swift"].asyncCompactMap(IRCChannelName.init)
-//            print("Respond To State")
-//            await sendAndFlushMessage(.init(command: .JOIN(channels: channels, keys: nil)), chatDoc: nil)
             registrationPacket = ""
         case .online:
             break

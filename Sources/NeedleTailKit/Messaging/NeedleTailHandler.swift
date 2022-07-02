@@ -26,30 +26,36 @@ public class NeedleTailHandler: AsyncIRCNotifications {
     
     //MARK: Inbound
     public func fetchConversations(_
-                                   messenger: CypherMessenger
+                                   cypher: CypherMessenger
     ) async throws {
-        let conversations = try await messenger.listConversations(
+        let conversations = try await cypher.listConversations(
             includingInternalConversation: true,
             increasingOrder: sortChats
         )
         await consumer.feedConsumer(conversations)
     }
     
-    public func fetchContacts(_ messenger: CypherMessenger) async throws -> [Contact] {
-        try await messenger.listContacts()
+    public func fetchContacts(_ cypher: CypherMessenger) async throws -> [Contact] {
+        try await cypher.listContacts()
     }
     
-    public func fetchGroupChats(_ messenger: CypherMessenger) async throws -> [GroupChat] {
+    public func fetchGroupChats(_ cypher: CypherMessenger) async throws -> [GroupChat] {
         return await groupChats
     }
     
     @MainActor
+    /// `fetchChats()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
+    /// that this device has knowledge of. We then can use them in our NeedleTailKit Transport Mechanism.
+    /// - Parameters:
+    ///   - cypher: **CTK**'s `CypherMessenger` for this Device.
+    ///   - contact: The opitional `Contact` we want to use to filter private chats on.
+    /// - Returns: An `AnyChatMessageCursor` which references a point in memory of `CypherMessenger`'s `AnyChatMessage`
     public func fetchChats(
-        messenger: CypherMessenger,
+        cypher: CypherMessenger,
         contact: Contact? = nil
     ) async -> AnyChatMessageCursor? {
         do {
-            try await fetchConversations(messenger)
+            try await fetchConversations(cypher)
             do {
                 for try await result in ConversationSequence(consumer: consumer) {
                     
@@ -59,7 +65,9 @@ public class NeedleTailHandler: AsyncIRCNotifications {
                         case .privateChat(let privateChat):
                             print(privateChat)
                             //Append Sessions no matter what
-                            sessions.append(privateChat)
+                            if !sessions.contains(privateChat) {
+                                sessions.append(privateChat)
+                            }
                             guard let username = contact?.username else { return nil }
                             if privateChat.conversation.members.contains(username) {
                                 selectedChat = privateChat
@@ -68,7 +76,9 @@ public class NeedleTailHandler: AsyncIRCNotifications {
                                 return self.cursor
                             }
                         case .groupChat(let groupChat):
-                            groupChats.append(groupChat)
+                            if !groupChats.contains(groupChat) {
+                                groupChats.append(groupChat)
+                            }
                         case .internalChat(_):
                             return nil
                         }

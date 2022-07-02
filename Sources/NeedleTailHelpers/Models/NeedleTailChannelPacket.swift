@@ -8,7 +8,6 @@
 import Foundation
 import CypherMessaging
 
-
 public struct NeedleTailChannelPacket: Codable {
     public let name: String
     public let admin: NeedleTailNick

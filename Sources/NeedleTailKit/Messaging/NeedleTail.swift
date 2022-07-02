@@ -17,18 +17,24 @@ import NeedleTailHelpers
 import Cocoa
 #endif
 
+private func makeEventEmitter() -> NeedleTailEmitter {
+    return NeedleTailEmitter(sortChats: sortConversations)
+}
+
 public final class NeedleTail {
     
     
     public typealias NTAnyChatMessage = AnyChatMessage
     public typealias NTContact = Contact
     public typealias NTPrivateChat = PrivateChat
-    public var ntm: NeedleTailMessenger?
+    public var messenger: NeedleTailMessenger?
     public var cypher: CypherMessenger?
+    public var emitter = makeEventEmitter()
+    var plugin: NeedleTailPlugin?
     public weak var delegate: AsyncIRCNotificationsDelegate?
     public var messageType: MessageType = .message {
         didSet {
-            ntm?.messageType = messageType
+            messenger?.messageType = messageType
         }
     }
     
@@ -41,78 +47,94 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
-        eventHandler: PluginEventHandler
+        eventHandler: PluginEventHandler? = nil
     ) async throws -> CypherMessenger? {
         if cypher == nil {
+            //Create plugin here
+            plugin = NeedleTailPlugin(emitter: emitter)
+            guard let plugin = plugin else { return nil }
+            
             cypher = try await CypherMessenger.registerMessenger(
                 username: Username(username),
                 appPassword: clientInfo.password,
                 usingTransport: { transportRequest async throws -> NeedleTailMessenger in
-                    if self.ntm == nil {
-                        self.ntm = try await NeedleTailMessenger.authenticate(
+                    if self.messenger == nil {
+                        //We also need to pass the plugin to our transport
+                        self.messenger = try await NeedleTailMessenger.authenticate(
                             transportRequest: transportRequest,
-                            clientInfo: clientInfo
+                            clientInfo: clientInfo,
+                            plugin: plugin
                         )
                     }
-                    guard let ntm = self.ntm else { throw NeedleTailError.nilNTM }
-                    ntm.initalRegistration = true
-                    await ntm.createClient()
-                    return ntm
+                    guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
+                    messenger.initalRegistration = true
+                    await messenger.createClient()
+                    return messenger
                 },
                 p2pFactories: p2pFactories,
                 database: store,
-                eventHandler: eventHandler
+                eventHandler: eventHandler ?? makeEventHandler(plugin)
             )
         }
+        
+        let ntm = cypher?.transport as? NeedleTailMessenger
+        ntm?.cypher = cypher
+        
         return cypher
     }
-
+    
     @discardableResult
     public func spoolService(
         appleToken: String,
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
-        eventHandler: PluginEventHandler,
+        eventHandler: PluginEventHandler? = nil,
         p2pFactories: [P2PTransportClientFactory]
     ) async throws -> CypherMessenger? {
+        //Create plugin here
+        plugin = NeedleTailPlugin(emitter: emitter)
+        guard let plugin = plugin else { return nil }
+        
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
             usingTransport: { transportRequest -> NeedleTailMessenger in
-                self.ntm = try await NeedleTailMessenger.authenticate(
+                self.messenger = try await NeedleTailMessenger.authenticate(
                     transportRequest: transportRequest,
-                    clientInfo: clientInfo
+                    clientInfo: clientInfo,
+                    plugin: plugin
                 )
-                guard let ircMessenger = self.ntm else { throw NeedleTailError.nilNTM }
-                return ircMessenger
+                guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
+                return messenger
             },
             p2pFactories: p2pFactories,
             database: store,
-            eventHandler: eventHandler
+            eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
         //Start Service
 #if os(macOS)
         NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
 #endif
-        let ntm = cypher?.transport as? NeedleTailMessenger
-        try await ntm?.startSession(ntm?.registrationType(appleToken))
-        self.delegate = ntm?.client
+        let messenger = cypher?.transport as? NeedleTailMessenger
+        messenger?.cypher = self.cypher
+        try await messenger?.startSession(messenger?.registrationType(appleToken))
+        self.delegate = messenger?.client
         return self.cypher
     }
     
     public func resumeService(_ appleToken: String = "") async throws {
-        try await ntm?.startSession(ntm?.registrationType(appleToken))
+        try await messenger?.startSession(messenger?.registrationType(appleToken))
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
-        await ntm?.suspend(isSuspending)
+        await messenger?.suspend(isSuspending)
     }
     
     public func registerAPN(_ token: Data) async throws {
-        try await ntm?.registerAPNSToken(token)
+        try await messenger?.registerAPNSToken(token)
     }
     
     public func blockUnblockUser(_ contact: Contact) async throws {
-        ntm?.messageType = .blockUnblock
+        messenger?.messageType = .blockUnblock
         try await contact.block()
     }
     
@@ -150,49 +172,37 @@ public final class NeedleTail {
     //3. The Channel will exisit as long as the server is up. The DB will know the channel name and the Nicks assosiated with it along with their roles. The channels will be brought online when the server spools up.
     //4. The Channel acts as a passthrough of private messages and who receives them. The Logic Should be the exact same as PRIVMSG except we specify a channel recipient.
     //5. Basic Flow - DoJoin(Creates the channel if it does not exist with organizers and intial members) -> DoMessage(Sends Messages to that Channel)
-    func createLocalChannel(
+    public func createLocalChannel(
         name: String,
         admin: Username,
         organizers: Set<Username>,
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
-        
-        //Set MessageType
-        ntm?.type = .needleTailChannel
-        guard let admin = NeedleTailNick(deviceId: ntm?.deviceId, name: admin.raw) else { return }
-        //Build our server message
-        ntm?.needleTailChannelMetaData = NeedleTailChannelPacket(
+        try await messenger?.createLocalChannel(
             name: name,
             admin: admin,
             organizers: organizers,
             members: members,
-            permissions: permissions)
-    
-        //This will kick off a sendMessage flow
-       let group = try await cypher?.createGroupChat(with: members)
-        
-        //Update any organizers Locally
-        guard var config = await group?.getGroupConfig() else { return }
-        for organizer in organizers {
-            guard !config.blob.moderators.contains(organizer) else { return }
-            config.blob.promoteAdmin(organizer)
-        }
+            permissions: permissions
+        )
     }
     
+    
 #if os(macOS)
+    ///When building Cocoa Apps we want to use NotificationCenter to deliver a message to the client the a registery request has started. If we are Using SwiftUI on Mac this Method Does nothing.
     @objc private func showRegistryRequestAlert() {
         let alert = NSAlert()
         alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)
         let run = alert.runModal()
         switch run {
         case .alertFirstButtonReturn:
-//            logger.info("Cancel")
+            //            logger.info("Cancel")
             break
         case .alertSecondButtonReturn:
-//            logger.info("Added device")
+            //            logger.info("Added device")
             Task {
-            await acceptRegistryRequest()
+                await acceptRegistryRequest()
             }
         default:
             break
@@ -203,6 +213,23 @@ public final class NeedleTail {
     
     public func acceptRegistryRequest() async {
         await delegate?.respond(to: .registryRequestAccepted)
+    }
+    
+    
+    public func makeEventHandler(_
+                                 plugin: NeedleTailPlugin
+    ) throws -> PluginEventHandler {
+        return PluginEventHandler(plugins: [
+            FriendshipPlugin(ruleset: {
+                var ruleset = FriendshipRuleset()
+                ruleset.ignoreWhenUndecided = true
+                ruleset.preventSendingDisallowedMessages = true
+                return ruleset
+            }()),
+            UserProfilePlugin(),
+            ChatActivityPlugin(),
+            plugin
+        ])
     }
 }
 
@@ -248,7 +275,6 @@ extension NeedleTail: ObservableObject {
                         appleToken: "",
                         store: store,
                         clientInfo: clientInfo,
-                        eventHandler: makeEventHandler(emitter: emitter),
                         p2pFactories: makeP2PFactories()
                     )
                     return (cypher, emitter)
@@ -353,8 +379,7 @@ extension NeedleTail: ObservableObject {
                             username: username.raw,
                             store: store,
                             clientInfo: clientInfo,
-                            p2pFactories: makeP2PFactories(),
-                            eventHandler: makeEventHandler(emitter: emitter)
+                            p2pFactories: makeP2PFactories()
                         )
                         
                         needleTailViewModel.emitter = emitter
@@ -420,7 +445,7 @@ extension EnvironmentValues {
         }
     }
     
-    public var messenger: CypherMessenger {
+    public var cypher: CypherMessenger {
         get {
             self[CypherMessengerKey.self]!
         }
@@ -466,25 +491,6 @@ func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation
     case (.none, .none):
         return true
     }
-}
-
-public func makeEventEmitter() -> NeedleTailEmitter {
-    NeedleTailEmitter(sortChats: sortConversations)
-}
-
-
-public func makeEventHandler(emitter: NeedleTailEmitter) -> PluginEventHandler {
-    PluginEventHandler(plugins: [
-        FriendshipPlugin(ruleset: {
-            var ruleset = FriendshipRuleset()
-            ruleset.ignoreWhenUndecided = true
-            ruleset.preventSendingDisallowedMessages = true
-            return ruleset
-        }()),
-        UserProfilePlugin(),
-        ChatActivityPlugin(),
-        NeedleTailPlugin(emitter: emitter)
-    ])
 }
 
 

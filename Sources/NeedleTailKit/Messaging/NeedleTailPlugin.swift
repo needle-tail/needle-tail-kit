@@ -10,36 +10,43 @@ import MessagingHelpers
 import CypherMessaging
 import SwiftUI
 import Combine
+import NeedleTailHelpers
 
 //Our Store for loading receiving messages in real time
 public class NeedleTailPlugin: Plugin {
     
     public static let pluginIdentifier = "needletail"
-    private var emitter: NeedleTailEmitter
+    var emitter: NeedleTailEmitter
     
     public init(emitter: NeedleTailEmitter) {
         self.emitter = emitter
     }
     
-    public func onCreateChatMessage(_ messsage: AnyChatMessage) {
-        NotificationCenter.default.post(name: .newChat, object: nil)
-        emitter.messageReceived.send(messsage)
+    public func onCreateChatMessage(_ message: AnyChatMessage) {
+        emitter.messageReceived = message
     }
     
-    public func onCreateContact(_ contact: Contact, messenger: CypherMessenger) {
-        emitter.contactAdded.send(contact)
+    public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
+        emitter.contactAdded = contact
     }
     
     public func onContactChange(_ contact: Contact) {
-        emitter.contactChanged.send(contact)
+        emitter.contactChanged = contact
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 //        emitter.contacts.removeAll { $0.id == contact.id }
-        emitter.contactRemoved.send(contact)
+        emitter.contactRemoved = contact
         print(contact.username.raw, "removed...")
     }
     
+    @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
+        emitter.nicksOnline = nick
+    }
+    
+    @MainActor public func onPartMessage(_ message: String) {
+        emitter.partMessage = message
+    }
 //    public func onRekey(
 //        withUser username: Username,
 //        deviceId: DeviceId,
@@ -54,7 +61,7 @@ public class NeedleTailPlugin: Plugin {
 //    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
 //
 //    }
-    public func onDeviceRegistery(_ deviceId: DeviceId, messenger: CypherMessenger) async throws {
+    public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) async throws {
         DispatchQueue.main.async {
 //            emitter.userDevicesChanged.send()
         }
@@ -113,6 +120,20 @@ extension PrivateChat: Hashable, Identifiable {
     }
     
     public static func == (lhs: PrivateChat, rhs: PrivateChat) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        id.hash(into: &hasher)
+    }
+}
+
+extension GroupChat: Hashable, Identifiable {
+    public var id: ObjectIdentifier {
+        ObjectIdentifier(conversation)
+    }
+    
+    public static func == (lhs: GroupChat, rhs: GroupChat) -> Bool {
         lhs.id == rhs.id
     }
     

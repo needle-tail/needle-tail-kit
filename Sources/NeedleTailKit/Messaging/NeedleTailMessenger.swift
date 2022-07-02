@@ -30,8 +30,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .privateMessage
-    var needleTailChannelMetaData: NeedleTailChannelPacket?
-    let deviceId: DeviceId
     public private(set) var signer: TransportCreationRequest
     private let username: Username
     private let appleToken: String?
@@ -39,22 +37,27 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
-    var messenger: CypherMessenger?
+    var cypher: CypherMessenger?
     var client: NeedleTailTransportClient?
+    var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
     var readReceipt: ReadReceiptPacket?
-    var ircMessenger: NeedleTailMessenger?
+    var needleTailChannelMetaData: NeedleTailChannelPacket?
+    let deviceId: DeviceId
     var shouldProceedRegistration = true
     var initalRegistration = false
     
+    
+    @NeedleTailTransportActor
     public init(
         username: Username,
         deviceId: DeviceId,
         signer: TransportCreationRequest,
         appleToken: String?,
         transportState: TransportState,
-        clientInfo: ClientContext.ServerClientInfo
+        clientInfo: ClientContext.ServerClientInfo,
+        plugin: NeedleTailPlugin
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
         self.transportState = transportState
@@ -63,14 +66,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         self.deviceId = deviceId
         self.signer = signer
         self.appleToken = appleToken
+        self.plugin = plugin
     }
     
-    
-    
+    @NeedleTailTransportActor
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest,
-        clientInfo: ClientContext.ServerClientInfo
+        clientInfo: ClientContext.ServerClientInfo,
+        plugin: NeedleTailPlugin
     ) async throws -> NeedleTailMessenger {
         return try await NeedleTailMessenger(
             username: transportRequest.username,
@@ -78,11 +82,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             signer: transportRequest,
             appleToken: appleToken,
             transportState: TransportState(identifier: UUID()),
-            clientInfo: clientInfo
+            clientInfo: clientInfo,
+            plugin: plugin
         )
     }
     
-    
+    @NeedleTailTransportActor
     public func registrationType(_ appleToken: String = "") -> RegistrationType? {
         var type: RegistrationType?
         if !appleToken.isEmpty {
@@ -115,6 +120,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         await client?.registerNeedletailSession(packet)
     }
     
+    @NeedleTailTransportActor
     public func createClient() async {
         if client == nil {
             let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
@@ -123,9 +129,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 clientInfo: self.clientInfo,
                 nickname: nick
             )
-            
+
+            guard let cypher = self.cypher else { return }
             client = await NeedleTailTransportClient(
-                cypher: self.messenger,
+                cypher: cypher,
+                messenger: self,
                 transportState: self.transportState,
                 transportDelegate: self.delegate,
                 signer: self.signer,
@@ -190,7 +198,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         return userConfig
     }
     
-    
+    @NeedleTailTransportActor
     public func registerAPNSToken(_ token: Data) async throws {
         guard let jwt = makeToken() else { return }
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
@@ -348,6 +356,7 @@ extension NeedleTailMessenger {
     /// 3. Loop until we get back a response from the server with the decision made by the master device whether or not that we accepted the registration request.
     /// 4. If the decision was to accept the registration we can notify CTK that we received the approval we we can finsish setting up the local device
     /// 5. When this method is complete then NTK should finish registering the new device into the IRC Session
+    @NeedleTailTransportActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         print("We are requesting a Device Registry with this configuration: ", config)
         //Master nick
@@ -403,14 +412,107 @@ extension NeedleTailMessenger {
         self.delegate = delegate
     }
     
+    @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
-        fatalError()
+        let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
+        try await client?.publishBlob(blobString)
+
+        guard let channelBlob = await client?.channelBlob else { throw NeedleTailError.nilBlob }
+        guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
+        let blob = try BSONDecoder().decode(Blob<C>.self, from: Document(data: data))
+        return ReferencedBlob(id: blob._id, blob: blob.document)
     }
     
+    @NeedleTailTransportActor
     public func readPublishedBlob<C>(byId id: String, as type: C.Type) async throws -> ReferencedBlob<C>? where C : Decodable, C : Encodable {
         fatalError()
     }
     
+   
+    
+    /// This method has 2 purposes.
+    /// - **1 create new channel locally and the send the metadata to the server in order to join the channel**
+    /// - **2. If a locally channel already exists, there is no need to create it again so we just join the channel.**
+    /// - Parameters:
+    ///   - name: Name of the channel
+    ///   - admin: Admin's Username
+    ///   - organizers: Set of the organizers on this channel
+    ///   - members:Set of the members on this channel
+    ///   - permissions: The channel permission
+    @NeedleTailTransportActor
+    func createLocalChannel(
+        name: String,
+        admin: Username,
+        organizers: Set<Username>,
+        members: Set<Username>,
+        permissions: IRCChannelMode
+    ) async throws {
+        //Set MessageType
+        type = .needleTailChannel
+        guard let needleTailAdmin = NeedleTailNick(deviceId: deviceId, name: admin.raw) else { return }
+        //Build our server message, we set the meta data variable here, this will give sendMessage the needed data by the time the sendMessage flow starts
+        needleTailChannelMetaData = NeedleTailChannelPacket(
+            name: name,
+            admin: needleTailAdmin,
+            organizers: organizers,
+            members: members,
+            permissions: permissions
+        )
+
+        
+        guard let cypher = cypher else { return }
+        
+        switch try await searchChannels(cypher, channelName: name) {
+        case .new:
+            let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
+            
+            /// This will kick off a sendMessage flow. Everytime `createGroupChat(with:)` is called we initialized a new conversation with a  new *UUID*. That means we need a way of checking if the conversation already exist before we create a new one, if not we will create multiple local channels with the same name.
+            let group = try await cypher.createGroupChat(with: members, localMetadata: metaDoc, sharedMetadata: metaDoc)
+            await updateGroupChats(group, organizers: organizers)
+        case .found(let chat):
+            let metaDoc = await chat.conversation.metadata
+            let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
+            try await client?.createNeedleTailChannel(
+                name: meta.name,
+                admin: meta.admin,
+                organizers: meta.organizers,
+                members: members,
+                permissions: meta.permissions
+            )
+            await updateGroupChats(chat, organizers: organizers)
+        }
+    }
+    
+    enum SearchResult {
+        case new, found(GroupChat)
+    }
+    
+    ///We want to first make sure that a channel doesn't exist with the and ID
+    @NeedleTailTransportActor
+    func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
+            _ = await plugin.emitter.fetchChats(cypher: cypher)
+            let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
+            
+        let channel = try await groupChats.asyncFirstThrowing { chat in
+            let metaDoc = await chat.conversation.metadata
+            let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
+            return meta.name == channelName
+        }
+        guard let channel = channel else {
+            return .new
+        }
+        return .found(channel)
+    }
+    
+    @NeedleTailTransportActor
+    func updateGroupChats(_ group: GroupChat, organizers: Set<Username>) async {
+        //Update any organizers Locally
+        var config = await group.getGroupConfig()
+        for organizer in organizers {
+            guard !config.blob.moderators.contains(organizer) else { return }
+            config.blob.promoteAdmin(organizer)
+        }
+    }
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
     @NeedleTailTransportActor
@@ -500,5 +602,18 @@ extension DataProtocol {
 extension URLResponse {
     convenience public init?(_ url: URL) {
         self.init(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: "")
+    }
+}
+
+extension Array {
+    func asyncFirstThrowing(where matches: (Element) async throws -> Bool) async rethrows -> Element? {
+        for i in 0..<self.count {
+            let element = self[i]
+            if try await matches(element) {
+                return element
+            }
+        }
+        
+        return nil
     }
 }

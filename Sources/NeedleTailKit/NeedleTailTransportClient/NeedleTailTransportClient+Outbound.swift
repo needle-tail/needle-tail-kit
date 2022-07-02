@@ -31,16 +31,16 @@ extension NeedleTailTransportClient {
     func registerNeedletailSession(_ regPacket: String?) async {
         guard let channel = channel else { return }
         transportState.transition(to: .registering(
-                     channel: channel,
-                     nick: clientContext.nickname,
-                     userInfo: clientContext.userInfo))
+            channel: channel,
+            nick: clientContext.nickname,
+            userInfo: clientContext.userInfo))
         
-        guard case .registering(_, let nick, let user) = transportState.current else {
+        guard case .registering(_, let nick, _) = transportState.current else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
-
-            await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
+        
+        await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
@@ -56,12 +56,27 @@ extension NeedleTailTransportClient {
         switch conversationType {
         case .needleTailChannel, .groupMessage(_):
             guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
-//            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
+            //            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .channel(name)
         case .privateMessage:
             guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .nickname(validatedName)
         }
+    }
+    
+    @BlobActor
+    func publishBlob(_ packet: String) async throws {
+        await sendBlobs(.otherCommand("BLOBS", [packet]))
+        let date = RunLoop.timeInterval(10)
+        var canRun = false
+        repeat {
+            canRun = true
+            if await channelBlob != nil {
+                canRun = false
+            }
+            /// We just want to run a loop until the channelBlob contains a value or stop on the timeout
+        } while await RunLoop.execute(date, canRun: canRun)
+
     }
     
     
@@ -155,7 +170,7 @@ extension NeedleTailTransportClient {
         readReceipt: ReadReceiptPacket
     ) async throws {
         
-       //We look up all device identities on the server and create the NeedleTailNick there
+        //We look up all device identities on the server and create the NeedleTailNick there
         let packet = MessagePacket(
             id: messageId,
             pushType: pushType,
@@ -177,8 +192,8 @@ extension NeedleTailTransportClient {
             logger.error("\(error)")
         }
     }
-
-
+    
+    
     // 1. We want to tell the master device that we want to register
     public func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
         let recipient = IRCMessageRecipient.nickname(masterNick)
@@ -198,9 +213,9 @@ extension NeedleTailTransportClient {
     }
     
     // 4.
-     func sendFinishRegistryMessage(toMaster
-                                          deviceConfig: UserDeviceConfig,
-                                          nick: NeedleTailNick
+    func sendFinishRegistryMessage(toMaster
+                                   deviceConfig: UserDeviceConfig,
+                                   nick: NeedleTailNick
     ) async throws {
         //1. Get Recipient Which should be ourself that we sent from the server
         let recipient = IRCMessageRecipient.nickname(nick)
@@ -223,29 +238,28 @@ extension NeedleTailTransportClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-        @NeedleTailTransportActor
-         func readKeyBundle(_ packet: String) async -> UserConfig? {
-             print("Client READ BUNDLE")
-            await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
-            let date = RunLoop.timeInterval(10)
-            var canRun = false
-            repeat {
-                canRun = true
-                if userConfig != nil {
-                    canRun = false
-                }
-                /// We just want to run a loop until the userConfig contains a value or stop on the timeout
-            } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
-            return userConfig
-        }
+    @NeedleTailTransportActor
+    func readKeyBundle(_ packet: String) async -> UserConfig? {
+        await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
+        let date = RunLoop.timeInterval(10)
+        var canRun = false
+        repeat {
+            canRun = true
+            if userConfig != nil {
+                canRun = false
+            }
+            /// We just want to run a loop until the userConfig contains a value or stop on the timeout
+        } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
+        return userConfig
+    }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
-     func changeNick(_ nick: NeedleTailNick) async {
+    func changeNick(_ nick: NeedleTailNick) async {
         await createNeedleTailMessage(.NICK(nick))
     }
     
-     func sendPrivateMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
+    func sendPrivateMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
         await sendIRCMessage(message.base64EncodedString(), to: recipient, tags: tags)
     }
 }

@@ -15,8 +15,10 @@
 import NIOCore
 
 extension IRCChannelHandler {
-    func encode(value: IRCMessage, target: String?,
-                into buffer: inout ByteBuffer
+    func encode(
+        value: IRCMessage,
+        target: String?,
+        into buffer: inout ByteBuffer
     ) {
         let cColon : UInt8 = 58
         let cSpace : UInt8 = 32
@@ -126,7 +128,7 @@ extension IRCChannelHandler {
             
         case .PART(let channels):
             buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
-
+        
         case .LIST(let channels, let target):
             if let channels = channels {
                 buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })

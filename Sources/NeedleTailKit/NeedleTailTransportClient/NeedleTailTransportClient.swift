@@ -17,7 +17,8 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     //        return "\(nick.stringValue)!~\(info.username)@\(host)"
     //    }
     //    var nick: NeedleTailNick? { return clientContext.nickname }
-    var cypher: CypherMessenger?
+    var cypher: CypherMessenger
+    var messenger: NeedleTailMessenger
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
     public var origin: String? {
@@ -40,6 +41,7 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     var registrationPacket = ""
     let signer: TransportCreationRequest
     var authenticated: AuthenticationState
+    var channelBlob: String?
     weak var delegate: IRCDispatcher?
     weak var transportDelegate: CypherTransportClientDelegate?
     
@@ -48,7 +50,8 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
 #endif
     
     init(
-        cypher: CypherMessenger?,
+        cypher: CypherMessenger,
+        messenger: NeedleTailMessenger,
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest,
@@ -56,6 +59,7 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
         clientContext: ClientContext
     ) async {
         self.cypher = cypher
+        self.messenger = messenger
         self.transportState = transportState
         self.clientContext = clientContext
         self.clientInfo = clientContext.clientInfo
@@ -83,9 +87,10 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     }
     
     deinit {
-        Task {
+        let task = Task {
             _ = try? await channel?.close(mode: .all).get()
         }
+        task.cancel()
     }
 }
 

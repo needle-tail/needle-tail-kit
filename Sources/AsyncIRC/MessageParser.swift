@@ -23,7 +23,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.trace("Parsing Message.... \(message)")
+        self.logger.info("Parsing Message.... \(message)")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -87,7 +87,6 @@ public final class MessageParser {
         
         switch commandKey {
         case .string(let commandKey):
-            
             //            :needletail!needletail@localhost JOIN #NIO
             if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
                 if let unwrapOrigin = origin {

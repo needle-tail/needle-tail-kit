@@ -62,7 +62,7 @@ extension NeedleTailTransportClient: IRCDispatcher {
         case .JOIN(let channels, _):
             try await delegate?.doJoin(channels, tags: tags)
         case .PART(let channels):
-            guard let origin = message.origin, let user = IRCUserID(origin) else {
+            guard let origin = message.origin, let _ = IRCUserID(origin) else {
                 return print("ERROR: JOIN is missing a proper origin:", message)
             }
             try await delegate?.doPart(channels, tags: tags)

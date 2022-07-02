@@ -29,8 +29,10 @@ extension NeedleTailTransportClient {
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         return try groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.hours(1))
-            .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),
-                                                 SO_REUSEADDR), value: 1)
+            .channelOption(ChannelOptions.socket(
+                SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR),
+                value: 1
+            )
             .channelInitializer { channel in
                 return channel.pipeline
                     .addHandlers([
