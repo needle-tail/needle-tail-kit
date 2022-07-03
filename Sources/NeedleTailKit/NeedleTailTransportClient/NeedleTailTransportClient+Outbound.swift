@@ -59,7 +59,7 @@ extension NeedleTailTransportClient {
             //            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .channel(name)
         case .privateMessage:
-            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
+            guard let validatedName = NeedleTailNick(name: name, deviceId: deviceId) else { throw NeedleTailError.nilNickName }
             return .nickname(validatedName)
         }
     }

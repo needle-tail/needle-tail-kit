@@ -63,7 +63,6 @@ public class NeedleTailHandler: AsyncIRCNotifications {
                     case .success(let result):
                         switch result {
                         case .privateChat(let privateChat):
-                            print(privateChat)
                             //Append Sessions no matter what
                             if !sessions.contains(privateChat) {
                                 sessions.append(privateChat)

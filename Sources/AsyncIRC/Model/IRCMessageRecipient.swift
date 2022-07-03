@@ -50,7 +50,7 @@ public extension IRCMessageRecipient {
       var nick: NeedleTailNick?
       if s.contains(":") {
           let split = s.components(separatedBy: ":")
-          nick = NeedleTailNick(deviceId: DeviceId(split[1]), name: split[0])
+          nick = NeedleTailNick(name: split[0], deviceId: DeviceId(split[1]))
       }
     if s == "*" {
         self = .everything

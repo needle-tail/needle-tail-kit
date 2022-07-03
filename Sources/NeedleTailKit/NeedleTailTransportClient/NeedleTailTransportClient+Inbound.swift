@@ -164,20 +164,10 @@ extension NeedleTailTransportClient {
                             transportState.transition(to: .online)
 
                             // Everyone can join administrator, this primarily will be used for beta for report issues
-                            
-                            let channelName = "#Administrator"
-                            
-//                            let packet = NeedleTailChannelPacket(
-//                                name: channelName,
-//                                admin: nick,
-//                                organizers: [Username(nick.stringValue)],
-//                                members: [Username(nick.stringValue)],
-//                                permissions: .channelOperator
-//                            )
-                            
+                            let channelName = "#AdministratorChannel2"
                             try await messenger.createLocalChannel(
                                 name: channelName,
-                                admin: cypher.username,
+                                admin: Username(nick.stringValue),
                                 organizers: [Username(nick.stringValue)],
                                 members: [Username(nick.stringValue)],
                                 permissions: .channelOperator

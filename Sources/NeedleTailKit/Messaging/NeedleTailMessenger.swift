@@ -124,7 +124,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func createClient() async {
         if client == nil {
             let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-            guard let nick = NeedleTailNick(deviceId: signer.deviceId, name: lowerCasedName) else { return }
+            guard let nick = NeedleTailNick(name: lowerCasedName, deviceId: signer.deviceId) else { return }
             let clientContext = ClientContext(
                 clientInfo: self.clientInfo,
                 nickname: nick
@@ -366,10 +366,10 @@ extension NeedleTailMessenger {
         let keyBundle = await client?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-        guard let masterNick = NeedleTailNick(deviceId: masterDeviceConfig?.deviceId, name: lowerCasedName) else {
+        guard let masterNick = NeedleTailNick(name: lowerCasedName, deviceId: masterDeviceConfig?.deviceId) else {
             return
         }
-        guard let childNick = NeedleTailNick(deviceId: self.deviceId, name: lowerCasedName) else {
+        guard let childNick = NeedleTailNick(name: lowerCasedName, deviceId: self.deviceId) else {
             return
         }
         try await client?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
@@ -414,14 +414,13 @@ extension NeedleTailMessenger {
     
     @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
-        print("BLOB",blob)
         let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
         try await client?.publishBlob(blobString)
 
         guard let channelBlob = await client?.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
         let blob = try BSONDecoder().decode(NeedleTailHelpers.Blob<C>.self, from: Document(data: data))
-        blob._id
+        print("PUBLISHED BLOB", blob)
         return ReferencedBlob(id: blob._id, blob: blob.document)
     }
     
@@ -437,7 +436,7 @@ extension NeedleTailMessenger {
     /// - **2. If a locally channel already exists, there is no need to create it again so we just join the channel.**
     /// - Parameters:
     ///   - name: Name of the channel
-    ///   - admin: Admin's Username
+    ///   - admin: Admin's Username i.e. **needletail:123-456-234-sdga34-vadf**
     ///   - organizers: Set of the organizers on this channel
     ///   - members:Set of the members on this channel
     ///   - permissions: The channel permission
@@ -451,8 +450,11 @@ extension NeedleTailMessenger {
     ) async throws {
         //Set MessageType
         type = .needleTailChannel
-        guard let needleTailAdmin = NeedleTailNick(deviceId: deviceId, name: admin.raw) else { return }
-        //Build our server message, we set the meta data variable here, this will give sendMessage the needed data by the time the sendMessage flow starts
+    
+        let seperated = admin.description.components(separatedBy: ":")
+        guard let needleTailAdmin = NeedleTailNick(name: seperated[0], deviceId: DeviceId(seperated[1])) else { return }
+        
+        //Build our server message, we set the meta data variable here, this will give sendMessage the needed data by the time the sendMessage flow starts.
         needleTailChannelMetaData = NeedleTailChannelPacket(
             name: name,
             admin: needleTailAdmin,
@@ -463,25 +465,34 @@ extension NeedleTailMessenger {
 
         
         guard let cypher = cypher else { return }
+        let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
         
+        //Always remove Admin, CTK will add it layer. We need it pass through though for NTK MetaData
+        var members = members
+        members.remove(admin)
+        var organizers = organizers
+        organizers.remove(admin)
         switch try await searchChannels(cypher, channelName: name) {
         case .new:
-            let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
-            
-            /// This will kick off a sendMessage flow. Everytime `createGroupChat(with:)` is called we initialized a new conversation with a  new *UUID*. That means we need a way of checking if the conversation already exist before we create a new one, if not we will create multiple local channels with the same name.
+            /// This will kick off a sendMessage flow. Everytime `createGroupChat(with:)` is called we initialized a new conversation with a  new *UUID*.
+            /// That means we need a way of checking if the conversation already exist before we create a new one, if not we will create multiple local channels with the same name.
+            /// CTK will add the current user as a member and moderator/organizer. This is fine, but we are Identifeing a device paried with it's username.
+            /// So we want to add the **NeedTailNick** which contains the Identifier. This will end up placing the CTK Username and our NTNick in the Set of members&moderators.
+            /// Technically these are duplicates and unnecessary. We want to keep our metadata with the needed info for the server and at the same time strip what is unneeded for CTK.
+            /// If we don't not only will we have duplicates but, when CTK calls `readKeyBundle` it will try and read the NTNick which the serve doesn't know about the
+            /// Device Identity for a key bundle; therefore it will throw an error saying that we cannot fond the key bundle. It is best to just remove the duplicate to avoid all these problems.
             let group = try await cypher.createGroupChat(with: members, localMetadata: metaDoc, sharedMetadata: metaDoc)
-            await updateGroupChats(group, organizers: organizers)
+            await updateGroupChats(group, organizers: organizers, members: members, meta: metaDoc)
         case .found(let chat):
-            let metaDoc = await chat.conversation.metadata
             let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
             try await client?.createNeedleTailChannel(
                 name: meta.name,
                 admin: meta.admin,
                 organizers: meta.organizers,
-                members: members,
+                members: meta.members,
                 permissions: meta.permissions
             )
-            await updateGroupChats(chat, organizers: organizers)
+            await updateGroupChats(chat, organizers: organizers, members: members, meta: metaDoc)
         }
     }
     
@@ -494,12 +505,14 @@ extension NeedleTailMessenger {
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
             _ = await plugin.emitter.fetchChats(cypher: cypher)
             let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
-            
+           
         let channel = try await groupChats.asyncFirstThrowing { chat in
             let metaDoc = await chat.conversation.metadata
-            let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
-            return meta.name == channelName
+            let meta = try BSONDecoder().decode(GroupMetadata.self, from: metaDoc)
+            let config = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: meta.config.blob.metadata)
+            return config.name == channelName
         }
+
         guard let channel = channel else {
             return .new
         }
@@ -507,13 +520,27 @@ extension NeedleTailMessenger {
     }
     
     @NeedleTailTransportActor
-    func updateGroupChats(_ group: GroupChat, organizers: Set<Username>) async {
+    func updateGroupChats(_
+                          group: GroupChat,
+                          organizers: Set<Username>,
+                          members: Set<Username>,
+                          meta: Document
+    ) async {
         //Update any organizers Locally
         var config = await group.getGroupConfig()
         for organizer in organizers {
-            guard !config.blob.moderators.contains(organizer) else { return }
-            config.blob.promoteAdmin(organizer)
+            if config.blob.moderators.contains(organizer) == false {
+                config.blob.promoteAdmin(organizer)
+            }
         }
+        
+        //Update localDB with members
+        for member in members {
+            guard !config.blob.members.contains(member) else { return }
+            config.blob.addMember(member)
+        }
+        
+        config.blob.metadata = meta
     }
     
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
@@ -566,10 +593,6 @@ extension NeedleTailMessenger {
         fatalError("AsyncIRC Doesn't support sendMultiRecipientMessage() in this manner")
     }
 }
-
-
-
-
 
 protocol IRCMessageDelegate {
     func passSendMessage(_ text: Data, to recipients: IRCMessageRecipient, tags: [IRCTags]?) async
