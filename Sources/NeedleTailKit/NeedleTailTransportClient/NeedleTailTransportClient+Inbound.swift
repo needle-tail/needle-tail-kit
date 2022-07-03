@@ -41,6 +41,8 @@ extension NeedleTailTransportClient {
         case .registryRequestRejected:
             let encodedState = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
             try await sendMessageTypePacket(.rejectedRegistry(encodedState), nick: nick)
+        default:
+            break
     }
     }
     
@@ -76,8 +78,7 @@ extension NeedleTailTransportClient {
     func alertUI() async -> AlertType {
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
         print("Alerting UI")
-        notifications.received.send(.registryRequest)
-        NotificationCenter.default.post(name: .registryRequest, object: nil)
+        messenger.plugin.emitter.received = .registryRequest
         while proceedNewDeivce == false {}
 #endif
         return alertType

@@ -110,9 +110,6 @@ public final class NeedleTail {
             eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
         //Start Service
-#if os(macOS)
-        NotificationCenter.default.addObserver(self, selector: #selector(showRegistryRequestAlert), name: .registryRequest, object: nil)
-#endif
         let messenger = cypher?.transport as? NeedleTailMessenger
         messenger?.cypher = self.cypher
         try await messenger?.startSession(messenger?.registrationType(appleToken))
@@ -190,8 +187,7 @@ public final class NeedleTail {
     
     
 #if os(macOS)
-    ///When building Cocoa Apps we want to use NotificationCenter to deliver a message to the client the a registery request has started. If we are Using SwiftUI on Mac this Method Does nothing.
-    @objc private func showRegistryRequestAlert() {
+    func showRegistryRequestAlert() {
         let alert = NSAlert()
         alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)
         let run = alert.runModal()

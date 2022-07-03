@@ -45,10 +45,6 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     weak var delegate: IRCDispatcher?
     weak var transportDelegate: CypherTransportClientDelegate?
     
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-    var notifications = AsyncIRCNotifications()
-#endif
-    
     init(
         cypher: CypherMessenger,
         messenger: NeedleTailMessenger,

@@ -4,10 +4,8 @@
 //
 //  Created by Cole M on 4/21/22.
 //
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import Foundation
 import CypherMessaging
-import Combine
 import NeedleTailHelpers
 
 public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
@@ -22,6 +20,13 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
     @Published public var needleTailNick: NeedleTailNick?
+    @Published public var received: AlertType = .none {
+        didSet {
+#if os(macOS)
+            NeedleTail.shared.showRegistryRequestAlert()
+#endif
+        }
+    }
     
 //    public let onRekey = PassthroughSubject<Void, Never>()
 //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
@@ -33,4 +38,4 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
 //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
 //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
 }
-#endif
+

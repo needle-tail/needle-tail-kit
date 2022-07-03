@@ -47,13 +47,13 @@ public final actor NetworkMonitor {
     @MainActor
     public func getStatus() async {
             for await status in networkPublisher.$currentStatus.values {
-                receiver.updateStatus.send(status)
+                receiver.updateStatus = status
             }
     }
 }
 
 
-public class MonitorReceiver {
-    public let updateStatus = PassthroughSubject<NWPath.Status, Never>()
+public class MonitorReceiver: ObservableObject {
+    @Published public var updateStatus: NWPath.Status = .requiresConnection
 }
 #endif
