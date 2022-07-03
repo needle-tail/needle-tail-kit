@@ -77,9 +77,8 @@ public final class NeedleTail {
             )
         }
         
-        let ntm = cypher?.transport as? NeedleTailMessenger
-        ntm?.cypher = cypher
-        
+        let messenger = cypher?.transport as? NeedleTailMessenger
+        messenger?.cypher = cypher
         return cypher
     }
     
@@ -118,6 +117,7 @@ public final class NeedleTail {
         messenger?.cypher = self.cypher
         try await messenger?.startSession(messenger?.registrationType(appleToken))
         self.delegate = messenger?.client
+        emitter.needleTailNick = messenger?.needleTailNick
         return self.cypher
     }
     

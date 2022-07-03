@@ -21,7 +21,7 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
     @Published public var nicksOnline: [NeedleTailNick] = []
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
-    
+    @Published public var needleTailNick: NeedleTailNick?
     
 //    public let onRekey = PassthroughSubject<Void, Never>()
 //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()

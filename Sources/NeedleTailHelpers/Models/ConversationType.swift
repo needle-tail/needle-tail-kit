@@ -8,7 +8,6 @@
 import Foundation
 
 public enum ConversationType: Equatable {
-    case needleTailChannel
     case groupMessage(String)
     case privateMessage
 }

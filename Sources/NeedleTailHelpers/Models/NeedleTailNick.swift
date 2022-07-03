@@ -8,6 +8,8 @@
 import Foundation
 import CypherMessaging
 
+
+//TODO: Maybe Encrypt DeviceID?
 public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
     
     public var description: String {
@@ -53,7 +55,7 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     }
     
     public static func validateName(_ name: String, nameRules: NameRules) -> ValidatedNameStatus {
-        guard name.count > 1, name.count >= 3, name.count <= 1024 else { return .failedValidation }
+        guard name.count > 1, name.count >= 1, name.count <= 1024 else { return .failedValidation }
             
             var firstCharacterSet: CharacterSet
             if nameRules.allowsStartingDigit {

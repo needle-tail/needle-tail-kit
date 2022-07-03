@@ -16,6 +16,7 @@ public struct NeedleTailChannelPacket: Codable {
     public let permissions: IRCChannelMode
     public let destroy: Bool?
     public let partMessage: String?
+    public let blobId: String?
     
     public init(
         name: String,
@@ -24,7 +25,8 @@ public struct NeedleTailChannelPacket: Codable {
         members: Set<Username>,
         permissions: IRCChannelMode,
         destroy: Bool? = false,
-        partMessage: String? = nil
+        partMessage: String? = nil,
+        blobId: String? = nil
     ) {
         self.name = name
         self.admin = admin
@@ -33,5 +35,6 @@ public struct NeedleTailChannelPacket: Codable {
         self.permissions = permissions
         self.destroy = destroy
         self.partMessage = partMessage
+        self.blobId = blobId
     }
 }

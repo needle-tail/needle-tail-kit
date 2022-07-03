@@ -52,9 +52,13 @@ extension NeedleTailTransportClient {
     }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
-    public func recipient(conversationType: ConversationType, deviceId: DeviceId?, name: String) async throws -> IRCMessageRecipient {
+    public func recipient(
+        conversationType: ConversationType,
+        deviceId: DeviceId?,
+        name: String
+    ) async throws -> IRCMessageRecipient {
         switch conversationType {
-        case .needleTailChannel, .groupMessage(_):
+        case .groupMessage(_):
             guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
             //            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .channel(name)
@@ -67,7 +71,7 @@ extension NeedleTailTransportClient {
     @BlobActor
     func publishBlob(_ packet: String) async throws {
         await sendBlobs(.otherCommand("BLOBS", [packet]))
-        let date = RunLoop.timeInterval(10)
+        let date = RunLoop.timeInterval(1)
         var canRun = false
         repeat {
             canRun = true
@@ -76,7 +80,6 @@ extension NeedleTailTransportClient {
             }
             /// We just want to run a loop until the channelBlob contains a value or stop on the timeout
         } while await RunLoop.execute(date, canRun: canRun)
-
     }
     
     
@@ -101,14 +104,14 @@ extension NeedleTailTransportClient {
         await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
     }
     
-    
     func partNeedleTailChannel(
         name: String,
         admin: NeedleTailNick,
         organizers: Set<Username>,
         members: Set<Username>,
         permissions: IRCChannelMode,
-        message: String
+        message: String,
+        blobId: String?
     ) async throws {
         let packet = NeedleTailChannelPacket(
             name: name,
@@ -117,7 +120,8 @@ extension NeedleTailTransportClient {
             members: members,
             permissions: permissions,
             destroy: true,
-            partMessage: message
+            partMessage: message,
+            blobId: blobId
         )
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         let tag = IRCTags(key: "channelPacket", value: data)
@@ -241,7 +245,7 @@ extension NeedleTailTransportClient {
     @NeedleTailTransportActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
-        let date = RunLoop.timeInterval(10)
+        let date = RunLoop.timeInterval(1)
         var canRun = false
         repeat {
             canRun = true

@@ -113,7 +113,6 @@ extension NeedleTailTransportClient {
                 //                $0.addMessage(message, from: sender)
                 //              }
             case .nickname(let nick):
-                do {
                     guard let data = Data(base64Encoded: message) else { return }
                     let buffer = ByteBuffer(data: data)
                     let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
@@ -172,11 +171,6 @@ extension NeedleTailTransportClient {
                                 members: [Username(nick.stringValue)],
                                 permissions: .channelOperator
                             )
-                            
-//                            let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-//                            let tag = IRCTags(key: "channelPacket", value: data)
-//                            guard let channel = IRCChannelName("#Administrator") else { return }
-//                            await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
                         default:
                             break
                         }
@@ -202,11 +196,6 @@ extension NeedleTailTransportClient {
                         let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
                         try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
                     }
-                } catch {
-                    print(error)
-                }
-                
-                break
             case .channel(let channelName):
                 print(channelName)
                 
@@ -302,9 +291,7 @@ extension NeedleTailTransportClient {
         
         guard let data = Data(base64Encoded: tag) else  { return }
         
-        //TODO: This will be a Blob to decode set the property so CTK can create a local Channel
         let onlineNicks = try BSONDecoder().decode([NeedleTailNick].self, from: Document(data: data))
-        print(onlineNicks.map({ $0 }))
         await messenger.plugin.onMembersOnline(onlineNicks)
     }
     

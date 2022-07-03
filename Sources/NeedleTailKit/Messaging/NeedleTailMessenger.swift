@@ -31,6 +31,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .privateMessage
     public private(set) var signer: TransportCreationRequest
+    private(set) var needleTailNick: NeedleTailNick?
     private let username: Username
     private let appleToken: String?
     private var transportState: TransportState
@@ -129,7 +130,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 clientInfo: self.clientInfo,
                 nickname: nick
             )
-
+            
             guard let cypher = self.cypher else { return }
             client = await NeedleTailTransportClient(
                 cypher: cypher,
@@ -139,6 +140,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 signer: self.signer,
                 authenticated: self.authenticated,
                 clientContext: clientContext)
+            
+            self.needleTailNick = nick
         }
         await connect()
     }
@@ -416,11 +419,10 @@ extension NeedleTailMessenger {
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
         try await client?.publishBlob(blobString)
-
+        
         guard let channelBlob = await client?.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
         let blob = try BSONDecoder().decode(NeedleTailHelpers.Blob<C>.self, from: Document(data: data))
-        print("PUBLISHED BLOB", blob)
         return ReferencedBlob(id: blob._id, blob: blob.document)
     }
     
@@ -429,7 +431,7 @@ extension NeedleTailMessenger {
         fatalError()
     }
     
-   
+    
     
     /// This method has 2 purposes.
     /// - **1 create new channel locally and the send the metadata to the server in order to join the channel**
@@ -448,9 +450,9 @@ extension NeedleTailMessenger {
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
-        //Set MessageType
-        type = .needleTailChannel
-    
+        
+        guard members.count > 1 else { throw NeedleTailError.membersCountInsufficient }
+        
         let seperated = admin.description.components(separatedBy: ":")
         guard let needleTailAdmin = NeedleTailNick(name: seperated[0], deviceId: DeviceId(seperated[1])) else { return }
         
@@ -462,7 +464,7 @@ extension NeedleTailMessenger {
             members: members,
             permissions: permissions
         )
-
+        
         
         guard let cypher = cypher else { return }
         let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
@@ -484,16 +486,18 @@ extension NeedleTailMessenger {
             let group = try await cypher.createGroupChat(with: members, localMetadata: metaDoc, sharedMetadata: metaDoc)
             await updateGroupChats(group, organizers: organizers, members: members, meta: metaDoc)
         case .found(let chat):
-            let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
-            try await client?.createNeedleTailChannel(
-                name: meta.name,
-                admin: meta.admin,
-                organizers: meta.organizers,
-                members: meta.members,
-                permissions: meta.permissions
-            )
+            /// We already have a chat... So just update localDB
             await updateGroupChats(chat, organizers: organizers, members: members, meta: metaDoc)
         }
+        /// Send the Channel Info to NeedleTailServer
+        let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
+        try await client?.createNeedleTailChannel(
+            name: meta.name,
+            admin: meta.admin,
+            organizers: meta.organizers,
+            members: meta.members,
+            permissions: meta.permissions
+        )
     }
     
     enum SearchResult {
@@ -503,9 +507,8 @@ extension NeedleTailMessenger {
     ///We want to first make sure that a channel doesn't exist with the and ID
     @NeedleTailTransportActor
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
-            _ = await plugin.emitter.fetchChats(cypher: cypher)
-            let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
-           
+        _ = await plugin.emitter.fetchChats(cypher: cypher)
+        let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in
             let metaDoc = await chat.conversation.metadata
             let meta = try BSONDecoder().decode(GroupMetadata.self, from: metaDoc)
@@ -513,9 +516,7 @@ extension NeedleTailMessenger {
             return config.name == channelName
         }
 
-        guard let channel = channel else {
-            return .new
-        }
+        guard let channel = channel else { return .new }
         return .found(channel)
     }
     
@@ -555,14 +556,6 @@ extension NeedleTailMessenger {
         guard let client = client else { return }
         guard let readReceipt = readReceipt else { return }
         switch type {
-        case .needleTailChannel:
-            guard let metadata = needleTailChannelMetaData else { return }
-            try await client.createNeedleTailChannel(
-                name: metadata.name,
-                admin: metadata.admin,
-                organizers: metadata.organizers,
-                members: metadata.members,
-                permissions: .inviteOnly)
         case .groupMessage(let name):
             try await client.createGroupMessage(
                 messageId: messageId,

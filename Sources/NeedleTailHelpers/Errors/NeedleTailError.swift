@@ -1,4 +1,4 @@
-public enum NeedleTailError: Error {
+public enum NeedleTailError: String, Error {
     case invalidResponse
     case nilBSONResponse
     case nilUserConfig
@@ -12,4 +12,5 @@ public enum NeedleTailError: Error {
     case nilChannelData
     case nilBlob
     case invalidUserId
+    case membersCountInsufficient = "Insufficient members. You are trying to create a group chat with only 1 member."
 }

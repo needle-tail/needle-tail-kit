@@ -18,7 +18,7 @@ public class NeedleTailHandler: AsyncIRCNotifications {
     @MainActor public var cursor: AnyChatMessageCursor?
     @MainActor public var chats: [AnyChatMessage] = []
     
-    private let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     public init(sortChats: @escaping @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
         self.sortChats = sortChats
@@ -28,6 +28,7 @@ public class NeedleTailHandler: AsyncIRCNotifications {
     public func fetchConversations(_
                                    cypher: CypherMessenger
     ) async throws {
+        
         let conversations = try await cypher.listConversations(
             includingInternalConversation: true,
             increasingOrder: sortChats
@@ -78,7 +79,7 @@ public class NeedleTailHandler: AsyncIRCNotifications {
                             if !groupChats.contains(groupChat) {
                                 groupChats.append(groupChat)
                             }
-                        case .internalChat(_):
+                        case .internalChat(let internalChat):
                             return nil
                         }
                     case .retry:

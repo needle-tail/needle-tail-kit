@@ -18,7 +18,7 @@ final class NeedleTailInboundHandler : ChannelInboundHandler {
     let logger: Logger
     
     init(client: NeedleTailTransportClient) {
-        self.logger = Logger(label: "NeedleTailInboundHandler: ")
+        self.logger = Logger(label: "NeedleTailInboundHandler")
         self.client = client
     }
     
@@ -38,8 +38,8 @@ final class NeedleTailInboundHandler : ChannelInboundHandler {
             do {
             let message = unwrapInboundIn(data)
                 try await client.processReceivedMessages(message)
-            } catch {
-                logger.error("handle dispatcher error: \(error)")
+            } catch let error as NeedleTailError {
+                logger.error("\(error.rawValue)")
             }
         }
     }
