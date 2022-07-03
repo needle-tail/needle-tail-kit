@@ -4,7 +4,7 @@
 //
 //  Created by Cole M on 4/21/22.
 //
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+
 import Foundation
 import CypherMessaging
 import NeedleTailHelpers
@@ -116,4 +116,3 @@ public class NeedleTailHandler {
     }
     
 }
-#endif

@@ -29,7 +29,6 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
         }
     }
 #endif
-    
 //    public let onRekey = PassthroughSubject<Void, Never>()
 //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
 //    public let chatMessageRemoved = PassthroughSubject<AnyChatMessage, Never>()
@@ -40,4 +39,5 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
 //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
 //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
 }
+
 

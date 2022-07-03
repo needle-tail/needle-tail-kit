@@ -4,6 +4,7 @@
 //
 //  Created by Cole M on 4/15/22.
 //
+
 import Foundation
 import MessagingHelpers
 import CypherMessaging
@@ -152,4 +153,3 @@ extension AnyChatMessage: Hashable, Identifiable {
         id.hash(into: &hasher)
     }
 }
-
