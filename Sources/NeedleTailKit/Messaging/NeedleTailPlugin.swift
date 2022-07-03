@@ -4,12 +4,10 @@
 //
 //  Created by Cole M on 4/15/22.
 //
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+
 import Foundation
 import MessagingHelpers
 import CypherMessaging
-import SwiftUI
-import Combine
 import NeedleTailHelpers
 
 //Our Store for loading receiving messages in real time
@@ -155,4 +153,3 @@ extension AnyChatMessage: Hashable, Identifiable {
         id.hash(into: &hasher)
     }
 }
-#endif
