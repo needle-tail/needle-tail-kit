@@ -21,93 +21,105 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
+#if (os(macOS) || os(iOS))
         emitter.messageReceived = message
+#endif
     }
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
+#if (os(macOS) || os(iOS))
         emitter.contactAdded = contact
+#endif
     }
     
     public func onContactChange(_ contact: Contact) {
+#if (os(macOS) || os(iOS))
         emitter.contactChanged = contact
+#endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
-//        emitter.contacts.removeAll { $0.id == contact.id }
+#if (os(macOS) || os(iOS))
+        //        emitter.contacts.removeAll { $0.id == contact.id }
         emitter.contactRemoved = contact
         print(contact.username.raw, "removed...")
+#endif
     }
     
     @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
+#if (os(macOS) || os(iOS))
         emitter.nicksOnline = nick
+#endif
     }
     
     @MainActor public func onPartMessage(_ message: String) {
+#if (os(macOS) || os(iOS))
         emitter.partMessage = message
+#endif
     }
-//    public func onRekey(
-//        withUser username: Username,
-//        deviceId: DeviceId,
-//        messenger: CypherMessenger
-//    ) async throws {
-//        DispatchQueue.main.async {
-//            emitter.onRekey.send()
-//        }
-//    }
-//
+    //    public func onRekey(
+    //        withUser username: Username,
+    //        deviceId: DeviceId,
+    //        messenger: CypherMessenger
+    //    ) async throws {
+    //        DispatchQueue.main.async {
+    //            emitter.onRekey.send()
+    //        }
+    //    }
+    //
     
-//    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
-//
-//    }
+    //    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
+    //
+    //    }
     public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) async throws {
         DispatchQueue.main.async {
-//            emitter.userDevicesChanged.send()
+            //            emitter.userDevicesChanged.send()
         }
     }
-//
-//    public func onMessageChange(_ message: AnyChatMessage) {
-//        DispatchQueue.main.async {
-//            emitter.chatMessageChanged.send(message)
-//        }
-//    }
-//
-//    public func onConversationChange(_ viewModel: AnyConversation) {
-//        Task.detached {
-//            let viewModel = await viewModel.resolveTarget()
-//            DispatchQueue.main.async {
-//                emitter.conversationChanged.send(viewModel)
-//            }
-//        }
-//    }
-//
-//    public func onContactChange(_ contact: Contact) {
-//        emitter.contactChanged.send(contact)
-//    }
-//
-//    public func onCreateContact(_ contact: Contact, messenger: CypherMessenger) {
-//        emitter.contacts.append(contact)
-//        emitter.contactAdded.send(contact)
-//    }
-//
-//    public func onCreateConversation(_ viewModel: AnyConversation) {
-//        emitter.conversationAdded.send(viewModel)
-//    }
+    //
+    //    public func onMessageChange(_ message: AnyChatMessage) {
+    //        DispatchQueue.main.async {
+    //            emitter.chatMessageChanged.send(message)
+    //        }
+    //    }
+    //
+    //    public func onConversationChange(_ viewModel: AnyConversation) {
+    //        Task.detached {
+    //            let viewModel = await viewModel.resolveTarget()
+    //            DispatchQueue.main.async {
+    //                emitter.conversationChanged.send(viewModel)
+    //            }
+    //        }
+    //    }
+    //
+    //    public func onContactChange(_ contact: Contact) {
+    //        emitter.contactChanged.send(contact)
+    //    }
+    //
+    //    public func onCreateContact(_ contact: Contact, messenger: CypherMessenger) {
+    //        emitter.contacts.append(contact)
+    //        emitter.contactAdded.send(contact)
+    //    }
+    //
+    //    public func onCreateConversation(_ viewModel: AnyConversation) {
+    //        emitter.conversationAdded.send(viewModel)
+    //    }
     
-//    public func onRemoveContact(_ contact: Contact) {
-//        self.emitter.contacts.removeAll { $0.id == contact.id }
-//    }
-//
-//    public func onRemoveChatMessage(_ message: AnyChatMessage) {
-//        self.emitter.chatMessageRemoved.send(message)
-//    }
-//
-//    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
-//        emitter.p2pClientConnected.send(client)
-//    }
-//
-//    public func onCustomConfigChange() {
-//        emitter.customConfigChanged.send()
-//    }
+    //    public func onRemoveContact(_ contact: Contact) {
+    //        self.emitter.contacts.removeAll { $0.id == contact.id }
+    //    }
+    //
+    //    public func onRemoveChatMessage(_ message: AnyChatMessage) {
+    //        self.emitter.chatMessageRemoved.send(message)
+    //    }
+    //
+    //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
+    //        emitter.p2pClientConnected.send(client)
+    //    }
+    //
+    //    public func onCustomConfigChange() {
+    //        emitter.customConfigChanged.send()
+    //    }
     
 }
 

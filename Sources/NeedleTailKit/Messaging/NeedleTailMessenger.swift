@@ -488,6 +488,8 @@ extension NeedleTailMessenger {
         case .found(let chat):
             /// We already have a chat... So just update localDB
             await updateGroupChats(chat, organizers: organizers, members: members, meta: metaDoc)
+        default:
+            break
         }
         /// Send the Channel Info to NeedleTailServer
         let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
