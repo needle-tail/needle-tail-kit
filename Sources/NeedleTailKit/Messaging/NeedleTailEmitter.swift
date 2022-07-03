@@ -9,7 +9,11 @@ import Foundation
 import CypherMessaging
 import NeedleTailHelpers
 
-public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
+#if (os(macOS) || os(iOS))
+extension NeedleTailEmitter: ObservableObject {}
+#endif
+
+public class NeedleTailEmitter: NeedleTailHandler {
     public var id = UUID()
 #if (os(macOS) || os(iOS))
     @Published public var messageReceived: AnyChatMessage?
@@ -39,5 +43,3 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
 //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
 //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
 }
-
-

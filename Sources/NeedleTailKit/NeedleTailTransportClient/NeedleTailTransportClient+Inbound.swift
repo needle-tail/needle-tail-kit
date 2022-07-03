@@ -76,7 +76,7 @@ extension NeedleTailTransportClient {
     
     //TODO: LINUX STUFF
     func alertUI() async -> AlertType {
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+#if (os(macOS) || os(iOS))
         print("Alerting UI")
         messenger.plugin.emitter.received = .registryRequest
         while proceedNewDeivce == false {}

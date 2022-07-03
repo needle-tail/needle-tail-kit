@@ -501,12 +501,13 @@ extension NeedleTailMessenger {
     }
     
     enum SearchResult {
-        case new, found(GroupChat)
+        case new, found(GroupChat), none
     }
     
     ///We want to first make sure that a channel doesn't exist with the and ID
     @NeedleTailTransportActor
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
+#if (os(macOS) || os(iOS))
         _ = await plugin.emitter.fetchChats(cypher: cypher)
         let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in
@@ -515,9 +516,12 @@ extension NeedleTailMessenger {
             let config = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: meta.config.blob.metadata)
             return config.name == channelName
         }
-
+        
         guard let channel = channel else { return .new }
         return .found(channel)
+#else
+        return .none
+#endif
     }
     
     @NeedleTailTransportActor
