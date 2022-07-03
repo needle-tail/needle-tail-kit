@@ -4,13 +4,14 @@
 //
 //  Created by Cole M on 4/21/22.
 //
+
 import Foundation
 import CypherMessaging
 import NeedleTailHelpers
 
 public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
     public var id = UUID()
-
+#if (os(macOS) || os(iOS))
     @Published public var messageReceived: AnyChatMessage?
     @Published public var contactChanged: Contact?
     @Published public var registered = false
@@ -27,6 +28,7 @@ public class NeedleTailEmitter: NeedleTailHandler, ObservableObject {
 #endif
         }
     }
+#endif
     
 //    public let onRekey = PassthroughSubject<Void, Never>()
 //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
