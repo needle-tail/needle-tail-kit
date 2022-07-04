@@ -103,6 +103,7 @@ public final class NeedleTail {
                     plugin: plugin
                 )
                 guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
+
                 return messenger
             },
             p2pFactories: p2pFactories,
