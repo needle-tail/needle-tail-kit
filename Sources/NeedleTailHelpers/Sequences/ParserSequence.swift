@@ -11,7 +11,6 @@ import Foundation
 public struct ParserSequence: AsyncSequence, Sendable {
     public typealias Element = ParseSequenceResult
     
-    
     let consumer: ParseConsumer
     
     public init(consumer: ParseConsumer) {

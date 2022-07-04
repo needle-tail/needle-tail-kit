@@ -8,7 +8,7 @@
 import Foundation
 import CypherMessaging
 
-public struct NeedleTailChannelPacket: Codable, @unchecked Sendable {
+public struct NeedleTailChannelPacket: Codable, Sendable {
     public let name: String
     public let admin: NeedleTailNick
     public let organizers: Set<Username>

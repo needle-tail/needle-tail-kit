@@ -26,32 +26,49 @@
  * - shall not contain a ','
  */
 import AsyncKit
+import NIOConcurrencyHelpers
 
-public class IRCChannelName: Codable, Hashable, CustomStringConvertible {
+/// We are using classes because we want a reference to the object on the server, in order to use ObjectIdentifier to Cache the Object.
+/// This class can be Sendable because we are using a lock to protect any mutated state
+public final class IRCChannelName: Codable, Hashable, CustomStringConvertible, Sendable {
     
   public typealias StringLiteralType = String
   
-  let storage    : String
-  let normalized : String
+  let storage: String
+  let normalized: String
+  let lock = Lock()
+static let staticLock = Lock()
 
   public init?(_ s: String) {
     guard IRCChannelName.validate(string: s) else { return nil }
-    storage    = s
+    storage = s
     normalized = s.ircLowercased()
   }
   
-  public var stringValue : String { return storage }
+  public var stringValue: String {
+      return lock.withSendableLock {
+        storage
+      }
+  }
   
   public func hash(into hasher: inout Hasher) {
+      lock.lock()
     normalized.hash(into: &hasher)
+      lock.unlock()
   }
   
 
   public static func ==(lhs: IRCChannelName, rhs: IRCChannelName) -> Bool {
-    return lhs.normalized == rhs.normalized
+      return IRCChannelName.staticLock.withSendableLock {
+          lhs.normalized == rhs.normalized
+      }
   }
   
-  public var description : String { return stringValue }
+  public var description: String {
+      return lock.withSendableLock {
+        stringValue
+      }
+  }
   
   public static func validate(string: String) -> Bool {
     guard string.count > 1 && string.count <= 50 else { return false }
@@ -72,4 +89,22 @@ public class IRCChannelName: Codable, Hashable, CustomStringConvertible {
 
     return true
   }
+    
+    
+    public enum CodingKeys: CodingKey, Sendable {
+        case storage, normalized
+    }
+    
+    // MARK: - Codable
+    public init(from decoder: Decoder) async throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.storage = try container.decode(String.self, forKey: .storage)
+        self.normalized = try container.decode(String.self, forKey: .normalized)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(storage, forKey: .storage)
+        try container.encodeIfPresent(normalized, forKey: .normalized)
+    }
 }

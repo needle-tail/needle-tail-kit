@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum ConversationType: Equatable {
+public enum ConversationType: Equatable, Sendable {
     case groupMessage(String)
     case privateMessage
 }

@@ -8,9 +8,9 @@
 import Foundation
 import BSON
 
-public struct Acknowledgment: Codable {
+public struct Acknowledgment: Codable, Sendable {
     
-    public enum AckType: Codable, Equatable {
+    public enum AckType: Codable, Equatable, Sendable {
         case registered(String)
         case registryRequestRejected(String, String)
         case registryRequestAccepted(String, String)
