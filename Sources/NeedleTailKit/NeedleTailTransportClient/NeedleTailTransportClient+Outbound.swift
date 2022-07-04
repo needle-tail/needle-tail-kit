@@ -27,7 +27,6 @@ extension NeedleTailTransportClient {
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-    @NeedleTailTransportActor
     func registerNeedletailSession(_ regPacket: String?) async {
         guard let channel = channel else { return }
         transportState.transition(to: .registering(
@@ -242,7 +241,6 @@ extension NeedleTailTransportClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    @NeedleTailTransportActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
         let date = RunLoop.timeInterval(1)

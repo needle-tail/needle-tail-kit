@@ -8,7 +8,7 @@
 import Foundation
 import CypherMessaging
 
-public struct Blob<C: Codable>: Codable {
+public struct Blob<C: Codable & Sendable>: Codable, Sendable {
     public let _id: String
     public let creator: Username
     public var document: C

@@ -314,7 +314,7 @@ extension NeedleTailTransportClient {
      func doPing(_ server: String, server2: String? = nil) async throws {
         let msg: IRCMessage
         
-        msg = IRCMessage(origin: origin, // probably wrong
+        msg = IRCMessage(origin: origin,
                          command: .PONG(server: server, server2: server))
         await sendAndFlushMessage(msg, chatDoc: nil)
     }

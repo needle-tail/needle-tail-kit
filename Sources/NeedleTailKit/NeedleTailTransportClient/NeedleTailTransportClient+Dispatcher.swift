@@ -15,7 +15,6 @@ extension NeedleTailTransportClient: IRCDispatcher {
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
-    @NeedleTailTransportActor
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
         switch message.command {

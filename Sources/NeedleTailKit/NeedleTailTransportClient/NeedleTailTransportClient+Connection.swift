@@ -22,10 +22,6 @@ extension NeedleTailTransportClient {
             .connect(host: host, port: port).get()
     }
     
-     func disconnect() async {
-        await shutdownClient()
-    }
-    
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         return try groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.hours(1))
@@ -109,7 +105,7 @@ extension NeedleTailTransportClient {
         case .connecting:
             break
         case .online:
-            await disconnect()
+            await shutdownClient()
             authenticated = .unauthenticated
         case .suspended, .offline:
             return
@@ -120,5 +116,17 @@ extension NeedleTailTransportClient {
         case .quit:
             break
         }
+    }
+    
+    func shutdownClient() async {
+        do {
+            _ = try await channel?.close(mode: .all).get()
+            try await self.groupManager.shutdown()
+            messageOfTheDay = ""
+        } catch {
+            print("Could not gracefully shutdown, Forcing the exit (\(error)")
+            exit(0)
+        }
+        logger.info("disconnected from server")
     }
 }

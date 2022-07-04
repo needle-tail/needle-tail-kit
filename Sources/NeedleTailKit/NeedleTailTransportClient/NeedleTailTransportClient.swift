@@ -10,20 +10,21 @@ import NIOTransportServices
 @NeedleTailTransportActor
 final class NeedleTailTransportClient: AsyncIRCDelegate {
     
-    //AsyncIRCProtocol
-    //    var usermask : String? {
-    //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
-    //        let host = info.servername ?? clientInfo.hostname
-    //        return "\(nick.stringValue)!~\(info.username)@\(host)"
-    //    }
-    //    var nick: NeedleTailNick? { return clientContext.nickname }
+    var usermask: String? {
+        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
+        let host = info.servername ?? clientInfo.hostname
+        return "\(nick.stringValue)!~\(info.username)@\(host)"
+    }
+    var nick: NeedleTailNick? {
+        return clientContext.nickname
+    }
+    public var origin: String? {
+        return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
+    }
     var cypher: CypherMessenger
     var messenger: NeedleTailMessenger
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
-    public var origin: String? {
-        return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
-    }
     public var tags: [IRCTags]?
     public let clientContext: ClientContext
     public let clientInfo: ClientContext.ServerClientInfo
@@ -83,10 +84,9 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     }
     
     deinit {
-        let task = Task {
+        Task {
             _ = try? await channel?.close(mode: .all).get()
         }
-        task.cancel()
     }
 }
 
