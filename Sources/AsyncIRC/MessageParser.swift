@@ -4,6 +4,7 @@ import Foundation
 import Logging
 import NeedleTailHelpers
 
+@ParsingActor
 public final class MessageParser {
     
     enum IRCCommandKey {
@@ -16,7 +17,7 @@ public final class MessageParser {
         self.logger = Logger(label: "MessageParser")
     }
     
-    @ParsingActor
+    
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
@@ -116,8 +117,6 @@ public final class MessageParser {
         return ircMessage
     }
     
-    
-    @ParsingActor
     func parseCommand(
         command: String,
         commandKey: IRCCommandKey
@@ -140,7 +139,6 @@ public final class MessageParser {
         return commandKey
     }
     
-    @ParsingActor
     func parseArgument(
         commandKey: IRCCommandKey,
         message: String,
@@ -201,7 +199,6 @@ public final class MessageParser {
     }
     
     // https://ircv3.net/specs/extensions/message-tags.html#format
-    @ParsingActor
     func parseTags(
         tags: String = ""
     ) throws -> [IRCTags]? {

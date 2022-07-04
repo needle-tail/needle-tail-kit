@@ -8,7 +8,7 @@
 import Foundation
 
 
-public struct ParserSequence: AsyncSequence {
+public struct ParserSequence: AsyncSequence, Sendable {
     public typealias Element = ParseSequenceResult
     
     
@@ -26,7 +26,8 @@ public struct ParserSequence: AsyncSequence {
 }
 
 extension ParserSequence {
-    public struct Iterator: AsyncIteratorProtocol {
+    
+    public struct Iterator: AsyncIteratorProtocol, Sendable {
         
         public typealias Element = ParseSequenceResult
         
@@ -69,6 +70,7 @@ public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.finished
 
+@ParsingActor
 public final class ParseConsumer {
     
     public var stack = NeedleTailStack<String>()

@@ -15,7 +15,8 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
     var logger: Logger
-    @NeedleTailTransportActor let consumer = ParseConsumer()
+    @ParsingActor let consumer = ParseConsumer()
+    @ParsingActor let parser = MessageParser()
     var channel: Channel?
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
         self.logger = logger
@@ -78,8 +79,6 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         }
         return promise.futureResult
     }
-    
-    let parser = MessageParser()
     
     @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
