@@ -14,7 +14,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 
-public struct IRCUserID : Hashable, CustomStringConvertible, Sendable {
+public struct IRCUserID : Hashable, CustomStringConvertible, @unchecked Sendable {
   // TBD: is that really called the user-mask? Or more like "fullusername"?
   
   public let nick: NeedleTailNick

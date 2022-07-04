@@ -10,7 +10,7 @@ import CypherMessaging
 
 
 //TODO: Maybe Encrypt DeviceID?
-public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, Sendable {
+public class NeedleTailNick: Codable, Hashable, CustomStringConvertible, Equatable {
     
     public var description: String {
         return "NeedleTailNick(name: \(name), deviceId: \(String(describing: deviceId)))"
@@ -20,9 +20,8 @@ public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConverti
         guard let deviceId = deviceId else { return "" }
         return "\(name):\(deviceId)"
     }
-    
     public var name: String
-    public var deviceId: DeviceId?
+    public let deviceId: DeviceId?
 
     
     public init?(
@@ -35,11 +34,11 @@ public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConverti
         self.name = name.ircLowercased()
     }
     
-    public func hash(into hasher: inout Hasher) {
-        name.hash(into: &hasher)
+    nonisolated public func hash(into hasher: inout Hasher) {
+        deviceId.hash(into: &hasher)
     }
     
-    public static func ==(lhs: NeedleTailNick, rhs: NeedleTailNick) -> Bool {
+    nonisolated public static func ==(lhs: NeedleTailNick, rhs: NeedleTailNick) -> Bool {
         return lhs.deviceId == lhs.deviceId
     }
     

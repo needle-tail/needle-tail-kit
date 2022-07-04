@@ -15,7 +15,7 @@
 import struct Foundation.Data
 import NeedleTailHelpers
 
-public enum IRCCommand: Sendable {
+public enum IRCCommand: @unchecked Sendable {
   
   case NICK(NeedleTailNick)
   case USER(IRCUserInfo)
@@ -67,7 +67,7 @@ public enum IRCCommand: Sendable {
 
 // MARK: - Description
 
-extension IRCCommand : CustomStringConvertible {
+extension IRCCommand: CustomStringConvertible {
   
   public var commandAsString : String {
     switch self {

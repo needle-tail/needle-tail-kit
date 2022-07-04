@@ -112,22 +112,22 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         context.fireErrorCaught(MessageParserError.transportError(error))
     }
     
-    public func write(
-        context: ChannelHandlerContext,
-        data: NIOAny,
-        promise: EventLoopPromise<Void>?
-    ) {
-        let message: OutboundIn = self.unwrapOutboundIn(data)
-        write(context: context, value: message, promise: promise)
-    }
-    
-    public final func write(
-        context: ChannelHandlerContext,
-        value: IRCMessage,
-        promise: EventLoopPromise<Void>?
-    ) {
-        var buffer = context.channel.allocator.buffer(capacity: 200)
-        encode(value: value, target: value.target, into: &buffer)
-        context.write(NIOAny(buffer), promise: promise)
-    }
+//    public func write(
+//        context: ChannelHandlerContext,
+//        data: NIOAny,
+//        promise: EventLoopPromise<Void>?
+//    ) {
+//        let message: OutboundIn = self.unwrapOutboundIn(data)
+//        write(context: context, value: message, promise: promise)
+//    }
+//    
+//    public final func write(
+//        context: ChannelHandlerContext,
+//        value: IRCMessage,
+//        promise: EventLoopPromise<Void>?
+//    ) {
+//        var buffer = context.channel.allocator.buffer(capacity: 200)
+//        encode(value: value, target: value.target, into: &buffer)
+//        context.write(NIOAny(buffer), promise: promise)
+//    }
 }
