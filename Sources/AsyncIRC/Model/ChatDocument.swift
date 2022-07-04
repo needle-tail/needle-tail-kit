@@ -8,7 +8,7 @@
 import Foundation
 import BSON
 
-public struct ChatDocument: Codable {
+public struct ChatDocument: Codable, Sendable {
     public let id: String
     public let createdAt: Date
     public let sender: String

@@ -19,7 +19,7 @@ import NeedleTailHelpers
  *
  * Maximum length is 63 characters.
  */
-public struct IRCServerName : Hashable {
+public struct IRCServerName: Hashable {
   
   public typealias StringLiteralType = String
   

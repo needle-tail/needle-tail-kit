@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum OnlineStatus {
+public enum OnlineStatus: Sendable {
     case wasOffline(ChatDocument)
     case isOnline
 }

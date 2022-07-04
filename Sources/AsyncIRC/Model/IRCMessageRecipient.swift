@@ -15,7 +15,7 @@
 import CypherProtocol
 import NeedleTailHelpers
 
-public enum IRCMessageRecipient: Codable, Hashable {
+public enum IRCMessageRecipient: Codable, Hashable, Sendable {
   
   case channel (IRCChannelName)
   case nickname(NeedleTailNick)

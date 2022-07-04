@@ -3,10 +3,11 @@ import Logging
 import Foundation
 import NeedleTailHelpers
 
+
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
 
-public class IRCChannelHandler : ChannelDuplexHandler {
+public final class IRCChannelHandler: ChannelDuplexHandler {
     
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage

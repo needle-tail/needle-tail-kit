@@ -15,7 +15,7 @@
 import struct Foundation.Data
 import NeedleTailHelpers
 
-public enum IRCCommand {
+public enum IRCCommand: Sendable {
   
   case NICK(NeedleTailNick)
   case USER(IRCUserInfo)
@@ -48,14 +48,14 @@ public enum IRCCommand {
   case WHOIS(server: String?, usermasks: [ String ])
   case WHO(usermask: String?, onlyOperators: Bool)
 
-  case numeric     (IRCCommandCode, [ String ])
+  case numeric(IRCCommandCode, [ String ])
   case otherCommand(String,         [ String ])
   case otherNumeric(Int,            [ String ])
   
   
   // MARK: - IRCv3.net
   
-  public enum CAPSubCommand : String {
+  public enum CAPSubCommand: String, Sendable {
     case LS, LIST, REQ, ACK, NAK, END
     
 

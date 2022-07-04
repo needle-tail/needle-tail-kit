@@ -15,7 +15,8 @@
 import NIOCore
 
 extension IRCChannelHandler {
-    func encode(
+    
+func encode(
         value: IRCMessage,
         target: String?,
         into buffer: inout ByteBuffer

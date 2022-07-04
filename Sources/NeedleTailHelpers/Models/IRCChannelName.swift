@@ -27,7 +27,7 @@
  */
 import AsyncKit
 
-public class IRCChannelName: Codable, Hashable, CustomStringConvertible {
+public struct IRCChannelName: Codable, Hashable, CustomStringConvertible, Sendable {
     
   public typealias StringLiteralType = String
   

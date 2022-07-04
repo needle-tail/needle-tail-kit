@@ -19,85 +19,30 @@ import Foundation
  *
  * An optional origin, an optional target and the actual command (including its
  * arguments).
+ *
+ * True origin of message. Do not set in clients.
+ *
+ * Examples:
+ * - `:helge55!~textual@213.211.198.125`
+ * - `:helge99`
+ * - `:cherryh.freenode.net`
+ *
+ * This is a server name or a nickname w/ user@host parts.
  */
+public struct IRCMessage: Sendable {
 
-
-public struct IRCMessage: CustomStringConvertible {
-    
     let id = UUID()
-    
-    public enum CodingKeys: String, CodingKey {
-        case origin, target, command, arguments, tags
-    }
-    
-    public init(
-        origin: String? = nil,
-        target: String? = nil,
-        command: IRCCommand,
-        tags: [IRCTags]? = nil
-    ) {
-        self._storage =  _Storage(origin: origin, target: target, command: command, tags: tags)
-    }
-    
-    /**
-     * True origin of message. Do not set in clients.
-     *
-     * Examples:
-     * - `:helge55!~textual@213.211.198.125`
-     * - `:helge99`
-     * - `:cherryh.freenode.net`
-     *
-     * This is a server name or a nickname w/ user@host parts.
-     */
-    public var origin : String? {
-        set {
-            copyStorageIfNeeded()
-            _storage.origin = newValue
-        }
-        get {
-            return _storage.origin
-        }
-    }
-    
-    public var target : String? {
-        set {
-            copyStorageIfNeeded()
-            _storage.target = newValue
-        }
-        get {
-            return _storage.target
-        }
-    }
-    
-    /**
-     * The IRC command and its arguments (max 15).
-     */
-    public var command : IRCCommand {
-        set {
-            copyStorageIfNeeded()
-            _storage.command = newValue
-        }
-        get {
-            return _storage.command
-        }
-    }
-    
-    public var tags : [IRCTags]? {
-        set {
-            copyStorageIfNeeded()
-            _storage.tags = newValue
-        }
-        get {
-            return _storage.tags
-        }
-    }
-    
+    public var origin: String?
+    public var target: String?
+    ///The IRC command and its arguments (max 15).
+    public var command: IRCCommand
+    public var tags: [IRCTags]?
     public var description: String {
         var ms = "<IRCMsg:"
         
         if let tags = tags {
             for tag in tags {
-            ms += "@\(tag.key)=\(tag.value);"
+                ms += "@\(tag.key)=\(tag.value);"
             }
         }
         if let origin = origin { ms += " from=\(origin)" }
@@ -108,42 +53,25 @@ public struct IRCMessage: CustomStringConvertible {
         return ms
     }
     
-    
-    // MARK: - Internal Storage to keep the value small
-    mutating func copyStorageIfNeeded() {
-        if !isKnownUniquelyReferenced(&_storage) {
-            _storage =  _Storage(_storage)
-        }
+    public init(
+        origin: String? = nil,
+        target: String? = nil,
+        command: IRCCommand,
+        tags: [IRCTags]? = nil
+    ) {
+        self.origin = origin
+        self.target = target
+        self.command = command
+        self.tags = tags
     }
     
-    class _Storage {
-        var origin  : String?
-        var target  : String?
-        var command : IRCCommand
-        var tags : [IRCTags]?
-        
-        init(
-            origin: String?,
-            target: String?,
-            command: IRCCommand,
-            tags: [IRCTags]?
-        ) {
-            self.origin  = origin
-            self.target  = target
-            self.command = command
-            self.tags = tags
-        }
-
-        init(_ other: _Storage) {
-            self.origin  = other.origin
-            self.target  = other.target
-            self.command = other.command
-            self.tags = other.tags
-        }
+    
+    
+    public enum CodingKeys: String, CodingKey {
+        case origin, target, command, arguments, tags
     }
-    var _storage : _Storage
     
-    
+  
     // MARK: - Codable
     public init(from decoder: Decoder) async throws {
         let c       = try decoder.container(keyedBy: CodingKeys.self)

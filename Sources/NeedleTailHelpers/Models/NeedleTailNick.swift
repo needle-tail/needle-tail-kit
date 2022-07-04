@@ -10,7 +10,7 @@ import CypherMessaging
 
 
 //TODO: Maybe Encrypt DeviceID?
-public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible {
+public struct NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, Sendable {
     
     public var description: String {
         return "NeedleTailNick(name: \(name), deviceId: \(String(describing: deviceId)))"
@@ -47,7 +47,7 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     public enum ValidatedNameStatus {
         case isValidated, failedValidation
     }
-    public struct NameRules {
+    public struct NameRules: Sendable {
         public var allowsStartingDigit: Bool = true
         public var lengthLimit: Int = 1024
         
@@ -76,7 +76,7 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
 
 import struct Foundation.CharacterSet
 
-fileprivate enum CharacterSets {
+fileprivate enum CharacterSets: Sendable {
   static let letter                   = CharacterSet.letters
   static let digit                    = CharacterSet.decimalDigits
   static let special                  = CharacterSet(charactersIn: "[]\\`_^{|}")

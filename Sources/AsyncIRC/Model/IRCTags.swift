@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct IRCTags: Hashable, Codable {
+public struct IRCTags: Hashable, Codable, Sendable {
     
     public typealias StringLiteralType = String
     

@@ -16,7 +16,7 @@ public protocol NeedleTailQueue {
 }
 
 
-public struct NeedleTailStack<T>: NeedleTailQueue {
+public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
     
     public init() {}
     

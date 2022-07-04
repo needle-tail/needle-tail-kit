@@ -6,10 +6,10 @@
 //
 
 import Foundation
-import CypherMessaging
+@preconcurrency import CypherMessaging
 import JWTKit
 
-public enum MessageType: Codable {
+public enum MessageType: Codable, Sendable {
     case publishKeyBundle(String)
     case registerAPN(String)
     case message
@@ -26,7 +26,7 @@ public enum MessageType: Codable {
     case rejectedRegistry(String)
 }
 
-public struct MessagePacket: Codable {
+public struct MessagePacket: Codable, Sendable {
     public let id: String
     public let pushType: PushType
     public let type: MessageType

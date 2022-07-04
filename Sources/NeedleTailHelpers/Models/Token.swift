@@ -1,15 +1,14 @@
 //
-//  File.swift
+//  Token.swift
 //  
 //
 //  Created by Cole M on 6/18/22.
 //
 
 import Foundation
-import CypherMessaging
-import JWTKit
+@preconcurrency import JWTKit
 
-public struct Token: JWTPayload {
+public struct Token: JWTPayload, Sendable {
     public let device: UserDeviceId
     public let exp: ExpirationClaim
     
