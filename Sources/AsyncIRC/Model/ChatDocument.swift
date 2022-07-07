@@ -5,7 +5,7 @@
 //  Created by Cole M on 3/31/22.
 //
 
-import Foundation
+@preconcurrency import Foundation
 import BSON
 
 public struct ChatDocument: Codable, Sendable {
