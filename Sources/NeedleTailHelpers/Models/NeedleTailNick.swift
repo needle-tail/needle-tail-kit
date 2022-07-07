@@ -9,17 +9,6 @@ import Foundation
 import CypherMessaging
 import NIOConcurrencyHelpers
 
-extension Lock: @unchecked Sendable {
-    @inlinable
-    public func withSendableLock<T: Sendable>(_ body: () throws -> T) rethrows -> T {
-        self.lock()
-        defer {
-            self.unlock()
-        }
-        return try body()
-    }
-}
-
 
 /// We are using classes because we want a reference to the object on the server, in order to use ObjectIdentifier to Cache the Object.
 /// This class can be Sendable because we are using a lock to protect any mutated state
