@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol NeedleTailQueue {
+public protocol NeedleTailQueue: Sendable {
     associatedtype Element
     mutating func enqueue(_ element: Element?, elements: [Element]?)
     mutating func dequeue() -> Element?

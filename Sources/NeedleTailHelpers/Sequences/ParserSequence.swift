@@ -69,8 +69,8 @@ public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.finished
 
-@ParsingActor
-public final class ParseConsumer {
+//@ParsingActor
+public final class ParseConsumer: @unchecked Sendable {
     
     public var stack = NeedleTailStack<String>()
     

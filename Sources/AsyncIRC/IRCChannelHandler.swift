@@ -11,14 +11,16 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
-    
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
+    
     var logger: Logger
     var channel: Channel?
     let lock = Lock()
-    @ParsingActor let consumer = ParseConsumer()
-    @ParsingActor let parser = MessageParser()
+//    @ParsingActor
+    let consumer = ParseConsumer()
+//    @ParsingActor
+    let parser = MessageParser()
     
     
     
@@ -90,7 +92,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         return promise.futureResult
     }
     
-    @ParsingActor
+//    @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
         lock.withSendableLock {
             consumer.feedConsumer(message)
