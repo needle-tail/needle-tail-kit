@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@preconcurrency import Foundation
+import Foundation
 
 /**
  * An IRC message
