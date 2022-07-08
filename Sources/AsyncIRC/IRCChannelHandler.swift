@@ -1,4 +1,4 @@
-import NIO
+import NIOCore
 import Logging
 import Foundation
 import NeedleTailHelpers
@@ -14,25 +14,25 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
     
-    var logger: Logger
     var channel: Channel?
+    let logger: Logger
     let lock = Lock()
-//    @ParsingActor
-    let consumer = ParseConsumer()
-//    @ParsingActor
-    let parser = MessageParser()
+    @ParsingActor let consumer = ParseConsumer()
+    @ParsingActor let parser = MessageParser()
     
     
     
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
+        lock.lock()
         self.logger = logger
+        lock.unlock()
     }
     
     public func channelActive(context: ChannelHandlerContext) {
         lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Active")
+            context.fireChannelActive()
         }
-        context.fireChannelActive()
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
@@ -92,26 +92,25 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         return promise.futureResult
     }
     
-//    @ParsingActor
+    @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        lock.withSendableLock {
+        let message = await lock.withSendableAsyncLock { () -> IRCMessage? in
             consumer.feedConsumer(message)
-        }
-        do {
-            for try await result in ParserSequence(consumer: consumer) {
-                switch result {
-                case.success(let message):
-                    return try await IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
-                case .finished:
-                    return nil
+            do {
+                for try await result in ParserSequence(consumer: consumer) {
+                    switch result {
+                    case.success(let message):
+                        return try await IRCTaskHelpers.parseMessageTask(task: message, messageParser: parser)
+                    case .finished:
+                        return nil
+                    }
                 }
-            }
-        } catch {
-            lock.withSendableLock {
+            } catch {
                 logger.error("Parser Sequence Error: \(error)")
             }
+            return nil
         }
-        return nil
+        return message
     }
     
     public func channelReadComplete(context: ChannelHandlerContext) {
@@ -121,11 +120,16 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
-        context.fireChannelRead(self.wrapInboundOut(value))
+        lock.withSendableLock {
+            context.fireChannelRead(self.wrapInboundOut(value))
+            
+        }
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
-        context.fireErrorCaught(MessageParserError.transportError(error))
+        lock.withSendableLock {
+            context.fireErrorCaught(MessageParserError.transportError(error))
+        }
     }
     
     public func write(
@@ -133,8 +137,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-        let message: OutboundIn = self.unwrapOutboundIn(data)
-        write(context: context, value: message, promise: promise)
+        lock.withSendableLock {
+            let message: OutboundIn = self.unwrapOutboundIn(data)
+            write(context: context, value: message, promise: promise)
+        }
     }
     
     public final func write(
@@ -142,8 +148,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         value: IRCMessage,
         promise: EventLoopPromise<Void>?
     ) {
-        var buffer = context.channel.allocator.buffer(capacity: 200)
-        encode(value: value, target: value.target, into: &buffer)
-        context.write(NIOAny(buffer), promise: promise)
+        lock.withSendableLock {
+            var buffer = context.channel.allocator.buffer(capacity: 200)
+            encode(value: value, target: value.target, into: &buffer)
+            context.write(NIOAny(buffer), promise: promise)
+        }
     }
 }

@@ -51,15 +51,15 @@ extension ParserSequence {
     }
 }
 
-public enum ConsumedState {
+public enum ConsumedState: Sendable {
     case consumed, waiting
 }
 
-public enum ParseSequenceResult {
+public enum ParseSequenceResult: Sendable {
     case success(String), finished
 }
 
-enum NextParseResult {
+enum NextParseResult: Sendable {
     case ready(String), finished
 }
 
@@ -69,8 +69,8 @@ public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.finished
 
-//@ParsingActor
-public final class ParseConsumer: @unchecked Sendable {
+@ParsingActor
+public final class ParseConsumer {
     
     public var stack = NeedleTailStack<String>()
     

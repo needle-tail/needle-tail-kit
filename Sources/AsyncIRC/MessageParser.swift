@@ -4,7 +4,7 @@ import Foundation
 import Logging
 import NeedleTailHelpers
 
-//@ParsingActor
+@ParsingActor
 public final class MessageParser {
     
     enum IRCCommandKey {
