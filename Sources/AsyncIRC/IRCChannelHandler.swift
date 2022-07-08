@@ -148,10 +148,8 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         value: IRCMessage,
         promise: EventLoopPromise<Void>?
     ) {
-        lock.withSendableLock {
-            var buffer = context.channel.allocator.buffer(capacity: 200)
-            encode(value: value, target: value.target, into: &buffer)
-            context.write(NIOAny(buffer), promise: promise)
-        }
+        var buffer = context.channel.allocator.buffer(capacity: 200)
+        encode(value: value, target: value.target, into: &buffer)
+        context.write(NIOAny(buffer), promise: promise)
     }
 }
