@@ -7,7 +7,7 @@ import NIOConcurrencyHelpers
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
 
-public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable {
+public final class IRCChannelHandler: ChannelDuplexHandler {
     
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
@@ -23,29 +23,29 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     
     
     public init(logger: Logger = Logger(label: "NeedleTailKit")) {
-        lock.lock()
+//        lock.lock()
         self.logger = logger
-        lock.unlock()
+//        lock.unlock()
     }
     
     public func channelActive(context: ChannelHandlerContext) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Active")
-        }
+//        }
         context.fireChannelActive()
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Inactive")
-        }
+//        }
         context.fireChannelInactive()
     }
     
     
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             self.logger.trace("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let lines = buffer.readString(length: buffer.readableBytes) ?? ""
@@ -69,7 +69,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
                 self.logger.error("\(error)")
             }
             }
-        }
+//        }
     }
     
     private func mapMessages(context: ChannelHandlerContext, messages: [String]) -> EventLoopFuture<String> {
@@ -94,7 +94,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     
     @ParsingActor
     public func processMessage(_ message: String) async -> IRCMessage? {
-        let message = await lock.withSendableAsyncLock { () -> IRCMessage? in
+//        let message = await lock.withSendableAsyncLock { () -> IRCMessage? in
             consumer.feedConsumer(message)
             do {
                 for try await result in ParserSequence(consumer: consumer) {
@@ -109,26 +109,26 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
                 logger.error("Parser Sequence Error: \(error)")
             }
             return nil
-        }
-        return message
+//        }
+//        return message
     }
     
     public func channelReadComplete(context: ChannelHandlerContext) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             self.logger.trace("READ Complete")
-        }
+//        }
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             context.fireChannelRead(self.wrapInboundOut(value))
-        }
+//        }
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             context.fireErrorCaught(MessageParserError.transportError(error))
-        }
+//        }
     }
     
     public func write(
@@ -136,10 +136,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-        lock.withSendableLock {
+//        lock.withSendableLock {
             let message: OutboundIn = self.unwrapOutboundIn(data)
             write(context: context, value: message, promise: promise)
-        }
+//        }
     }
     
     public final func write(
