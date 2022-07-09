@@ -13,4 +13,5 @@ public enum NeedleTailError: String, Error {
     case nilBlob
     case invalidUserId
     case membersCountInsufficient = "Insufficient members. You are trying to create a group chat with only 1 member."
+    case nilElG
 }

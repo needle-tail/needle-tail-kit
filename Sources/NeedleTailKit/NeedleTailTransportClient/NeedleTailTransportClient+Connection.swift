@@ -23,6 +23,7 @@ extension NeedleTailTransportClient {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
+        guard let group = self.eventLoop else { throw NeedleTailError.nilElG }
         return try groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.hours(1))
             .channelOption(ChannelOptions.socket(
@@ -30,11 +31,14 @@ extension NeedleTailTransportClient {
                 value: 1
             )
             .channelInitializer { channel in
-                return channel.pipeline
-                    .addHandlers([
+                let promise = group.next().makePromise(of: Void.self)
+                promise.completeWithTask {
+                    try await channel.pipeline.addHandlers([
                         IRCChannelHandler(logger: self.logger),
                         NeedleTailInboundHandler(client: self)
-                    ])
+                        ])
+                }
+                return promise.futureResult
             }
     }
     

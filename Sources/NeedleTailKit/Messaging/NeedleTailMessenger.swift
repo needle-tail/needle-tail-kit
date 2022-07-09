@@ -130,8 +130,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 clientInfo: self.clientInfo,
                 nickname: nick
             )
-            
-            guard let cypher = self.cypher else { return }
+
             client = await NeedleTailTransportClient(
                 cypher: cypher,
                 messenger: self,
@@ -139,7 +138,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 transportDelegate: self.delegate,
                 signer: self.signer,
                 authenticated: self.authenticated,
-                clientContext: clientContext)
+                clientContext: clientContext
+            )
             
             self.needleTailNick = nick
         }
@@ -156,7 +156,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             repeat {} while await client?.acknowledgment != .registered("true")
         }
         
-        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
+        let jwt = try await makeToken()
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         guard let client = client else { return }
@@ -183,27 +183,26 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     /// from **CypherTextKit**'s **registerMessenger()** method.
     @NeedleTailTransportActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
-        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
+        let jwt = try await makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        guard let client = self.client else { throw NeedleTailError.nilClient }
-        let date = RunLoop.timeInterval(10)
+        let date = RunLoop.timeInterval(1)
         var canRun = false
         var userConfig: UserConfig? = nil
         repeat {
             canRun = true
-            if client.channel != nil {
-                userConfig = await client.readKeyBundle(packet)
+            if client?.channel != nil {
+                userConfig = await client?.readKeyBundle(packet)
                 canRun = false
             }
-        } while await RunLoop.execute(date, ack: client.acknowledgment, canRun: canRun)
+        } while await RunLoop.execute(date, ack: client?.acknowledgment, canRun: canRun)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
     
     @NeedleTailTransportActor
     public func registerAPNSToken(_ token: Data) async throws {
-        guard let jwt = makeToken() else { return }
+        let jwt = try await makeToken()
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
         guard let client = client else { return }
@@ -225,14 +224,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
     }
     
-    private func makeToken() -> String? {
+    @NeedleTailTransportActor
+    private func makeToken() async throws -> String {
         var signerAlgorithm: JWTAlgorithm
 #if os(Linux)
         signerAlgorithm = signer as! JWTAlgorithm
 #else
         signerAlgorithm = signer
 #endif
-        return try? JWTSigner(algorithm: signerAlgorithm)
+        return try JWTSigner(algorithm: signerAlgorithm)
             .sign(
                 Token(
                     device: UserDeviceId(user: self.username, device: self.deviceId),
@@ -363,7 +363,7 @@ extension NeedleTailMessenger {
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         print("We are requesting a Device Registry with this configuration: ", config)
         //Master nick
-        guard let jwt = makeToken() else { throw NeedleTailError.nilToken }
+        let jwt = try await makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
         let keyBundle = await client?.readKeyBundle(packet)

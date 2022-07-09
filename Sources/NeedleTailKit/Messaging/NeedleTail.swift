@@ -475,7 +475,7 @@ extension EnvironmentValues {
     }
 }
 
-@Sendable
+//@Sendable
 @MainActor
 func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
     switch (lhs.lastActivity, rhs.lastActivity) {

@@ -241,6 +241,7 @@ extension NeedleTailTransportClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
+    @NeedleTailTransportActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
         let date = RunLoop.timeInterval(1)

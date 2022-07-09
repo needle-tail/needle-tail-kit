@@ -21,7 +21,7 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     public var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var cypher: CypherMessenger
+    var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
     public var userConfig: UserConfig?
     public var acknowledgment: Acknowledgment.AckType = .none
@@ -47,7 +47,7 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     weak var transportDelegate: CypherTransportClientDelegate?
     
     init(
-        cypher: CypherMessenger,
+        cypher: CypherMessenger?,
         messenger: NeedleTailMessenger,
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,

@@ -31,15 +31,15 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     public func channelActive(context: ChannelHandlerContext) {
         lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Active")
-            context.fireChannelActive()
         }
+        context.fireChannelActive()
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
         lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Inactive")
-            context.fireChannelInactive()
         }
+        context.fireChannelInactive()
     }
     
     
@@ -49,11 +49,11 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
             self.logger.trace("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let lines = buffer.readString(length: buffer.readableBytes) ?? ""
+            
             guard !lines.isEmpty else { return }
             let messages = lines.components(separatedBy: "\n")
                 .map { $0.replacingOccurrences(of: "\r", with: "") }
                 .filter{ $0 != ""}
-            
             let future = mapMessages(context: context, messages: messages)
             future.whenComplete { switch $0 {
             case .success(let string):
@@ -122,7 +122,6 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
         lock.withSendableLock {
             context.fireChannelRead(self.wrapInboundOut(value))
-            
         }
     }
     

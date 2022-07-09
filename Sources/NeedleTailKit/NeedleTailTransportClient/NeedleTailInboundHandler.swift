@@ -6,48 +6,60 @@
 //
 
 import NIO
-import Logging
+@preconcurrency import Logging
 import AsyncIRC
 import NeedleTailHelpers
+import NIOConcurrencyHelpers
 
-final class NeedleTailInboundHandler : ChannelInboundHandler {
+
+final class NeedleTailInboundHandler: ChannelInboundHandler, Sendable {
     
     typealias InboundIn = IRCMessage
     
     let client: NeedleTailTransportClient
-    let logger: Logger
+    let logger = Logger(label: "NeedleTailInboundHandler")
+    let lock = Lock()
     
     init(client: NeedleTailTransportClient) {
-        self.logger = Logger(label: "NeedleTailInboundHandler")
-        self.client = client
+            lock.lock()
+            self.client = client
+            lock.unlock()
     }
     
     func channelActive(context: ChannelHandlerContext) {
-        logger.info("Channel Active")
+        lock.withSendableLock {
+            logger.info("Channel Active")
+        }
     }
     
     func channelInactive(context: ChannelHandlerContext) {
-        logger.info("Channel Inactive")
         Task {
+            lock.withSendableLock {
+                logger.info("Channel Inactive")
+            }
             await client.handlerDidDisconnect(context)
         }
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        let message = unwrapInboundIn(data)
         Task {
-            do {
-            let message = unwrapInboundIn(data)
-                try await client.processReceivedMessages(message)
-            } catch let error as NeedleTailError {
-                logger.error("\(error.rawValue)")
+            try await lock.withSendableAsyncLock {
+                do {
+                    try await client.processReceivedMessages(message)
+                } catch let error as NeedleTailError {
+                    logger.error("\(error.rawValue)")
+                }
             }
         }
     }
     
-    @NeedleTailTransportActor
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        self.client.handlerCaughtError(error, in: context)
-        context.close(promise: nil)
+        Task {
+            await lock.withSendableAsyncLock {
+                await self.client.handlerCaughtError(error, in: context)
+                context.close(promise: nil)
+            }
+        }
     }
-    
 }
