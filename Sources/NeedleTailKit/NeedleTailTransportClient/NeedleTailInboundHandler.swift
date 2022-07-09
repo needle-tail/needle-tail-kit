@@ -42,9 +42,8 @@ final class NeedleTailInboundHandler: ChannelInboundHandler, Sendable {
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let message = unwrapInboundIn(data)
         Task {
-            try await lock.withSendableAsyncLock {
+                let message = unwrapInboundIn(data)
                 do {
                     try await client.processReceivedMessages(message)
                 } catch let error as NeedleTailError {
@@ -52,7 +51,6 @@ final class NeedleTailInboundHandler: ChannelInboundHandler, Sendable {
                 }
             }
         }
-    }
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         Task {
