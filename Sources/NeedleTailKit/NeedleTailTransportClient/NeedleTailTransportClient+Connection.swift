@@ -25,7 +25,7 @@ extension NeedleTailTransportClient {
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         guard let group = self.eventLoop else { throw NeedleTailError.nilElG }
         return try groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
-            .connectTimeout(.hours(1))
+            .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(
                 SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR),
                 value: 1
@@ -49,6 +49,9 @@ extension NeedleTailTransportClient {
             self.channel = channel
             self.userInfo = clientContext.userInfo
         } catch {
+            logger.error("Could not start client: \(error)")
+            transportState.transition(to: .offline)
+            self.authenticated = .authenticationFailure
             await self.shutdownClient()
         }
         assert(channel != nil, "channel is nil")

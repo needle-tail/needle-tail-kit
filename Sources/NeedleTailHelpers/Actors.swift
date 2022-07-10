@@ -16,6 +16,10 @@ import Foundation
     public static let shared = NeedleTailTransportActor()
 }
 
+@globalActor public actor NeedleTailClientActor {
+    public static let shared = NeedleTailClientActor()
+}
+
 @globalActor public actor BlobActor {
     public static let shared = BlobActor()
 }

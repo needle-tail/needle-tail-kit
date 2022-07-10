@@ -114,7 +114,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailTransportActor
     public func registerSession(_ appleToken: String = "") async throws {
         if client?.channel == nil {
-            await createClient()
+            try await createClient()
         }
         let regObject = regRequest(with: appleToken)
         let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
@@ -122,10 +122,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     @NeedleTailTransportActor
-    public func createClient() async {
+    public func createClient() async throws {
         if client == nil {
             let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-            guard let nick = NeedleTailNick(name: lowerCasedName, deviceId: signer.deviceId) else { return }
+            guard let nick = NeedleTailNick(name: lowerCasedName, deviceId: signer.deviceId) else { throw NeedleTailError.nilNickName }
             let clientContext = ClientContext(
                 clientInfo: self.clientInfo,
                 nickname: nick
@@ -143,7 +143,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             
             self.needleTailNick = nick
         }
-        await connect()
+       try await connect()
     }
     
     
@@ -189,6 +189,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let date = RunLoop.timeInterval(1)
         var canRun = false
         var userConfig: UserConfig? = nil
+        print("CHANNEL__", client?.channel)
         repeat {
             canRun = true
             if client?.channel != nil {
@@ -313,20 +314,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     
     @NeedleTailTransportActor
-    public func connect() async {
-        do {
-            //TODO: State Error
+    public func connect() async throws {
             guard transportState.current == .offline || transportState.current == .suspended else { return }
             try await client?.attemptConnection()
             self.authenticated = .authenticated
             if client?.channel != nil {
                 self.isConnected = true
             }
-        } catch {
-            transportState.transition(to: .offline)
-            self.authenticated = .authenticationFailure
-            await connect()
-        }
     }
     
     @NeedleTailTransportActor

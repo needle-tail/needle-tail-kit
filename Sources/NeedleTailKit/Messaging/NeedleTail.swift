@@ -68,7 +68,7 @@ public final class NeedleTail {
                     }
                     guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
                     messenger.initalRegistration = true
-                    await messenger.createClient()
+                    try await messenger.createClient()
                     return messenger
                 },
                 p2pFactories: p2pFactories,
@@ -371,17 +371,22 @@ extension NeedleTail: ObservableObject {
                         showProgress = false
                         dismiss = true
                     } else {
-                        needleTailViewModel.cypher = try await NeedleTail.shared.registerNeedleTail(
-                            appleToken: "",
-                            username: username.raw,
-                            store: store,
-                            clientInfo: clientInfo,
-                            p2pFactories: makeP2PFactories()
-                        )
-                        
-                        needleTailViewModel.emitter = emitter
-                        showProgress = false
-                        dismiss = true
+                        do {
+                            needleTailViewModel.cypher = try await NeedleTail.shared.registerNeedleTail(
+                                appleToken: "",
+                                username: username.raw,
+                                store: store,
+                                clientInfo: clientInfo,
+                                p2pFactories: makeP2PFactories(),
+                                eventHandler: nil
+                            )
+                            
+                            needleTailViewModel.emitter = emitter
+                            showProgress = false
+                            dismiss = true
+                        } catch {
+                            print(error)
+                        }
                     }
                 }
             })
