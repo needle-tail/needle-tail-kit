@@ -39,7 +39,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var keyBundle: String = ""
     private var waitingToReadBundle: Bool = false
     var cypher: CypherMessenger?
-    var client: NeedleTailTransportClient?
+    var client: NeedleTailClient?
+    var transport: NeedleTailTransport?
     var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
@@ -113,15 +114,18 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     @NeedleTailTransportActor
     public func registerSession(_ appleToken: String = "") async throws {
-        if client?.channel == nil {
+        if await client?.channel == nil {
             try await createClient()
         }
+        self.transport = await client?.transport
+        self.transport?.channel = await client?.channel
+        
         let regObject = regRequest(with: appleToken)
         let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-        await client?.registerNeedletailSession(packet)
+        await transport?.registerNeedletailSession(packet)
     }
     
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     public func createClient() async throws {
         if client == nil {
             let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
@@ -131,7 +135,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 nickname: nick
             )
 
-            client = await NeedleTailTransportClient(
+            client = await NeedleTailClient(
                 cypher: cypher,
                 messenger: self,
                 transportState: self.transportState,
@@ -153,14 +157,14 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func publishKeyBundle(_ data: UserConfig) async throws {
         if shouldProceedRegistration == true && isConnected == true && initalRegistration {
             try await startSession(registrationType(appleToken ?? ""))
-            repeat {} while await client?.acknowledgment != .registered("true")
+            repeat {} while await transport?.acknowledgment != .registered("true")
         }
         
         let jwt = try await makeToken()
         let configObject = configRequest(jwt, config: data)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
-        guard let client = client else { return }
-        let recipient = try await client.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
+        guard let transport = transport else { return }
+        let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -174,7 +178,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await client.sendPrivateMessage(data, to: recipient, tags: nil)
+        _ = await transport.sendPrivateMessage(data, to: recipient, tags: nil)
         //        client?.acknowledgment = .none
     }
     
@@ -189,14 +193,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let date = RunLoop.timeInterval(1)
         var canRun = false
         var userConfig: UserConfig? = nil
-        print("CHANNEL__", client?.channel)
         repeat {
             canRun = true
-            if client?.channel != nil {
-                userConfig = await client?.readKeyBundle(packet)
+            if await client?.channel != nil {
+                userConfig = await transport?.readKeyBundle(packet)
                 canRun = false
             }
-        } while await RunLoop.execute(date, ack: client?.acknowledgment, canRun: canRun)
+        } while await RunLoop.execute(date, ack: transport?.acknowledgment, canRun: canRun)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
@@ -206,8 +209,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let jwt = try await makeToken()
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: self.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
-        guard let client = client else { return }
-        let recipient = try await client.recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
+        guard let transport = transport else { return }
+        let recipient = try await transport.recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -221,7 +224,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
         
         let data = try BSONEncoder().encode(packet).makeData()
-        _ = await client.sendPrivateMessage(data, to: recipient, tags: nil)
+        _ = await transport.sendPrivateMessage(data, to: recipient, tags: nil)
         
     }
     
@@ -313,7 +316,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     public func connect() async throws {
             guard transportState.current == .offline || transportState.current == .suspended else { return }
             try await client?.attemptConnection()
@@ -323,7 +326,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
     }
     
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     public func suspend(_ isSuspending: Bool = false) async {
         //TODO: State Error
         await client?.attemptDisconnect(isSuspending)
@@ -360,7 +363,7 @@ extension NeedleTailMessenger {
         let jwt = try await makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        let keyBundle = await client?.readKeyBundle(packet)
+        let keyBundle = await transport?.readKeyBundle(packet)
         let masterDeviceConfig = try keyBundle?.readAndValidateDevices().first(where: { $0.isMasterDevice })
         let lowerCasedName = signer.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
         guard let masterNick = NeedleTailNick(name: lowerCasedName, deviceId: masterDeviceConfig?.deviceId) else {
@@ -369,7 +372,7 @@ extension NeedleTailMessenger {
         guard let childNick = NeedleTailNick(name: lowerCasedName, deviceId: self.deviceId) else {
             return
         }
-        try await client?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
+        try await transport?.sendDeviceRegistryRequest(masterNick, childNick: childNick)
         let date = RunLoop.timeInterval(10)
         var canRun = false
         repeat {
@@ -381,7 +384,7 @@ extension NeedleTailMessenger {
         } while await RunLoop.execute(date, canRun: canRun)
         switch newDeviceState {
         case .accepted:
-            try await client?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
+            try await transport?.sendFinishRegistryMessage(toMaster: config, nick: masterNick)
         case .rejected:
             print("REJECTED__")
             shouldProceedRegistration = false
@@ -389,6 +392,7 @@ extension NeedleTailMessenger {
         case .waiting:
             print("WAITING__")
             shouldProceedRegistration = false
+            //TODO: If we fail registering a new device we need to destroy all credential information so we can register a new one or retry
             return
         case .isOffline:
             print("Offline__")
@@ -412,9 +416,9 @@ extension NeedleTailMessenger {
     @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
-        try await client?.publishBlob(blobString)
+        try await transport?.publishBlob(blobString)
         
-        guard let channelBlob = await client?.channelBlob else { throw NeedleTailError.nilBlob }
+        guard let channelBlob = await transport?.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
         let blob = try BSONDecoder().decode(NeedleTailHelpers.Blob<C>.self, from: Document(data: data))
         return ReferencedBlob(id: blob._id, blob: blob.document)
@@ -487,7 +491,7 @@ extension NeedleTailMessenger {
         }
         /// Send the Channel Info to NeedleTailServer
         let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
-        try await client?.createNeedleTailChannel(
+        try await transport?.createNeedleTailChannel(
             name: meta.name,
             admin: meta.admin,
             organizers: meta.organizers,
@@ -553,11 +557,11 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        guard let client = client else { return }
+        guard let transport = transport else { return }
         guard let readReceipt = readReceipt else { return }
         switch type {
         case .groupMessage(let name):
-            try await client.createGroupMessage(
+            try await transport.createGroupMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
@@ -569,7 +573,7 @@ extension NeedleTailMessenger {
                 conversationType: type,
                 readReceipt: readReceipt)
         case .privateMessage:
-            try await client.createPrivateMessage(
+            try await transport.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,

@@ -7,43 +7,24 @@ import AsyncIRC
 import NIOTransportServices
 #endif
 
-@NeedleTailTransportActor
-final class NeedleTailTransportClient: AsyncIRCDelegate {
+@NeedleTailClientActor
+final class NeedleTailClient {
     
-    var usermask: String? {
-        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
-        let host = info.servername ?? clientInfo.hostname
-        return "\(nick.stringValue)!~\(info.username)@\(host)"
-    }
-    var nick: NeedleTailNick? {
-        return clientContext.nickname
-    }
-    public var origin: String? {
-        return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
-    }
-    var cypher: CypherMessenger?
-    var messenger: NeedleTailMessenger
-    public var userConfig: UserConfig?
-    public var acknowledgment: Acknowledgment.AckType = .none
-    public var tags: [IRCTags]?
+    
     public let clientContext: ClientContext
     public let clientInfo: ClientContext.ServerClientInfo
-    public let eventLoop: EventLoop?
-    public var channel: Channel?
+    var eventLoop: EventLoop?
+    var cypher: CypherMessenger?
+    var messenger: NeedleTailMessenger
     let groupManager: EventLoopGroupManager
-    var messageOfTheDay = ""
-    var subscribedChannels = Set<IRCChannelName>()
-    var logger: Logger
-    var proceedNewDeivce = false
-    var alertType: AlertType = .registryRequestRejected
-    var userInfo: IRCUserInfo?
-    var transportState: TransportState
-    var userMode = IRCUserMode()
-    var registrationPacket = ""
     let signer: TransportCreationRequest
     var authenticated: AuthenticationState
-    var channelBlob: String?
-    weak var delegate: IRCDispatcher?
+    var transportState: TransportState
+    var userInfo: IRCUserInfo?
+    var userMode = IRCUserMode()
+    var transport: NeedleTailTransport?
+    let logger = Logger(label: "Client")
+    public var channel: Channel?
     weak var transportDelegate: CypherTransportClientDelegate?
     
     init(
@@ -57,13 +38,11 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     ) async {
         self.cypher = cypher
         self.messenger = messenger
-        self.transportState = transportState
         self.clientContext = clientContext
         self.clientInfo = clientContext.clientInfo
         self.signer = signer
         self.authenticated = authenticated
         self.transportState = transportState
-        self.logger = Logger(label: "NeedleTail Client Logger")
         self.transportDelegate = transportDelegate
         
         let group: EventLoopGroup?
@@ -80,7 +59,6 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
         self.eventLoop = group!.next()
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
-        self.delegate = self
     }
     
     deinit {
@@ -90,8 +68,8 @@ final class NeedleTailTransportClient: AsyncIRCDelegate {
     }
 }
 
-extension NeedleTailTransportClient: Equatable {
-    static func == (lhs: NeedleTailTransportClient, rhs: NeedleTailTransportClient) -> Bool {
+extension NeedleTailClient: Equatable {
+    static func == (lhs: NeedleTailClient, rhs: NeedleTailClient) -> Bool {
         return lhs === rhs
     }
 }

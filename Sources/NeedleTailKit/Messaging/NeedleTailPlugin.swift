@@ -11,6 +11,7 @@ import CypherMessaging
 import NeedleTailHelpers
 
 //Our Store for loading receiving messages in real time
+
 public class NeedleTailPlugin: Plugin {
     
     public static let pluginIdentifier = "needletail"

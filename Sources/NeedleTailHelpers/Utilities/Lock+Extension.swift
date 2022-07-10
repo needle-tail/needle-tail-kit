@@ -18,7 +18,7 @@ extension Lock: @unchecked Sendable {
     }
     
     @inlinable
-    public func withSendableAsyncLock<T: Sendable>(_ body: () async throws -> T ) async rethrows -> T {
+    public func withSendableAsyncLock<T: Sendable>(_ body: () async throws -> T) async rethrows -> T {
         self.lock()
         defer {
             self.unlock()

@@ -10,8 +10,73 @@ import BSON
 import NeedleTailHelpers
 import AsyncIRC
 import Foundation
+import Logging
+import CypherMessaging
 
-extension NeedleTailTransportClient: IRCDispatcher {
+@NeedleTailTransportActor
+final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
+    
+    let logger = Logger(label: "Transport")
+//    var usermask: String? {
+//        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
+//        let host = info.servername ?? clientInfo.hostname
+//        return "\(nick.stringValue)!~\(info.username)@\(host)"
+//    }
+    var nick: NeedleTailNick? {
+        return clientContext.nickname
+    }
+    var origin: String? {
+        return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
+    }
+    var cypher: CypherMessenger?
+    var messenger: NeedleTailMessenger
+    var userConfig: UserConfig?
+    var acknowledgment: Acknowledgment.AckType = .none
+    var tags: [IRCTags]?
+    var channel: Channel?
+    var messageOfTheDay = ""
+    var subscribedChannels = Set<IRCChannelName>()
+    var proceedNewDeivce = false
+    var userMode: IRCUserMode
+    var alertType: AlertType = .registryRequestRejected
+    var userInfo: IRCUserInfo?
+    var transportState: TransportState
+    var registrationPacket = ""
+    let signer: TransportCreationRequest
+    var authenticated: AuthenticationState
+    var channelBlob: String?
+    let clientContext: ClientContext
+    let clientInfo: ClientContext.ServerClientInfo
+    var transportDelegate: CypherTransportClientDelegate?
+    weak var delegate: IRCDispatcher?
+    
+    
+    init(
+        cypher: CypherMessenger? = nil,
+        messenger: NeedleTailMessenger,
+        channel: Channel? = nil,
+        messageOfTheDay: String = "",
+        userMode: IRCUserMode,
+        transportState: TransportState,
+        signer: TransportCreationRequest,
+        authenticated: AuthenticationState,
+        clientContext: ClientContext,
+        clientInfo: ClientContext.ServerClientInfo,
+        transportDelegate: CypherTransportClientDelegate?
+    ) {
+        self.cypher = cypher
+        self.messenger = messenger
+        self.channel = channel
+        self.messageOfTheDay = messageOfTheDay
+        self.userMode = userMode
+        self.transportState = transportState
+        self.signer = signer
+        self.authenticated = authenticated
+        self.clientContext = clientContext
+        self.clientInfo = clientInfo
+        self.transportDelegate = transportDelegate
+        self.delegate = self
+    }
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage

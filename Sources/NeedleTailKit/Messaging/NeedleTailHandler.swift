@@ -9,7 +9,7 @@ import Foundation
 import CypherMessaging
 import NeedleTailHelpers
 
-public class NeedleTailHandler {
+public class NeedleTailRepository {
     @NeedleTailTransportActor public let consumer = ConversationConsumer()
     @MainActor public var selectedChat: PrivateChat?
     @MainActor public var cypher: CypherMessenger?

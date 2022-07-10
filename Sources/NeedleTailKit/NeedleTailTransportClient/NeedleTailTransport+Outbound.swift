@@ -10,7 +10,7 @@ import NeedleTailHelpers
 import CypherMessaging
 import AsyncIRC
 
-extension NeedleTailTransportClient {
+extension NeedleTailTransport {
     
     /// This method is how all client messages get sent through the client to the server. This is the where they leave the Client.
     /// - Parameters:
@@ -29,12 +29,12 @@ extension NeedleTailTransportClient {
     /// - Parameter regPacket: Our Registration Packet
     func registerNeedletailSession(_ regPacket: String?) async {
         guard let channel = channel else { return }
-        transportState.transition(to: .registering(
+        await transportState.transition(to: .registering(
             channel: channel,
             nick: clientContext.nickname,
             userInfo: clientContext.userInfo))
         
-        guard case .registering(_, let nick, _) = transportState.current else {
+        guard case .registering(_, let nick, _) = await transportState.current else {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
@@ -241,7 +241,6 @@ extension NeedleTailTransportClient {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    @NeedleTailTransportActor
     func readKeyBundle(_ packet: String) async -> UserConfig? {
         await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
         let date = RunLoop.timeInterval(1)

@@ -12,18 +12,20 @@ import NeedleTailHelpers
 import NIOConcurrencyHelpers
 
 
-final class NeedleTailInboundHandler: ChannelInboundHandler, Sendable {
+final class NeedleTailHandler: ChannelInboundHandler, Sendable {
     
     typealias InboundIn = IRCMessage
     
-    let client: NeedleTailTransportClient
-    let logger = Logger(label: "NeedleTailInboundHandler")
+    let client: NeedleTailClient
+    let transport: NeedleTailTransport
+    let logger = Logger(label: "NeedleTailHandler")
     let lock = Lock()
     
-    init(client: NeedleTailTransportClient) {
-            lock.lock()
-            self.client = client
-            lock.unlock()
+    init(client: NeedleTailClient, transport: NeedleTailTransport) {
+        lock.lock()
+        self.client = client
+        self.transport = transport
+        lock.unlock()
     }
     
     func channelActive(context: ChannelHandlerContext) {
@@ -33,28 +35,30 @@ final class NeedleTailInboundHandler: ChannelInboundHandler, Sendable {
     }
     
     func channelInactive(context: ChannelHandlerContext) {
+        _ = lock.withSendableLock {
         Task {
-            lock.withSendableLock {
                 logger.info("Channel Inactive")
+                await self.client.handlerDidDisconnect(context)
             }
-            await client.handlerDidDisconnect(context)
         }
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        _ = lock.withSendableLock {
         Task {
                 let message = unwrapInboundIn(data)
                 do {
-                    try await client.processReceivedMessages(message)
+                    try await transport.processReceivedMessages(message)
                 } catch let error as NeedleTailError {
                     logger.error("\(error.rawValue)")
                 }
             }
         }
+    }
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
+        _ = lock.withSendableLock {
         Task {
-            await lock.withSendableAsyncLock {
                 await self.client.handlerCaughtError(error, in: context)
                 context.close(promise: nil)
             }

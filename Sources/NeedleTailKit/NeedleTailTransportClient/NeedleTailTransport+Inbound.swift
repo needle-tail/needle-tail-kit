@@ -12,7 +12,7 @@ import NeedleTailHelpers
 import AsyncIRC
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-extension NeedleTailTransportClient: AsyncIRCNotificationsDelegate {
+extension NeedleTailTransport: AsyncIRCNotificationsDelegate {
     
      func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
@@ -20,7 +20,8 @@ extension NeedleTailTransportClient: AsyncIRCNotificationsDelegate {
 }
 #endif
 
-extension NeedleTailTransportClient {
+extension NeedleTailTransport {
+    
     
      func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
@@ -31,6 +32,7 @@ extension NeedleTailTransportClient {
     }
     
     // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
+    
      func receivedRegistryRequest(fromChild nick: NeedleTailNick) async throws {
         switch await alertUI() {
         case .registryRequest:
@@ -45,6 +47,7 @@ extension NeedleTailTransportClient {
             break
     }
     }
+    
     
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
     var message: Data?
@@ -66,6 +69,7 @@ extension NeedleTailTransportClient {
 
     
     // 3. The Child Device will call this.
+    
      func receivedRegistryResponse(fromMaster deviceState: NewDeviceState, nick: NeedleTailNick) async throws {
         //Temporarily Register Nick to Session
         if deviceState == .accepted {
@@ -75,13 +79,14 @@ extension NeedleTailTransportClient {
     }
     
     //TODO: LINUX STUFF
+    @MainActor
     func alertUI() async -> AlertType {
 #if (os(macOS) || os(iOS))
         print("Alerting UI")
-        messenger.plugin.emitter.received = .registryRequest
-        while proceedNewDeivce == false {}
+        await messenger.plugin.emitter.received = .registryRequest
+        while await proceedNewDeivce == false {}
 #endif
-        return alertType
+        return await alertType
     }
     
     
@@ -99,6 +104,7 @@ extension NeedleTailTransportClient {
             break
         }
     }
+    
     
      func doMessage(
         sender: IRCUserID,
@@ -156,12 +162,12 @@ extension NeedleTailTransportClient {
                         acknowledgment = ack.acknowledgment
                         logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
                         
-                        switch transportState.current {
+                        switch await transportState.current {
                         case .registering(channel: let channel, nick: let nick, userInfo: let user):
-                            transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                            await transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
                             await createNeedleTailMessage(.USER(user))
                             
-                            transportState.transition(to: .online)
+                            await transportState.transition(to: .online)
 
                             // Everyone can join administrator, this primarily will be used for beta for report issues
                             let channelName = "#AdministratorChannel2"
@@ -226,6 +232,7 @@ extension NeedleTailTransportClient {
         }
     }
     
+    
     private func createAcknowledgment(_ ackType: Acknowledgment.AckType) async throws -> Data {
         //Send message ack
         let received = Acknowledgment(acknowledgment: ackType)
@@ -245,14 +252,15 @@ extension NeedleTailTransportClient {
         return try BSONEncoder().encode(packet).makeData()
     }
     
+    
      func doNick(_ newNick: NeedleTailNick) async throws {
-        switch transportState.current {
+        switch await transportState.current {
         case .registering(let channel, let nick, let info):
             guard nick != newNick else { return }
-            transportState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
+            await transportState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
         case .registered(let channel, let nick, let info):
             guard nick != newNick else { return }
-            transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
+            await transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
             
         default: return // hmm
         }
@@ -276,13 +284,13 @@ extension NeedleTailTransportClient {
         }
     }
     
-    @NeedleTailTransportActor
+    
     func doBlobs(_ blobs: [String]) async throws {
         guard let blob = blobs.first else { throw NeedleTailError.nilBlob }
         self.channelBlob = blob
     }
 
-    @NeedleTailTransportActor
+    
     func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         logger.info("Joining channels: \(channels)")
         await respondToTransportState()
@@ -306,10 +314,12 @@ extension NeedleTailTransportClient {
         await messenger.plugin.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
     }
     
+    
      func doModeGet(nick: NeedleTailNick) async throws {
         print("DO MODE GET - NICK: \(nick)")
         await respondToTransportState()
     }
+    
     
      func doPing(_ server: String, server2: String? = nil) async throws {
         let msg: IRCMessage
@@ -319,14 +329,15 @@ extension NeedleTailTransportClient {
         await sendAndFlushMessage(msg, chatDoc: nil)
     }
     
+    
     private func respondToTransportState() async  {
-        switch transportState.current {
+        switch await transportState.current {
         case .connecting:
             break
         case .registering(channel: _, nick: _, userInfo: _):
             break
         case .registered(channel: _, nick: _, userInfo: _):
-            transportState.transition(to: .online)
+            await transportState.transition(to: .online)
             registrationPacket = ""
         case .online:
             break
@@ -344,11 +355,13 @@ extension NeedleTailTransportClient {
         }
     }
     
+    
     func handleInfo(_ info: [String]) {
         for message in info {
             print("Handle Info", message)
         }
     }
+    
     
     func handleTopic(_ topic: String, on channel: IRCChannelName) {
             print("Handle Topic \(topic), on channel \(channel)")

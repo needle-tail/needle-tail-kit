@@ -23,7 +23,6 @@ private func makeEventEmitter() -> NeedleTailEmitter {
 
 public final class NeedleTail {
     
-    
     public typealias NTAnyChatMessage = AnyChatMessage
     public typealias NTContact = Contact
     public typealias NTPrivateChat = PrivateChat
@@ -40,6 +39,7 @@ public final class NeedleTail {
     
     public static let shared = NeedleTail()
     
+    @NeedleTailTransportActor
     @discardableResult
     public func registerNeedleTail(
         appleToken: String,
@@ -82,6 +82,7 @@ public final class NeedleTail {
         return cypher
     }
     
+    @NeedleTailTransportActor
     @discardableResult
     public func spoolService(
         appleToken: String,
@@ -93,7 +94,6 @@ public final class NeedleTail {
         //Create plugin here
         plugin = NeedleTailPlugin(emitter: emitter)
         guard let plugin = plugin else { return nil }
-        
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
             usingTransport: { transportRequest -> NeedleTailMessenger in
@@ -103,19 +103,19 @@ public final class NeedleTail {
                     plugin: plugin
                 )
                 guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
-
                 return messenger
             },
             p2pFactories: p2pFactories,
             database: store,
             eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
+
         //Start Service
-        let messenger = cypher?.transport as? NeedleTailMessenger
-        messenger?.cypher = self.cypher
-        try await messenger?.startSession(messenger?.registrationType(appleToken))
-        self.delegate = messenger?.client
-        emitter.needleTailNick = messenger?.needleTailNick
+        guard let messenger = cypher?.transport as? NeedleTailMessenger else { return nil }
+        messenger.cypher = self.cypher
+        try await messenger.startSession(messenger.registrationType(appleToken))
+        self.delegate = messenger.transport
+        emitter.needleTailNick = messenger.needleTailNick
         return self.cypher
     }
     
@@ -188,6 +188,7 @@ public final class NeedleTail {
     
     
 #if os(macOS)
+    @MainActor
     func showRegistryRequestAlert() {
         let alert = NSAlert()
         alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)

@@ -11,7 +11,7 @@ import Logging
 import NeedleTailHelpers
 
 
-@NeedleTailTransportActor
+@NeedleTailClientActor
 public class TransportState: StateMachine {
 
     public let identifier: UUID

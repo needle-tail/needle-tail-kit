@@ -13,7 +13,7 @@ import NeedleTailHelpers
 extension NeedleTailEmitter: ObservableObject {}
 #endif
 
-public class NeedleTailEmitter: NeedleTailHandler {
+public class NeedleTailEmitter: NeedleTailRepository {
     public var id = UUID()
 #if (os(macOS) || os(iOS))
     @Published public var messageReceived: AnyChatMessage?
@@ -28,7 +28,11 @@ public class NeedleTailEmitter: NeedleTailHandler {
     @Published public var received: AlertType = .none {
         didSet {
 #if os(macOS)
-            NeedleTail.shared.showRegistryRequestAlert()
+            Task {
+                await MainActor.run {
+                     NeedleTail.shared.showRegistryRequestAlert()
+                }
+            }
 #endif
         }
     }

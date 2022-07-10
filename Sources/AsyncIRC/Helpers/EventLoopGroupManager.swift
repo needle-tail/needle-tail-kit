@@ -21,6 +21,7 @@ import NIOTransportServices
 /// components. That raises the question of how to choose a bootstrap and a matching TLS implementation without even
 /// knowing the concrete `EventLoopGroup` type (it may be `SelectableEventLoop` which is an internal `NIO` types).
 /// `EventLoopGroupManager` should support all those use cases with a simple API.
+@NeedleTailClientActor
 public class EventLoopGroupManager {
     private var group: Optional<EventLoopGroup>
     private let provider: Provider
@@ -46,7 +47,7 @@ public class EventLoopGroupManager {
     }
     
     deinit {
-        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
+//        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
     }
 }
 
@@ -57,10 +58,10 @@ extension EventLoopGroupManager {
     /// - parameters:
     ///     - hostname: The hostname to connect to (for SNI).
     ///     - useTLS: Whether to use TLS or not.
-    public func makeBootstrap(hostname: String, useTLS: Bool = true) throws -> NIOClientTCPBootstrap {
+    public func makeBootstrap(hostname: String, useTLS: Bool = true) async throws -> NIOClientTCPBootstrap {
         let bootstrap: (NIOClientTCPBootstrap, EventLoopGroup)
 
-        bootstrap = try makeUniversalBootstrap(serverHostname: hostname)
+        bootstrap = try await makeUniversalBootstrap(serverHostname: hostname)
 
         if useTLS {
             return bootstrap.0.enableTLS()
@@ -101,11 +102,11 @@ enum ELGMErrors: Swift.Error {
 
 // - MARK: Internal functions
 extension EventLoopGroupManager {
-      func makeUniversalBootstrap(serverHostname: String) throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
+      func makeUniversalBootstrap(serverHostname: String) async throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
 
           guard let group = self.group else { throw ELGMErrors.nilEventLoopGroup }
           
-          func useNIOOnSockets() throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
+          func useNIOOnSockets() async throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
               let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
               let bootstrap = try NIOClientTCPBootstrap(ClientBootstrap(group: group),
                                                         tls: NIOSSLClientTLSProvider(context: sslContext,
@@ -121,11 +122,11 @@ extension EventLoopGroupManager {
               return (bootstrap, group)
           } else {
               // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
-              return try useNIOOnSockets()
+              return try await useNIOOnSockets()
           }
           #else
           // We are on a non-Darwin platform, so we'll use BSD sockets.
-          return try useNIOOnSockets()
+          return try await useNIOOnSockets()
           #endif
       }
 
