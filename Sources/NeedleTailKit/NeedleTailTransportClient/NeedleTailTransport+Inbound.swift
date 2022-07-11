@@ -22,7 +22,7 @@ extension NeedleTailTransport: AsyncIRCNotificationsDelegate {
 
 extension NeedleTailTransport {
     
-    
+    @NeedleTailClientActor
      func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
@@ -50,7 +50,6 @@ extension NeedleTailTransport {
     
     
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
-    var message: Data?
     let packet = MessagePacket(
         id: UUID().uuidString,
         pushType: .none,
@@ -62,9 +61,10 @@ extension NeedleTailTransport {
         readReceipt: .none
     )
         
-        message = try BSONEncoder().encode(packet).makeData()
-        guard let message = message else { return }
-        await sendPrivateMessage(message, to: .nickname(nick), tags: nil)
+        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        guard let channel = await channel else { return }
+        let type = TransportMessageType.private(.PRIVMSG([.nickname(nick)], encodedString))
+        try await transportMessage(channel, type: type)
 }
 
     
@@ -141,8 +141,10 @@ extension NeedleTailTransport {
                             )
                         )
                         
-                        let data = try await createAcknowledgment(.messageSent(packet.id))
-                        _ = await sendPrivateMessage(data, to: recipient, tags: nil)
+                        let encodedString = try await createAcknowledgment(.messageSent(packet.id)).base64EncodedString()
+                        guard let channel = await channel else { return }
+                        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+                        try await transportMessage(channel, type: type)
                         
                     case .multiRecipientMessage:
                         break
@@ -165,8 +167,8 @@ extension NeedleTailTransport {
                         switch await transportState.current {
                         case .registering(channel: let channel, nick: let nick, userInfo: let user):
                             await transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
-                            await createNeedleTailMessage(.USER(user))
-                            
+                            let type = TransportMessageType.standard(.USER(user))
+                            try await transportMessage(channel, type: type)
                             await transportState.transition(to: .online)
 
                             // Everyone can join administrator, this primarily will be used for beta for report issues
@@ -204,8 +206,6 @@ extension NeedleTailTransport {
                         try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
                     }
             case .channel(let channelName):
-                print(channelName)
-                
                 guard let data = Data(base64Encoded: message) else { return }
                 let buffer = ByteBuffer(data: data)
                 let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
@@ -223,8 +223,10 @@ extension NeedleTailTransport {
                     )
                 )
                 
-                let data = try await createAcknowledgment(.messageSent(packet.id))
-                _ = await sendPrivateMessage(data, to: recipient, tags: nil)
+                    let encodedString = try await createAcknowledgment(.messageSent(packet.id)).base64EncodedString()
+                    let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+                    guard let channel = await channel else { return }
+                    try await transportMessage(channel, type: type)
                 default:
                     break
                 }
@@ -322,11 +324,9 @@ extension NeedleTailTransport {
     
     
      func doPing(_ server: String, server2: String? = nil) async throws {
-        let msg: IRCMessage
-        
-        msg = IRCMessage(origin: origin,
-                         command: .PONG(server: server, server2: server))
-        await sendAndFlushMessage(msg, chatDoc: nil)
+        let msg = IRCMessage(origin: origin, command: .PONG(server: server, server2: server))
+        guard let channel = await channel else { return }
+       try await sendAndFlushMessage(channel, message: msg)
     }
     
     
@@ -365,5 +365,25 @@ extension NeedleTailTransport {
     
     func handleTopic(_ topic: String, on channel: IRCChannelName) {
             print("Handle Topic \(topic), on channel \(channel)")
+    }
+    
+    func handleServerMessages(_ messages: [String], type: IRCCommandCode) {
+        var serverMessage = ""
+        switch type {
+        case .replyWelcome:
+                let stringArray = messages.map{ String($0) }
+            serverMessage = stringArray.joined(separator: ",")
+            print("REPLY_WELCOME", serverMessage)
+        case .replyMyInfo:
+            let stringArray = messages.map{ String($0) }
+        serverMessage = stringArray.joined(separator: ",")
+            print("REPLY_MY_INFO", serverMessage)
+        case .replyInfo:
+            let stringArray = messages.map{ String($0) }
+        serverMessage = stringArray.joined(separator: ",")
+            print("REPLY_INFO", serverMessage)
+        default:
+            break
+        }
     }
 }

@@ -16,18 +16,19 @@ extension NeedleTailTransport {
     /// - Parameters:
     ///   - message: Our IRCMessage
     ///   - chatDoc: Not needed/used for clients and shouldn't be.
-    func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
-        do {
-            print("Sent message \(message)")
-            try await channel?.writeAndFlush(message)
-        } catch {
-            logger.error("\(error)")
-        }
-    }
+//    func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
+//        do {
+//            print("Sent message \(message)")
+//            try await channel?.writeAndFlush(message)
+//        } catch {
+//            logger.error("\(error)")
+//        }
+//    }
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-    func registerNeedletailSession(_ regPacket: String?) async {
+    @NeedleTailClientActor
+    func registerNeedletailSession(_ regPacket: String?) async throws {
         guard let channel = channel else { return }
         await transportState.transition(to: .registering(
             channel: channel,
@@ -39,14 +40,13 @@ extension NeedleTailTransport {
             return
         }
         
-        await createNeedleTailMessage(.otherCommand("PASS", [ clientInfo.password ]))
+        try await clientMessage(channel, command: .otherCommand("PASS", [ clientInfo.password ]))
         
         if let regPacket = regPacket {
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
-            await createNeedleTailMessage(.NICK(nick), tags: [tag])
+            try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
         } else {
-            
-            await createNeedleTailMessage(.NICK(nick))
+            try await clientMessage(channel, command: .NICK(nick))
         }
     }
     
@@ -69,7 +69,8 @@ extension NeedleTailTransport {
     
     @BlobActor
     func publishBlob(_ packet: String) async throws {
-        await sendBlobs(.otherCommand("BLOBS", [packet]))
+        guard let channel = await channel else { return }
+        try await blobMessage(channel, command: .otherCommand("BLOBS", [packet]))
         let date = RunLoop.timeInterval(1)
         var canRun = false
         repeat {
@@ -98,9 +99,11 @@ extension NeedleTailTransport {
         )
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         let tag = IRCTags(key: "channelPacket", value: data)
-        guard let channel = IRCChannelName(name) else { return }
+        guard let channelName = IRCChannelName(name) else { return }
+        guard let channel = await channel else { return }
         //Keys are Passwords for Channels
-        await createNeedleTailMessage(.JOIN(channels: [channel], keys: nil), tags: [tag])
+        let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
+        try await transportMessage(channel, type: type, tags: [tag])
     }
     
     func partNeedleTailChannel(
@@ -124,8 +127,10 @@ extension NeedleTailTransport {
         )
         let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         let tag = IRCTags(key: "channelPacket", value: data)
-        guard let channel = IRCChannelName(name) else { return }
-        await createNeedleTailMessage(.PART(channels: [channel]), tags: [tag])
+        guard let channelName = IRCChannelName(name) else { return }
+        guard let channel = await channel else { return }
+        let type = TransportMessageType.standard(.PART(channels: [channelName]))
+        try await transportMessage(channel, type: type, tags: [tag])
     }
     
     func createPrivateMessage(
@@ -150,14 +155,12 @@ extension NeedleTailTransport {
             readReceipt: readReceipt
         )
         
-        let data = try BSONEncoder().encode(packet).makeData()
-        do {
+            let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
             let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
-            await sendPrivateMessage(data, to: recipient, tags: nil)
-        } catch {
-            logger.error("\(error)")
-        }
+            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+            guard let channel = await channel else { return }
+            try await transportMessage(channel, type: type)
     }
     
     func createGroupMessage(
@@ -186,11 +189,13 @@ extension NeedleTailTransport {
             channelName: channelName
         )
         
-        let data = try BSONEncoder().encode(packet).makeData()
+        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         do {
             //Channel Recipient
             let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: channelName)
-            await sendPrivateMessage(data, to: recipient, tags: nil)
+            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+            guard let channel = await channel else { return }
+            try await transportMessage(channel, type: type)
         } catch {
             logger.error("\(error)")
         }
@@ -211,8 +216,10 @@ extension NeedleTailTransport {
             message: nil,
             readReceipt: .none
         )
-        let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        await sendIRCMessage(message, to: recipient, tags: nil)
+        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        guard let channel = await channel else { return }
+        try await transportMessage(channel, type: type)
     }
     
     // 4.
@@ -235,14 +242,18 @@ extension NeedleTailTransport {
             readReceipt: .none
         )
         //3. Send our deviceConfig to the registered online master device which should be the recipient we generate from the nick since the nick is the same account as the device we are trying to register and should be the only online device. If we have another device online we will have to filter it by master device on the server.
-        let message = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        await sendIRCMessage(message, to: recipient, tags: nil)
+        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        guard let channel = await channel else { return }
+        try await transportMessage(channel, type: type)
     }
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    func readKeyBundle(_ packet: String) async -> UserConfig? {
-        await sendKeyBundleRequest(.otherCommand("READKEYBNDL", [packet]))
+    @NeedleTailClientActor
+    func readKeyBundle(_ packet: String) async throws -> UserConfig? {
+        guard let channel = channel else { return nil }
+        try await clientMessage(channel, command: .otherCommand("READKEYBNDL", [packet]))
         let date = RunLoop.timeInterval(1)
         var canRun = false
         repeat {
@@ -257,11 +268,9 @@ extension NeedleTailTransport {
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
-    func changeNick(_ nick: NeedleTailNick) async {
-        await createNeedleTailMessage(.NICK(nick))
-    }
-    
-    func sendPrivateMessage(_ message: Data, to recipient: IRCMessageRecipient, tags: [IRCTags]? = nil) async {
-        await sendIRCMessage(message.base64EncodedString(), to: recipient, tags: tags)
+    func changeNick(_ nick: NeedleTailNick) async throws {
+        let type = TransportMessageType.standard(.NICK(nick))
+        guard let channel = await channel else { return }
+        try await transportMessage(channel, type: type)
     }
 }

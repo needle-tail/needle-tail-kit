@@ -14,14 +14,15 @@ import Logging
 import CypherMessaging
 
 @NeedleTailTransportActor
-final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
+final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
+    @NeedleTailClientActor var channel: Channel?
     let logger = Logger(label: "Transport")
-//    var usermask: String? {
-//        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
-//        let host = info.servername ?? clientInfo.hostname
-//        return "\(nick.stringValue)!~\(info.username)@\(host)"
-//    }
+    //    var usermask: String? {
+    //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
+    //        let host = info.servername ?? clientInfo.hostname
+    //        return "\(nick.stringValue)!~\(info.username)@\(host)"
+    //    }
     var nick: NeedleTailNick? {
         return clientContext.nickname
     }
@@ -30,10 +31,9 @@ final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
     }
     var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
-    var userConfig: UserConfig?
+    @NeedleTailClientActor var userConfig: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var tags: [IRCTags]?
-    var channel: Channel?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var proceedNewDeivce = false
@@ -95,10 +95,10 @@ final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
             ) else { throw NeedleTailError.invalidUserId }
             
             try await delegate?.doMessage(sender: sender,
-                                recipients: recipients,
-                                message: payload,
-                                tags: tags,
-                                onlineStatus: .isOnline)
+                                          recipients: recipients,
+                                          message: payload,
+                                          tags: tags,
+                                          onlineStatus: .isOnline)
         case .NOTICE(let recipients, let message):
             try await delegate?.doNotice(recipients: recipients, message: message)
         case .NICK(let nickName):
@@ -127,7 +127,7 @@ final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
             try await delegate?.doJoin(channels, tags: tags)
         case .PART(let channels):
             guard let origin = message.origin, let _ = IRCUserID(origin) else {
-                return print("ERROR: JOIN is missing a proper origin:", message)
+                return logger.error("ERROR: JOIN is missing a proper origin: \(message)")
             }
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
@@ -142,31 +142,31 @@ final class NeedleTailTransport: AsyncIRCDelegate, IRCDispatcher {
             messageOfTheDay += (args.last ?? "") + "\n"
         case .numeric(.replyEndOfMotD, _):
             if !messageOfTheDay.isEmpty {
-//                await clientDelegate?.client(self, messageOfTheDay: messageOfTheDay)
+                handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
             }
             messageOfTheDay = ""
-        case .numeric(.replyNameReply, _ /*let args*/):
-            break
-        case .numeric(.replyEndOfNames, _):
-            break
+        case .numeric(.replyNameReply, let args):
+            handleServerMessages(args, type: .replyNameReply)
+        case .numeric(.replyEndOfNames, let args):
+            handleServerMessages(args, type: .replyEndOfNames)
         case .numeric(.replyInfo, let info):
             handleInfo(info)
-//            try await clientDelegate?.client(self, info: info)
+        case .numeric(.replyMyInfo, let info):
+            handleServerMessages(info, type: .replyMyInfo)
+        case .numeric(.replyWelcome, let args):
+            handleServerMessages(args, type: .replyWelcome)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
                 return print("ERROR: topic args incomplete:", message)
             }
             handleTopic(args[2], on: channel)
-//            await clientDelegate?.client(self, changeTopic: args[2], of: channel)
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
-            break
-//            await clientDelegate?.client(self, received: message)
+            handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
         default:
-            break
-//            await clientDelegate?.client(self, received: message)
+            handleInfo(message.command.arguments)
         }
     }
 }

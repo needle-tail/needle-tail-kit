@@ -39,7 +39,7 @@ public final class NeedleTail {
     
     public static let shared = NeedleTail()
     
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     @discardableResult
     public func registerNeedleTail(
         appleToken: String,
@@ -82,7 +82,7 @@ public final class NeedleTail {
         return cypher
     }
     
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     @discardableResult
     public func spoolService(
         appleToken: String,
@@ -114,7 +114,7 @@ public final class NeedleTail {
         guard let messenger = cypher?.transport as? NeedleTailMessenger else { return nil }
         messenger.cypher = self.cypher
         try await messenger.startSession(messenger.registrationType(appleToken))
-        self.delegate = messenger.transport
+        self.delegate = messenger.client?.transport
         emitter.needleTailNick = messenger.needleTailNick
         return self.cypher
     }

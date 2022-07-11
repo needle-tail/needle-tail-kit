@@ -20,6 +20,7 @@ extension NeedleTailClient {
        do {
            channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
            self.channel = channel
+           self.transport?.channel = channel
            self.userInfo = clientContext.userInfo
        } catch {
            logger.error("Could not start client: \(error)")
@@ -97,11 +98,9 @@ extension NeedleTailClient {
             break
         case .online:
             break
-        case .suspended, .offline:
+        case .suspended, .offline, .disconnect:
             transportState.transition(to: .connecting)
             try await startClient()
-        case .disconnect:
-            break
         case .error:
             break
         case .quit:
