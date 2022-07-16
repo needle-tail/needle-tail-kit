@@ -383,11 +383,12 @@ extension NeedleTailMessenger {
 )
 
         print("We are requesting a Device Registry with this configuration: ", newMaster)
-        
+#if (os(macOS) || os(iOS))
         try await MainActor.run {
                 let data = try BSONEncoder().encode(newMaster).makeData()
             plugin.emitter.qrCodeData = data
         }
+#endif
         //Loop until the master scans the code
         let date = RunLoop.timeInterval(10)
         var canRun = false

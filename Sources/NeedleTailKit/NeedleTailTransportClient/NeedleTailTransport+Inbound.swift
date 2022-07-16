@@ -33,9 +33,9 @@ extension NeedleTailTransport {
     
 
     func receivedRegistryRequest(_ messageId: String) async throws {
-         
+#if (os(macOS) || os(iOS))
         messenger.plugin.emitter.received = messageId
-         
+#endif
          
 //        switch await alertUI() {
 //        case .registryRequest:
