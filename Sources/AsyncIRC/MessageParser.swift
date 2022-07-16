@@ -24,7 +24,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.info("Parsing Message.... \(message)")
+        self.logger.info("Parsing Message....")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -113,7 +113,7 @@ public final class MessageParser {
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
             
         }
-        self.logger.info("Parsed Message \(ircMessage)")
+        self.logger.info("Parsed Message")
         return ircMessage
     }
     
@@ -135,7 +135,7 @@ public final class MessageParser {
                 }
             }
         }
-        self.logger.trace("Parsing CommandKey - \(commandKey)")
+        self.logger.trace("Parsing CommandKey")
         return commandKey
     }
     
@@ -217,7 +217,7 @@ public final class MessageParser {
                 }
                 tagArray.append(ircTag)
             }
-            self.logger.trace("Parsing Tags - \(tags)")
+            self.logger.trace("Parsing Tags")
             return tagArray
         }
         return nil

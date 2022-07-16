@@ -20,7 +20,11 @@ public struct IRCUserInfo: Sendable, Equatable {
   public let servername : String?
   public let realname   : String
   
-  public init(username: String, usermask: IRCUserMode, realname: String) {
+  public init(
+    username: String,
+    usermask: IRCUserMode,
+    realname: String
+  ) {
     self.username   = username
     self.usermask   = usermask
     self.realname   = realname
@@ -28,14 +32,17 @@ public struct IRCUserInfo: Sendable, Equatable {
     self.servername = nil
   }
 
-  public init(username: String, hostname: String, servername: String,
-              realname: String)
-  {
-    self.username   = username
-    self.hostname   = hostname
+  public init(
+    username: String,
+    hostname: String,
+    servername: String,
+              realname: String
+  ) {
+    self.username = username
+    self.hostname = hostname
     self.servername = servername
-    self.realname   = realname
-    self.usermask   = nil
+    self.realname = realname
+    self.usermask = nil
   }
 
   public static func ==(lhs: IRCUserInfo, rhs: IRCUserInfo) -> Bool {

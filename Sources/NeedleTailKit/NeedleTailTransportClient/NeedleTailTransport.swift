@@ -42,7 +42,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     var userInfo: IRCUserInfo?
     var transportState: TransportState
     var registrationPacket = ""
-    let signer: TransportCreationRequest
+    let signer: TransportCreationRequest?
     var authenticated: AuthenticationState
     var channelBlob: String?
     let clientContext: ClientContext
@@ -58,7 +58,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         messageOfTheDay: String = "",
         userMode: IRCUserMode,
         transportState: TransportState,
-        signer: TransportCreationRequest,
+        signer: TransportCreationRequest?,
         authenticated: AuthenticationState,
         clientContext: ClientContext,
         clientInfo: ClientContext.ServerClientInfo,

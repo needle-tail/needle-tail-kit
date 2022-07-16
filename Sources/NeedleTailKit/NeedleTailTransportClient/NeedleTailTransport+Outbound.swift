@@ -9,6 +9,7 @@ import Foundation
 import NeedleTailHelpers
 import CypherMessaging
 import AsyncIRC
+import CryptoKit
 
 extension NeedleTailTransport {
     
@@ -202,25 +203,30 @@ extension NeedleTailTransport {
     }
     
     
-    // 1. We want to tell the master device that we want to register
+    // 1. We want to tell the master device that we want to register, but we want to make sure we have approval from it first.
+    // Let's get a secret from the master device physically
     public func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
-        let recipient = IRCMessageRecipient.nickname(masterNick)
-        let child = try BSONEncoder().encode(childNick).makeData().base64EncodedString()
-        let packet = MessagePacket(
-            id: UUID().uuidString,
-            pushType: .none,
-            type: .requestRegistry(child),
-            createdAt: Date(),
-            sender: childNick.deviceId,
-            recipient: nil,
-            message: nil,
-            readReceipt: .none
-        )
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        guard let channel = await channel else { return }
-        try await transportMessage(channel, type: type)
+//        let recipient = IRCMessageRecipient.nickname(masterNick)
+//        let child = try BSONEncoder().encode(childNick).makeData().base64EncodedString()
+//        
+//        let mastersSecret = try await getMastersSecret("")
+//        let packet = MessagePacket(
+//            id: UUID().uuidString,
+//            pushType: .none,
+//            type: .requestRegistry(child),
+//            createdAt: Date(),
+//            sender: childNick.deviceId,
+//            recipient: nil,
+//            message: nil,
+//            readReceipt: .none,
+//            mastersSecret: mastersSecret
+//        )
+//        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+//        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+//        guard let channel = await channel else { return }
+//        try await transportMessage(channel, type: type)
     }
+    
     
     // 4.
     func sendFinishRegistryMessage(toMaster
@@ -254,7 +260,7 @@ extension NeedleTailTransport {
     func readKeyBundle(_ packet: String) async throws -> UserConfig? {
         guard let channel = channel else { return nil }
         try await clientMessage(channel, command: .otherCommand("READKEYBNDL", [packet]))
-        let date = RunLoop.timeInterval(1)
+        let date = RunLoop.timeInterval(10)
         var canRun = false
         repeat {
             canRun = true
@@ -262,7 +268,7 @@ extension NeedleTailTransport {
                 canRun = false
             }
             /// We just want to run a loop until the userConfig contains a value or stop on the timeout
-        } while await RunLoop.execute(date, ack: acknowledgment, canRun: canRun)
+        } while await RunLoop.execute(date, canRun: canRun)
         return userConfig
     }
     

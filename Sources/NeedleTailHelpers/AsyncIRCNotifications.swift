@@ -11,6 +11,15 @@ public protocol AsyncIRCNotificationsDelegate: AnyObject {
     func respond(to alert: AlertType) async 
 }
 
-public enum AlertType {
+public enum AlertType: Equatable, Sendable {
     case registryRequest, registryRequestAccepted, registryRequestRejected, none
+    
+    public static func == (lhs: AlertType, rhs: AlertType) -> Bool {
+        switch (lhs, rhs) {
+        case (.registryRequest, .registryRequest), (.registryRequestAccepted, .registryRequestAccepted), (.registryRequestRejected, .registryRequestRejected), (.none, .none):
+            return true
+        default:
+            return false
+        }
+    }
 }

@@ -13,7 +13,8 @@ import NeedleTailHelpers
 extension NeedleTailEmitter: ObservableObject {}
 #endif
 
-public class NeedleTailEmitter: NeedleTailRepository {
+public class NeedleTailEmitter: NeedleTailRepository, Equatable {
+    
     public var id = UUID()
 #if (os(macOS) || os(iOS))
     @Published public var messageReceived: AnyChatMessage?
@@ -25,8 +26,12 @@ public class NeedleTailEmitter: NeedleTailRepository {
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
     @Published public var needleTailNick: NeedleTailNick?
+    @Published public var qrCodeData: Data?
+    @Published public var accountExists: String = ""
+    @Published public var showScanner: Bool = false
     @Published public var received: AlertType = .none {
         didSet {
+            print("RECEIEVE____", received)
 #if os(macOS)
             Task {
                 await MainActor.run {
@@ -46,4 +51,8 @@ public class NeedleTailEmitter: NeedleTailRepository {
 //    public let customConfigChanged = PassthroughSubject<Void, Never>()
 //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
 //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
+    
+    public static func == (lhs: NeedleTailEmitter, rhs: NeedleTailEmitter) -> Bool {
+        return lhs.id == rhs.id
+    }
 }

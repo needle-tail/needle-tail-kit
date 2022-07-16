@@ -40,7 +40,6 @@ extension NeedleTailClient {
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
         guard let group = self.eventLoop else { throw NeedleTailError.nilElG }
-        
         self.transport = await NeedleTailTransport(
             cypher: cypher,
             messenger: messenger,
