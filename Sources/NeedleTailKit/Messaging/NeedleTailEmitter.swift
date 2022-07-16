@@ -29,18 +29,7 @@ public class NeedleTailEmitter: NeedleTailRepository, Equatable {
     @Published public var qrCodeData: Data?
     @Published public var accountExists: String = ""
     @Published public var showScanner: Bool = false
-    @Published public var received: AlertType = .none {
-        didSet {
-            print("RECEIEVE____", received)
-#if os(macOS)
-            Task {
-                await MainActor.run {
-                     NeedleTail.shared.showRegistryRequestAlert()
-                }
-            }
-#endif
-        }
-    }
+    @Published public var received: String?
 #endif
 //    public let onRekey = PassthroughSubject<Void, Never>()
 //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()

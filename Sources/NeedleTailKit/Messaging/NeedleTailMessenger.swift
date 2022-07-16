@@ -213,6 +213,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         return userConfig
     }
     
+    @NeedleTailClientActor
+    public func requestDeviceReistration(_ nick: NeedleTailNick) async throws {
+        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        try await transport.sendDeviceRegistryRequest(nick)
+    }
+    
     @NeedleTailTransportActor
     public func registerAPNSToken(_ token: Data) async throws {
         guard let deviceId = deviceId else { return }

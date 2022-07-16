@@ -19,7 +19,7 @@ public enum MessageType: Codable, Sendable {
     case blockUnblock
     case beFriend
     case newDevice(String)
-    case requestRegistry(String)
+    case requestRegistry
     case acceptedRegistry(String)
     case isOffline(String)
     case temporarilyRegisterSession
@@ -36,7 +36,6 @@ public struct MessagePacket: Codable, Sendable {
     public let message: RatchetedCypherMessage?
     public let readReceipt: ReadReceiptPacket?
     public let channelName: String?
-    public let mastersSecret: String?
     
     public init(
         id: String,
@@ -47,8 +46,7 @@ public struct MessagePacket: Codable, Sendable {
         recipient: DeviceId?,
         message: RatchetedCypherMessage?,
         readReceipt: ReadReceiptPacket?,
-        channelName: String? = nil,
-        mastersSecret: String? = nil
+        channelName: String? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -59,7 +57,6 @@ public struct MessagePacket: Codable, Sendable {
         self.message = message
         self.readReceipt = readReceipt
         self.channelName = channelName
-        self.mastersSecret = mastersSecret
     }
 }
 

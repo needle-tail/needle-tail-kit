@@ -78,6 +78,12 @@ public final class NeedleTail {
         do {
             let masterKeyBundle = try await messenger?
                 .readKeyBundle(forUsername: Username(username))
+            
+            for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
+                guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
+                try await messenger?.requestDeviceReistration(nick)
+            }
+
             let masterConfig = try await getMasterConfig()
             if let masterConfig = masterConfig {
                 let validatedKeyBundle = try masterKeyBundle?.readAndValidateDevices()
@@ -97,10 +103,10 @@ public final class NeedleTail {
                 emitter.accountExists = "Account Exists, If you are registering a new device scan the QRCode with the master device"
                 throw NeedleTailError.registrationFailure
             }
-        } catch let error as NeedleTailError {
-            print(error)
         } catch {
             print("User Does not exist,  proceed...")
+            await self.messenger?.suspend()
+            self.messenger = nil
             return try await registerNeedleTail(
                 appleToken: appleToken,
                 username: username,
@@ -377,26 +383,6 @@ extension NeedleTail: ObservableObject {
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)
                     .environmentObject(needleTailViewModel)
-                    .onReceive(emitter!.$received, perform: { received in
-                        switch received {
-                        case .registryRequest:
-                            showingAlert = true
-                        default:
-                            break
-                        }
-                    })
-                    .alert("A User has requested to add their device to your account", isPresented: $showingAlert) {
-                        VStack {
-                            Button("Reject", role: .cancel) {
-                                
-                            }
-                            Button("Accept") {
-                                Task {
-                                    await NeedleTail.shared.acceptRegistryRequest()
-                                }
-                            }
-                        }
-                    } 
            }
         }
     }

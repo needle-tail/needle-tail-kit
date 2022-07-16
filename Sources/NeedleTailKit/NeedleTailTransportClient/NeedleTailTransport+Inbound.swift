@@ -31,21 +31,24 @@ extension NeedleTailTransport {
         self.userConfig = config
     }
     
-    // 2. When this is called, we are the master device we want to send our decision which should be the newDeviceState to the child device
-    
-     func receivedRegistryRequest(fromChild nick: NeedleTailNick) async throws {
-        switch await alertUI() {
-        case .registryRequest:
-            break
-        case .registryRequestAccepted:
-            let encodedState = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
-            try await sendMessageTypePacket(.acceptedRegistry(encodedState), nick: nick)
-        case .registryRequestRejected:
-            let encodedState = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
-            try await sendMessageTypePacket(.rejectedRegistry(encodedState), nick: nick)
-        default:
-            break
-    }
+
+    func receivedRegistryRequest(_ messageId: String) async throws {
+         
+        messenger.plugin.emitter.received = messageId
+         
+         
+//        switch await alertUI() {
+//        case .registryRequest:
+//            break
+//        case .registryRequestAccepted:
+//            let encodedState = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
+//            try await sendMessageTypePacket(.acceptedRegistry(encodedState), nick: nick)
+//        case .registryRequestRejected:
+//            let encodedState = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
+//            try await sendMessageTypePacket(.rejectedRegistry(encodedState), nick: nick)
+//        default:
+//            break
+//    }
     }
     
     
@@ -79,15 +82,15 @@ extension NeedleTailTransport {
     }
     
     //TODO: LINUX STUFF
-    @MainActor
-    func alertUI() async -> AlertType {
-#if (os(macOS) || os(iOS))
-        print("Alerting UI")
-        await messenger.plugin.emitter.received = .registryRequest
-        while await proceedNewDeivce == false {}
-#endif
-        return await alertType
-    }
+//    @MainActor
+//    func alertUI() async {
+//#if (os(macOS) || os(iOS))
+//        print("Alerting UI")
+////        await messenger.plugin.emitter.received = .registryRequest
+////        while await proceedNewDeivce == false {}
+//#endif
+////        return await alertType
+//    }
     
     
      func respond(to alert: AlertType) async {
@@ -185,11 +188,8 @@ extension NeedleTailTransport {
                         }
                     case .blockUnblock:
                         break
-                    case .requestRegistry(let childNick):
-                        guard let data = Data(base64Encoded: childNick) else { return }
-                        let buffer = ByteBuffer(data: data)
-                        let nick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-                        try await receivedRegistryRequest(fromChild: nick)
+                    case .requestRegistry:
+                        try await receivedRegistryRequest(packet.id)
                     case .acceptedRegistry(let status), .rejectedRegistry(let status), .isOffline(let status):
                         guard let data = Data(base64Encoded: status) else { return }
                         let buffer = ByteBuffer(data: data)

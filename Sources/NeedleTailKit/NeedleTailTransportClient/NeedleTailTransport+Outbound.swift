@@ -12,20 +12,7 @@ import AsyncIRC
 import CryptoKit
 
 extension NeedleTailTransport {
-    
-    /// This method is how all client messages get sent through the client to the server. This is the where they leave the Client.
-    /// - Parameters:
-    ///   - message: Our IRCMessage
-    ///   - chatDoc: Not needed/used for clients and shouldn't be.
-//    func sendAndFlushMessage(_ message: IRCMessage, chatDoc: ChatDocument?) async {
-//        do {
-//            print("Sent message \(message)")
-//            try await channel?.writeAndFlush(message)
-//        } catch {
-//            logger.error("\(error)")
-//        }
-//    }
-    
+
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
@@ -201,30 +188,24 @@ extension NeedleTailTransport {
             logger.error("\(error)")
         }
     }
+
     
-    
-    // 1. We want to tell the master device that we want to register, but we want to make sure we have approval from it first.
-    // Let's get a secret from the master device physically
-    public func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick, childNick: NeedleTailNick) async throws {
-//        let recipient = IRCMessageRecipient.nickname(masterNick)
-//        let child = try BSONEncoder().encode(childNick).makeData().base64EncodedString()
-//        
-//        let mastersSecret = try await getMastersSecret("")
-//        let packet = MessagePacket(
-//            id: UUID().uuidString,
-//            pushType: .none,
-//            type: .requestRegistry(child),
-//            createdAt: Date(),
-//            sender: childNick.deviceId,
-//            recipient: nil,
-//            message: nil,
-//            readReceipt: .none,
-//            mastersSecret: mastersSecret
-//        )
-//        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-//        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-//        guard let channel = await channel else { return }
-//        try await transportMessage(channel, type: type)
+    func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick) async throws {
+        let recipient = IRCMessageRecipient.nickname(masterNick)
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .requestRegistry,
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        guard let channel = await channel else { return }
+        try await transportMessage(channel, type: type)
     }
     
     
