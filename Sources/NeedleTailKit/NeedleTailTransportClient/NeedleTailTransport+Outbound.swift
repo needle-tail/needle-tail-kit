@@ -9,7 +9,6 @@ import Foundation
 import NeedleTailHelpers
 import CypherMessaging
 import AsyncIRC
-import CryptoKit
 
 extension NeedleTailTransport {
 
