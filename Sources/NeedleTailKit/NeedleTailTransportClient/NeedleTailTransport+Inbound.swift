@@ -150,26 +150,12 @@ extension NeedleTailTransport {
                         default:
                             break
                         }
-                    case .blockUnblock:
-                        break
                     case .requestRegistry:
                         try await receivedRegistryRequest(packet.id)
-                    case .acceptedRegistry(let status), .rejectedRegistry(let status), .isOffline(let status):
-                        break
-//                        guard let data = Data(base64Encoded: status) else { return }
-//                        let buffer = ByteBuffer(data: data)
-//                        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
-//                        try await receivedRegistryResponse(fromMaster: registryStatus, nick: nick)
-                    case .temporarilyRegisterSession:
-                        break
                     case .newDevice(let state):
-                        
                         await receivedNewDevice(state)
-                        //Master Device Calls this
-//                        guard let data = Data(base64Encoded: config) else { return }
-//                        let buffer = ByteBuffer(data: data)
-//                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-//                        try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
+                    default:
+                        break
                     }
             case .channel(let channelName):
                 switch packet.type {

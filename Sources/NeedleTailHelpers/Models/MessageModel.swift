@@ -29,7 +29,7 @@ public enum MessageType: Codable, Sendable {
 public struct MessagePacket: Codable, Sendable {
     public let id: String
     public let pushType: PushType
-    public let type: MessageType
+    public var type: MessageType
     public let createdAt: Date
     public let sender: DeviceId?
     public let recipient: DeviceId?

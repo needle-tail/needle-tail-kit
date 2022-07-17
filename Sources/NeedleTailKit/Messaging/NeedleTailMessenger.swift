@@ -37,7 +37,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var transportState: TransportState
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
-    private var waitingToReadBundle: Bool = false
+//    private var waitingToReadBundle: Bool = false
+    var recipientDeviceId: DeviceId?
     var cypher: CypherMessenger?
     var client: NeedleTailClient?
     var plugin: NeedleTailPlugin
@@ -153,7 +154,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         try await connect(temporarilyRegister)
     }
     
-    
+    //TODO: Have exit point be in transport+outbound
     /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     @KeyBundleActor
@@ -166,7 +167,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         }
         
         let jwt = try makeToken()
-        let configObject = configRequest(jwt, config: data)
+        let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
@@ -276,7 +277,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             )
     }
     
-    func regRequest(with appleToken: String, _ tempRegister: Bool = false) -> AuthPacket {
+    func regRequest(with appleToken: String = "", _ tempRegister: Bool = false) -> AuthPacket {
         return AuthPacket(
             jwt: nil,
             appleToken: appleToken,
@@ -285,11 +286,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             recipient: nil,
             deviceId: signer?.deviceId,
             config: signer?.userConfig,
-            tempRegister: tempRegister
+            tempRegister: tempRegister,
+            recipientDeviceId: nil
         )
     }
     
-    private func configRequest(_ jwt: String, config: UserConfig) -> AuthPacket {
+    private func configRequest(_ jwt: String, config: UserConfig, recipientDeviceId: DeviceId? = nil) -> AuthPacket {
         return AuthPacket(
             jwt: jwt,
             appleToken: nil,
@@ -298,7 +300,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             recipient: nil,
             deviceId: self.deviceId,
             config: config,
-            tempRegister: false
+            tempRegister: false,
+            recipientDeviceId: recipientDeviceId
         )
     }
     
@@ -315,7 +318,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             recipient: nil,
             deviceId: deviceId,
             config: nil,
-            tempRegister: false
+            tempRegister: false,
+            recipientDeviceId: nil
         )
     }
     
@@ -331,7 +335,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             recipient: recipient,
             deviceId: deviceId,
             config: nil,
-            tempRegister: false
+            tempRegister: false,
+            recipientDeviceId: nil
         )
     }
     
@@ -344,6 +349,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let deviceId: DeviceId?
         let config: UserConfig?
         let tempRegister: Bool?
+        let recipientDeviceId: DeviceId?
     }
     
     

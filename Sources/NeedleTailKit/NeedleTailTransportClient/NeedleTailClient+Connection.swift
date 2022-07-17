@@ -102,7 +102,7 @@ extension NeedleTailClient {
             transportState.transition(to: .connecting)
             try await startClient()
             if temporarilyRegister {
-                let regObject = messenger.regRequest(with: "", true)
+                let regObject = messenger.regRequest(true)
                 let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
                 try await transport?.registerNeedletailSession(packet, true)
             }

@@ -67,6 +67,7 @@ public final class NeedleTail {
     @NeedleTailClientActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
         messenger?.client?.transport?.updateKeyBundle = true
+        messenger?.recipientDeviceId = config.deviceId
         try await cypher?.addDevice(config)
     }
     
