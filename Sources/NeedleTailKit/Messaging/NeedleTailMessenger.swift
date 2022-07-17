@@ -123,10 +123,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     @NeedleTailClientActor
-    public func createClient(_ nameToVerify: String? = nil) async throws {
-//        guard let signer = signer else { return }
+    public func createClient(_ nameToVerify: String? = nil, _ temporarilyRegister: Bool = false) async throws {
         if client == nil {
-//
             var name: String?
             if signer?.username.raw != nil {
                 name = signer?.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
@@ -152,7 +150,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             
             self.needleTailNick = nick
         }
-        try await connect()
+        try await connect(temporarilyRegister)
     }
     
     
@@ -172,7 +170,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
-        
+        // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
+        let updateKeyBundle = await client?.transport?.updateKeyBundle
+        if updateKeyBundle == true {
+            
+        }
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
@@ -181,7 +183,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             sender: nil,
             recipient: nil,
             message: nil,
-            readReceipt: .none
+            readReceipt: .none,
+            addKeyBundle: updateKeyBundle
         )
         
         let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
@@ -214,9 +217,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     @NeedleTailClientActor
-    public func requestDeviceReistration(_ nick: NeedleTailNick) async throws {
+    public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         try await transport.sendDeviceRegistryRequest(nick)
+    }
+    
+    @NeedleTailClientActor
+    public func processApproval(_ code: String) async throws -> Bool {
+        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        return await transport.computeApproval(code)
     }
     
     @NeedleTailTransportActor
@@ -267,7 +276,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             )
     }
     
-    private func regRequest(with appleToken: String) -> AuthPacket {
+    func regRequest(with appleToken: String, _ tempRegister: Bool = false) -> AuthPacket {
         return AuthPacket(
             jwt: nil,
             appleToken: appleToken,
@@ -275,7 +284,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             username: signer?.username,
             recipient: nil,
             deviceId: signer?.deviceId,
-            config: signer?.userConfig
+            config: signer?.userConfig,
+            tempRegister: tempRegister
         )
     }
     
@@ -287,7 +297,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             username: self.username,
             recipient: nil,
             deviceId: self.deviceId,
-            config: config
+            config: config,
+            tempRegister: false
         )
     }
     
@@ -303,7 +314,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             username: self.username,
             recipient: nil,
             deviceId: deviceId,
-            config: nil
+            config: nil,
+            tempRegister: false
         )
     }
     
@@ -318,7 +330,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             username: self.username,
             recipient: recipient,
             deviceId: deviceId,
-            config: nil
+            config: nil,
+            tempRegister: false
         )
     }
     
@@ -330,6 +343,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let recipient: Username?
         let deviceId: DeviceId?
         let config: UserConfig?
+        let tempRegister: Bool?
     }
     
     
@@ -339,8 +353,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     
     @NeedleTailClientActor
-    public func connect() async throws {
-        try await client?.attemptConnection()
+    public func connect(_ temporarilyRegister: Bool = false) async throws {
+        try await client?.attemptConnection(temporarilyRegister)
         self.authenticated = .authenticated
         if client?.channel != nil {
             self.isConnected = true

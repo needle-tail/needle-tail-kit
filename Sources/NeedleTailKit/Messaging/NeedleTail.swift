@@ -37,13 +37,14 @@ public final class NeedleTail {
     public var cypher: CypherMessenger?
     public var emitter = makeEventEmitter()
     var plugin: NeedleTailPlugin?
-    public weak var delegate: AsyncIRCNotificationsDelegate?
+//    public weak var delegate: AsyncIRCNotificationsDelegate?
     public var messageType: MessageType = .message {
         didSet {
             messenger?.messageType = messageType
         }
     }
-    
+    var registrationApproved = false
+    var registeringNewDevice = false
     public static let shared = NeedleTail()
     
     @NeedleTailClientActor
@@ -55,6 +56,18 @@ public final class NeedleTail {
         guard let data = emitter.qrCodeData else { return nil }
         let config = try BSONDecoder().decode(UserConfig.self, from: Document(data: data))
         return config
+    }
+    
+    // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
+    @NeedleTailClientActor
+    public func waitForApproval(_ code: String) async throws {
+        registrationApproved = (try await messenger?.processApproval(code) != nil)
+    }
+    
+    @NeedleTailClientActor
+    public func addNewDevice(_ config: UserDeviceConfig) async throws {
+        messenger?.client?.transport?.updateKeyBundle = true
+        try await cypher?.addDevice(config)
     }
     
     @NeedleTailClientActor
@@ -81,28 +94,28 @@ public final class NeedleTail {
             
             for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
-                try await messenger?.requestDeviceReistration(nick)
+                try await messenger?.requestDeviceRegistration(nick)
             }
+            
+            var canRun = false
+            let date = RunLoop.timeInterval(10)
+            repeat {
+                canRun = true
+                if registrationApproved == true {
+                    canRun = false
+                }
+            } while await RunLoop.execute(date, canRun: canRun)
 
-            let masterConfig = try await getMasterConfig()
-            if let masterConfig = masterConfig {
-                let validatedKeyBundle = try masterKeyBundle?.readAndValidateDevices()
-                let validatedMaster = validatedKeyBundle?.first(where: { $0.isMasterDevice })
-                
-                    if validatedMaster?.identity == masterConfig.identity {
                        return try await registerNeedleTail(
                             appleToken: appleToken,
                             username: username,
                             store: store,
                             clientInfo: clientInfo,
                             p2pFactories: p2pFactories,
-                            eventHandler: eventHandler
+                            eventHandler: eventHandler,
+                            isNewDevice: true
                         )
-                    }
-            } else {
-                emitter.accountExists = "Account Exists, If you are registering a new device scan the QRCode with the master device"
-                throw NeedleTailError.registrationFailure
-            }
+
         } catch {
             print("User Does not exist,  proceed...")
             await self.messenger?.suspend()
@@ -116,7 +129,6 @@ public final class NeedleTail {
                 eventHandler: eventHandler
             )
         }
-        return nil
     }
     
     
@@ -130,7 +142,8 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
-        eventHandler: PluginEventHandler? = nil
+        eventHandler: PluginEventHandler? = nil,
+        isNewDevice: Bool = false
     ) async throws -> CypherMessenger? {
         if cypher == nil {
             //Create plugin here
@@ -153,6 +166,28 @@ public final class NeedleTail {
                 eventHandler: eventHandler ?? makeEventHandler(plugin)
             )
             messenger?.cypher = cypher
+            
+            if isNewDevice {
+                // Create the registry requesters QRCode and feed it to the master device
+                let userDeviceConfig = try await cypher?.createDeviceRegisteryRequest(isMasterDevice: true)
+                emitter.qrCodeData = try BSONEncoder().encode(userDeviceConfig).makeData()
+            }
+
+            // Loop until we know that the master has saved the new device config on the server
+            let date = RunLoop.timeInterval(10)
+            var canRun = false
+            repeat {
+                canRun = true
+                if await messenger?.client?.transport?.receivedNewDeviceAdded == .waiting {
+                    canRun = false
+                }
+
+            } while await RunLoop.execute(date, canRun: canRun)
+            
+            
+            try await resumeService(appleToken)
+            emitter.needleTailNick = messenger?.needleTailNick
+            
         }
         return cypher
     }
@@ -176,7 +211,7 @@ public final class NeedleTail {
         }
         guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
         if isOnboard {
-            try await messenger.createClient(nameToVerify)
+            try await messenger.createClient(nameToVerify, true)
         }
         if isRegistration {
             messenger.initalRegistration = true
@@ -221,7 +256,7 @@ public final class NeedleTail {
                               appleToken: String = ""
     ) async throws {
         try await messenger?.startSession(messenger?.registrationType(appleToken))
-        self.delegate = await messenger?.client?.transport
+//        self.delegate = await messenger?.client?.transport
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
@@ -288,31 +323,31 @@ public final class NeedleTail {
     }
     
     
-#if os(macOS)
-    @MainActor
-    func showRegistryRequestAlert() {
-        let alert = NSAlert()
-        alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)
-        let run = alert.runModal()
-        switch run {
-        case .alertFirstButtonReturn:
-            //            logger.info("Cancel")
-            break
-        case .alertSecondButtonReturn:
-            //            logger.info("Added device")
-            Task {
-                await acceptRegistryRequest()
-            }
-        default:
-            break
-        }
-        
-    }
-#endif
+//#if os(macOS)
+//    @MainActor
+//    func showRegistryRequestAlert() {
+//        let alert = NSAlert()
+//        alert.configuredCustomButtonAlert(title: "A User has requested to add their device to your account", text: "", firstButtonTitle: "Cancel", secondButtonTitle: "Add Device", thirdButtonTitle: "", switchRun: true)
+//        let run = alert.runModal()
+//        switch run {
+//        case .alertFirstButtonReturn:
+//            //            logger.info("Cancel")
+//            break
+//        case .alertSecondButtonReturn:
+//            //            logger.info("Added device")
+//            Task {
+//                await acceptRegistryRequest()
+//            }
+//        default:
+//            break
+//        }
+//
+//    }
+//#endif
     
-    public func acceptRegistryRequest() async {
-        await delegate?.respond(to: .registryRequestAccepted)
-    }
+//    public func acceptRegistryRequest() async {
+//        await delegate?.respond(to: .registryRequestAccepted)
+//    }
     
     
     public func makeEventHandler(_

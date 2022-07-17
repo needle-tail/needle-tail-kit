@@ -51,6 +51,8 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
                     try await transport.processReceivedMessages(message)
                 } catch let error as NeedleTailError {
                     logger.error("\(error.rawValue)")
+                } catch {
+                    logger.error("\(error)")
                 }
             }
         }

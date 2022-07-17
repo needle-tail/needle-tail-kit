@@ -8,6 +8,7 @@
 import NIO
 import AsyncIRC
 import NeedleTailHelpers
+import BSON
 
 enum IRCClientErrors: Error {
     case notImplemented
@@ -87,7 +88,7 @@ extension NeedleTailClient {
         print("IRCClient error:", error)
     }
     
-     func attemptConnection() async throws {
+    func attemptConnection(_ temporarilyRegister: Bool = false) async throws {
         switch transportState.current {
         case .registering(channel: _, nick: _, userInfo: _):
             break
@@ -100,6 +101,11 @@ extension NeedleTailClient {
         case .suspended, .offline, .disconnect:
             transportState.transition(to: .connecting)
             try await startClient()
+            if temporarilyRegister {
+                let regObject = messenger.regRequest(with: "", true)
+                let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+                try await transport?.registerNeedletailSession(packet, true)
+            }
         case .error:
             break
         case .quit:

@@ -15,7 +15,7 @@ extension NeedleTailTransport {
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
-    func registerNeedletailSession(_ regPacket: String?) async throws {
+    func registerNeedletailSession(_ regPacket: String?, _ temp: Bool = false) async throws {
         guard let channel = channel else { return }
         await transportState.transition(to: .registering(
             channel: channel,
@@ -27,14 +27,17 @@ extension NeedleTailTransport {
             return
         }
         
-        try await clientMessage(channel, command: .otherCommand("PASS", [ clientInfo.password ]))
+        guard temp == false else {
+            guard let regPacket = regPacket else { return }
+            let tag = IRCTags(key: "tempRegPacket", value: regPacket)
+            try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
+            return
+        }
         
-        if let regPacket = regPacket {
+        try await clientMessage(channel, command: .otherCommand("PASS", [ clientInfo.password ]))
+        guard let regPacket = regPacket else { return }
             let tag = IRCTags(key: "registrationPacket", value: regPacket)
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
-        } else {
-            try await clientMessage(channel, command: .NICK(nick))
-        }
     }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
@@ -188,7 +191,7 @@ extension NeedleTailTransport {
         }
     }
 
-    
+    //The requesting device sends this packet while setting the request identity until we hear back from the master device via a QR Code
     func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick) async throws {
         let recipient = IRCMessageRecipient.nickname(masterNick)
         let packet = MessagePacket(
@@ -201,39 +204,16 @@ extension NeedleTailTransport {
             message: nil,
             readReceipt: .none
         )
+        
+        //Store UUID Temporarily
+        self.registryRequestId = packet.id
+        
         let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         guard let channel = await channel else { return }
         try await transportMessage(channel, type: type)
     }
-    
-    
-    // 4.
-    func sendFinishRegistryMessage(toMaster
-                                   deviceConfig: UserDeviceConfig,
-                                   nick: NeedleTailNick
-    ) async throws {
-        //1. Get Recipient Which should be ourself that we sent from the server
-        let recipient = IRCMessageRecipient.nickname(nick)
-        let config = try BSONEncoder().encode(deviceConfig).makeData().base64EncodedString()
-        //2. Create Packet with the deviceConfig we genereated for ourself
-        let packet = MessagePacket(
-            id: UUID().uuidString,
-            pushType: .none,
-            type: .newDevice(config),
-            createdAt: Date(),
-            sender: nil,
-            recipient: nil,
-            message: nil,
-            readReceipt: .none
-        )
-        //3. Send our deviceConfig to the registered online master device which should be the recipient we generate from the nick since the nick is the same account as the device we are trying to register and should be the only online device. If we have another device online we will have to filter it by master device on the server.
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        guard let channel = await channel else { return }
-        try await transportMessage(channel, type: type)
-    }
-    
+
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
     @NeedleTailClientActor

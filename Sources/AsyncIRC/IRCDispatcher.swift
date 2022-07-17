@@ -52,9 +52,10 @@ public protocol IRCDispatcher: AnyObject {
     func doGetBanMask(_ channel  : IRCChannelName) async throws
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
     func doMessage(
-        sender: IRCUserID,
+        sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
-        message: String,tags: [IRCTags]?,
+        message: String,
+        tags: [IRCTags]?,
         onlineStatus: OnlineStatus
     ) async throws
     func doIsOnline (_ nicks: [ NeedleTailNick ]) async throws
@@ -134,10 +135,10 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doMessage(
-        sender: IRCUserID,
+        sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
-        tags: [IRCTags]? = nil,
+        tags: [IRCTags]?,
         onlineStatus: OnlineStatus
     ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)

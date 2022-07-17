@@ -12,8 +12,7 @@ import NeedleTailHelpers
 import AsyncIRC
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-extension NeedleTailTransport: AsyncIRCNotificationsDelegate {
-    
+extension NeedleTailTransport {
      func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
     }
@@ -32,25 +31,25 @@ extension NeedleTailTransport {
     }
     
 
+    // We receive the messageId via a QRCode from the requesting device we will emmit this id to the masters client in order to generate an approval QRCode.
     func receivedRegistryRequest(_ messageId: String) async throws {
 #if (os(macOS) || os(iOS))
         messenger.plugin.emitter.received = messageId
 #endif
-         
-//        switch await alertUI() {
-//        case .registryRequest:
-//            break
-//        case .registryRequestAccepted:
-//            let encodedState = try BSONEncoder().encode(NewDeviceState.accepted).makeData().base64EncodedString()
-//            try await sendMessageTypePacket(.acceptedRegistry(encodedState), nick: nick)
-//        case .registryRequestRejected:
-//            let encodedState = try BSONEncoder().encode(NewDeviceState.rejected).makeData().base64EncodedString()
-//            try await sendMessageTypePacket(.rejectedRegistry(encodedState), nick: nick)
-//        default:
-//            break
-//    }
+        }
+    
+    // If the approval code matches the code that the requesting device temporarily store then let the requesting client know that the master devices has approved of the registration of this device.
+    func computeApproval(_ code: String) async -> Bool {
+        if self.registryRequestId == code {
+            self.registryRequestId = ""
+        }
+        return true
     }
     
+    // This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
+    func receivedNewDevice(_ deviceState: NewDeviceState) async {
+        self.receivedNewDeviceAdded = deviceState
+    }
     
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
     let packet = MessagePacket(
@@ -70,51 +69,18 @@ extension NeedleTailTransport {
         try await transportMessage(channel, type: type)
 }
 
-    
-    // 3. The Child Device will call this.
-    
-     func receivedRegistryResponse(fromMaster deviceState: NewDeviceState, nick: NeedleTailNick) async throws {
-        //Temporarily Register Nick to Session
-        if deviceState == .accepted {
-        try await sendMessageTypePacket(.temporarilyRegisterSession, nick: nick)
-        }
-        newDeviceState = deviceState
-    }
-    
-    //TODO: LINUX STUFF
-//    @MainActor
-//    func alertUI() async {
-//#if (os(macOS) || os(iOS))
-//        print("Alerting UI")
-////        await messenger.plugin.emitter.received = .registryRequest
-////        while await proceedNewDeivce == false {}
-//#endif
-////        return await alertType
-//    }
-    
-    
-     func respond(to alert: AlertType) async {
-        switch alert {
-        case .registryRequestAccepted:
-            proceedNewDeivce = true
-            alertType = .registryRequestAccepted
-            newDeviceState = .accepted
-        case .registryRequestRejected:
-            proceedNewDeivce = true
-            alertType = .registryRequestRejected
-            newDeviceState = .rejected
-        default:
-            break
-        }
-    }
-    
-    
+
      func doMessage(
-        sender: IRCUserID,
+        sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
-        message: String,tags: [IRCTags]?,
+        message: String,
+        tags: [IRCTags]?,
         onlineStatus: OnlineStatus
     ) async throws {
+        guard let data = Data(base64Encoded: message) else { return }
+        let buffer = ByteBuffer(data: data)
+        let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
+        
         for recipient in recipients {
             switch recipient {
             case .everything:
@@ -123,9 +89,6 @@ extension NeedleTailTransport {
                 //                $0.addMessage(message, from: sender)
                 //              }
             case .nickname(let nick):
-                    guard let data = Data(base64Encoded: message) else { return }
-                    let buffer = ByteBuffer(data: data)
-                    let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                     switch packet.type {
                     case .publishKeyBundle(_):
                         break
@@ -135,11 +98,12 @@ extension NeedleTailTransport {
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
+                        guard let sender = sender?.nick.stringValue else { return }
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,
                                 id: packet.id,
-                                byUser: Username(sender.nick.stringValue),
+                                byUser: Username(sender),
                                 deviceId: deviceId
                             )
                         )
@@ -191,33 +155,34 @@ extension NeedleTailTransport {
                     case .requestRegistry:
                         try await receivedRegistryRequest(packet.id)
                     case .acceptedRegistry(let status), .rejectedRegistry(let status), .isOffline(let status):
-                        guard let data = Data(base64Encoded: status) else { return }
-                        let buffer = ByteBuffer(data: data)
-                        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
-                        try await receivedRegistryResponse(fromMaster: registryStatus, nick: nick)
+                        break
+//                        guard let data = Data(base64Encoded: status) else { return }
+//                        let buffer = ByteBuffer(data: data)
+//                        let registryStatus = try BSONDecoder().decode(NewDeviceState.self, from: Document(buffer: buffer))
+//                        try await receivedRegistryResponse(fromMaster: registryStatus, nick: nick)
                     case .temporarilyRegisterSession:
                         break
-                    case .newDevice(let config):
+                    case .newDevice(let state):
+                        
+                        await receivedNewDevice(state)
                         //Master Device Calls this
-                        guard let data = Data(base64Encoded: config) else { return }
-                        let buffer = ByteBuffer(data: data)
-                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
-                        try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
+//                        guard let data = Data(base64Encoded: config) else { return }
+//                        let buffer = ByteBuffer(data: data)
+//                        let deviceConfig = try BSONDecoder().decode(UserDeviceConfig.self, from: Document(buffer: buffer))
+//                        try await messenger.delegate?.receiveServerEvent(.requestDeviceRegistery(deviceConfig))
                     }
             case .channel(let channelName):
-                guard let data = Data(base64Encoded: message) else { return }
-                let buffer = ByteBuffer(data: data)
-                let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
                 switch packet.type {
                 case .message:
                 // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                 guard let message = packet.message else { return }
                 guard let deviceId = packet.sender else { return }
+                guard let sender = sender?.nick.stringValue else { return }
                 try await self.transportDelegate?.receiveServerEvent(
                     .messageSent(
                         message,
                         id: packet.id,
-                        byUser: Username(sender.nick.stringValue),
+                        byUser: Username(sender),
                         deviceId: deviceId
                     )
                 )
@@ -337,7 +302,6 @@ extension NeedleTailTransport {
             break
         case .registered(channel: _, nick: _, userInfo: _):
             await transportState.transition(to: .online)
-            registrationPacket = ""
         case .online:
             break
         case .suspended:
