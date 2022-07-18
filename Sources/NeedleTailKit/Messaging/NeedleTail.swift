@@ -101,7 +101,7 @@ public final class NeedleTail {
             }
             
             var canRun = false
-            let date = RunLoop.timeInterval(10)
+            let date = RunLoop.timeInterval(2)
             repeat {
                 canRun = true
                 if registrationApproved == true {
