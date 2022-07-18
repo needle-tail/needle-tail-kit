@@ -36,7 +36,7 @@ extension NeedleTailTransport {
         
         try await clientMessage(channel, command: .otherCommand("PASS", [ clientInfo.password ]))
         guard let regPacket = regPacket else { return }
-            let tag = IRCTags(key: "registrationPacket", value: regPacket)
+        let tag = IRCTags(key: "registrationPacket", value: regPacket.trimmingCharacters(in: .whitespacesAndNewlines))
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
     }
     

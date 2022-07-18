@@ -168,24 +168,25 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func publishKeyBundle(_ data: UserConfig) async throws {
         guard let username = username else { return }
         guard isConnected else { return }
-        
-        try await startSession(registrationType(appleToken ?? ""), registrationState)
-        let date = RunLoop.timeInterval(10)
-        var canRun = false
-        repeat {
-            canRun = true
-            if await client?.transport?.acknowledgment != .registered("true") {
-                canRun = false
-            }
-        } while await RunLoop.execute(date, canRun: canRun)
+        // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
+        guard let updateKeyBundle = client?.transport?.updateKeyBundle else { return }
+        if updateKeyBundle {
+            try await startSession(registrationType(appleToken ?? ""), registrationState)
+            let date = RunLoop.timeInterval(10)
+            var canRun = false
+            repeat {
+                canRun = true
+                if await client?.transport?.acknowledgment == .registered("true") {
+                    canRun = false
+                }
+            } while await RunLoop.execute(date, canRun: canRun)
+        }
 
         let jwt = try makeToken()
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
-        // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
-        let updateKeyBundle = client?.transport?.updateKeyBundle
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
