@@ -135,12 +135,14 @@ extension NeedleTailClient {
     
     func shutdownClient() async {
         do {
+            guard let username = self.messenger.username else { return }
+            guard let deviceId = self.messenger.deviceId else { return }
+            try await transport?.sendQuit(username, deviceId: deviceId)
            _ = try await channel?.close(mode: .all).get()
             try await self.groupManager.shutdown()
             channel = nil
             eventLoop = nil
             cypher = nil
-//            messageOfTheDay = ""
         } catch {
             print("Could not gracefully shutdown, Forcing the exit (\(error)")
             exit(0)

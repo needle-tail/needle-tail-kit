@@ -32,7 +32,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public var type : ConversationType = .privateMessage
     public private(set) var signer: TransportCreationRequest?
     private(set) var needleTailNick: NeedleTailNick?
-    private let username: Username?
     private let appleToken: String?
     private var transportState: TransportState
     private var clientInfo: ClientContext.ServerClientInfo
@@ -45,6 +44,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var messageType = MessageType.message
     var readReceipt: ReadReceiptPacket?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
+    let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
     
@@ -289,25 +289,18 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     func regRequest(with appleToken: String = "", _ tempRegister: Bool = false) -> AuthPacket {
         return AuthPacket(
-            jwt: nil,
             appleToken: appleToken,
-            apnToken: nil,
             username: signer?.username,
-            recipient: nil,
             deviceId: signer?.deviceId,
             config: signer?.userConfig,
-            tempRegister: tempRegister,
-            recipientDeviceId: nil
+            tempRegister: tempRegister
         )
     }
     
-    private func configRequest(_ jwt: String, config: UserConfig, recipientDeviceId: DeviceId? = nil) -> AuthPacket {
+    func configRequest(_ jwt: String, config: UserConfig, recipientDeviceId: DeviceId? = nil) -> AuthPacket {
         return AuthPacket(
             jwt: jwt,
-            appleToken: nil,
-            apnToken: nil,
             username: self.username,
-            recipient: nil,
             deviceId: self.deviceId,
             config: config,
             tempRegister: false,
@@ -322,14 +315,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     ) -> AuthPacket {
         AuthPacket(
             jwt: jwt,
-            appleToken: nil,
             apnToken: apnToken,
             username: self.username,
-            recipient: nil,
             deviceId: deviceId,
-            config: nil,
-            tempRegister: false,
-            recipientDeviceId: nil
+            tempRegister: false
         )
     }
     
@@ -339,27 +328,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     ) -> AuthPacket {
         AuthPacket(
             jwt: jwt,
-            appleToken: nil,
-            apnToken: nil,
             username: self.username,
             recipient: recipient,
             deviceId: deviceId,
-            config: nil,
-            tempRegister: false,
-            recipientDeviceId: nil
+            tempRegister: false
         )
-    }
-    
-    struct AuthPacket: Codable {
-        let jwt: String?
-        let appleToken: String?
-        let apnToken: String?
-        let username: Username?
-        let recipient: Username?
-        let deviceId: DeviceId?
-        let config: UserConfig?
-        let tempRegister: Bool?
-        let recipientDeviceId: DeviceId?
     }
     
     

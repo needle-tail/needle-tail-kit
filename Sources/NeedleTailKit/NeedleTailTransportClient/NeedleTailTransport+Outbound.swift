@@ -40,6 +40,17 @@ extension NeedleTailTransport {
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
     }
     
+    func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
+        guard let channel = await channel else { return }
+        let authObject = AuthPacket(
+            username: username,
+            deviceId: deviceId,
+            tempRegister: false
+        )
+        let packet = try BSONEncoder().encode(authObject).makeData().base64EncodedString()
+        try await clientMessage(channel, command: .QUIT(packet))
+    }
+    
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
     public func recipient(
         conversationType: ConversationType,

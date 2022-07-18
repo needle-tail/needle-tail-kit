@@ -194,7 +194,7 @@ public final class NeedleTail {
         if nameToVerify != nil {
             messenger.registrationState = .temp
         }
-            try await messenger.createClient(nameToVerify)
+        try await messenger.createClient(nameToVerify)
         return messenger
     }
     
