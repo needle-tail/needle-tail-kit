@@ -9,15 +9,15 @@ import Foundation
 import CypherMessaging
 
 public struct AuthPacket: Codable, @unchecked Sendable {
-    let jwt: String?
-    let appleToken: String?
-    let apnToken: String?
-    let username: Username?
-    let recipient: Username?
-    let deviceId: DeviceId?
-    let config: UserConfig?
-    let tempRegister: Bool?
-    let recipientDeviceId: DeviceId?
+    public let jwt: String?
+    public let appleToken: String?
+    public let apnToken: String?
+    public let username: Username?
+    public let recipient: Username?
+    public let deviceId: DeviceId?
+    public let config: UserConfig?
+    public let tempRegister: Bool?
+    public let recipientDeviceId: DeviceId?
     
     public init(
         jwt: String? = nil,
