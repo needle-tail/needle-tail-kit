@@ -37,7 +37,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var transportState: TransportState
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
-//    private var waitingToReadBundle: Bool = false
     var recipientDeviceId: DeviceId?
     var cypher: CypherMessenger?
     var client: NeedleTailClient?
@@ -47,9 +46,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var readReceipt: ReadReceiptPacket?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
     let deviceId: DeviceId?
-    var shouldProceedRegistration = true
-    var initalRegistration = false
-    var masterScanned = false
+    var registrationState: RegistrationState = .full
     
     @NeedleTailTransportActor
     public init(
@@ -90,41 +87,51 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     @NeedleTailClientActor
-    public func registrationType(_ appleToken: String = "") -> RegistrationType? {
-        var type: RegistrationType?
+    public func registrationType(_ appleToken: String = "") -> RegistrationType {
         if !appleToken.isEmpty {
-            type = .siwa(appleToken)
+            return .siwa(appleToken)
         } else {
-            type = .plain
+            return .plain
         }
-        return type
     }
     
     @NeedleTailClientActor
-    public func startSession(_ type: RegistrationType?) async throws {
+    public func startSession(
+        _ type: RegistrationType,
+        _ state: RegistrationState? = .full
+    ) async throws {
         switch type {
         case .siwa(let apple):
             try await self.registerSession(apple)
         case .plain:
             try await self.registerSession()
-        default:
-            break
         }
     }
     
     @NeedleTailClientActor
-    public func registerSession(_ appleToken: String = "", nameToVerify: String? = nil) async throws {
+    public func registerSession(_
+                                appleToken: String = "",
+                                nameToVerify: String? = nil,
+                                state: RegistrationState? = .full
+    ) async throws {
         if client?.channel == nil {
             try await createClient(nameToVerify)
         }
         
-        let regObject = regRequest(with: appleToken)
-        let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
-        try await client?.transport?.registerNeedletailSession(packet)
+        switch registrationState {
+        case .full:
+            let regObject = regRequest(with: appleToken)
+            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+            try await client?.transport?.registerNeedletailSession(packet)
+        case .temp:
+            let regObject = regRequest(true)
+            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+            try await client?.transport?.registerNeedletailSession(packet, true)
+        }
     }
     
     @NeedleTailClientActor
-    public func createClient(_ nameToVerify: String? = nil, _ temporarilyRegister: Bool = false) async throws {
+    public func createClient(_ nameToVerify: String? = nil) async throws {
         if client == nil {
             var name: String?
             if signer?.username.raw != nil {
@@ -151,7 +158,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             
             self.needleTailNick = nick
         }
-        try await connect(temporarilyRegister)
+        try await connect()
     }
     
     //TODO: Have exit point be in transport+outbound
@@ -160,11 +167,25 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @KeyBundleActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
         guard let username = username else { return }
-
-        if shouldProceedRegistration == true && isConnected == true && initalRegistration {
-            try await startSession(registrationType(appleToken ?? ""))
-            repeat {} while await client?.transport?.acknowledgment != .registered("true")
-        }
+        guard isConnected else { return }
+        
+        try await startSession(registrationType(appleToken ?? ""), registrationState)
+        repeat {} while await client?.transport?.acknowledgment != .registered("true")
+        
+//        switch registrationState {
+//        case .full:
+//            try await startSession(registrationType(appleToken ?? ""))
+//            repeat {} while await client?.transport?.acknowledgment != .registered("true")
+//        case .temp:
+//            let regObject = regRequest(true)
+//            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+//            try await client?.transport?.registerNeedletailSession(packet, true)
+//        }
+        
+//        if shouldProceedRegistration == true && isConnected == true && initalRegistration {
+//            try await startSession(registrationType(appleToken ?? ""))
+//            repeat {} while await client?.transport?.acknowledgment != .registered("true")
+//        }
         
         let jwt = try makeToken()
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
@@ -173,9 +194,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
         let updateKeyBundle = await client?.transport?.updateKeyBundle
-        if updateKeyBundle == true {
-            
-        }
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
@@ -359,8 +377,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     
     @NeedleTailClientActor
-    public func connect(_ temporarilyRegister: Bool = false) async throws {
-        try await client?.attemptConnection(temporarilyRegister)
+    public func connect() async throws {
+        try await client?.attemptConnection()
         self.authenticated = .authenticated
         if client?.channel != nil {
             self.isConnected = true
@@ -379,6 +397,9 @@ public enum RegistrationType {
     case siwa(String), plain
 }
 
+public enum RegistrationState {
+    case full, temp
+}
 
 
 extension NeedleTailMessenger {
@@ -395,6 +416,7 @@ extension NeedleTailMessenger {
     /// - Parameter config: The Requesters User Device Configuration
     @NeedleTailTransportActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
+        //rebuild the device config sp we can creaete a master device
        let newMaster = UserDeviceConfig(
             deviceId: config.deviceId,
             identity: config.identity,
@@ -405,6 +427,7 @@ extension NeedleTailMessenger {
         print("We are requesting a Device Registry with this configuration: ", newMaster)
 #if (os(macOS) || os(iOS))
         try await MainActor.run {
+            // Send user config data to generate a QRCode in the requesting client
                 let data = try BSONEncoder().encode(newMaster).makeData()
             plugin.emitter.qrCodeData = data
         }
@@ -414,15 +437,17 @@ extension NeedleTailMessenger {
         var canRun = false
         repeat {
             canRun = true
-            if masterScanned == true {
-                canRun = false
+            // After the Master scans the server will send us a response allowing us to proceed with registration
+            if await client?.transport?.receivedNewDeviceAdded == .waiting {
+              canRun = false
             }
 
         } while await RunLoop.execute(date, canRun: canRun)
     }
     
     public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
-        try await messenger.addDevice(config)
+        print(#function)
+//        try await messenger.addDevice(config)
     }
     
     public struct SetToken: Codable {
