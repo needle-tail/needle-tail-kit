@@ -8,7 +8,7 @@
 import NIOCore
 import BSON
 import NeedleTailHelpers
-import AsyncIRC
+import NeedleTailProtocol
 import Foundation
 import Logging
 import CypherMessaging

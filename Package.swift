@@ -14,8 +14,8 @@ let package = Package(
             name: "NeedleTailKit",
             targets: ["NeedleTailKit"]),
         .library(
-            name: "AsyncIRC",
-            targets: ["AsyncIRC"]),
+            name: "NeedleTailProtocol",
+            targets: ["NeedleTailProtocol"]),
         .library(
             name: "NeedleTailHelpers",
             targets: ["NeedleTailHelpers"]),
@@ -42,10 +42,10 @@ let package = Package(
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "Crypto", package: "swift-crypto"),
             .target(name: "NeedleTailHelpers"),
-            .target(name: "AsyncIRC")
+            .target(name: "NeedleTailProtocol")
         ]),
         .target(
-            name: "AsyncIRC",
+            name: "NeedleTailProtocol",
             dependencies: [
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),

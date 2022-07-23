@@ -25,19 +25,18 @@ public final class RunLoop {
     
     ///  This method determines when the run loop should start and stop depending on the parameters value
     /// - Parameters:
-    ///   - now: The Date we wish to start the execution at
+    ///   - expriedDate: The Date we wish to exprire the loop on
     ///   - ack: The Acknowledgement we may receive from the server
     ///   - canRun: A Bool value we can customize property values in the caller
     /// - Returns: A Boolean value that indicates whether or not the loop should run
     public class func execute(_
-                       now: Date,
-                       ack: Acknowledgment.AckType? = Acknowledgment.AckType.none,
+                       expriedDate: Date,
                        canRun: Bool
     ) async -> Bool {
-        
         func runTask() async -> LoopResult {
             let runningDate = Date()
-            if canRun == true || ack == Acknowledgment.AckType.none, now >= runningDate {
+            if canRun == true {
+                guard expriedDate >= runningDate else { return .finished }
                 return .runnning
             } else {
                 return .finished
@@ -51,5 +50,23 @@ public final class RunLoop {
         case .runnning:
             return true
         }
+    }
+    
+    /// Runs the loop
+    /// - Parameters:
+    ///   - expiresIn: The Date we wish to exprire the loop on
+    ///   - sleep: The length we want to sleep the loop
+    ///   - stopRunning: a custom callback to indicate when we should call canRun = false
+    public class func run(_
+                          expiresIn: TimeInterval,
+                          sleep: UInt64,
+                          stopRunning: () async throws -> Bool
+    ) async throws {
+        let date = RunLoop.timeInterval(expiresIn)
+        var canRun = true
+        repeat {
+//            try await Task.sleep(nanoseconds: sleep)
+            canRun = try await stopRunning()
+        } while await RunLoop.execute(date, canRun: canRun)
     }
 }

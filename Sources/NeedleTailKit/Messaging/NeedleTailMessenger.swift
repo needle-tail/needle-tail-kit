@@ -15,7 +15,7 @@ import Crypto
 import BSON
 import JWTKit
 import Logging
-import AsyncIRC
+import NeedleTailProtocol
 import NeedleTailHelpers
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -25,7 +25,7 @@ import NIOTransportServices
 #endif
 
 public class NeedleTailMessenger: CypherServerTransportClient {
-    public var isConnected: Bool = true
+    public var isConnected: Bool = false
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
@@ -80,7 +80,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             deviceId: transportRequest?.deviceId,
             signer: transportRequest,
             appleToken: appleToken,
-            transportState: TransportState(identifier: UUID()),
+            transportState: TransportState(identifier: UUID(), emitter: plugin.emitter),
             clientInfo: clientInfo,
             plugin: plugin
         )
@@ -121,11 +121,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         switch registrationState {
         case .full:
             let regObject = regRequest(with: appleToken)
-            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+            let packet = try BSONEncoder().encode(regObject).makeData()
             try await client?.transport?.registerNeedletailSession(packet)
         case .temp:
             let regObject = regRequest(true)
-            let packet = try BSONEncoder().encode(regObject).makeData().base64EncodedString()
+            let packet = try BSONEncoder().encode(regObject).makeData()
             try await client?.transport?.registerNeedletailSession(packet, true)
         }
     }
@@ -162,7 +162,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     //TODO: Have exit point be in transport+outbound
-    /// We only Publish Key Bundles when a user is adding mutli-devcie support.
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     @NeedleTailClientActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
@@ -170,21 +169,20 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         guard isConnected else { return }
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
         guard let updateKeyBundle = client?.transport?.updateKeyBundle else { return }
-        if updateKeyBundle {
-            try await startSession(registrationType(appleToken ?? ""), registrationState)
-            let date = RunLoop.timeInterval(10)
-            var canRun = false
-            repeat {
-                canRun = true
-                if await client?.transport?.acknowledgment == .registered("true") {
-                    canRun = false
-                }
-            } while await RunLoop.execute(date, canRun: canRun)
-        }
-
+        
+        try await startSession(registrationType(appleToken ?? ""), registrationState)
+        try await RunLoop.run(240, sleep: 1, stopRunning: {
+            var running = true
+            if await client?.transport?.acknowledgment == .registered("true") {
+                running = false
+            }
+            return running
+        })
+        print("update_key_bundle", updateKeyBundle)
         let jwt = try makeToken()
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
-        self.keyBundle = try BSONEncoder().encode(configObject).makeData().base64EncodedString()
+        let bundleData = try BSONEncoder().encode(configObject).makeData()
+        self.keyBundle = bundleData.base64EncodedString()
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
         let packet = MessagePacket(
@@ -199,8 +197,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             addKeyBundle: updateKeyBundle
         )
         
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         guard let channel = transport.channel else { return }
         try await transport.transportMessage(channel, type: type)
     }
@@ -212,18 +210,19 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         let jwt = try makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
-        let packet = try BSONEncoder().encode(readBundleObject).makeData().base64EncodedString()
-        let date = RunLoop.timeInterval(10)
-        var canRun = false
+        let packet = try BSONEncoder().encode(readBundleObject).makeData()
         var userConfig: UserConfig? = nil
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        repeat {
-            canRun = true
+        
+        try await RunLoop.run(240, sleep: 1, stopRunning: { 
+            var running = true
             if client?.channel != nil {
-                userConfig = try await transport.readKeyBundle(packet)
-                canRun = false
+                userConfig = try await transport.readKeyBundle(packet.base64EncodedString())
+                running = false
             }
-        } while await RunLoop.execute(date, ack: transport.acknowledgment, canRun: canRun)
+            return running
+        })
+        
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
@@ -247,14 +246,14 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let jwt = try makeToken()
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: deviceId)
-        let payload = try BSONEncoder().encode(apnObject).makeData().base64EncodedString()
+        let payload = try BSONEncoder().encode(apnObject).makeData()
         guard let transport = await client?.transport else { return }
         let recipient = try await transport.recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .registerAPN(payload),
+            type: .registerAPN(payload.base64EncodedString()),
             createdAt: Date(),
             sender: nil,
             recipient: nil,
@@ -262,8 +261,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             readReceipt: .none
         )
         
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         guard let channel = await transport.channel else { return }
         try await transport.transportMessage(channel, type: type)
     }
@@ -380,40 +379,41 @@ extension NeedleTailMessenger {
     
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
     /// - Parameter config: The Requesters User Device Configuration
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
+
         //rebuild the device config sp we can creaete a master device
-       let newMaster = UserDeviceConfig(
+        let newMaster = UserDeviceConfig(
             deviceId: config.deviceId,
             identity: config.identity,
             publicKey: config.publicKey,
             isMasterDevice: true
-)
-
-        print("We are requesting a Device Registry with this configuration: ", newMaster)
+        )
+        logger.info("We are requesting a Device Registry with this configuration: \(newMaster)")
+        let bsonData = try BSONEncoder().encode(newMaster).makeData()
+        let base64String = bsonData.base64EncodedString()
+        let data = base64String.data(using: .ascii)
 #if (os(macOS) || os(iOS))
-        try await MainActor.run {
+        await MainActor.run {
+            plugin.emitter.showScanner = false
             // Send user config data to generate a QRCode in the requesting client
-                let data = try BSONEncoder().encode(newMaster).makeData()
+            plugin.emitter.received = nil
             plugin.emitter.qrCodeData = data
         }
 #endif
-        //Loop until the master scans the code
-        let date = RunLoop.timeInterval(10)
-        var canRun = false
-        repeat {
-            canRun = true
-            // After the Master scans the server will send us a response allowing us to proceed with registration
-            if await client?.transport?.receivedNewDeviceAdded == .waiting {
-              canRun = false
+        
+        try await RunLoop.run(240, sleep: 1) {
+            var running = true
+            if plugin.emitter.qrCodeData == nil {
+                running = false
             }
-
-        } while await RunLoop.execute(date, canRun: canRun)
+            return running
+        }
     }
     
     public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
         print(#function)
-//        try await messenger.addDevice(config)
+        //        try await messenger.addDevice(config)
     }
     
     public struct SetToken: Codable {
@@ -427,8 +427,8 @@ extension NeedleTailMessenger {
     @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        let blobString = try BSONEncoder().encode(blob).makeData().base64EncodedString()
-        try await transport.publishBlob(blobString)
+        let blobString = try BSONEncoder().encode(blob).makeData()
+        try await transport.publishBlob(blobString.base64EncodedString())
         
         guard let channelBlob = await transport.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }

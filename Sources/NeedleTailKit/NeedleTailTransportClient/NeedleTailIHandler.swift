@@ -7,7 +7,7 @@
 
 import NIO
 @preconcurrency import Logging
-import AsyncIRC
+import NeedleTailProtocol
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
 
@@ -36,7 +36,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
     
     func channelInactive(context: ChannelHandlerContext) {
         _ = lock.withSendableLock {
-        Task {
+            Task {
                 logger.info("Channel Inactive")
                 await self.client.handlerDidDisconnect(context)
             }
@@ -45,7 +45,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         _ = lock.withSendableLock {
-        Task {
+            Task {
                 let message = unwrapInboundIn(data)
                 do {
                     try await transport.processReceivedMessages(message)
@@ -60,7 +60,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         _ = lock.withSendableLock {
-        Task {
+            Task {
                 await self.client.handlerCaughtError(error, in: context)
                 context.close(promise: nil)
             }

@@ -6,7 +6,7 @@
 //
 
 import NIO
-import AsyncIRC
+import NeedleTailProtocol
 import NeedleTailHelpers
 import BSON
 
@@ -124,6 +124,7 @@ extension NeedleTailClient {
         case .suspended, .offline:
             await shutdownClient()
             authenticated = .unauthenticated
+            transportState.transition(to: .offline)
         case .disconnect:
             break
         case .error:

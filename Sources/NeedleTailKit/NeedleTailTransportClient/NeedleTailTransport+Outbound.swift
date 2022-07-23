@@ -8,14 +8,14 @@
 import Foundation
 import NeedleTailHelpers
 import CypherMessaging
-import AsyncIRC
+import NeedleTailProtocol
 
 extension NeedleTailTransport {
-
+    
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
-    func registerNeedletailSession(_ regPacket: String?, _ temp: Bool = false) async throws {
+    func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
         guard let channel = channel else { return }
         await transportState.transition(to: .registering(
             channel: channel,
@@ -28,17 +28,14 @@ extension NeedleTailTransport {
         }
         
         guard temp == false else {
-            guard let regPacket = regPacket else { return }
-            let tag = IRCTags(key: "tempRegPacket", value: regPacket)
+            let tag = IRCTags(key: "tempRegPacket", value: regPacket.base64EncodedString())
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
             return
         }
         
-//        try await clientMessage(channel, command: .otherCommand("PASS", [ clientInfo.password ]))
-        guard let regPacket = regPacket else { return }
-        let tag = IRCTags(key: "registrationPacket", value: regPacket)
-        print("PACK__", regPacket)
-            try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
+        try await clientMessage(channel, command: .otherCommand("PASS", [""]))
+        let tag = IRCTags(key: "registrationPacket", value: regPacket.base64EncodedString())
+        try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
@@ -48,8 +45,8 @@ extension NeedleTailTransport {
             deviceId: deviceId,
             tempRegister: false
         )
-        let packet = try BSONEncoder().encode(authObject).makeData().base64EncodedString()
-        try await clientMessage(channel, command: .QUIT(packet))
+        let packet = try BSONEncoder().encode(authObject).makeData()
+        try await clientMessage(channel, command: .QUIT(packet.base64EncodedString()))
     }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
@@ -73,15 +70,13 @@ extension NeedleTailTransport {
     func publishBlob(_ packet: String) async throws {
         guard let channel = await channel else { return }
         try await blobMessage(channel, command: .otherCommand("BLOBS", [packet]))
-        let date = RunLoop.timeInterval(1)
-        var canRun = false
-        repeat {
-            canRun = true
+        try await RunLoop.run(240, sleep: 1) {
+            var running = true
             if await channelBlob != nil {
-                canRun = false
+                running = false
             }
-            /// We just want to run a loop until the channelBlob contains a value or stop on the timeout
-        } while await RunLoop.execute(date, canRun: canRun)
+            return running
+        }
     }
     
     
@@ -99,8 +94,8 @@ extension NeedleTailTransport {
             members: members,
             permissions: permissions
         )
-        let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let tag = IRCTags(key: "channelPacket", value: data)
+        let data = try BSONEncoder().encode(packet).makeData()
+        let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
         guard let channelName = IRCChannelName(name) else { return }
         guard let channel = await channel else { return }
         //Keys are Passwords for Channels
@@ -127,8 +122,8 @@ extension NeedleTailTransport {
             partMessage: message,
             blobId: blobId
         )
-        let data = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let tag = IRCTags(key: "channelPacket", value: data)
+        let data = try BSONEncoder().encode(packet).makeData()
+        let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
         guard let channelName = IRCChannelName(name) else { return }
         guard let channel = await channel else { return }
         let type = TransportMessageType.standard(.PART(channels: [channelName]))
@@ -157,12 +152,12 @@ extension NeedleTailTransport {
             readReceipt: readReceipt
         )
         
-            let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-            let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
-            let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-            guard let channel = await channel else { return }
-            try await transportMessage(channel, type: type)
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        guard let channel = await channel else { return }
+        try await transportMessage(channel, type: type)
     }
     
     func createGroupMessage(
@@ -191,18 +186,18 @@ extension NeedleTailTransport {
             channelName: channelName
         )
         
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let encodedData = try BSONEncoder().encode(packet).makeData()
         do {
             //Channel Recipient
             let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: channelName)
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
             guard let channel = await channel else { return }
             try await transportMessage(channel, type: type)
         } catch {
             logger.error("\(error)")
         }
     }
-
+    
     //The requesting device sends this packet while setting the request identity until we hear back from the master device via a QR Code
     func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick) async throws {
         let recipient = IRCMessageRecipient.nickname(masterNick)
@@ -220,27 +215,26 @@ extension NeedleTailTransport {
         //Store UUID Temporarily
         self.registryRequestId = packet.id
         
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         guard let channel = await channel else { return }
         try await transportMessage(channel, type: type)
     }
-
+    
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
     @NeedleTailClientActor
     func readKeyBundle(_ packet: String) async throws -> UserConfig? {
         guard let channel = channel else { return nil }
         try await clientMessage(channel, command: .otherCommand("READKEYBNDL", [packet]))
-        let date = RunLoop.timeInterval(10)
-        var canRun = false
-        repeat {
-            canRun = true
+        try await RunLoop.run(10, sleep: 1, stopRunning: {
+            var running = true
             if userConfig != nil {
-                canRun = false
+                running = false
             }
-            /// We just want to run a loop until the userConfig contains a value or stop on the timeout
-        } while await RunLoop.execute(date, canRun: canRun)
+            return running
+        })
+        
         return userConfig
     }
     

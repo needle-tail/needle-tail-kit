@@ -9,16 +9,21 @@ import Foundation
 import NIOCore
 import Logging
 import NeedleTailHelpers
-
+import NeedleTailProtocol
 
 @NeedleTailClientActor
 public class TransportState: StateMachine {
 
     public let identifier: UUID
     private var logger: Logger
+    @MainActor private var emitter: NeedleTailEmitter
     
-    public init(identifier: UUID) {
+    public init(
+        identifier: UUID,
+        emitter: NeedleTailEmitter
+    ) {
         self.identifier = identifier
+        self.emitter = emitter
         self.logger = Logger(label: "TransportState:")
     }
     // MARK: StateMachine
@@ -63,10 +68,16 @@ public class TransportState: StateMachine {
             logger.info("The client is transitioning to a registered state with channel: \(channel), and Nick: \(nick) has UserInfo: \(userInfo)")
         case .online:
             logger.info("The client is transitioning to an online state")
+            Task {
+                await online()
+            }
         case .suspended:
             logger.info("The client is transitioning to a suspended state")
         case .offline:
             logger.info("The client is transitioning to an offline state")
+            Task {
+                await offline()
+            }
         case .disconnect:
             logger.info("The client is transitioning to a disconnected state")
         case .error(let error):
@@ -74,7 +85,15 @@ public class TransportState: StateMachine {
         case .quit:
             logger.info("The client is transitioning to quited state")
         }
-        
-        
+    }
+    
+    @MainActor
+    func online() {
+        emitter.online = true
+    }
+    
+    @MainActor
+    func offline() {
+        emitter.online = false
     }
 }

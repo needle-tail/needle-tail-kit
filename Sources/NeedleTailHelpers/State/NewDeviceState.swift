@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum NewDeviceState: Codable, Sendable {
+public enum NewDeviceState: Equatable, Codable, Sendable {
     case accepted, rejected, waiting, isOffline
 }
 public var newDeviceState: NewDeviceState = .waiting

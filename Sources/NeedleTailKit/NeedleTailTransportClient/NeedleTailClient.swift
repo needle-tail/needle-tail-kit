@@ -2,7 +2,7 @@ import NIO
 import Logging
 import NeedleTailHelpers
 import CypherMessaging
-import AsyncIRC
+import NeedleTailProtocol
 #if canImport(Network)
 import NIOTransportServices
 #endif

@@ -21,8 +21,10 @@ public final actor NetworkMonitor {
     private var statusCancellable: Cancellable?
     fileprivate let networkPublisher = NetworkPublisher()
     
-    public init() {}
-    
+    public init() {
+        statusCancellable = networkPublisher.publisher(for: \.currentStatus) as? Cancellable
+    }
+
 
     public func startMonitor() async {
         let queue = DispatchQueue(label: "NetworkMonitor")
@@ -31,7 +33,6 @@ public final actor NetworkMonitor {
     }
     
     public func monitor() async {
-        statusCancellable = networkPublisher.publisher(for: \.currentStatus) as? Cancellable
         monitorPath.pathUpdateHandler = { [weak self] path in
             guard let strongSelf = self else { return }
             strongSelf.networkPublisher.currentStatus = path.status
@@ -54,6 +55,27 @@ public final actor NetworkMonitor {
 
 
 public class MonitorReceiver: ObservableObject {
-    @Published public var updateStatus: NWPath.Status = .requiresConnection
+    @MainActor
+    @Published
+    public var statusArray = [NWPath.Status]()
+    
+    @Published
+    public var updateStatus: NWPath.Status = .requiresConnection {
+        didSet {
+            Task {
+                await updateStatus()
+            }
+        }
+    }
+    
+    @MainActor
+    func updateStatus() async {
+        statusArray.removeAll()
+        for await status in $updateStatus.values {
+            statusArray.append(status)
+            break
+        }
+    }
+    
 }
 #endif

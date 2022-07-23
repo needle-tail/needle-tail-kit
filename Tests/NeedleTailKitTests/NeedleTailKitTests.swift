@@ -1,6 +1,6 @@
     import XCTest
     import NIO
-    @testable import AsyncIRC
+    @testable import NeedleTailProtocol
 
     final class NeedleTailKitTests: XCTestCase {
         func testExample() {

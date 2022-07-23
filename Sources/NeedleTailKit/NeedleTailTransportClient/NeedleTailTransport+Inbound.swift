@@ -9,7 +9,7 @@ import Foundation
 import CypherMessaging
 import BSON
 import NeedleTailHelpers
-import AsyncIRC
+import NeedleTailProtocol
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 extension NeedleTailTransport {
@@ -48,6 +48,7 @@ extension NeedleTailTransport {
     
     // This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
     func receivedNewDevice(_ deviceState: NewDeviceState) async {
+        messenger.plugin.emitter.qrCodeData = nil
         self.receivedNewDeviceAdded = deviceState
     }
     
@@ -63,9 +64,9 @@ extension NeedleTailTransport {
         readReceipt: .none
     )
         
-        let encodedString = try BSONEncoder().encode(packet).makeData().base64EncodedString()
+        let encodedData = try BSONEncoder().encode(packet).makeData()
         guard let channel = await channel else { return }
-        let type = TransportMessageType.private(.PRIVMSG([.nickname(nick)], encodedString))
+        let type = TransportMessageType.private(.PRIVMSG([.nickname(nick)], encodedData.base64EncodedString()))
         try await transportMessage(channel, type: type)
 }
 
@@ -85,9 +86,6 @@ extension NeedleTailTransport {
             switch recipient {
             case .everything:
                 break
-                //              self.conversations.values.forEach {
-                //                $0.addMessage(message, from: sender)
-                //              }
             case .nickname(let nick):
                     switch packet.type {
                     case .publishKeyBundle(_):
@@ -137,7 +135,7 @@ extension NeedleTailTransport {
                             let type = TransportMessageType.standard(.USER(user))
                             try await transportMessage(channel, type: type)
                             await transportState.transition(to: .online)
-
+                            
                             // Everyone can join administrator, this primarily will be used for beta for report issues
                             let channelName = "#AdministratorChannel2"
                             try await messenger.createLocalChannel(
@@ -147,6 +145,7 @@ extension NeedleTailTransport {
                                 members: [Username(nick.stringValue)],
                                 permissions: .channelOperator
                             )
+                            
                         default:
                             break
                         }
