@@ -89,11 +89,15 @@ public class TransportState: StateMachine {
     
     @MainActor
     func online() {
+#if (os(macOS) || os(iOS))
         emitter.online = true
+#endif
     }
     
     @MainActor
     func offline() {
+#if (os(macOS) || os(iOS))
         emitter.online = false
+#endif
     }
 }

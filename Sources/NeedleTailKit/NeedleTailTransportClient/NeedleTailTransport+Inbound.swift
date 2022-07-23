@@ -48,7 +48,9 @@ extension NeedleTailTransport {
     
     // This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
     func receivedNewDevice(_ deviceState: NewDeviceState) async {
+#if (os(macOS) || os(iOS))
         messenger.plugin.emitter.qrCodeData = nil
+#endif
         self.receivedNewDeviceAdded = deviceState
     }
     

@@ -404,9 +404,11 @@ extension NeedleTailMessenger {
         
         try await RunLoop.run(240, sleep: 1) {
             var running = true
+#if (os(macOS) || os(iOS))
             if plugin.emitter.qrCodeData == nil {
                 running = false
             }
+#endif
             return running
         }
     }
