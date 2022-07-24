@@ -103,6 +103,9 @@ public final class NeedleTail {
                 return running
             })
             
+            await messenger?.suspend(true)
+            messenger = nil
+            
             return try await registerNeedleTail(
                 appleToken: appleToken,
                 username: username,
@@ -151,11 +154,20 @@ public final class NeedleTail {
                 username: Username(username),
                 appPassword: clientInfo.password,
                 usingTransport: { transportRequest async throws -> NeedleTailMessenger in
-                    return try await self.createMessenger(
-                        clientInfo: clientInfo,
-                        plugin: plugin,
-                        transportRequest: transportRequest
-                    )
+                    if isNewDevice {
+                        return try await self.createMessenger(
+                            clientInfo: clientInfo,
+                            plugin: plugin,
+                            transportRequest: transportRequest,
+                            nameToVerify: username
+                        )
+                    } else {
+                        return try await self.createMessenger(
+                            clientInfo: clientInfo,
+                            plugin: plugin,
+                            transportRequest: transportRequest
+                        )
+                    }
                 },
                 p2pFactories: p2pFactories,
                 database: store,
@@ -173,7 +185,7 @@ public final class NeedleTail {
         clientInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
         transportRequest: TransportCreationRequest? = nil,
-        nameToVerify: String? = nil
+        nameToVerify: String = ""
     ) async throws -> NeedleTailMessenger {
         if self.messenger == nil {
             //We also need to pass the plugin to our transport
@@ -184,7 +196,7 @@ public final class NeedleTail {
             )
         }
         guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
-        if nameToVerify != nil {
+        if !nameToVerify.isEmpty {
             messenger.registrationState = .temp
         }
         if messenger.client == nil {
@@ -234,7 +246,7 @@ public final class NeedleTail {
 
         if cypher?.authenticated != nil {
             guard let messenger = messenger else { return }
-            try await messenger.startSession(messenger.registrationType(appleToken), .full)
+            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
         }
     }
     

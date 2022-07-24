@@ -98,13 +98,14 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     public func startSession(
         _ type: RegistrationType,
+        _ nameToVerify: String? = nil,
         _ state: RegistrationState? = .full
     ) async throws {
         switch type {
         case .siwa(let apple):
             try await self.registerSession(apple)
         case .plain:
-            try await self.registerSession()
+            try await self.registerSession(nameToVerify: nameToVerify, state: state)
         }
     }
     
@@ -170,7 +171,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
         guard let updateKeyBundle = client?.transport?.updateKeyBundle else { return }
         
-        try await startSession(registrationType(appleToken ?? ""), registrationState)
+        try await startSession(registrationType(appleToken ?? ""), nil, registrationState)
         try await RunLoop.run(240, sleep: 1, stopRunning: {
             var running = true
             if await client?.transport?.acknowledgment == .registered("true") {
@@ -388,7 +389,7 @@ extension NeedleTailMessenger {
     /// - Parameter config: The Requesters User Device Configuration
     @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
-
+        try await startSession(registrationType(appleToken ?? ""), nil, registrationState)
         //rebuild the device config sp we can create a master device
         let newMaster = UserDeviceConfig(
             deviceId: config.deviceId,
@@ -418,6 +419,10 @@ extension NeedleTailMessenger {
 #endif
             return running
         }
+        
+        guard let username = self.client?.messenger.username else { return }
+        guard let deviceId = self.client?.messenger.deviceId else { return }
+        try await client?.transport?.sendQuit(username, deviceId: deviceId)
     }
     
     public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {

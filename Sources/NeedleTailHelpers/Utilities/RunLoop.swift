@@ -65,7 +65,7 @@ public final class RunLoop {
         let date = RunLoop.timeInterval(expiresIn)
         var canRun = true
         repeat {
-//            try await Task.sleep(nanoseconds: sleep)
+            try await Task.sleep(nanoseconds: sleep)
             canRun = try await stopRunning()
         } while await RunLoop.execute(date, canRun: canRun)
     }
