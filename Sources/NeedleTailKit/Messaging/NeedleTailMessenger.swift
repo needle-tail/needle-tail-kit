@@ -178,8 +178,16 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
+        
+        print("CONFIG_TO_SEND", data)
+        for device in try data.readAndValidateDevices() {
+            print("CONFIG", device)
+        }
+
         print("update_key_bundle", updateKeyBundle)
         let jwt = try makeToken()
+        
+        //TODO: If we are updating kwy bundle our recipientDeviceId should not be config.deviceID. We need to get the correct recipient
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
         self.keyBundle = bundleData.base64EncodedString()
@@ -352,7 +360,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     @NeedleTailClientActor
     public func suspend(_ isSuspending: Bool = false) async {
-        //TODO: State Error
         await client?.attemptDisconnect(isSuspending)
         client = nil
     }
@@ -382,7 +389,7 @@ extension NeedleTailMessenger {
     @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
 
-        //rebuild the device config sp we can creaete a master device
+        //rebuild the device config sp we can create a master device
         let newMaster = UserDeviceConfig(
             deviceId: config.deviceId,
             identity: config.identity,

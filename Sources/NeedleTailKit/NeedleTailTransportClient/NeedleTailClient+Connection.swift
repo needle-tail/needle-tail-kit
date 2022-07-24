@@ -76,7 +76,6 @@ extension NeedleTailClient {
         case .quit:
             break
         case .registering, .connecting:
-//            await clientDelegate?.clientFailedToRegister(self)
            transportState.transition(to: .disconnect)
         default:
             transportState.transition(to: .disconnect)
@@ -122,9 +121,9 @@ extension NeedleTailClient {
         case .online:
             return
         case .suspended, .offline:
-            await shutdownClient()
-            authenticated = .unauthenticated
             transportState.transition(to: .offline)
+            authenticated = .unauthenticated
+            await shutdownClient()
         case .disconnect:
             break
         case .error:
@@ -134,6 +133,7 @@ extension NeedleTailClient {
         }
     }
     
+    //We must make sure shutdown client is called before the NeedleTailClient is deinitialized
     func shutdownClient() async {
         do {
             guard let username = self.messenger.username else { return }
@@ -141,9 +141,6 @@ extension NeedleTailClient {
             try await transport?.sendQuit(username, deviceId: deviceId)
            _ = try await channel?.close(mode: .all).get()
             try await self.groupManager.shutdown()
-            channel = nil
-            eventLoop = nil
-            cypher = nil
         } catch {
             print("Could not gracefully shutdown, Forcing the exit (\(error)")
             exit(0)

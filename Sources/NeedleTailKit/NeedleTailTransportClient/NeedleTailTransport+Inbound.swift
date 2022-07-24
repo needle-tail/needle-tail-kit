@@ -23,6 +23,8 @@ extension NeedleTailTransport {
     
     @NeedleTailClientActor
      func doReadKeyBundle(_ keyBundle: [String]) async throws {
+         //TODO: We are sending the key bundle to Master after registration of 2nd device because recipientDeviceId is wrong
+         print("KEYBUNDLE_RECIEVED", keyBundle.first)
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
         let buffer = ByteBuffer(data: data)

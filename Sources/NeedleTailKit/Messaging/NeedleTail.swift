@@ -46,7 +46,8 @@ public final class NeedleTail {
     var registrationApproved = false
     var registeringNewDevice = false
     public static let shared = NeedleTail()
-    
+    var needleTailViewModel = NeedleTailViewModel()
+
     // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
     @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
@@ -328,6 +329,8 @@ public class NeedleTailViewModel: ObservableObject {
 extension NeedleTail: ObservableObject {
     
     public struct SpoolView: View {
+        
+        @Environment(\.scenePhase) var scenePhase
         public var store: CypherMessengerStore
         public var clientInfo: ClientContext.ServerClientInfo
         public var p2pFactories: [P2PTransportClientFactory]? = []
@@ -335,7 +338,7 @@ extension NeedleTail: ObservableObject {
         public var view: AnyView
         var state = NetworkMonitor()
         @State private var showingAlert = false
-        @StateObject var needleTailViewModel = NeedleTailViewModel()
+//        @StateObject var needleTailViewModel = NeedleTailViewModel()
         
         public init(
             _ view: AnyView,
@@ -353,6 +356,7 @@ extension NeedleTail: ObservableObject {
         
         public var body: some View {
             AsyncView(run: { () async throws -> (CypherMessenger?, NeedleTailEmitter?) in
+                let needleTailViewModel = NeedleTail.shared.needleTailViewModel
                 if needleTailViewModel.cypher == nil && needleTailViewModel.emitter == nil {
                     needleTailViewModel.cypher = try await NeedleTail.shared.spoolService(
                         appleToken: "",
@@ -386,9 +390,24 @@ extension NeedleTail: ObservableObject {
                             }
                         }
                     })
+                    .onChange(of: scenePhase) { (phase) in
+                        Task {
+                            switch phase {
+                            case .active:
+                                print("Active")
+                                try? await NeedleTail.shared.resumeService()
+                            case .background:
+                                print("Went into Background")
+                                await NeedleTail.shared.serviceInterupted(true)
+                            case .inactive:
+                                print("Inactive")
+                            @unknown default:
+                                break
+                            }
+                        }
+                    }
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)
-                    .environmentObject(needleTailViewModel)
             }
         }
     }
@@ -408,7 +427,6 @@ extension NeedleTail: ObservableObject {
         public var password: String = ""
         public var store: CypherMessengerStore
         public var clientInfo: ClientContext.ServerClientInfo
-        @StateObject var needleTailViewModel = NeedleTailViewModel()
         @Binding public var dismiss: Bool
         @Binding var showProgress: Bool
         @Binding var qrCodeData: Data?
@@ -484,6 +502,7 @@ extension NeedleTail: ObservableObject {
                         dismiss = true
                     } else {
                         do {
+                            let needleTailViewModel = NeedleTail.shared.needleTailViewModel
                             needleTailViewModel.cypher = try await NeedleTail.shared.onBoardAccount(
                                 appleToken: "",
                                 username: username.raw,
@@ -508,9 +527,7 @@ extension NeedleTail: ObservableObject {
                     }
                 }
             })
-            .environmentObject(needleTailViewModel)
             .onReceive(NeedleTail.shared.emitter.$qrCodeData) { data in
-                print("data received", data)
                 self.qrCodeData = data
                 self.showProgress = false
             }

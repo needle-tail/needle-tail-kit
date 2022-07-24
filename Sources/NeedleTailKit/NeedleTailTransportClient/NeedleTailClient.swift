@@ -62,9 +62,9 @@ final class NeedleTailClient {
     }
     
     deinit {
-        Task {
-            _ = try? await channel?.close(mode: .all).get()
-        }
+        channel = nil
+        eventLoop = nil
+        cypher = nil
     }
 }
 
