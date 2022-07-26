@@ -50,7 +50,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
     var transportDelegate: CypherTransportClientDelegate?
-    weak var delegate: IRCDispatcher?
+    var delegate: IRCDispatcher?
     
     
     init(

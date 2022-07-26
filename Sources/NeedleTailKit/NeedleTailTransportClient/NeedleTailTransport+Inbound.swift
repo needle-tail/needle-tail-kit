@@ -154,7 +154,6 @@ extension NeedleTailTransport {
                     case .requestRegistry:
                         try await receivedRegistryRequest(packet.id)
                     case .newDevice(let state):
-                        print("NEW_DEVICE_STATE", state)
                         await receivedNewDevice(state)
                     default:
                         break

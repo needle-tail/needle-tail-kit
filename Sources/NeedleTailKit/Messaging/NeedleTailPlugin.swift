@@ -29,6 +29,7 @@ public class NeedleTailPlugin: Plugin {
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
+        print("Contact____", contact)
         emitter.contactAdded = contact
 #endif
     }

@@ -18,4 +18,6 @@ public enum NeedleTailError: String, Error {
     case messengerNotIntitialized
     case masterDeviceReject = "The Master Device rejected the request to add a new device"
     case registrationFailure
+    case storeNotIntitialized = "You must initialize a store"
+    case clientInfotNotIntitialized = "You must initialize client info"
 }

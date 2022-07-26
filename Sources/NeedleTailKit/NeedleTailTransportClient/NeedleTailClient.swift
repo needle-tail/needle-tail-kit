@@ -25,7 +25,7 @@ final class NeedleTailClient {
     var transport: NeedleTailTransport?
     let logger = Logger(label: "Client")
     public var channel: Channel?
-    weak var transportDelegate: CypherTransportClientDelegate?
+    var transportDelegate: CypherTransportClientDelegate?
     
     init(
         cypher: CypherMessenger?,

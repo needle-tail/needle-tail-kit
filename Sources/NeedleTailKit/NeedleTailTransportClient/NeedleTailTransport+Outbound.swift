@@ -139,7 +139,7 @@ extension NeedleTailTransport {
         toDevice: DeviceId,
         messageType: MessageType,
         conversationType: ConversationType,
-        readReceipt: ReadReceiptPacket
+        readReceipt: ReadReceiptPacket?
     ) async throws {
         let packet = MessagePacket(
             id: messageId,
@@ -170,7 +170,7 @@ extension NeedleTailTransport {
         toDevice: DeviceId,
         messageType: MessageType,
         conversationType: ConversationType,
-        readReceipt: ReadReceiptPacket
+        readReceipt: ReadReceiptPacket?
     ) async throws {
         
         //We look up all device identities on the server and create the NeedleTailNick there

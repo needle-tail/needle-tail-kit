@@ -156,13 +156,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 authenticated: self.authenticated,
                 clientContext: clientContext
             )
-            
+
             self.needleTailNick = nick
         }
         try await connect()
     }
     
-    //TODO: Have exit point be in transport+outbound
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     @NeedleTailClientActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
@@ -180,15 +179,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             return running
         })
         
-        print("CONFIG_TO_SEND", data)
-        for device in try data.readAndValidateDevices() {
-            print("CONFIG", device)
-        }
-
-        print("update_key_bundle", updateKeyBundle)
         let jwt = try makeToken()
-        
-        //TODO: If we are updating kwy bundle our recipientDeviceId should not be config.deviceID. We need to get the correct recipient
+
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
         self.keyBundle = bundleData.base64EncodedString()
@@ -434,8 +426,10 @@ extension NeedleTailMessenger {
         let token: String
     }
     
+    @NeedleTailTransportActor
     public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-        self.delegate = delegate
+//        self.delegate = delegate
+        await client?.transport?.transportDelegate = delegate
     }
     
     @BlobActor
@@ -584,8 +578,8 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
+        print("BEFRIEND__",username)
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        guard let readReceipt = readReceipt else { return }
         guard let deviceId = self.deviceId else { return }
         switch type {
         case .groupMessage(let name):

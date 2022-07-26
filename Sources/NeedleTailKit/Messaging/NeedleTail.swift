@@ -37,7 +37,6 @@ public final class NeedleTail {
     public var cypher: CypherMessenger?
     public var emitter = makeEventEmitter()
     var plugin: NeedleTailPlugin?
-    //    public weak var delegate: AsyncIRCNotificationsDelegate?
     public var messageType: MessageType = .message {
         didSet {
             messenger?.messageType = messageType
@@ -350,7 +349,6 @@ extension NeedleTail: ObservableObject {
         public var view: AnyView
         var state = NetworkMonitor()
         @State private var showingAlert = false
-//        @StateObject var needleTailViewModel = NeedleTailViewModel()
         
         public init(
             _ view: AnyView,
@@ -376,7 +374,6 @@ extension NeedleTail: ObservableObject {
                         clientInfo: clientInfo,
                         p2pFactories: makeP2PFactories()
                     )
-                    
                     needleTailViewModel.emitter = NeedleTail.shared.emitter
                 }
                 return (needleTailViewModel.cypher,  needleTailViewModel.emitter)
@@ -437,12 +434,12 @@ extension NeedleTail: ObservableObject {
         public var members: Set<Username>?
         public var permissions: IRCChannelMode?
         public var password: String = ""
-        public var store: CypherMessengerStore
-        public var clientInfo: ClientContext.ServerClientInfo
+        public var store: CypherMessengerStore? = nil
+        public var clientInfo: ClientContext.ServerClientInfo? = nil
         @Binding public var dismiss: Bool
         @Binding var showProgress: Bool
         @Binding var qrCodeData: Data?
-        @Binding var showScanner: Bool
+        @Binding var showScanner: Bool?
         
         public init(
             exists: Bool,
@@ -457,12 +454,12 @@ extension NeedleTail: ObservableObject {
             organizers: Set<Username>? = nil,
             members: Set<Username>? = nil,
             permissions: IRCChannelMode? = nil,
-            store: CypherMessengerStore,
-            clientInfo: ClientContext.ServerClientInfo,
+            store: CypherMessengerStore? = nil,
+            clientInfo: ClientContext.ServerClientInfo? = nil,
             dismiss: Binding<Bool>,
             showProgress: Binding<Bool>,
             qrCodeData: Binding<Data?>,
-            showScanner: Binding<Bool>
+            showScanner: Binding<Bool?>
         ) {
             self.exists = exists
             self.createContact = createContact
@@ -478,7 +475,7 @@ extension NeedleTail: ObservableObject {
             self.password = password
             self.store = store
             self.clientInfo = clientInfo
-            self.clientInfo.password = password
+            self.clientInfo?.password = password
             self._dismiss = dismiss
             self._showProgress = showProgress
             self._qrCodeData = qrCodeData
@@ -515,6 +512,8 @@ extension NeedleTail: ObservableObject {
                     } else {
                         do {
                             let needleTailViewModel = NeedleTail.shared.needleTailViewModel
+                            guard let store = store else { throw NeedleTailError.storeNotIntitialized }
+                            guard let clientInfo = clientInfo else { throw NeedleTailError.clientInfotNotIntitialized }
                             needleTailViewModel.cypher = try await NeedleTail.shared.onBoardAccount(
                                 appleToken: "",
                                 username: username.raw,
