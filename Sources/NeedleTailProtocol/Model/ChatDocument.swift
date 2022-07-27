@@ -12,7 +12,7 @@ public struct ChatDocument: Codable, Sendable {
     public let id: String
     public let createdAt: Date
     public let sender: String
-    public let recipients: [IRCMessageRecipient]
+    public var recipients: [IRCMessageRecipient]
     public let chatData: Data
     public var sent: Bool
 

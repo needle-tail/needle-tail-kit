@@ -578,9 +578,8 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        print("BEFRIEND__",username)
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        guard let deviceId = self.deviceId else { return }
+        guard let myDeviceId = self.deviceId else { return }
         switch type {
         case .groupMessage(let name):
             try await transport.createGroupMessage(
@@ -588,18 +587,19 @@ extension NeedleTailMessenger {
                 pushType: pushType,
                 message: message,
                 channelName: name,
-                fromDevice: deviceId,
+                fromDevice: myDeviceId,
                 toUser: username,
                 toDevice: deviceId,
                 messageType: .message,
                 conversationType: type,
                 readReceipt: readReceipt)
         case .privateMessage:
+            //TODO: SETTING SELF.DEVICE AS TODEVICE!!! WHY??
             try await transport.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
-                fromDevice: deviceId,
+                fromDevice: myDeviceId,
                 toUser: username,
                 toDevice: deviceId,
                 messageType: .message,
