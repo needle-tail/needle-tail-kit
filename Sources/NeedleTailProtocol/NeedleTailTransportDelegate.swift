@@ -40,7 +40,7 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
-//    public var userConfig: UserConfig? { get { return nil } set{} }
+    public var userConfig: UserConfig? { get { return nil } set{} }
     public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 
     public func clientMessage(_
