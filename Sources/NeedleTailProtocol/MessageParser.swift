@@ -113,7 +113,7 @@ public final class MessageParser {
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
             
         }
-        self.logger.info("Parsed Message")
+        self.logger.info("Parsed Message \(ircMessage)")
         return ircMessage
     }
     

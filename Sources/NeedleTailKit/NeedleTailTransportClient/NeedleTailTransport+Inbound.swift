@@ -98,7 +98,7 @@ extension NeedleTailTransport {
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
-                        guard let sender = sender?.nick.stringValue else { return }
+                        guard let sender = sender?.nick.name else { return }
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,
