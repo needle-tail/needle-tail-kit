@@ -211,6 +211,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         let jwt = try makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
+        print("RECIPIENT", readBundleObject.recipient)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
         var userConfig: UserConfig? = nil
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
@@ -223,7 +224,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
-        
+        print("getting ready to read device from \(username)")
+        for device in try userConfig?.readAndValidateDevices() ?? [] {
+            print("DEvices____", device.deviceId)
+        }
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
@@ -595,6 +599,7 @@ extension NeedleTailMessenger {
                 readReceipt: readReceipt)
         case .privateMessage:
             //TODO: SETTING SELF.DEVICE AS TODEVICE!!! WHY??
+            print("OTHER_USER___", deviceId)
             try await transport.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,

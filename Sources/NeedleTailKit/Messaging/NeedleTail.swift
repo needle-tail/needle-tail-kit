@@ -270,21 +270,20 @@ public final class NeedleTail {
             try await contact.unfriend()
         }
     }
-    
-    public func addContact(contact: String, nick: String = "") async throws {
-        guard contact != self.cypher?.username.raw else { fatalError("Cannot be friends with ourself") }
-        let chat = try await cypher?.createPrivateChat(with: Username(contact))
-        let contact = try await cypher?.createContact(byUsername: Username(contact))
+
+    public func addContact(newContact: String, nick: String = "") async throws {        
+        let chat = try await cypher?.createPrivateChat(with: Username(newContact))
+        let contact = try await cypher?.createContact(byUsername: Username(newContact))
         messageType = .beFriend
         try await contact?.befriend()
         try await contact?.setNickname(to: nick)
+        messageType = .message
         _ = try await chat?.sendRawMessage(
             type: .magic,
             messageSubtype: "_/ignore",
             text: "",
             preferredPushType: .contactRequest
         )
-        messageType = .message
     }
     
     //We are not using CTK for groups. All messages are sent in one-on-one conversations. This includes group chat communication, that will also be routed in private chats. What we want to do is create a group. The Organizer of the group will do this. The organizer can then do the following.
@@ -491,7 +490,7 @@ extension NeedleTail: ObservableObject {
                 showProgress = true
                 Task {
                     if createContact {
-                        try await NeedleTail.shared.addContact(contact: username.raw, nick: nick)
+                        try await NeedleTail.shared.addContact(newContact: nick, nick: nick)
                         showProgress = false
                         dismiss = true
                     } else if createChannel {

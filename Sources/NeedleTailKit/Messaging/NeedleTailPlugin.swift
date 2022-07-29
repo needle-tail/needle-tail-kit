@@ -36,15 +36,14 @@ public class NeedleTailPlugin: Plugin {
     
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
+        print("CONT__", contact)
         emitter.contactChanged = contact
 #endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        //        emitter.contacts.removeAll { $0.id == contact.id }
         emitter.contactRemoved = contact
-        print(contact.username.raw, "removed...")
 #endif
     }
     
