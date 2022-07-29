@@ -224,11 +224,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
-        print("getting ready to read device from \(username)")
-        for device in try userConfig?.readAndValidateDevices() ?? [] {
-            print("DEvices____", device.deviceId)
-        }
+
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
+        // need to set the userConfig to nil for the next read flow
+        transport.userConfig = nil
         return userConfig
     }
     

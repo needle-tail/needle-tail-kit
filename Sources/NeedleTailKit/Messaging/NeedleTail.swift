@@ -271,7 +271,7 @@ public final class NeedleTail {
         }
     }
 
-    public func addContact(newContact: String, nick: String = "") async throws {        
+    public func addContact(newContact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(newContact))
         let contact = try await cypher?.createContact(byUsername: Username(newContact))
         messageType = .beFriend
@@ -426,6 +426,7 @@ extension NeedleTail: ObservableObject {
         public var createChannel: Bool = true
         public var buttonTitle: String = ""
         public var username: Username = ""
+        public var userHandle: String = ""
         public var nick: String = ""
         public var channelName: String?
         public var admin: Username?
@@ -447,6 +448,7 @@ extension NeedleTail: ObservableObject {
             buttonTitle: String,
             username: Username,
             password: String,
+            userHandle: String,
             nick: String,
             channelName: String? = nil,
             admin: Username? = nil,
@@ -470,6 +472,7 @@ extension NeedleTail: ObservableObject {
             self.permissions = permissions
             self.buttonTitle = buttonTitle
             self.username = username
+            self.userHandle = userHandle
             self.nick = nick
             self.password = password
             self.store = store
@@ -490,7 +493,7 @@ extension NeedleTail: ObservableObject {
                 showProgress = true
                 Task {
                     if createContact {
-                        try await NeedleTail.shared.addContact(newContact: nick, nick: nick)
+                        try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
                         showProgress = false
                         dismiss = true
                     } else if createChannel {

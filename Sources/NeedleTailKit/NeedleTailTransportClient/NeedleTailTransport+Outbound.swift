@@ -26,15 +26,15 @@ extension NeedleTailTransport {
             assertionFailure("called \(#function) but we are not connecting?")
             return
         }
-        
+        let value = regPacket.base64EncodedString()
         guard temp == false else {
-            let tag = IRCTags(key: "tempRegPacket", value: regPacket.base64EncodedString())
+            let tag = IRCTags(key: "tempRegPacket", value: value)
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
             return
         }
         
         try await clientMessage(channel, command: .otherCommand("PASS", [""]))
-        let tag = IRCTags(key: "registrationPacket", value: regPacket.base64EncodedString())
+        let tag = IRCTags(key: "registrationPacket", value: value)
         try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
     }
     

@@ -208,14 +208,11 @@ public final class MessageParser {
             for tag in seperatedTags {
                 var tag = tag
                 tag.removeAll(where: { $0 == "@" })
-                var ircTag: IRCTags
+                print(tag)
                 let kvpArray = tag.components(separatedBy: "=")
-                if String(tag.suffix(2)) == "==" || String(tag.suffix(1)) == "=" {
-                    ircTag = IRCTags(key: kvpArray[0], value: "\(kvpArray[1])==")
-                } else {
-                    ircTag = IRCTags(key: kvpArray[0], value: kvpArray[1])
-                }
-                tagArray.append(ircTag)
+                tagArray.append(
+                    IRCTags(key: kvpArray[0], value: kvpArray[1])
+                )
             }
             self.logger.trace("Parsing Tags")
             return tagArray
