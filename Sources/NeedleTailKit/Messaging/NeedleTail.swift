@@ -36,6 +36,7 @@ public final class NeedleTail {
     public var messenger: NeedleTailMessenger?
     public var cypher: CypherMessenger?
     public var emitter = makeEventEmitter()
+    public var state = NetworkMonitor()
     var plugin: NeedleTailPlugin?
     public var messageType: MessageType = .message {
         didSet {
@@ -199,7 +200,19 @@ public final class NeedleTail {
             messenger.registrationState = .temp
         }
         if messenger.client == nil {
-            try await messenger.createClient(nameToVerify)
+            //We need to make sure we have internet before we try this
+            for status in await NeedleTail.shared.state.receiver.statusArray {
+                try await RunLoop.run(10, sleep: 1) {
+                    var running = true
+                    if status == .satisfied {
+                        running = false
+                    }
+                    return running
+                }
+                if status == .satisfied {
+                    try await messenger.createClient(nameToVerify)
+                }
+            }
         }
         return messenger
     }
@@ -346,8 +359,6 @@ extension NeedleTail: ObservableObject {
         public var p2pFactories: [P2PTransportClientFactory]? = []
         public var eventHandler: PluginEventHandler?
         public var view: AnyView
-        var state = NetworkMonitor()
-        @State private var showingAlert = false
         
         public init(
             _ view: AnyView,
@@ -378,26 +389,6 @@ extension NeedleTail: ObservableObject {
                 return (needleTailViewModel.cypher,  needleTailViewModel.emitter)
             }) { (cypher, emitter) in
                 view
-                    .task {
-                        await state.startMonitor()
-                        await state.getStatus()
-                    }
-                    .onReceive(state.receiver.$statusArray, perform: { newStatus in
-                        Task {
-                            for status in newStatus {
-                                switch status {
-                                case .unsatisfied:
-                                    await NeedleTail.shared.serviceInterupted(true)
-                                case .satisfied:
-                                    try? await NeedleTail.shared.resumeService()
-                                case .requiresConnection:
-                                    break
-                                default:
-                                    break
-                                }
-                            }
-                        }
-                    })
                     .onChange(of: scenePhase) { (phase) in
                         Task {
                             switch phase {

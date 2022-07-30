@@ -88,7 +88,7 @@ extension NeedleTailTransport {
             switch recipient {
             case .everything:
                 break
-            case .nickname(let nick):
+            case .nickname(_):
                     switch packet.type {
                     case .publishKeyBundle(_):
                         break
@@ -132,11 +132,10 @@ extension NeedleTailTransport {
                         logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
                         
                         switch await transportState.current {
-                        case .registering(channel: let channel, nick: let nick, userInfo: let user):
-                            await transportState.transition(to: .registered(channel: channel, nick: nick, userInfo: user))
+                        case .transportRegistering(channel: let channel, nick: let nick, userInfo: let user):
                             let type = TransportMessageType.standard(.USER(user))
                             try await transportMessage(channel, type: type)
-                            await transportState.transition(to: .online)
+                            await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
                             
                             // Everyone can join administrator, this primarily will be used for beta for report issues
                             let channelName = "#AdministratorChannel2"
@@ -158,7 +157,7 @@ extension NeedleTailTransport {
                     default:
                         break
                     }
-            case .channel(let channelName):
+            case .channel(_):
                 switch packet.type {
                 case .message:
                 // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
@@ -208,31 +207,25 @@ extension NeedleTailTransport {
     
      func doNick(_ newNick: NeedleTailNick) async throws {
         switch await transportState.current {
-        case .registering(let channel, let nick, let info):
+        case .transportRegistering(let channel, let nick, let info):
             guard nick != newNick else { return }
-            await transportState.transition(to: .registering(channel: channel, nick: newNick, userInfo: info))
-        case .registered(let channel, let nick, let info):
-            guard nick != newNick else { return }
-            await transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
-            
+            await transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
+//        case .transportOnline(let channel, let nick, let info):
+//            guard nick != newNick else { return }
+//            await transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
+//
         default: return // hmm
         }
-        //        await clientDelegate?.client(self, changedNickTo: newNick)
         await respondToTransportState()
     }
     
     
      func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
-        //        guard let myNick = self.nick?.name, myNick == nick.name else {
-        //            return
-        //        }
-        
         var newMode = userMode
         newMode.subtract(remove)
         newMode.formUnion(add)
         if newMode != userMode {
             userMode = newMode
-            //            await clientDelegate?.client(self, changedUserModeTo: newMode)
             await respondToTransportState()
         }
     }
@@ -283,24 +276,21 @@ extension NeedleTailTransport {
     
     private func respondToTransportState() async  {
         switch await transportState.current {
-        case .connecting:
+        case .clientOffline:
             break
-        case .registering(channel: _, nick: _, userInfo: _):
+        case .clientConnecting:
             break
-        case .registered(channel: _, nick: _, userInfo: _):
-            await transportState.transition(to: .online)
-        case .online:
+        case .clientConnected:
             break
-        case .suspended:
+        case .transportRegistering(channel: _, nick: _, userInfo: _):
             break
-        case .offline:
+        case .transportOnline(channel: _, nick: _, userInfo: _):
             break
-        case .disconnect:
+        case .transportDeregistering:
             break
-        case .error(error: let error):
-            print(error)
+        case .transportOffline:
             break
-        case .quit:
+        case .clientDisconnected:
             break
         }
     }

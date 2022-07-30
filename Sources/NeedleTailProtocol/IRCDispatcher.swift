@@ -38,7 +38,7 @@ public protocol IRCDispatcher: AnyObject {
     func doPing(_ server: String, server2: String?) async throws
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
-    func doNick(_ nick: NeedleTailNick, tags: [IRCTags]?) async throws
+    func doNick(_ sender: IRCUserID?, nick: NeedleTailNick, tags: [IRCTags]?) async throws
     func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) async throws
     func doModeGet(nick: NeedleTailNick) async throws
     func doModeGet(channel: IRCChannelName) async throws
@@ -96,7 +96,7 @@ public extension IRCDispatcher {
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doNick(_ nick: NeedleTailNick, tags: [IRCTags]?) async throws {
+    func doNick(_ sender: IRCUserID?, nick: NeedleTailNick, tags: [IRCTags]?) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doUserInfo(_ info: IRCUserInfo, tags: [IRCTags]?) async throws {

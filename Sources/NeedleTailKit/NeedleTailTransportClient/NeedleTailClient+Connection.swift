@@ -23,13 +23,13 @@ extension NeedleTailClient {
            self.channel = channel
            self.transport?.channel = channel
            self.userInfo = clientContext.userInfo
+           transportState.transition(to: .clientConnected)
        } catch {
            logger.error("Could not start client: \(error)")
-           transportState.transition(to: .offline)
+           transportState.transition(to: .clientOffline)
            self.authenticated = .authenticationFailure
            await self.shutdownClient()
        }
-       assert(channel != nil, "channel is nil")
    }
     
     func createChannel(host: String, port: Int) async throws -> Channel {
@@ -69,18 +69,18 @@ extension NeedleTailClient {
             }
     }
     
-    func handlerDidDisconnect(_ context: ChannelHandlerContext) async {
-        switch transportState.current {
-        case .error:
-            break
-        case .quit:
-            break
-        case .registering, .connecting:
-           transportState.transition(to: .disconnect)
-        default:
-            transportState.transition(to: .disconnect)
-        }
-    }
+//    func handlerDidDisconnect(_ context: ChannelHandlerContext) async {
+//        switch transportState.current {
+//        case .error:
+//            break
+//        case .quit:
+//            break
+//        case .registering, .connecting:
+//           transportState.transition(to: .disconnect)
+//        default:
+//            transportState.transition(to: .disconnect)
+//        }
+//    }
     
     func handlerCaughtError(_ error: Swift.Error,
                             in context: ChannelHandlerContext) {
@@ -89,48 +89,26 @@ extension NeedleTailClient {
     
     func attemptConnection() async throws {
         switch transportState.current {
-        case .registering(channel: _, nick: _, userInfo: _):
-            break
-        case .registered(channel: _, nick: _, userInfo: _):
-            break
-        case .connecting:
-            break
-        case .online:
-            break
-        case .suspended, .offline, .disconnect:
-            transportState.transition(to: .connecting)
+        case .clientOffline:
+            transportState.transition(to: .clientConnecting)
             try await startClient()
-        case .error:
-            break
-        case .quit:
+        default:
             break
         }
     }
 
      func attemptDisconnect(_ isSuspending: Bool) async {
         if isSuspending {
-            transportState.transition(to: .suspended)
+            transportState.transition(to: .transportDeregistering)
         }
-        switch transportState.current {
-        case .registering(channel: _, nick: _, userInfo: _):
-            break
-        case .registered(channel: _, nick: _, userInfo: _):
-            break
-        case .connecting:
-            break
-        case .online:
-            return
-        case .suspended, .offline:
-            transportState.transition(to: .offline)
+         switch transportState.current {
+         case .transportDeregistering:
+             transportState.transition(to: .clientOffline)
             authenticated = .unauthenticated
             await shutdownClient()
-        case .disconnect:
-            break
-        case .error:
-            break
-        case .quit:
-            break
-        }
+         default:
+             break
+         }
     }
     
     //We must make sure shutdown client is called before the NeedleTailClient is deinitialized

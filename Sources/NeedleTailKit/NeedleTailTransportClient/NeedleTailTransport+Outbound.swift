@@ -17,15 +17,12 @@ extension NeedleTailTransport {
     @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
         guard let channel = channel else { return }
-        await transportState.transition(to: .registering(
+        await transportState.transition(to: .transportRegistering(
             channel: channel,
             nick: clientContext.nickname,
             userInfo: clientContext.userInfo))
         
-        guard case .registering(_, let nick, _) = await transportState.current else {
-            assertionFailure("called \(#function) but we are not connecting?")
-            return
-        }
+        guard case .transportRegistering(_, let nick, _) = await transportState.current else { return }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)

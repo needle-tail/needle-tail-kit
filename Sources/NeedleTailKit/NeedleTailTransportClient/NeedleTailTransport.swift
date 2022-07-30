@@ -84,23 +84,24 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     /// - Parameter message: Our IRCMessage
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
+        
+        var sender: IRCUserID?
+        
+        if let origin = message.origin {
+            guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
+            let buffer = ByteBuffer(data: data)
+            let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
+            guard let userId = IRCUserID(
+                senderNick.name,
+                deviceId: senderNick.deviceId
+            ) else { throw NeedleTailError.invalidUserId }
+            sender = userId
+        }
+
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
         case .PRIVMSG(let recipients, let payload):
-            var sender: IRCUserID?
-            
-            if let origin = message.origin {
-                guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
-                let buffer = ByteBuffer(data: data)
-                let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-                guard let userId = IRCUserID(
-                    senderNick.name,
-                    deviceId: senderNick.deviceId
-                ) else { throw NeedleTailError.invalidUserId }
-                sender = userId
-            }
-            
             try await delegate?.doMessage(sender: sender,
                                           recipients: recipients,
                                           message: payload,
@@ -109,7 +110,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         case .NOTICE(let recipients, let message):
             try await delegate?.doNotice(recipients: recipients, message: message)
         case .NICK(let nickName):
-            try await delegate?.doNick(nickName, tags: message.tags)
+            try await delegate?.doNick(sender, nick: nickName, tags: message.tags)
         case .USER(let info):
             try await delegate?.doUserInfo(info, tags: message.tags)
         case .ISON(let nicks):

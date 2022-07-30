@@ -79,7 +79,7 @@ public class NeedleTailRepository {
                             if !groupChats.contains(groupChat) {
                                 groupChats.append(groupChat)
                             }
-                        case .internalChat(let internalChat):
+                        case .internalChat(_):
                             return nil
                         }
                     case .retry:

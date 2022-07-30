@@ -38,7 +38,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
         _ = lock.withSendableLock {
         Task {
                 logger.info("Channel Inactive")
-                await self.client.handlerDidDisconnect(context)
+//                await self.client.handlerDidDisconnect(context)
             }
         }
     }

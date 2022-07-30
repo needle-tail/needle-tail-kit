@@ -26,78 +26,55 @@ public class TransportState: StateMachine {
         self.emitter = emitter
         self.logger = Logger(label: "TransportState:")
     }
-    // MARK: StateMachine
-    public enum State: Equatable {
-        public static func == (lhs: TransportState.State, rhs: TransportState.State) -> Bool {
-            switch (lhs, rhs) {
-            case (.offline, .offline), (.online, .online):
-            return true
-            default:
-            return false
-            }
-        }
-    
-        case connecting
-        case registering(
-            channel: Channel,
-            nick: NeedleTailNick,
-            userInfo: IRCUserInfo)
-        case registered(
-            channel: Channel,
-            nick: NeedleTailNick,
-            userInfo: IRCUserInfo)
-        case online
-        case suspended
-        case offline
-        case disconnect
-        case error(error: Error)
-        case quit
-        
-    }
 
-    public var current: State = .offline
+    public enum State {
+        case clientOffline
+        case clientConnecting
+        case clientConnected
+        case transportRegistering(
+            channel: Channel,
+            nick: NeedleTailNick,
+            userInfo: IRCUserInfo)
+        case transportOnline(
+            channel: Channel,
+            nick: NeedleTailNick,
+            userInfo: IRCUserInfo)
+        case transportDeregistering
+        case transportOffline
+        case clientDisconnected
+    }
+    
+    public var current: State = .clientOffline
     
     public func transition(to nextState: State) {
+        Task {
+            await setState(nextState)
+        }
         self.current = nextState
         switch self.current {
-        case .connecting:
-            logger.info("The client is transitioning to a connecting state")
-        case .registering(channel: let channel, nick: let nick, userInfo: let userInfo):
-            logger.info("client is transitioning to a registering state with channel: \(channel), and Nick: \(nick) has UserInfo: \(userInfo)")
-        case .registered(channel: let channel, nick: let nick, userInfo: let userInfo):
-            logger.info("The client is transitioning to a registered state with channel: \(channel), and Nick: \(nick) has UserInfo: \(userInfo)")
-        case .online:
-            logger.info("The client is transitioning to an online state")
-            Task {
-                await online()
-            }
-        case .suspended:
-            logger.info("The client is transitioning to a suspended state")
-        case .offline:
-            logger.info("The client is transitioning to an offline state")
-            Task {
-                await offline()
-            }
-        case .disconnect:
-            logger.info("The client is transitioning to a disconnected state")
-        case .error(let error):
-            logger.info("The client is transitioning to an error state \(error)")
-        case .quit:
-            logger.info("The client is transitioning to quited state")
+        case .clientOffline:
+            logger.info("The client is offline")
+        case .clientConnecting:
+            logger.info("The client is connecting")
+        case .clientConnected:
+            logger.info("The client has connected")
+        case .transportRegistering(channel: _, nick: let nick, userInfo: let userInfo):
+            logger.info("Now registering Nick: \(nick.name) has UserInfo: \(userInfo)")
+        case .transportOnline(channel: _, nick: let nick, userInfo: let userInfo):
+            logger.info("Nick: \(nick.name) with UserInfo: \(userInfo) is now online")
+        case .transportDeregistering:
+            logger.info("We are de-registering Session")
+        case .transportOffline:
+            logger.info("Successfully de-registerd Session")
+        case .clientDisconnected:
+            logger.info("Client has disconnected")
         }
     }
     
     @MainActor
-    func online() {
+    func setState(_ currentState: State) {
 #if (os(macOS) || os(iOS))
-        emitter.online = true
-#endif
-    }
-    
-    @MainActor
-    func offline() {
-#if (os(macOS) || os(iOS))
-        emitter.online = false
+    self.emitter.state = currentState
 #endif
     }
 }

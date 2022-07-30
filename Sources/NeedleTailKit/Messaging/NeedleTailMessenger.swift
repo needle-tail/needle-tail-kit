@@ -595,7 +595,6 @@ extension NeedleTailMessenger {
                 conversationType: type,
                 readReceipt: readReceipt)
         case .privateMessage:
-            print("SENDING TO \(deviceId)")
             try await transport.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
