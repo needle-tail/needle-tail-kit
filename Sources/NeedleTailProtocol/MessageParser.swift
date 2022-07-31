@@ -40,7 +40,7 @@ public final class MessageParser {
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
         var command = ""
         var parameter = ""
-        ///This stripedMessage represents our irc message portion without tags. If we have the source then we will get the source here
+        ///This strippedMessage represents our irc message portion without tags. If we have the source then we will get the source here
         
         /// Always our origin
         if stripedMessage.hasPrefix(":") {
@@ -49,7 +49,7 @@ public final class MessageParser {
         }
         let spreadStriped = stripedMessage.components(separatedBy: " ")
         
-        //If we get an origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
+        ///If we get an origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
         if stripedMessage.hasPrefix(":") {
             command = spreadStriped[1]
             parameter = spreadStriped[2]
@@ -88,27 +88,27 @@ public final class MessageParser {
         
         switch commandKey {
         case .string(let commandKey):
-            //            :needletail!needletail@localhost JOIN #NIO
-            if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
-                if let unwrapOrigin = origin {
-                    if unwrapOrigin.contains("@") && unwrapOrigin.contains("!") {
-                        let seperatedJoin = unwrapOrigin.components(separatedBy: "!")
-                        origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
-                    }
-                }
-            }
+            guard var origin = origin else { throw MessageParserError.originIsNil }
             
-            if commandKey.hasPrefix("PRIVMSG") {
-                if origin?.contains("!") != nil {
-                guard let array = origin?.components(separatedBy: "!") else { throw MessageParserError.originIsNil }
-                let newOrigin = String(array[0]).dropFirst()
-                origin = String(newOrigin)
+            /// Potential origins
+            /// :needletail!needletail@localhost JOIN #NIO
+            /// :someBase64EncodedString JOIN #NIO
+//            if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") || commandKey.hasPrefix("PRIVMSG") {
+                if origin.hasPrefix(":"),
+                   origin.contains("@") && origin.contains("!") {
+                    let seperatedJoin = origin.components(separatedBy: "!")
+                    origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
+                } else if origin.hasPrefix(":") {
+                    origin = origin.replacingOccurrences(of: ":", with: "")
                 }
-            }
-            
+//            }
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
         case .int(let commandKey):
+            guard var origin = origin else { throw MessageParserError.originIsNil }
+            if origin.hasPrefix(":") {
+                origin = origin.replacingOccurrences(of: ":", with: "")
+            }
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
             
