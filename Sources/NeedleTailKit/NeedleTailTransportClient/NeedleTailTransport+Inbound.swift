@@ -138,14 +138,14 @@ extension NeedleTailTransport {
                             await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
                             
                             // Everyone can join administrator, this primarily will be used for beta for report issues
-                            let channelName = "#AdministratorChannel2"
-                            try await messenger.createLocalChannel(
-                                name: channelName,
-                                admin: Username(nick.stringValue),
-                                organizers: [Username(nick.stringValue)],
-                                members: [Username(nick.stringValue)],
-                                permissions: .channelOperator
-                            )
+//                            let channelName = "#AdministratorChannel2"
+//                            try await messenger.createLocalChannel(
+//                                name: channelName,
+//                                admin: Username(nick.stringValue),
+//                                organizers: [Username(nick.stringValue)],
+//                                members: [Username(nick.stringValue)],
+//                                permissions: .channelOperator
+//                            )
                             
                         default:
                             break
