@@ -88,27 +88,27 @@ public final class MessageParser {
         
         switch commandKey {
         case .string(let commandKey):
-            guard var origin = origin else { throw MessageParserError.originIsNil }
+//            guard var origin = origin else { throw MessageParserError.originIsNil }
             
             /// Potential origins
             /// :needletail!needletail@localhost JOIN #NIO
             /// :someBase64EncodedString JOIN #NIO
 //            if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") || commandKey.hasPrefix("PRIVMSG") {
-                if origin.hasPrefix(":"),
-                   origin.contains("@") && origin.contains("!") {
-                    let seperatedJoin = origin.components(separatedBy: "!")
+            if let unwrappedOrigin = origin {
+                if unwrappedOrigin.hasPrefix(":"),
+                   unwrappedOrigin.contains("@") && unwrappedOrigin.contains("!") {
+                    let seperatedJoin = unwrappedOrigin.components(separatedBy: "!")
                     origin = seperatedJoin[0].replacingOccurrences(of: ":", with: "")
-                } else if origin.hasPrefix(":") {
-                    origin = origin.replacingOccurrences(of: ":", with: "")
+                } else if unwrappedOrigin.hasPrefix(":") {
+                    origin = unwrappedOrigin.replacingOccurrences(of: ":", with: "")
                 }
-//            }
+            }
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
         case .int(let commandKey):
-            guard var origin = origin else { throw MessageParserError.originIsNil }
-            if origin.hasPrefix(":") {
-                origin = origin.replacingOccurrences(of: ":", with: "")
-            }
+                if origin?.hasPrefix(":") != nil {
+                    origin = origin?.replacingOccurrences(of: ":", with: "")
+                }
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
             
