@@ -99,6 +99,7 @@ extension NeedleTailTransport {
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
                         guard let sender = sender?.nick.name else { return }
+
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,
