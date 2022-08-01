@@ -534,7 +534,7 @@ extension NeedleTail: ObservableObject {
                 }
             })
             .onDisappear {
-//                self.buttonTask?.cancel()
+                self.buttonTask?.cancel()
             }
             .onReceive(NeedleTail.shared.emitter.$qrCodeData) { data in
                 self.qrCodeData = data
