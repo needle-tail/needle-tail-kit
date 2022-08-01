@@ -206,7 +206,6 @@ public final class MessageParser {
             for tag in seperatedTags {
                 var tag = tag
                 tag.removeAll(where: { $0 == "@" })
-                print(tag)
                 let kvpArray = tag.split(separator: "=", maxSplits: 1)
                 tagArray.append(
                     IRCTags(key: String(kvpArray[0]), value: String(kvpArray[1]))
