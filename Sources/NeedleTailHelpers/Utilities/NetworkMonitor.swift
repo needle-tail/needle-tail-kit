@@ -65,7 +65,7 @@ public class MonitorReceiver: ObservableObject {
             let task = Task {
                 await updateStatus()
             }
-            task.cancel()
+//            task.cancel()
         }
     }
     

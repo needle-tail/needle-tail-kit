@@ -211,11 +211,8 @@ extension NeedleTailTransport {
         case .transportRegistering(let channel, let nick, let info):
             guard nick != newNick else { return }
             await transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
-//        case .transportOnline(let channel, let nick, let info):
-//            guard nick != newNick else { return }
-//            await transportState.transition(to: .registered(channel: channel, nick: newNick, userInfo: info))
-//
-        default: return // hmm
+        default:
+            return
         }
         await respondToTransportState()
     }

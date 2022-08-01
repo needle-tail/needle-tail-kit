@@ -404,7 +404,7 @@ extension NeedleTail: ObservableObject {
                                 break
                             }
                         }
-                        task.cancel()
+//                        task.cancel()
                     }
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)
@@ -534,7 +534,7 @@ extension NeedleTail: ObservableObject {
                 }
             })
             .onDisappear {
-                self.buttonTask?.cancel()
+//                self.buttonTask?.cancel()
             }
             .onReceive(NeedleTail.shared.emitter.$qrCodeData) { data in
                 self.qrCodeData = data
