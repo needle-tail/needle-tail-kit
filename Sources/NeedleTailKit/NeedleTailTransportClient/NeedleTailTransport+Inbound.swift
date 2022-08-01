@@ -71,8 +71,7 @@ extension NeedleTailTransport {
         let type = TransportMessageType.private(.PRIVMSG([.nickname(nick)], encodedData.base64EncodedString()))
         try await transportMessage(channel, type: type)
 }
-
-
+    
      func doMessage(
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
@@ -83,7 +82,7 @@ extension NeedleTailTransport {
         guard let data = Data(base64Encoded: message) else { return }
         let buffer = ByteBuffer(data: data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
-        
+
         for recipient in recipients {
             switch recipient {
             case .everything:
@@ -96,6 +95,7 @@ extension NeedleTailTransport {
                         break
                     case .message, .beFriend:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
+                        print(packet.message, "pppp")
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
                         guard let sender = sender?.nick.name else { return }
