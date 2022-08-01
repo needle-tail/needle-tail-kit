@@ -47,9 +47,10 @@ public class TransportState: StateMachine {
     public var current: State = .clientOffline
     
     public func transition(to nextState: State) {
-        Task {
+       let task = Task {
             await setState(nextState)
         }
+        task.cancel()
         self.current = nextState
         switch self.current {
         case .clientOffline:

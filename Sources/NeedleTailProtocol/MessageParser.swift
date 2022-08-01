@@ -219,7 +219,7 @@ public final class MessageParser {
 }
 
 
-public enum MessageParserError: Error {
+public enum MessageParserError: Error, Sendable {
     case rangeNotFound
     case firstCharacterIsNil
     case argumentsAreNil

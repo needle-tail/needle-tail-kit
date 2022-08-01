@@ -12,7 +12,7 @@ import NeedleTailHelpers
 import NIOConcurrencyHelpers
 
 
-final class NeedleTailHandler: ChannelInboundHandler {
+final class NeedleTailHandler: ChannelInboundHandler, Sendable {
     
     typealias InboundIn = IRCMessage
     
@@ -35,17 +35,17 @@ final class NeedleTailHandler: ChannelInboundHandler {
     }
     
     func channelInactive(context: ChannelHandlerContext) {
-        _ = lock.withSendableLock {
-        Task {
+        lock.withSendableLock {
+            let task = Task {
                 logger.info("Channel Inactive")
-//                await self.client.handlerDidDisconnect(context)
             }
+            task.cancel()
         }
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        _ = lock.withSendableLock {
-        Task {
+        lock.withSendableLock {
+            let task = Task {
                 let message = unwrapInboundIn(data)
                 do {
                     try await transport.processReceivedMessages(message)
@@ -55,15 +55,17 @@ final class NeedleTailHandler: ChannelInboundHandler {
                     logger.error("\(error)")
                 }
             }
+            task.cancel()
         }
     }
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        _ = lock.withSendableLock {
-        Task {
+        lock.withSendableLock {
+            let task = Task {
                 await self.client.handlerCaughtError(error, in: context)
-                context.close(promise: nil)
             }
+            task.cancel()
         }
+        context.close(promise: nil)
     }
 }

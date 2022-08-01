@@ -390,7 +390,7 @@ extension NeedleTail: ObservableObject {
             }) { (cypher, emitter) in
                 view
                     .onChange(of: scenePhase) { (phase) in
-                        Task {
+                        let task = Task {
                             switch phase {
                             case .active:
                                 print("Active")
@@ -404,6 +404,7 @@ extension NeedleTail: ObservableObject {
                                 break
                             }
                         }
+                        task.cancel()
                     }
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)
@@ -431,6 +432,7 @@ extension NeedleTail: ObservableObject {
         @Binding var showProgress: Bool
         @Binding var qrCodeData: Data?
         @Binding var showScanner: Bool?
+        let buttonTask: Task<(), Error>? = nil
         
         public init(
             exists: Bool,
@@ -482,7 +484,7 @@ extension NeedleTail: ObservableObject {
                 UIApplication.shared.endEditing()
 #endif
                 showProgress = true
-                Task {
+                let buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
                         showProgress = false
@@ -531,6 +533,9 @@ extension NeedleTail: ObservableObject {
                     }
                 }
             })
+            .onDisappear {
+                self.buttonTask?.cancel()
+            }
             .onReceive(NeedleTail.shared.emitter.$qrCodeData) { data in
                 self.qrCodeData = data
                 self.showProgress = false
@@ -565,7 +570,8 @@ public struct AsyncView<T, V: View>: View {
             case .some(.failure(let error)):
                 ErrorView(error: error)
             case .none:
-                NeedleTailProgressView().task {
+                NeedleTailProgressView()
+                    .task {
                     do {
                         self.result = .success(try await run())
                     } catch {
