@@ -242,7 +242,7 @@ public final class NeedleTail {
             database: store,
             eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
-        
+
         messenger?.cypher = self.cypher
         emitter.needleTailNick = messenger?.needleTailNick
         return self.cypher

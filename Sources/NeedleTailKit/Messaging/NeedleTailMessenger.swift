@@ -209,11 +209,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     /// from **CypherTextKit**'s **registerMessenger()** method.
     @NeedleTailClientActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
+        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        // We need to set the userConfig to nil for the next read flow
+        transport.userConfig = nil
         let jwt = try makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
         var userConfig: UserConfig? = nil
-        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         
         try await RunLoop.run(240, sleep: 1, stopRunning: { 
             var running = true
@@ -225,8 +227,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         })
 
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
-        // need to set the userConfig to nil for the next read flow
-        transport.userConfig = nil
         return userConfig
     }
     

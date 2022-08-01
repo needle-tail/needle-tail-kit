@@ -23,24 +23,28 @@ public class NeedleTailPlugin: Plugin {
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
+        print("Message__", message)
         emitter.messageReceived = message
 #endif
     }
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
+        print("Contact__", contact)
         emitter.contactAdded = contact
 #endif
     }
     
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
+        print("Contact__", contact)
         emitter.contactChanged = contact
 #endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
+        print("Contact__", contact)
         emitter.contactRemoved = contact
 #endif
     }
