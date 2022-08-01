@@ -21,7 +21,7 @@ let package = Package(
             targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", branch: "udp-support-nio-latest"),
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.13.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.27.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),

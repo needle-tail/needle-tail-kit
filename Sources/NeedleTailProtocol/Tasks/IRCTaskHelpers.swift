@@ -7,7 +7,6 @@ enum IRCTaskHelpers: Sendable {
         task: String,
         messageParser: MessageParser
     ) async throws -> IRCMessage {
-        Logger(label: "IRCTaskHelpers - ").info("Parsing has begun")
         return try await messageParser.parseMessage(task)
     }
 }
