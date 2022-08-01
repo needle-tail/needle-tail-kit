@@ -51,7 +51,10 @@ public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
             dequeueStack = enqueueStack.reversed()
             enqueueStack.removeAll()
         }
-        let pop = dequeueStack.popLast()
-        return pop
+        if !dequeueStack.isEmpty && !enqueueStack.isEmpty {
+            return dequeueStack.popLast()
+        } else {
+            return nil
+        }      
     }
 }
