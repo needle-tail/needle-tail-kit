@@ -39,7 +39,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
             let task = Task {
                 logger.info("Channel Inactive")
             }
-//            task.cancel()
+            task.cancel()
         }
     }
     
@@ -55,7 +55,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
                     logger.error("\(error)")
                 }
             }
-//            task.cancel()
+            task.cancel()
         }
     }
     
@@ -64,7 +64,7 @@ final class NeedleTailHandler: ChannelInboundHandler, Sendable {
             let task = Task {
                 await self.client.handlerCaughtError(error, in: context)
             }
-//            task.cancel()
+            task.cancel()
         }
         context.close(promise: nil)
     }

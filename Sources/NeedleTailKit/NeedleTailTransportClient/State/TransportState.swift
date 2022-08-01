@@ -50,7 +50,7 @@ public class TransportState: StateMachine {
        let task = Task {
             await setState(nextState)
         }
-//        task.cancel()
+        task.cancel()
         self.current = nextState
         switch self.current {
         case .clientOffline:

@@ -404,7 +404,7 @@ extension NeedleTail: ObservableObject {
                                 break
                             }
                         }
-//                        task.cancel()
+                        task.cancel()
                     }
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)

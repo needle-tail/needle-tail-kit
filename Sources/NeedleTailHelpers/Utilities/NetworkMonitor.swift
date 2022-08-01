@@ -62,10 +62,9 @@ public class MonitorReceiver: ObservableObject {
     @Published
     public var updateStatus: NWPath.Status = .requiresConnection {
         didSet {
-            let task = Task {
+             Task {
                 await updateStatus()
             }
-//            task.cancel()
         }
     }
     

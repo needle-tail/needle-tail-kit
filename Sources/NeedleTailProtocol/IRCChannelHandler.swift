@@ -120,16 +120,19 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
+//        let wioValue =
         lock.withSendableLock {
-            context.fireChannelRead(self.wrapInboundOut(value))
-            
+            let wioValue = wrapInboundOut(value)
+            context.fireChannelRead(wioValue)
         }
+      
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
-        lock.withSendableLock {
-            context.fireErrorCaught(MessageParserError.transportError(error))
+        let error = lock.withSendableLock {
+            MessageParserError.transportError(error)
         }
+        context.fireErrorCaught(error)
     }
     
     public func write(
@@ -137,10 +140,12 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
+//        let message =
         lock.withSendableLock {
-            let message: OutboundIn = self.unwrapOutboundIn(data)
+            let message = self.unwrapOutboundIn(data)
             write(context: context, value: message, promise: promise)
         }
+//        write(context: context, value: message, promise: promise)
     }
     
     public final func write(
