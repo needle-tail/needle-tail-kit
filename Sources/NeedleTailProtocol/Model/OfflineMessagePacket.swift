@@ -7,27 +7,28 @@
 
 import Foundation
 import BSON
+import NeedleTailHelpers
 
-public struct ChatDocument: Codable, Sendable {
+public struct OfflineMessagePacket: Codable, Sendable {
     public let id: String
     public let createdAt: Date
     public let sender: String
     public var recipients: [IRCMessageRecipient]
-    public let chatData: Data
+    public let messagePacket: MessagePacket
     public var sent: Bool
 
     public init(
         id: String,
         sender: String,
         recipients: [IRCMessageRecipient],
-        chatData: Data,
+        messagePacket: MessagePacket,
         sent: Bool
     ) {
         self.id = id
         self.createdAt = Date()
         self.sender = sender
         self.recipients = recipients
-        self.chatData = chatData
+        self.messagePacket = messagePacket
         self.sent = sent
     }
 }

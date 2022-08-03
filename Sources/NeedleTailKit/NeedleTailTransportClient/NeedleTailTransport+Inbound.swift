@@ -95,7 +95,7 @@ extension NeedleTailTransport {
                         break
                     case .message, .beFriend:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
-                        print(packet.message, "pppp")
+                        print("Recieved Message from server", packet)
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
                         guard let sender = sender?.nick.name else { return }
