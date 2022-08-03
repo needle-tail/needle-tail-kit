@@ -8,6 +8,6 @@
 import Foundation
 
 public enum OnlineStatus: Sendable {
-    case wasOffline(OfflineMessagePacket)
+    case wasOffline
     case isOnline
 }
