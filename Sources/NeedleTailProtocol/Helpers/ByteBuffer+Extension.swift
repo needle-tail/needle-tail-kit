@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIOCore
+import _AtomicsShims
 
 
 extension ByteBuffer {

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct NIO.ByteBuffer
+import _AtomicsShims
 
 public extension ByteBuffer {
   // This looks expensive, but isn't. As per @weissi String's store up to 15

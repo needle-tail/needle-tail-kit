@@ -1,6 +1,7 @@
 import NIO
 import NIOSSL
 import NeedleTailHelpers
+import _AtomicsShims
 #if canImport(Network)
 import Network
 import NIOTransportServices
