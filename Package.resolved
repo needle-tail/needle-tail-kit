@@ -5,26 +5,26 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/orlandos-nl/BSON.git",
       "state" : {
-        "revision" : "98a2c90988895f1b985ed0066180995df995924c",
-        "version" : "7.0.28"
+        "revision" : "e5f3c18e89048961156f3cb3af7f662979a2d0a9",
+        "version" : "8.0.1"
       }
     },
     {
       "identity" : "cyphertextkit",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/orlandos-nl/CypherTextKit.git",
+      "location" : "https://github.com/needle-tail/CypherTextKit.git",
       "state" : {
         "branch" : "feature/async-await",
-        "revision" : "d0cb0341ab7bc7bdd5e5bdb25d91a948a5534c3b"
+        "revision" : "1c9b9a7d518679a5a69616b62449958a68031d14"
       }
     },
     {
       "identity" : "dribble",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/orlandos-nl/Dribble.git",
+      "location" : "https://github.com/needle-tail/Dribble.git",
       "state" : {
-        "revision" : "afbfa0a83bd41880820b8883a765fd0d310eabfd",
-        "version" : "0.1.0"
+        "branch" : "main",
+        "revision" : "3c7228f66569daf554ab9495be38d450f0c4553a"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/jwt-kit.git",
       "state" : {
-        "revision" : "3537dd319dfbcc403a5165d8c19c4834e8e64730",
-        "version" : "4.5.0"
+        "revision" : "87ce13a1df913ba4d51cf00606df7ef24d455571",
+        "version" : "4.7.0"
       }
     },
     {
@@ -41,8 +41,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "223d62adc52d51669ae2ee19bdb8b7d9fd6fcd9c",
-        "version" : "0.0.6"
+        "revision" : "df9ee6676cd5b3bf5b330ec7568a5644f547201b",
+        "version" : "1.1.3"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "919eb1d83e02121cdb434c7bfc1f0c66ef17febe",
+        "version" : "1.0.2"
       }
     },
     {
@@ -50,8 +59,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "ddb07e896a2a8af79512543b1c7eb9797f8898a5",
-        "version" : "1.1.7"
+        "revision" : "d9825fa541df64b1a7b182178d61b9a82730d01f",
+        "version" : "2.1.0"
       }
     },
     {
@@ -68,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
       "state" : {
-        "revision" : "124119f0bb12384cef35aa041d7c3a686108722d",
-        "version" : "2.40.0"
+        "revision" : "b4e0a274f7f34210e97e2f2c50ab02a10b549250",
+        "version" : "2.41.1"
       }
     },
     {
@@ -77,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio-extras.git",
       "state" : {
-        "revision" : "e4dc3c8d1d1213298b9883f95a9ded5e6032c939",
-        "version" : "1.12.0"
+        "revision" : "a75e92bde3683241c15df3dd905b7a6dcac4d551",
+        "version" : "1.12.1"
       }
     },
     {
@@ -86,17 +95,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio-ssl.git",
       "state" : {
-        "revision" : "42436a25ff32c390465567f5c089a9a8ce8d7baf",
-        "version" : "2.20.0"
+        "revision" : "0265283d3539ced108b9b8287eb3328c9d85acdc",
+        "version" : "2.21.0"
       }
     },
     {
       "identity" : "swift-nio-transport-services",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Cartisim/swift-nio-transport-services.git",
+      "location" : "https://github.com/apple/swift-nio-transport-services.git",
       "state" : {
-        "branch" : "udp-support-nio-latest",
-        "revision" : "f80c310444d550f6f0db9d01bafb624a24fe8b4c"
+        "revision" : "4e02d9cf35cabfb538c96613272fb027dd0c8692",
+        "version" : "1.13.1"
       }
     },
     {
@@ -113,8 +122,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/websocket-kit.git",
       "state" : {
-        "revision" : "09212f4c2b9ebdef00f04b913b57f5d77bc4ea62",
-        "version" : "2.4.1"
+        "revision" : "efb1bd5adab0381e521a50b11d3107081cdb5615",
+        "version" : "2.6.0"
       }
     }
   ],
