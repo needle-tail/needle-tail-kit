@@ -26,6 +26,7 @@ import NIOTransportServices
 
 public class NeedleTailMessenger: CypherServerTransportClient {
     public var isConnected: Bool = false
+    public var receivedQuit = false
     public var delegate: CypherTransportClientDelegate?
     public private(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false

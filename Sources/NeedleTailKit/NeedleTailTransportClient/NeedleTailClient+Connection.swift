@@ -106,6 +106,7 @@ extension NeedleTailClient {
              transportState.transition(to: .clientOffline)
             authenticated = .unauthenticated
             await shutdownClient()
+//             messenger.isConnected = false
          default:
              break
          }

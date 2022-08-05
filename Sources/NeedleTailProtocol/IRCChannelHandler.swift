@@ -36,8 +36,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
+        print("IS IN EL1?????", context.eventLoop.inEventLoop)
         lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Inactive")
+            print("IS IN EL2?????", context.eventLoop.inEventLoop)
             context.fireChannelInactive()
         }
     }
@@ -46,7 +48,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     // MARK: - Reading
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         lock.withSendableLock {
-            self.logger.trace("IRCChannelHandler Read")
+            self.logger.info("IRCChannelHandler Read")
             var buffer = self.unwrapInboundIn(data)
             let lines = buffer.readString(length: buffer.readableBytes) ?? ""
             guard !lines.isEmpty else { return }
@@ -120,12 +122,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
-//        let wioValue =
         lock.withSendableLock {
             let wioValue = wrapInboundOut(value)
             context.fireChannelRead(wioValue)
         }
-      
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
@@ -140,12 +140,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-//        let message =
         lock.withSendableLock {
             let message = self.unwrapOutboundIn(data)
             write(context: context, value: message, promise: promise)
         }
-//        write(context: context, value: message, promise: promise)
     }
     
     public final func write(

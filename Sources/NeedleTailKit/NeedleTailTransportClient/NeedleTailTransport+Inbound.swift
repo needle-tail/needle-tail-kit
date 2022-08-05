@@ -258,6 +258,10 @@ extension NeedleTailTransport {
         await messenger.plugin.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
     }
     
+    func doQuit(_ message: String?) async throws {
+        messenger.isConnected = false
+    }
+    
     
      func doModeGet(nick: NeedleTailNick) async throws {
         print("DO MODE GET - NICK: \(nick)")
