@@ -99,7 +99,6 @@ extension NeedleTailTransport {
                         guard let message = packet.message else { return }
                         guard let deviceId = packet.sender else { return }
                         guard let sender = sender?.nick.name else { return }
-
                         print("The Following values should be received from the sender")
                         print(message)
                         print(packet.id)
@@ -109,6 +108,13 @@ extension NeedleTailTransport {
 //                        RatchetedCypherMessage(tag: CypherProtocol.CypherMesageTag.privateMessage, message: 575 bytes, signature: 64 bytes, rekey: false)
 //                        65DA6041-0190-419E-9C4B-68895F4644AB
 //                        needletail2
+//                        257aff0a-46a1-4d99-947c-12512ca3f220
+                        //TODO: The Problem is we are saving the wrong sender username!!
+                        
+//                        The Following values should be received from the sender
+//                        RatchetedCypherMessage(tag: CypherProtocol.CypherMesageTag.privateMessage, message: 580 bytes, signature: 64 bytes, rekey: false)
+//                        600E3EA1-4712-4F14-84B7-076560893DFA
+//                        needletail1
 //                        257aff0a-46a1-4d99-947c-12512ca3f220
                         
                         try await self.transportDelegate?.receiveServerEvent(

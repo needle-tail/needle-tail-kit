@@ -12,7 +12,7 @@ import NeedleTailHelpers
 public struct OfflineMessagePacket: Codable, Sendable {
     public let id: String
     public let createdAt: Date
-    public let sender: String
+    public var sender: String
     public var recipients: [IRCMessageRecipient]
     public let messagePacket: MessagePacket
     public var sent: Bool
