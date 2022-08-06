@@ -14,7 +14,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 
-public struct IRCUserID : Hashable, CustomStringConvertible, @unchecked Sendable {
+public struct IRCUserID: Codable, Hashable, CustomStringConvertible, @unchecked Sendable {
   
   public let nick: NeedleTailNick
   public let user : String?
