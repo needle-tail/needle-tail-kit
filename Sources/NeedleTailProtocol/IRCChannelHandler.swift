@@ -36,10 +36,8 @@ public final class IRCChannelHandler: ChannelDuplexHandler, @unchecked Sendable 
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
-        print("IS IN EL1?????", context.eventLoop.inEventLoop)
         lock.withSendableLock {
             self.logger.info("IRCChannelHandler is Inactive")
-            print("IS IN EL2?????", context.eventLoop.inEventLoop)
             context.fireChannelInactive()
         }
     }

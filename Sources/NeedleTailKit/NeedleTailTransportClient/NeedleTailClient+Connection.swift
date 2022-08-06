@@ -125,5 +125,6 @@ extension NeedleTailClient {
             exit(0)
         }
         logger.info("disconnected from server")
+        messenger.isConnected = false
     }
 }

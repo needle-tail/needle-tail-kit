@@ -264,7 +264,7 @@ public final class NeedleTail {
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
         await messenger?.suspend(isSuspending)
-        try? await RunLoop.run(15, sleep: 1) {
+        try? await RunLoop.run(5, sleep: 1) {
             var running = true
             if NeedleTail.shared.messenger?.isConnected == false {
                 running = false
