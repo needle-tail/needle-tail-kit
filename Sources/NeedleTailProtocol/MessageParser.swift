@@ -104,9 +104,9 @@ public final class MessageParser {
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
         case .int(let commandKey):
-                if origin?.hasPrefix(":") != nil {
-                    origin = origin?.replacingOccurrences(of: ":", with: "")
-                }
+            if origin?.hasPrefix(":") != nil {
+                origin = origin?.replacingOccurrences(of: ":", with: "")
+            }
             ircMessage = IRCMessage(origin: origin,
                                     command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
             
@@ -163,7 +163,7 @@ public final class MessageParser {
                 let components = chunk.components(separatedBy: "\r\n")
                 args.append(components[0])
             } else {
-            args.append(contentsOf: newArray)
+                args.append(contentsOf: newArray)
             }
         case .string(let commandKey):
             if commandKey.hasPrefix("NICK") {
@@ -184,7 +184,12 @@ public final class MessageParser {
             } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
-            } else if commandKey.hasPrefix("REGISTRYREQUEST") || commandKey.hasPrefix("REGISTRYRESPONSE") || commandKey.hasPrefix("NEWDEVICE") || commandKey.hasPrefix("READKEYBNDL") || commandKey.hasPrefix("PASS") ||  commandKey.hasPrefix("BLOBS") {
+            } else if commandKey.hasPrefix("REGISTRYREQUEST") ||
+                        commandKey.hasPrefix("REGISTRYRESPONSE") ||
+                        commandKey.hasPrefix("NEWDEVICE") ||
+                        commandKey.hasPrefix("READKEYBNDL") ||
+                        commandKey.hasPrefix("PASS") ||
+                        commandKey.hasPrefix("BLOBS") {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == ":" {
                     stripedMessage = String(stripedMessage.dropFirst())

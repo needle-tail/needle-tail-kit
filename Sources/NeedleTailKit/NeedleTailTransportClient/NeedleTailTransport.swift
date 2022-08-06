@@ -87,14 +87,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         
         var sender: IRCUserID?
         if let origin = message.origin {
-
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
             let buffer = ByteBuffer(data: data)
-            let senderNick = try BSONDecoder().decode(NeedleTailNick.self, from: Document(buffer: buffer))
-            guard let userId = IRCUserID(
-                senderNick.name,
-                deviceId: senderNick.deviceId
-            ) else { throw NeedleTailError.invalidUserId }
+            let userId = try BSONDecoder().decode(IRCUserID.self, from: Document(buffer: buffer))
             sender = userId
         }
 
