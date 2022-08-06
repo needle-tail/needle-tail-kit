@@ -440,7 +440,7 @@ extension NeedleTail: ObservableObject {
         @Binding var showProgress: Bool
         @Binding var qrCodeData: Data?
         @Binding var showScanner: Bool?
-        let buttonTask: Task<(), Error>? = nil
+        @State var buttonTask: Task<(), Error>? = nil
         
         public init(
             exists: Bool,
@@ -492,7 +492,7 @@ extension NeedleTail: ObservableObject {
                 UIApplication.shared.endEditing()
 #endif
                 showProgress = true
-                let buttonTask = Task {
+                self.buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
                         showProgress = false

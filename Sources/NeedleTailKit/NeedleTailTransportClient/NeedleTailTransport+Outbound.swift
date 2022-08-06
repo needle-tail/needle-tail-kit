@@ -230,7 +230,6 @@ extension NeedleTailTransport {
             }
             return running
         })
-        print("READUC____", userConfig)
         return userConfig
     }
     

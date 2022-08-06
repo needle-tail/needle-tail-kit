@@ -82,11 +82,6 @@ extension NeedleTailClient {
 //        }
 //    }
     
-    func handlerCaughtError(_ error: Swift.Error,
-                            in context: ChannelHandlerContext) {
-        print("IRCClient error:", error)
-    }
-    
     func attemptConnection() async throws {
         switch transportState.current {
         case .clientOffline:

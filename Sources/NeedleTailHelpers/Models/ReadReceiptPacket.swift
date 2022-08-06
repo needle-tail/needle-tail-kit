@@ -7,7 +7,7 @@
 
 import Foundation
 import CypherMessaging
-@preconcurrency import BSON
+import BSON
 
 public struct ReadReceiptPacket: Codable, Sendable {
     public enum State: Int, Codable, Sendable {

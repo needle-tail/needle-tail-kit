@@ -225,7 +225,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
-        print("READUC____2", userConfig)
         guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
         return userConfig
     }
