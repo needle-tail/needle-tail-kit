@@ -100,6 +100,17 @@ extension NeedleTailTransport {
                         guard let deviceId = packet.sender else { return }
                         guard let sender = sender?.nick.name else { return }
 
+                        print("The Following values should be received from the sender")
+                        print(message)
+                        print(packet.id)
+                        print(sender)
+                        print(deviceId)
+//                        The Following values should be received from the sender
+//                        RatchetedCypherMessage(tag: CypherProtocol.CypherMesageTag.privateMessage, message: 575 bytes, signature: 64 bytes, rekey: false)
+//                        65DA6041-0190-419E-9C4B-68895F4644AB
+//                        needletail2
+//                        257aff0a-46a1-4d99-947c-12512ca3f220
+                        
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,

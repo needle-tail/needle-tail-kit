@@ -210,7 +210,9 @@ public final class NeedleTail {
                     return running
                 }
                 if status == .satisfied {
-                    try await messenger.createClient(nameToVerify)
+                    if messenger.isConnected == false {
+                        try await messenger.createClient(nameToVerify)
+                    }
                 }
             }
         }

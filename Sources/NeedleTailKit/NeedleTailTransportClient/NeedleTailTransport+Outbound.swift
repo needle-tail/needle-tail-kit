@@ -55,7 +55,6 @@ extension NeedleTailTransport {
         switch conversationType {
         case .groupMessage(_):
             guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
-            //            guard let validatedName = NeedleTailNick(deviceId: deviceId, name: name) else { throw NeedleTailError.nilNickName }
             return .channel(name)
         case .privateMessage:
             guard let validatedName = NeedleTailNick(name: name, deviceId: deviceId) else { throw NeedleTailError.nilNickName }
@@ -231,7 +230,7 @@ extension NeedleTailTransport {
             }
             return running
         })
-        
+        print("READUC____", userConfig)
         return userConfig
     }
     
