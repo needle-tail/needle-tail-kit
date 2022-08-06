@@ -48,7 +48,7 @@ extension NeedleTailTransportDelegate {
                               command: IRCCommand,
                               tags: [IRCTags]? = nil
     ) async throws {
-        let message = IRCMessage(command: command, tags: tags)
+        let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
         try await sendAndFlushMessage(channel, message: message)
     }
 
