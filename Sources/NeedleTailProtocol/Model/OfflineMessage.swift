@@ -9,7 +9,7 @@ import Foundation
 import BSON
 import NeedleTailHelpers
 
-public struct OfflineMessagePacket: Codable, Sendable {
+public struct OfflineMessage: Codable, Sendable {
     public let id: String
     public let createdAt: Date
     public let sender: IRCUserID
