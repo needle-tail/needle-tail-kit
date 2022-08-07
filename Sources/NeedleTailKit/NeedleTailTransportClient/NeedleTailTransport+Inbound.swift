@@ -93,7 +93,7 @@ extension NeedleTailTransport {
                         break
                     case .registerAPN(_):
                         break
-                    case .message, .beFriend:
+                    case .message:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                         print("Recieved Message from server", packet)
                         guard let message = packet.message else { return }
@@ -104,7 +104,8 @@ extension NeedleTailTransport {
                         print(packet.id)
                         print(sender)
                         print(deviceId)
-
+                        print("AUTHENTICATION_STATE", messenger.authenticated )
+                        
                         try await self.transportDelegate?.receiveServerEvent(
                             .messageSent(
                                 message,
@@ -114,9 +115,10 @@ extension NeedleTailTransport {
                             )
                         )
                         
-                        let encodedString = try await createAcknowledgment(.messageSent(packet.id)).base64EncodedString()
+                        let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
+                        let ackString = acknowledgement.base64EncodedString()
                         guard let channel = await channel else { return }
-                        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+                        let type = TransportMessageType.private(.PRIVMSG([recipient], ackString))
                         try await transportMessage(channel, type: type)
                         
                     case .multiRecipientMessage:
@@ -191,13 +193,13 @@ extension NeedleTailTransport {
     }
     
     
-    private func createAcknowledgment(_ ackType: Acknowledgment.AckType) async throws -> Data {
+    private func createAcknowledgment(_ ackType: Acknowledgment.AckType, id: String? = nil) async throws -> Data {
         //Send message ack
         let received = Acknowledgment(acknowledgment: ackType)
         let ack = try BSONEncoder().encode(received).makeData()
         
         let packet = MessagePacket(
-            id: UUID().uuidString,
+            id: id ?? UUID().uuidString,
             pushType: .none,
             type: .ack(ack.base64EncodedString()),
             createdAt: Date(),

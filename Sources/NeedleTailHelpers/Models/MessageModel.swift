@@ -17,7 +17,6 @@ public enum MessageType: Codable, Sendable {
     case readReceipt
     case ack(String)
     case blockUnblock
-    case beFriend
     case newDevice(NewDeviceState)
     case requestRegistry
     case acceptedRegistry(String)

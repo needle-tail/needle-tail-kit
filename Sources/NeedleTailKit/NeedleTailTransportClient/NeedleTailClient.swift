@@ -18,7 +18,6 @@ final class NeedleTailClient {
     var messenger: NeedleTailMessenger
     let groupManager: EventLoopGroupManager
     let signer: TransportCreationRequest?
-    var authenticated: AuthenticationState
     var transportState: TransportState
     var userInfo: IRCUserInfo?
     var userMode = IRCUserMode()
@@ -33,7 +32,6 @@ final class NeedleTailClient {
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest?,
-        authenticated: AuthenticationState,
         clientContext: ClientContext
     ) async {
         self.cypher = cypher
@@ -41,7 +39,6 @@ final class NeedleTailClient {
         self.clientContext = clientContext
         self.clientInfo = clientContext.clientInfo
         self.signer = signer
-        self.authenticated = authenticated
         self.transportState = transportState
         self.transportDelegate = transportDelegate
         

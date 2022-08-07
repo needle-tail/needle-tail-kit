@@ -18,7 +18,7 @@ public struct Acknowledgment: Codable, Sendable {
         case readKeyBundle(String)
         case apn(String)
         case none
-        case messageSent(String)
+        case messageSent
         case blocked
         case unblocked
     }

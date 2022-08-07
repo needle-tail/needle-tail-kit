@@ -27,7 +27,7 @@ import NIOTransportServices
 public class NeedleTailMessenger: CypherServerTransportClient {
     public var isConnected: Bool = false
     public var delegate: CypherTransportClientDelegate?
-    public private(set) var authenticated = AuthenticationState.unauthenticated
+    public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .privateMessage
     public private(set) var signer: TransportCreationRequest?
@@ -153,7 +153,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 transportState: self.transportState,
                 transportDelegate: self.delegate,
                 signer: signer,
-                authenticated: self.authenticated,
                 clientContext: clientContext
             )
 

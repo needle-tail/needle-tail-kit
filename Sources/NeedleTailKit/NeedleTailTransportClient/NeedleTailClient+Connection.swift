@@ -27,8 +27,8 @@ extension NeedleTailClient {
        } catch {
            logger.error("Could not start client: \(error)")
            transportState.transition(to: .clientOffline)
-           self.authenticated = .authenticationFailure
            await self.shutdownClient()
+           messenger.authenticated  = .authenticated
        }
    }
     
@@ -48,7 +48,6 @@ extension NeedleTailClient {
             userMode: userMode,
             transportState: transportState,
             signer: signer,
-            authenticated: authenticated,
             clientContext: clientContext,
             clientInfo: clientInfo,
             transportDelegate: transportDelegate
@@ -99,9 +98,8 @@ extension NeedleTailClient {
          switch transportState.current {
          case .transportDeregistering:
              transportState.transition(to: .clientOffline)
-            authenticated = .unauthenticated
+             messenger.authenticated = .unauthenticated
             await shutdownClient()
-//             messenger.isConnected = false
          default:
              break
          }

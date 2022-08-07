@@ -295,7 +295,7 @@ public final class NeedleTail {
     public func addContact(newContact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(newContact))
         let contact = try await cypher?.createContact(byUsername: Username(newContact))
-        messageType = .beFriend
+        messageType = .message
         try await contact?.befriend()
         try await contact?.setNickname(to: nick)
         messageType = .message

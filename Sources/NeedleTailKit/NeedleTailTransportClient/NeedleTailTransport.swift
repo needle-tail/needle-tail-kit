@@ -45,7 +45,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     @NeedleTailClientActor var updateKeyBundle = false
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     let signer: TransportCreationRequest?
-    var authenticated: AuthenticationState
     var channelBlob: String?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
@@ -61,7 +60,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         userMode: IRCUserMode,
         transportState: TransportState,
         signer: TransportCreationRequest?,
-        authenticated: AuthenticationState,
         clientContext: ClientContext,
         clientInfo: ClientContext.ServerClientInfo,
         transportDelegate: CypherTransportClientDelegate?
@@ -73,7 +71,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         self.userMode = userMode
         self.transportState = transportState
         self.signer = signer
-        self.authenticated = authenticated
         self.clientContext = clientContext
         self.clientInfo = clientInfo
         self.transportDelegate = transportDelegate
