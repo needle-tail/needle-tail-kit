@@ -68,7 +68,7 @@ extension NeedleTailTransport {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         guard let channel = await channel else { return }
-        let type = TransportMessageType.private(.PRIVMSG([.nickname(nick)], encodedData.base64EncodedString()))
+        let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
         try await transportMessage(channel, type: type)
 }
     
@@ -87,7 +87,7 @@ extension NeedleTailTransport {
             switch recipient {
             case .everything:
                 break
-            case .nickname(_):
+            case .nick(_):
                     switch packet.type {
                     case .publishKeyBundle(_):
                         break

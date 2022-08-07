@@ -99,7 +99,7 @@ public extension IRCCommand {
             case .everything:
                 throw Error.invalidMessageTarget(arguments[0])
                 
-            case .nickname(let nick):
+            case .nick(let nick):
                 if arguments.count > 1 {
                     var add    = IRCUserMode()
                     var remove = IRCUserMode()

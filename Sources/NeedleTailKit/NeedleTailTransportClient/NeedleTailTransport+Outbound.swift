@@ -58,7 +58,7 @@ extension NeedleTailTransport {
             return .channel(name)
         case .privateMessage:
             guard let validatedName = NeedleTailNick(name: name, deviceId: deviceId) else { throw NeedleTailError.nilNickName }
-            return .nickname(validatedName)
+            return .nick(validatedName)
         }
     }
     
@@ -196,7 +196,7 @@ extension NeedleTailTransport {
     
     //The requesting device sends this packet while setting the request identity until we hear back from the master device via a QR Code
     func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick) async throws {
-        let recipient = IRCMessageRecipient.nickname(masterNick)
+        let recipient = IRCMessageRecipient.nick(masterNick)
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,

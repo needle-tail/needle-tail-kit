@@ -18,7 +18,7 @@ import NeedleTailHelpers
 public enum IRCMessageRecipient: Codable, Hashable, @unchecked Sendable {
   
   case channel (IRCChannelName)
-  case nickname(NeedleTailNick)
+  case nick(NeedleTailNick)
   case everything // Note: this doesn't seem to be spec'ed?!
   
   // TODO:
@@ -27,7 +27,7 @@ public enum IRCMessageRecipient: Codable, Hashable, @unchecked Sendable {
   public func hash(into hasher: inout Hasher) {
     switch self {
       case .channel (let name): return name.hash(into: &hasher)
-      case .nickname(let name): return name.hash(into: &hasher)
+      case .nick(let name): return name.hash(into: &hasher)
       case .everything:         return 42.hash(into: &hasher) // TBD?
     }
   }
@@ -38,7 +38,7 @@ public enum IRCMessageRecipient: Codable, Hashable, @unchecked Sendable {
     switch ( lhs, rhs ) {
       case ( .everything,        .everything ):       return true
       case ( .channel (let lhs), .channel (let rhs)): return lhs == rhs
-      case ( .nickname(let lhs), .nickname(let rhs)): return lhs == rhs
+      case ( .nick(let lhs), .nick(let rhs)): return lhs == rhs
       default: return false
     }
   }
@@ -57,7 +57,7 @@ public extension IRCMessageRecipient {
     } else if let channel = IRCChannelName(s) {
         self = .channel(channel)
     } else if let needletail = nick {
-        self = .nickname(needletail)
+        self = .nick(needletail)
     } else {
         return nil
     }
@@ -66,7 +66,7 @@ public extension IRCMessageRecipient {
   var stringValue : String {
     switch self {
       case .channel (let name) : return name.stringValue
-    case .nickname(let name) : return name.stringValue
+    case .nick(let name) : return name.stringValue
       case .everything         : return "*"
     }
   }
@@ -77,7 +77,7 @@ extension IRCMessageRecipient : CustomStringConvertible {
   public var description : String {
     switch self {
       case .channel (let name) : return name.description
-      case .nickname(let name) : return name.description
+      case .nick(let name) : return name.description
       case .everything         : return "<IRCRecipient: *>"
     }
   }
