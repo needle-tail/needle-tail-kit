@@ -116,9 +116,9 @@ extension NeedleTailTransport {
                         )
                         
                         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
-                        let ackString = acknowledgement.base64EncodedString()
+                        let ackMessage = acknowledgement.base64EncodedString()
                         guard let channel = await channel else { return }
-                        let type = TransportMessageType.private(.PRIVMSG([recipient], ackString))
+                        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
                         try await transportMessage(channel, type: type)
                         
                     case .multiRecipientMessage:
@@ -181,8 +181,9 @@ extension NeedleTailTransport {
                     )
                 )
                 
-                    let encodedString = try await createAcknowledgment(.messageSent(packet.id)).base64EncodedString()
-                    let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+                    let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
+                    let ackMessage = acknowledgement.base64EncodedString()
+                    let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
                     guard let channel = await channel else { return }
                     try await transportMessage(channel, type: type)
                 default:
