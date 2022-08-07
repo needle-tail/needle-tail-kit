@@ -20,4 +20,6 @@ public enum NeedleTailError: String, Error {
     case registrationFailure
     case storeNotIntitialized = "You must initialize a store"
     case clientInfotNotIntitialized = "You must initialize client info"
+    case messageReceivedError
+    case senderNil
 }

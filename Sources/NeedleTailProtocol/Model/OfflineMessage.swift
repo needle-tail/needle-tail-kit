@@ -14,6 +14,7 @@ public struct OfflineMessage: Codable, Sendable {
     public let createdAt: Date
     public let sender: IRCUserID
     public var recipients: [IRCMessageRecipient]
+    public var recipientDeviceIds: [UserDeviceId]
     public let messagePacket: MessagePacket
     public var sent: Bool
 
@@ -21,6 +22,7 @@ public struct OfflineMessage: Codable, Sendable {
         id: String,
         sender: IRCUserID,
         recipients: [IRCMessageRecipient],
+        recipientDeviceIds: [UserDeviceId],
         messagePacket: MessagePacket,
         sent: Bool
     ) {
@@ -28,6 +30,7 @@ public struct OfflineMessage: Codable, Sendable {
         self.createdAt = Date()
         self.sender = sender
         self.recipients = recipients
+        self.recipientDeviceIds = recipientDeviceIds
         self.messagePacket = messagePacket
         self.sent = sent
     }

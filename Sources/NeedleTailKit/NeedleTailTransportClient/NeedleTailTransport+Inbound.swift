@@ -96,14 +96,14 @@ extension NeedleTailTransport {
                     case .message:
                         // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
                         print("Recieved Message from server", packet)
-                        guard let message = packet.message else { return }
-                        guard let deviceId = packet.sender else { return }
-                        guard let sender = sender?.nick.name else { return }
+                        guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
+                        guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
+                        guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
                         print("The Following values should be received from the sender")
                         print(message)
                         print(packet.id)
                         print(sender)
-                        print(deviceId)
+                        print(deviceId)//ddcceefd-25f5-4df5-8a69-f8e3af3f822e
                         print("AUTHENTICATION_STATE", messenger.authenticated )
                         
                         try await self.transportDelegate?.receiveServerEvent(
@@ -115,11 +115,11 @@ extension NeedleTailTransport {
                             )
                         )
                         
-                        let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
-                        let ackMessage = acknowledgement.base64EncodedString()
-                        guard let channel = await channel else { return }
-                        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-                        try await transportMessage(channel, type: type)
+//                        let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
+//                        let ackMessage = acknowledgement.base64EncodedString()
+//                        guard let channel = await channel else { return }
+//                        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+//                        try await transportMessage(channel, type: type)
                         
                     case .multiRecipientMessage:
                         break
@@ -144,17 +144,6 @@ extension NeedleTailTransport {
                             let type = TransportMessageType.standard(.USER(user))
                             try await transportMessage(channel, type: type)
                             await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
-                            
-                            // Everyone can join administrator, this primarily will be used for beta for report issues
-//                            let channelName = "#AdministratorChannel2"
-//                            try await messenger.createLocalChannel(
-//                                name: channelName,
-//                                admin: Username(nick.stringValue),
-//                                organizers: [Username(nick.stringValue)],
-//                                members: [Username(nick.stringValue)],
-//                                permissions: .channelOperator
-//                            )
-                            
                         default:
                             break
                         }
