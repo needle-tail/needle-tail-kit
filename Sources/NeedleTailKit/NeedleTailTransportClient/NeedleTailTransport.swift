@@ -48,7 +48,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     var channelBlob: String?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
-    var transportDelegate: CypherTransportClientDelegate?
+//    var transportDelegate: CypherTransportClientDelegate?
     var delegate: IRCDispatcher?
     
     
@@ -61,8 +61,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         transportState: TransportState,
         signer: TransportCreationRequest?,
         clientContext: ClientContext,
-        clientInfo: ClientContext.ServerClientInfo,
-        transportDelegate: CypherTransportClientDelegate?
+        clientInfo: ClientContext.ServerClientInfo
     ) {
         self.cypher = cypher
         self.messenger = messenger
@@ -73,7 +72,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         self.signer = signer
         self.clientContext = clientContext
         self.clientInfo = clientInfo
-        self.transportDelegate = transportDelegate
         self.delegate = self
     }
     

@@ -32,7 +32,7 @@ extension NeedleTailTransport {
         
         try await clientMessage(channel, command: .otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
-        try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
+        try await clientMessage(channel, command: .NICK(nick), tags: [tag])
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {

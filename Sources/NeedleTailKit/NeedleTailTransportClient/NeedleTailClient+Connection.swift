@@ -28,7 +28,7 @@ extension NeedleTailClient {
            logger.error("Could not start client: \(error)")
            transportState.transition(to: .clientOffline)
            await self.shutdownClient()
-           messenger.authenticated  = .authenticated
+           messenger.authenticated  = .unauthenticated
        }
    }
     
@@ -49,8 +49,7 @@ extension NeedleTailClient {
             transportState: transportState,
             signer: signer,
             clientContext: clientContext,
-            clientInfo: clientInfo,
-            transportDelegate: transportDelegate
+            clientInfo: clientInfo
         )
         guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)

@@ -26,7 +26,7 @@ import NIOTransportServices
 
 public class NeedleTailMessenger: CypherServerTransportClient {
     public var isConnected: Bool = false
-    public var delegate: CypherTransportClientDelegate?
+    public weak var delegate: CypherTransportClientDelegate?
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
     public var type : ConversationType = .privateMessage
@@ -426,9 +426,8 @@ extension NeedleTailMessenger {
         let token: String
     }
     
-    @NeedleTailTransportActor
     public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-        await client?.transport?.transportDelegate = delegate
+        self.delegate = delegate
     }
     
     @BlobActor
