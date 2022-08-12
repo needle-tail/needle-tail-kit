@@ -17,6 +17,9 @@ import CypherMessaging
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
     @NeedleTailClientActor var channel: Channel?
+    @NeedleTailClientActor var userConfig: UserConfig?
+    @NeedleTailClientActor var updateKeyBundle = false
+    
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -31,7 +34,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     }
     var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
-    @NeedleTailClientActor var userConfig: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var tags: [IRCTags]?
     var messageOfTheDay = ""
@@ -42,13 +44,11 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     var userInfo: IRCUserInfo?
     var transportState: TransportState
     var registryRequestId = ""
-    @NeedleTailClientActor var updateKeyBundle = false
     var receivedNewDeviceAdded: NewDeviceState = .waiting
-    let signer: TransportCreationRequest?
     var channelBlob: String?
+    let signer: TransportCreationRequest?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
-//    var transportDelegate: CypherTransportClientDelegate?
     var delegate: IRCDispatcher?
     
     
