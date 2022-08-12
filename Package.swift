@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.7
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,22 +6,28 @@ import PackageDescription
 let package = Package(
     name: "needle-tail-kit",
     platforms: [
-        .iOS(.v15),
-        .macOS(.v12)
+        .macOS(.v13),
+        .iOS(.v16),
     ],
     products: [
         .library(
             name: "NeedleTailKit",
-            targets: ["NeedleTailKit", "AsyncIRC"]),
+            targets: ["NeedleTailKit"]),
+        .library(
+            name: "NeedleTailProtocol",
+            targets: ["NeedleTailProtocol"]),
+        .library(
+            name: "NeedleTailHelpers",
+            targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Cartisim/swift-nio-transport-services.git", branch: "udp-support-nio-latest"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.27.0"),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.8.0"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.7.1"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.0.5")),
-        .package(url: "https://github.com/orlandos-nl/CypherTextKit.git", branch: "feature/async-await"),
-        .package(url: "https://github.com/adam-fowler/async-collections.git", from: "0.0.1")
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.13.1"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.41.1"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.21.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
+        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0")
     ],
     targets: [
         .target(
@@ -34,23 +40,24 @@ let package = Package(
             .product(name: "NIOHTTP1", package: "swift-nio"),
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
-            .product(name: "AsyncCollections", package: "async-collections"),
-            .target(name: "AsyncIRC")
+            .product(name: "Crypto", package: "swift-crypto"),
+            .target(name: "NeedleTailHelpers"),
+            .target(name: "NeedleTailProtocol")
         ]),
         .target(
-            name: "AsyncIRC",
+            name: "NeedleTailProtocol",
             dependencies: [
                 .product(name: "NIOCore", package: "swift-nio"),
-                .product(name: "AsyncCollections", package: "async-collections"),
                 .product(name: "CypherMessaging", package: "CypherTextKit"),
-                .product(name: "NIOSSL", package: "swift-nio-ssl")
-            ],
-            swiftSettings: [
-                .unsafeFlags([
-                    "-Xfrontend", "-disable-availability-checking",
-                ])
-            ]
-        ),
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .target(name: "NeedleTailHelpers")
+            ]),
+        .target(
+            name: "NeedleTailHelpers",
+            dependencies: [
+                .product(name: "CypherMessaging", package: "CypherTextKit")
+            ]),
         .testTarget(
             name: "NeedleTailKitTests",
             dependencies: ["NeedleTailKit"]),

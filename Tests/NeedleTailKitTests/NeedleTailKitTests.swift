@@ -1,6 +1,6 @@
     import XCTest
     import NIO
-    @testable import AsyncIRC
+    @testable import NeedleTailProtocol
 
     final class NeedleTailKitTests: XCTestCase {
         func testExample() {
@@ -21,7 +21,7 @@
      let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let promise = group.next().makePromise(of: IRCMessage.self)
         promise.completeWithTask {
-            guard let message = try await queueMessage(line: line) else { throw ParserError.jobFailedToParse }
+            let message = try await queueMessage(line: line)!
             return message
         }
         return promise.futureResult
