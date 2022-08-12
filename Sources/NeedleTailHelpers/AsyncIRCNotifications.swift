@@ -6,21 +6,20 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
 
 public protocol AsyncIRCNotificationsDelegate: AnyObject {
     func respond(to alert: AlertType) async 
 }
 
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-open class AsyncIRCNotifications {
-    public init() {}
-    public let received = PassthroughSubject<AlertType, Never>()
-}
-#endif
-
-public enum AlertType {
-    case registryRequest, registryRequestAccepted, registryRequestRejected
+public enum AlertType: Equatable, Sendable {
+    case registryRequest, registryRequestAccepted, registryRequestRejected, none
+    
+    public static func == (lhs: AlertType, rhs: AlertType) -> Bool {
+        switch (lhs, rhs) {
+        case (.registryRequest, .registryRequest), (.registryRequestAccepted, .registryRequestAccepted), (.registryRequestRejected, .registryRequestRejected), (.none, .none):
+            return true
+        default:
+            return false
+        }
+    }
 }

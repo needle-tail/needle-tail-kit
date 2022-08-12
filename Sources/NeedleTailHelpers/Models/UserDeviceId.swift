@@ -8,7 +8,7 @@
 import Foundation
 import CypherMessaging
 
-public struct UserDeviceId: Hashable, Codable {
+public struct UserDeviceId: Hashable, Codable, Sendable {
     public let user: Username
     public let device: DeviceId
     

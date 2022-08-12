@@ -8,7 +8,7 @@
 import CypherMessaging
 import MessagingHelpers
 import NeedleTailHelpers
-import AsyncIRC
+import NeedleTailProtocol
 
 public struct ConversationSequence: AsyncSequence {
     public typealias Element = SequenceResult

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import AsyncIRC
+import NeedleTailProtocol
 
 
 extension IRCCommand {

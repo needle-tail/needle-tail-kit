@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol NeedleTailQueue {
+public protocol NeedleTailQueue: Sendable {
     associatedtype Element
     mutating func enqueue(_ element: Element?, elements: [Element]?)
     mutating func dequeue() -> Element?
@@ -16,7 +16,7 @@ public protocol NeedleTailQueue {
 }
 
 
-public struct NeedleTailStack<T>: NeedleTailQueue {
+public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
     
     public init() {}
     
@@ -51,7 +51,10 @@ public struct NeedleTailStack<T>: NeedleTailQueue {
             dequeueStack = enqueueStack.reversed()
             enqueueStack.removeAll()
         }
-        let pop = dequeueStack.popLast()
-        return pop
+        if !dequeueStack.isEmpty {
+            return dequeueStack.popLast()
+        } else {
+            return nil
+        }
     }
 }

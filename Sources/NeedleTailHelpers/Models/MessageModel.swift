@@ -6,10 +6,10 @@
 //
 
 import Foundation
-import CypherMessaging
+@preconcurrency import CypherMessaging
 import JWTKit
 
-public enum MessageType: Codable {
+public enum MessageType: Codable, Sendable {
     case publishKeyBundle(String)
     case registerAPN(String)
     case message
@@ -17,25 +17,25 @@ public enum MessageType: Codable {
     case readReceipt
     case ack(String)
     case blockUnblock
-    case beFriend
-    case newDevice(String)
-    case requestRegistry(String)
+    case newDevice(NewDeviceState)
+    case requestRegistry
     case acceptedRegistry(String)
     case isOffline(String)
     case temporarilyRegisterSession
     case rejectedRegistry(String)
 }
 
-public struct MessagePacket: Codable {
+public struct MessagePacket: Codable, Sendable {
     public let id: String
     public let pushType: PushType
-    public let type: MessageType
+    public var type: MessageType
     public let createdAt: Date
     public let sender: DeviceId?
     public let recipient: DeviceId?
     public let message: RatchetedCypherMessage?
     public let readReceipt: ReadReceiptPacket?
     public let channelName: String?
+    public let addKeyBundle: Bool?
     
     public init(
         id: String,
@@ -46,7 +46,8 @@ public struct MessagePacket: Codable {
         recipient: DeviceId?,
         message: RatchetedCypherMessage?,
         readReceipt: ReadReceiptPacket?,
-        channelName: String? = nil
+        channelName: String? = nil,
+        addKeyBundle: Bool? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -57,6 +58,7 @@ public struct MessagePacket: Codable {
         self.message = message
         self.readReceipt = readReceipt
         self.channelName = channelName
+        self.addKeyBundle = addKeyBundle
     }
 }
 
