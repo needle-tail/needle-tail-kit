@@ -26,6 +26,7 @@ import NIOTransportServices
 
 public class NeedleTailMessenger: CypherServerTransportClient {
     public var isConnected: Bool = false
+    public var supportsDelayedRegistration = false
     public weak var delegate: CypherTransportClientDelegate?
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
@@ -47,6 +48,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
+    var clientServeState: ClientServerState = .lockState
     
     @NeedleTailTransportActor
     public init(
@@ -67,6 +69,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         self.appleToken = appleToken
         self.plugin = plugin
     }
+    
+    enum ClientServerState {
+        case clientConnected, clientRegistered, lockState
+    }
+    
     
     @NeedleTailClientActor
     public class func authenticate(
@@ -346,9 +353,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func connect() async throws {
         try await client?.attemptConnection()
         self.authenticated = .authenticated
-        if client?.channel != nil {
-            self.isConnected = true
-        }
     }
     
     @NeedleTailClientActor
@@ -576,6 +580,7 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
+        
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         guard let myDeviceId = self.deviceId else { return }
         switch type {
@@ -625,18 +630,20 @@ private func itoh(_ value: UInt8) -> UInt8 {
 extension DataProtocol {
     var hexString: String {
         let hexLen = self.count * 2
-        let ptr = UnsafeMutablePointer<UInt8>.allocate(capacity: hexLen)
+        let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: hexLen)
+//        var bytes = [UInt8]()
         var offset = 0
         
         self.regions.forEach { (_) in
             for i in self {
-                ptr[Int(offset * 2)] = itoh((i >> 4) & 0xF)
-                ptr[Int(offset * 2 + 1)] = itoh(i & 0xF)
+                bytes[Int(offset * 2)] = itoh((i >> 4) & 0xF)
+                bytes[Int(offset * 2 + 1)] = itoh(i & 0xF)
                 offset += 1
             }
         }
         
-        return String(bytesNoCopy: ptr, length: hexLen, encoding: .utf8, freeWhenDone: true)!
+//        return String(buffer: ByteBuffer(bytes: bytes))
+        return String(bytesNoCopy: bytes, length: hexLen, encoding: .utf8, freeWhenDone: true)!
     }
 }
 
@@ -658,3 +665,19 @@ extension Array {
         return nil
     }
 }
+//[NeedleTailProtocol] IRCChannelHandler Read
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info MessageParser : [NeedleTailProtocol] Parsing Message....
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailKit : [NeedleTailProtocol] IRCChannelHandler is Inactive
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info MessageParser : [NeedleTailProtocol] Parsed Message IRCMessage(id: 2D2F1B88-F16D-49F7-8F65-97163FFD1944, origin: Optional("TQAAAAJuYW1lAAsAAABuZWVkbGV0YWlsAAJkZXZpY2VJZAAlAAAANTNkMzhiNDMtNmExOC00ZGNhLTk0MjgtNDFmZmU4ODAyMzNkAAA="), target: nil, command: QUIT, tags: nil)
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailServer : [NeedleTail] Unregistered Nick: NeedleTailNick(name: needletail, deviceId: Optional(53d38b43-6a18-4dca-9428-41ffe880233d))
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info SessionState : [NeedleTail] Initial Session State
+//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailIOHandler : [NeedleTail] NeedleTailIOHandler is Inactive
+//
+//
+//[NeedleTailProtocol] IRCChannelHandler Read
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info MessageParser : [NeedleTailProtocol] Parsing Message....
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailKit : [NeedleTailProtocol] IRCChannelHandler is Inactive
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailServer : [NeedleTail] Unregistered Nick: NeedleTailNick(name: whitetipped, deviceId: Optional(81b01f1b-1353-4285-a989-134612bfec21))
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info SessionState : [NeedleTail] Initial Session State
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailIOHandler : [NeedleTail] NeedleTailIOHandler is Inactive
+//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info MessageParser : [NeedleTailProtocol] Parsed Message IRCMessage(id: D35F6A37-F8A4-4250-A755-94639526AF9C, origin: Optional("TgAAAAJuYW1lAAwAAAB3aGl0ZXRpcHBlZAACZGV2aWNlSWQAJQAAADgxYjAxZjFiLTEzNTMtNDI4NS1hOTg5LTEzNDYxMmJmZWMyMQAA"), target: nil, command: QUIT, tags: nil)

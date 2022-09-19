@@ -24,6 +24,7 @@ extension NeedleTailClient {
            self.transport?.channel = channel
            self.userInfo = clientContext.userInfo
            transportState.transition(to: .clientConnected)
+           messenger.clientServeState = .clientConnected
        } catch {
            logger.error("Could not start client: \(error)")
            transportState.transition(to: .clientOffline)
@@ -39,7 +40,6 @@ extension NeedleTailClient {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
-        guard let group = self.eventLoop else { throw NeedleTailError.nilElG }
         self.transport = await NeedleTailTransport(
             cypher: cypher,
             messenger: messenger,
@@ -55,14 +55,12 @@ extension NeedleTailClient {
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
-                let promise = group.next().makePromise(of: Void.self)
-                promise.completeWithTask {
+                channel.eventLoop.executeAsync {
                     try await channel.pipeline.addHandlers([
                         IRCChannelHandler(logger: self.logger),
                         NeedleTailHandler(client: self, transport: transport)
                     ])
                 }
-                return promise.futureResult
             }
     }
     
@@ -109,6 +107,17 @@ extension NeedleTailClient {
             guard let username = self.messenger.username else { return }
             guard let deviceId = self.messenger.deviceId else { return }
             try await transport?.sendQuit(username, deviceId: deviceId)
+            var canRun = true
+            try await RunLoop.run(20, sleep: 1) {
+                if await transport?.acknowledgment == .quited {
+                    canRun = false
+                }
+                return canRun
+            }
+            let set = await transport?.setAcknowledgement
+            print(set)
+            print(await transport?.setAcknowledgement)
+            print(await transport?.acknowledgment)
            _ = try await channel?.close(mode: .all).get()
             try await self.groupManager.shutdown()
         } catch {
@@ -118,4 +127,5 @@ extension NeedleTailClient {
         logger.info("disconnected from server")
         messenger.isConnected = false
     }
+
 }

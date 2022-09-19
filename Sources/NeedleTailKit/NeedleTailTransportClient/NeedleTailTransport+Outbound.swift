@@ -27,12 +27,14 @@ extension NeedleTailTransport {
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
+            await messenger.clientServeState = .clientRegistered
             return
         }
         
         try await clientMessage(channel, command: .otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
         try await clientMessage(channel, command: .NICK(nick), tags: [tag])
+        await messenger.clientServeState = .clientRegistered
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {

@@ -27,13 +27,11 @@ final class NeedleTailHandler: ChannelInboundHandler {
     
     func channelActive(context: ChannelHandlerContext) {
         logger.info("Channel Active")
+        context.fireChannelActive()
     }
     
     func channelInactive(context: ChannelHandlerContext) {
-        let task = Task {
-            logger.info("Channel Inactive")
-        }
-        task.cancel()
+        logger.info("Channel Inactive")
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -50,9 +48,7 @@ final class NeedleTailHandler: ChannelInboundHandler {
         task.cancel()
     }
     
-    @NeedleTailClientActor
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        print(error)
         context.close(promise: nil)
     }
 }

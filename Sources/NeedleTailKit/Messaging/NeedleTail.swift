@@ -13,6 +13,8 @@ import MessagingHelpers
 import NeedleTailProtocol
 import SwiftUI
 import NeedleTailHelpers
+//import SpineTailedKit
+//import SpineTailedProtocol
 #if os(macOS)
 import Cocoa
 #endif
@@ -249,30 +251,39 @@ public final class NeedleTail {
         emitter.needleTailNick = messenger?.needleTailNick
         return self.cypher
     }
-    
+
     public func resumeService(_
                               appleToken: String = ""
     ) async throws {
-        messenger?.isConnected = true
-        if messenger?.client == nil {
-            try await messenger?.createClient("")
+        guard let messenger = messenger else { return }
+        if messenger.client == nil {
+            try await messenger.createClient("")
         }
-
-        if cypher?.authenticated != nil {
-            guard let messenger = messenger else { return }
-            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+        
+        switch messenger.clientServeState {
+        case .lockState:
+            break
+        case .clientConnected:
+            if cypher?.authenticated != nil {
+                try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+                messenger.isConnected = true
+            }
+        case .clientRegistered:
+            messenger.clientServeState = .lockState
         }
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
-        await messenger?.suspend(isSuspending)
+        guard let messenger = messenger else { return }
+        await messenger.suspend(isSuspending)
         try? await RunLoop.run(5, sleep: 1) {
             var running = true
-            if NeedleTail.shared.messenger?.isConnected == false {
+            if !messenger.isConnected {
                 running = false
             }
             return running
         }
+        messenger.clientServeState = .clientConnected
     }
     
     public func registerAPN(_ token: Data) async throws {
@@ -347,6 +358,17 @@ public final class NeedleTail {
             ChatActivityPlugin(),
             plugin
         ])
+    }
+    
+    public func startVideoChat(_ username: String, data: Data) async throws {
+//        let chat = try await cypher?.createPrivateChat(with: Username(username))
+//        try await chat?.buildP2PConnections()
+//
+//        let packet = try RTPPacket(from: data)
+//        let data = try BSONEncoder().encode(packet).makeData()
+//        let string = data.base64EncodedString()
+//        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
+        
     }
 }
 
@@ -642,7 +664,6 @@ extension EnvironmentValues {
     }
 }
 
-//@Sendable
 @MainActor
 func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
     switch (lhs.lastActivity, rhs.lastActivity) {
@@ -660,7 +681,8 @@ func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation
 
 public func makeP2PFactories() -> [P2PTransportClientFactory] {
     return [
-        IPv6TCPP2PTransportClientFactory(),
+        IPv6TCPP2PTransportClientFactory()
+//        SpineTailedTransportFactory()
     ]
 }
 

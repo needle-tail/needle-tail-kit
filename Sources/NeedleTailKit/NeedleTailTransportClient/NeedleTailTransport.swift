@@ -35,6 +35,11 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
     var acknowledgment: Acknowledgment.AckType = .none
+    var setAcknowledgement: Acknowledgment.AckType = .none {
+        didSet {
+            acknowledgment = setAcknowledgement
+        }
+    }
     var tags: [IRCTags]?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
@@ -50,7 +55,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
     var delegate: IRCDispatcher?
-    
     
     init(
         cypher: CypherMessenger? = nil,

@@ -57,30 +57,30 @@ extension NeedleTailTransportDelegate {
                                  type: TransportMessageType,
                                  tags: [IRCTags]? = nil
     ) async throws {
-        var irc: IRCMessage?
+        var message: IRCMessage?
         switch type {
         case .standard(let command):
-            irc = IRCMessage(command: command, tags: tags)
+            message = IRCMessage(command: command, tags: tags)
         case .private(let command), .notice(let command):
             switch command {
-            case .PRIVMSG(let recipients, let message):
-                let lines = message.components(separatedBy: "\n")
+            case .PRIVMSG(let recipients, let messageLines):
+                let lines = messageLines.components(separatedBy: "\n")
                     .map { $0.replacingOccurrences(of: "\r", with: "") }
                 _ = await lines.asyncMap {
-                    irc = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                    message = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                 }
-            case .NOTICE(let recipients, let message):
-                let lines = message.components(separatedBy: "\n")
+            case .NOTICE(let recipients, let messageLines):
+                let lines = messageLines.components(separatedBy: "\n")
                     .map { $0.replacingOccurrences(of: "\r", with: "") }
                 _ = await lines.asyncMap {
-                    irc = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                    message = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
                 }
             default:
                 break
             }
         }
-        guard let irc = irc else { return }
-        try await sendAndFlushMessage(channel, message: irc)
+        guard let message = message else { return }
+        try await sendAndFlushMessage(channel, message: message)
     }
 
     public func blobMessage(_

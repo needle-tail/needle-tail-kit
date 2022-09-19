@@ -29,7 +29,7 @@ import Foundation
  *
  * This is a server name or a nickname w/ user@host parts.
  */
-public struct IRCMessage: Sendable {
+public struct IRCMessage: @unchecked Sendable {
 
     let id = UUID()
     public var origin: String?

@@ -83,7 +83,7 @@ extension NeedleTailTransport {
         guard let data = Data(base64Encoded: message) else { return }
         let buffer = ByteBuffer(data: data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
-        
+
         for recipient in recipients {
             switch recipient {
             case .everything:
