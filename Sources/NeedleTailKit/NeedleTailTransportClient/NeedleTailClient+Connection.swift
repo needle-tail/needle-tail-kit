@@ -24,7 +24,7 @@ extension NeedleTailClient {
            self.transport?.channel = channel
            self.userInfo = clientContext.userInfo
            transportState.transition(to: .clientConnected)
-           messenger.clientServeState = .clientConnected
+//           messenger.clientServerState = .clientConnected
        } catch {
            logger.error("Could not start client: \(error)")
            transportState.transition(to: .clientOffline)
@@ -107,21 +107,8 @@ extension NeedleTailClient {
             guard let username = self.messenger.username else { return }
             guard let deviceId = self.messenger.deviceId else { return }
             try await transport?.sendQuit(username, deviceId: deviceId)
-            var canRun = true
-            try await RunLoop.run(20, sleep: 1) {
-                if await transport?.acknowledgment == .quited {
-                    canRun = false
-                }
-                return canRun
-            }
-            let set = await transport?.setAcknowledgement
-            print(set)
-            print(await transport?.setAcknowledgement)
-            print(await transport?.acknowledgment)
-           _ = try await channel?.close(mode: .all).get()
-            try await self.groupManager.shutdown()
         } catch {
-            print("Could not gracefully shutdown, Forcing the exit (\(error)")
+            print("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
         }
         logger.info("disconnected from server")

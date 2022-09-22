@@ -48,7 +48,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
-    var clientServeState: ClientServerState = .lockState
+    var clientServerState: ClientServerState = .clientConnecting
     
     @NeedleTailTransportActor
     public init(
@@ -71,7 +71,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     enum ClientServerState {
-        case clientConnected, clientRegistered, lockState
+        case clientConnecting, clientConnected, clientRegistered, lockState
     }
     
     
@@ -124,8 +124,9 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     ) async throws {
         if client?.channel == nil {
             try await createClient(nameToVerify)
+            clientServerState = .clientConnected
         }
-        
+        print("Starting registration")
         switch registrationState {
         case .full:
             let regObject = regRequest(with: appleToken)
@@ -358,7 +359,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     public func suspend(_ isSuspending: Bool = false) async {
         await client?.attemptDisconnect(isSuspending)
-        client = nil
     }
 }
 

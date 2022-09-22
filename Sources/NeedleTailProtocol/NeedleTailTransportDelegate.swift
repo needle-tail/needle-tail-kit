@@ -51,7 +51,7 @@ extension NeedleTailTransportDelegate {
         let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
         try await sendAndFlushMessage(channel, message: message)
     }
-
+    
     public func transportMessage(_
                                  channel: Channel,
                                  type: TransportMessageType,

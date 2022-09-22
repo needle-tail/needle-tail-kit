@@ -256,20 +256,24 @@ public final class NeedleTail {
                               appleToken: String = ""
     ) async throws {
         guard let messenger = messenger else { return }
-        if messenger.client == nil {
-            try await messenger.createClient("")
-        }
-        
-        switch messenger.clientServeState {
+//        if messenger.client == nil {
+//            try await messenger.createClient("")
+//            messenger.clientServerState = .clientConnected
+//        }
+        print(messenger.clientServerState)
+        switch messenger.clientServerState {
         case .lockState:
             break
+        case .clientConnecting:
+            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
         case .clientConnected:
-            if cypher?.authenticated != nil {
-                try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+            if cypher?.authenticated != nil, !messenger.isConnected {
                 messenger.isConnected = true
+            } else {
+                return
             }
         case .clientRegistered:
-            messenger.clientServeState = .lockState
+            messenger.clientServerState = .lockState
         }
     }
     
@@ -283,7 +287,7 @@ public final class NeedleTail {
             }
             return running
         }
-        messenger.clientServeState = .clientConnected
+        messenger.clientServerState = .clientConnecting
     }
     
     public func registerAPN(_ token: Data) async throws {

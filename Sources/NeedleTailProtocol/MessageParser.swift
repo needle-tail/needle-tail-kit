@@ -166,22 +166,20 @@ public final class MessageParser {
                 args.append(contentsOf: newArray)
             }
         case .string(let commandKey):
-            if commandKey.hasPrefix("NICK") {
+            if commandKey.hasPrefix("NICK") || commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
                 args.append(parameter)
             } else if commandKey.hasPrefix("USER") {
                 let initialBreak = commandMessage.components(separatedBy: " :")
                 var spreadArgs = initialBreak[0].components(separatedBy: " ")
                 spreadArgs.append(initialBreak[1])
                 args = spreadArgs
-            } else if commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
-                args.append(parameter)
             } else if commandKey.hasPrefix("PRIVMSG") {
                 let initialBreak = stripedMessage.components(separatedBy: " ")
                 var newArgArray: [String] = []
                 newArgArray.append(initialBreak[initialBreak.count <= 3 ? 1 : 2])
                 newArgArray.append(String("\(initialBreak[initialBreak.count <= 3 ? 2 : 3])".dropFirst()))
                 args = newArgArray
-            } else if commandKey.hasPrefix("MODE") {
+            } else if commandKey.hasPrefix("MODE") || commandKey.hasPrefix("QUIT") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
             } else if commandKey.hasPrefix("REGISTRYREQUEST") ||
@@ -200,7 +198,7 @@ public final class MessageParser {
         }
         return args
     }
-    
+//    IRCMessage(id: 771021AC-ED4C-4413-9F6C-AC6C346EC023, origin: Optional("TQAAAAJuYW1lAAsAAABuZWVkbGV0YWlsAAJkZXZpY2VJZAAlAAAANTNkMzhiNDMtNmExOC00ZGNhLTk0MjgtNDFmZmU4ODAyMzNkAAA="), target: nil, command: QUIT, tags: nil)
     // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""

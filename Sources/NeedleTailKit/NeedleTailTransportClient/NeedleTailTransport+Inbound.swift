@@ -124,6 +124,11 @@ extension NeedleTailTransport {
                         default:
                             return
                         }
+                    } else if acknowledgment == .quited {
+                        _ = try await messenger.client?.channel?.close(mode: .all).get()
+                        try await messenger.client?.groupManager.shutdown()
+                        messenger.client = nil
+                        print("SHUTDOWN")
                     }
                 case .requestRegistry:
                     try await receivedRegistryRequest(packet.id)
