@@ -24,7 +24,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.info("Parsing Message.... \(message)")
+        self.logger.info("Parsing Message....")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -168,7 +168,7 @@ public final class MessageParser {
         case .string(let commandKey):
             if commandKey.hasPrefix("NICK") || commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
                 args.append(parameter)
-            } else if commandKey.hasPrefix("USER") || commandKey.hasPrefix("QUIT") {
+            } else if commandKey.hasPrefix("USER") {
                 let initialBreak = commandMessage.components(separatedBy: " :")
                 var spreadArgs = initialBreak[0].components(separatedBy: " ")
                 spreadArgs.append(initialBreak[1])
@@ -187,7 +187,8 @@ public final class MessageParser {
                         commandKey.hasPrefix("NEWDEVICE") ||
                         commandKey.hasPrefix("READKEYBNDL") ||
                         commandKey.hasPrefix("PASS") ||
-                        commandKey.hasPrefix("BLOBS") {
+                        commandKey.hasPrefix("BLOBS") ||
+                        commandKey.hasPrefix("QUIT") {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == ":" {
                     stripedMessage = String(stripedMessage.dropFirst())
