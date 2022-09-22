@@ -24,7 +24,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.info("Parsing Message....")
+        self.logger.info("Parsing Message.... \(message)")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -198,7 +198,7 @@ public final class MessageParser {
         }
         return args
     }
-//    IRCMessage(id: 771021AC-ED4C-4413-9F6C-AC6C346EC023, origin: Optional("TQAAAAJuYW1lAAsAAABuZWVkbGV0YWlsAAJkZXZpY2VJZAAlAAAANTNkMzhiNDMtNmExOC00ZGNhLTk0MjgtNDFmZmU4ODAyMzNkAAA="), target: nil, command: QUIT, tags: nil)
+
     // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""
