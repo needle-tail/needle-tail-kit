@@ -168,7 +168,7 @@ public final class MessageParser {
         case .string(let commandKey):
             if commandKey.hasPrefix("NICK") || commandKey.hasPrefix("JOIN") || commandKey.hasPrefix("PART") {
                 args.append(parameter)
-            } else if commandKey.hasPrefix("USER") {
+            } else if commandKey.hasPrefix("USER") || commandKey.hasPrefix("QUIT") {
                 let initialBreak = commandMessage.components(separatedBy: " :")
                 var spreadArgs = initialBreak[0].components(separatedBy: " ")
                 spreadArgs.append(initialBreak[1])
@@ -179,7 +179,7 @@ public final class MessageParser {
                 newArgArray.append(initialBreak[initialBreak.count <= 3 ? 1 : 2])
                 newArgArray.append(String("\(initialBreak[initialBreak.count <= 3 ? 2 : 3])".dropFirst()))
                 args = newArgArray
-            } else if commandKey.hasPrefix("MODE") || commandKey.hasPrefix("QUIT") {
+            } else if commandKey.hasPrefix("MODE") {
                 let seperated = commandMessage.components(separatedBy: " ")
                 args.append(seperated[1])
             } else if commandKey.hasPrefix("REGISTRYREQUEST") ||

@@ -124,7 +124,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     ) async throws {
         if client?.channel == nil {
             try await createClient(nameToVerify)
-            clientServerState = .clientConnected
+            
         }
         print("Starting registration")
         switch registrationState {
@@ -137,6 +137,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             let packet = try BSONEncoder().encode(regObject).makeData()
             try await client?.transport?.registerNeedletailSession(packet, true)
         }
+//        clientServerState = .clientConnected
     }
     
     @NeedleTailClientActor
