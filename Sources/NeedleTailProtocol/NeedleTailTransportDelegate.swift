@@ -4,7 +4,7 @@ import NIOCore
 
 
 public protocol NeedleTailTransportDelegate: AnyObject {
-    @NeedleTailClientActor
+    
     var channel: Channel { get set }
     @NeedleTailClientActor
     var userConfig: UserConfig? { get set }
@@ -35,6 +35,13 @@ public protocol NeedleTailTransportDelegate: AnyObject {
                      tags: [IRCTags]?
     ) async throws
     
+}
+
+//MARK: Server/Client
+extension NeedleTailTransportDelegate {
+    public func sendAndFlushMessage(_ message: IRCMessage) async throws {
+        try await channel.writeAndFlush(message)
+    }
 }
 
 //MARK: Client Side
@@ -87,10 +94,6 @@ extension NeedleTailTransportDelegate {
     ) async throws {
         let message = IRCMessage(command: command, tags: tags)
         try await sendAndFlushMessage(message)
-    }
-    
-    public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        try await channel.writeAndFlush(message)
     }
 }
 
