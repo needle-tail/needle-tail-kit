@@ -251,28 +251,50 @@ public final class NeedleTail {
         emitter.needleTailNick = messenger?.needleTailNick
         return self.cypher
     }
+    
+    var queue = NeedleTailStack<Int>()
+    var totalRequests = 0
+    
+    private func resumeRequest(_ request: Int) async {
+        totalRequests += request
+        queue.enqueue(totalRequests)
+    }
+    
+    
+    public func resumeService(_ appleToken: String = "") async throws {
 
-    public func resumeService(_
-                              appleToken: String = ""
-    ) async throws {
+        await resumeRequest(1)
+        let result = queue.popFirst()
 
-        guard let messenger = messenger else { return }
-        
-        if await messenger.client?.channel == nil {
-            try await messenger.createClient(appleToken)
-            messenger.isConnected = true
-        }
-        
-        switch messenger.clientServerState {
-        case .lockState:
-            break
-        case .clientRegistering:
-            messenger.clientServerState = .lockState
-            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+        if result == 1 {
+            
+            try await RunLoop.run(20, sleep: 1) {
+                var canRun = true
+                    if messenger != nil {
+                        canRun = false
+                    }
+                    return canRun
+                }
+            
+            guard let messenger = messenger else { return }
+            if await messenger.client?.channel == nil {
+                try await messenger.createClient(appleToken)
+                messenger.isConnected = true
+            }
+            
+            switch messenger.clientServerState {
+            case .lockState:
+              break
+            case .clientRegistering:
+                messenger.clientServerState = .lockState
+                try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+            }
         }
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
+        totalRequests = 0
+        queue.drain()
         guard let messenger = messenger else { return }
         await messenger.suspend(isSuspending)
         messenger.clientServerState = .clientRegistering

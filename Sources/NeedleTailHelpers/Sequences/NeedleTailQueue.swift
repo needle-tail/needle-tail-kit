@@ -11,6 +11,8 @@ public protocol NeedleTailQueue: Sendable {
     associatedtype Element
     mutating func enqueue(_ element: Element?, elements: [Element]?)
     mutating func dequeue() -> Element?
+    mutating func popFirst() -> Element?
+    mutating func drain()
     var isEmpty: Bool { get }
     var peek: Element? { get }
 }
@@ -56,5 +58,24 @@ public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
         } else {
             return nil
         }
+    }
+    
+    public mutating func popFirst() -> T? {
+
+        if dequeueStack.isEmpty {
+            dequeueStack = enqueueStack.reversed()
+            enqueueStack.removeAll()
+        }
+        if !dequeueStack.isEmpty {
+            return dequeueStack.first
+        } else {
+            return nil
+        }
+    }
+
+    
+    public mutating func drain() {
+        enqueueStack.removeAll()
+        dequeueStack.removeAll()
     }
 }
