@@ -114,9 +114,8 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         context.fireErrorCaught(error)
     }
     
-    public func writeAndFlush(channel: Channel, buffer: ByteBuffer, value: IRCMessage) async throws {
-        let bufferToWrite = await self.encode(value: value, target: value.target, buffer: buffer)
-        try await channel.writeAndFlush(NIOAny(bufferToWrite)).get()
+    public func encodeMessage(channel: Channel, value: IRCMessage) async -> ByteBuffer {
+        await self.encode(value: value, target: value.target, channel: channel)
     }
     
     public func write(
@@ -124,21 +123,16 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-        let message = self.unwrapOutboundIn(data)
-        let buffer = context.channel.allocator.buffer(capacity: 200)
         let channel = context.channel
-        _ = context.eventLoop.executeAsync {
-            try await self.writeAndFlush(channel: channel, buffer: buffer, value: message)
+        let message = self.unwrapOutboundIn(data)
+        context.eventLoop.executeAsync {
+            await self.encodeMessage(channel: channel, value: message)
+        }.whenComplete { switch $0 {
+        case .success(let buffer):
+            context.write(NIOAny(buffer), promise: promise)
+        case .failure(let error):
+            self.logger.error("\(error)")
         }
-    }
-    
-    public final func write(
-        context: ChannelHandlerContext,
-        value: IRCMessage,
-        promise: EventLoopPromise<Void>?
-    ) {
-        var buffer = context.channel.allocator.buffer(capacity: 200)
-        encode(value: value, target: value.target, into: &buffer)
-        context.write(NIOAny(buffer), promise: promise)
+        }
     }
 }

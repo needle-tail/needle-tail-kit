@@ -182,10 +182,10 @@ extension IRCChannelHandler {
     func encode(
         value: IRCMessage,
         target: String?,
-        buffer: ByteBuffer
+        channel: Channel
     ) async -> ByteBuffer {
         
-        var buffer = buffer
+        var buffer = channel.allocator.buffer(capacity: 200)
         let cColon : UInt8 = 58
         let cSpace : UInt8 = 32
         let cStar  : UInt8 = 42
