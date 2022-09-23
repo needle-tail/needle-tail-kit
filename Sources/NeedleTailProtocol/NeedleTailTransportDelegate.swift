@@ -2,9 +2,9 @@ import CypherMessaging
 import NeedleTailHelpers
 import NIOCore
 
-
 public protocol NeedleTailTransportDelegate: AnyObject {
     
+    @NeedleTailTransportActor
     var channel: Channel { get set }
     @NeedleTailClientActor
     var userConfig: UserConfig? { get set }

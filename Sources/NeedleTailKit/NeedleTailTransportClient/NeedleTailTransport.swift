@@ -16,7 +16,7 @@ import CypherMessaging
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
 
-    @NeedleTailClientActor var channel: Channel
+    var channel: Channel
     @NeedleTailClientActor var userConfig: UserConfig?
     @NeedleTailClientActor var updateKeyBundle = false
     
