@@ -3,6 +3,7 @@ import Logging
 import Foundation
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
+import NIOSSL
 
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
@@ -14,15 +15,20 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
     
-    var channel: Channel?
     let logger: Logger
+    var channel: Channel?
+    var sslServerHandler: NIOSSLServerHandler?
     @ParsingActor let consumer = ParseConsumer()
     @ParsingActor let parser = MessageParser()
     
     
     
-    public init(logger: Logger = Logger(label: "NeedleTailKit")) {
+    public init(
+        logger: Logger = Logger(label: "NeedleTailKit"),
+        sslServerHandler: NIOSSLServerHandler? = nil
+    ) {
         self.logger = logger
+        self.sslServerHandler = sslServerHandler
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -111,6 +117,11 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
         let error = MessageParserError.transportError(error)
+        if sslServerHandler != nil {
+            logger.error("Parsing Error is: \(error)")
+            let promise = context.eventLoop.makePromise(of: Void.self)
+            self.sslServerHandler?.stopTLS(promise: promise)
+        }
         context.fireErrorCaught(error)
     }
     
