@@ -22,4 +22,5 @@ public enum NeedleTailError: String, Error {
     case clientInfotNotIntitialized = "You must initialize client info"
     case messageReceivedError
     case senderNil
+    case channelIsNil
 }

@@ -48,7 +48,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
-    var clientServerState: ClientServerState = .clientRegistering
     
     @NeedleTailTransportActor
     public init(
@@ -203,8 +202,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        guard let channel = transport.channel else { return }
-        try await transport.transportMessage(channel, type: type)
+
+        try await transport.transportMessage(type)
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -222,7 +221,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         try await RunLoop.run(240, sleep: 1, stopRunning: { 
             var running = true
-            if client?.channel != nil {
+            if client != nil {
                 userConfig = try await transport.readKeyBundle(packet.base64EncodedString())
                 running = false
             }
@@ -268,8 +267,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        guard let channel = await transport.channel else { return }
-        try await transport.transportMessage(channel, type: type)
+        try await transport.transportMessage(type)
     }
     
     private func makeToken() throws -> String {

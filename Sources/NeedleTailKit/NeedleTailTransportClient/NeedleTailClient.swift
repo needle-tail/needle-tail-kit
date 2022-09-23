@@ -22,8 +22,8 @@ final class NeedleTailClient {
     var userMode = IRCUserMode()
     var transport: NeedleTailTransport?
     let logger = Logger(label: "Client")
-    public var channel: Channel?
     var transportDelegate: CypherTransportClientDelegate?
+    public var channel: Channel?
     
     init(
         cypher: CypherMessenger?,

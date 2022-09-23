@@ -12,6 +12,7 @@ import NeedleTailHelpers
 import NeedleTailProtocol
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+@NeedleTailTransportActor
 extension NeedleTailTransport {
     func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
@@ -19,6 +20,7 @@ extension NeedleTailTransport {
 }
 #endif
 
+@NeedleTailTransportActor
 extension NeedleTailTransport {
     
     @NeedleTailClientActor
@@ -67,9 +69,8 @@ extension NeedleTailTransport {
         )
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
-        guard let channel = await channel else { return }
         let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
-        try await transportMessage(channel, type: type)
+        try await transportMessage(type)
     }
     
     func doMessage(
@@ -119,7 +120,7 @@ extension NeedleTailTransport {
                         switch await transportState.current {
                         case .transportRegistering(channel: let channel, nick: let nick, userInfo: let user):
                             let type = TransportMessageType.standard(.USER(user))
-                            try await transportMessage(channel, type: type)
+                            try await transportMessage(type)
                             await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
                         default:
                             return
@@ -168,9 +169,8 @@ extension NeedleTailTransport {
         
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()
-        guard let channel = await channel else { return }
         let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-        try await transportMessage(channel, type: type)
+        try await transportMessage(type)
     }
     
     private func createAcknowledgment(_ ackType: Acknowledgment.AckType, id: String? = nil) async throws -> Data {
@@ -252,9 +252,8 @@ extension NeedleTailTransport {
     
     
     func doPing(_ server: String, server2: String? = nil) async throws {
-        let msg = IRCMessage(origin: origin, command: .PONG(server: server, server2: server))
-        guard let channel = await channel else { return }
-        try await sendAndFlushMessage(channel, message: msg)
+        let message = IRCMessage(origin: origin, command: .PONG(server: server, server2: server))
+        try await sendAndFlushMessage(message)
     }
     
     

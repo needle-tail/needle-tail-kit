@@ -14,6 +14,7 @@ enum IRCClientErrors: Error {
     case notImplemented
 }
 
+@NeedleTailClientActor
 extension NeedleTailClient {
     
     func attemptConnection() async throws {
@@ -27,11 +28,8 @@ extension NeedleTailClient {
     }
     
     func startClient() async throws {
-        var channel: Channel?
         do {
-            channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
-            self.channel = channel
-            self.transport?.channel = channel
+            self.channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
             self.userInfo = clientContext.userInfo
             transportState.transition(to: .clientConnected)
         } catch {
@@ -49,28 +47,33 @@ extension NeedleTailClient {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
-        self.transport = await NeedleTailTransport(
-            cypher: cypher,
-            messenger: messenger,
-            channel: channel,
-            userMode: userMode,
-            transportState: transportState,
-            signer: signer,
-            clientContext: clientContext,
-            clientInfo: clientInfo
-        )
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
                 channel.eventLoop.executeAsync {
+                    let transport = await self.createTransport(channel)
                     try await channel.pipeline.addHandlers([
                         IRCChannelHandler(logger: self.logger),
                         NeedleTailHandler(client: self, transport: transport)
                     ])
                 }
             }
+    }
+    
+    func createTransport(_ channel: Channel) async -> NeedleTailTransport {
+        let transport = await NeedleTailTransport(
+            cypher: self.cypher,
+            messenger: self.messenger,
+            channel: channel,
+            userMode: self.userMode,
+            transportState: self.transportState,
+            signer: self.signer,
+            clientContext: self.clientContext,
+            clientInfo: self.clientInfo
+        )
+        self.transport = transport
+        return transport
     }
     
     func attemptDisconnect(_ isSuspending: Bool) async throws {

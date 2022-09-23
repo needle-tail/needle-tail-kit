@@ -5,6 +5,8 @@ import NIOCore
 
 public protocol NeedleTailTransportDelegate: AnyObject {
     @NeedleTailClientActor
+    var channel: Channel { get set }
+    @NeedleTailClientActor
     var userConfig: UserConfig? { get set }
     @NeedleTailTransportActor
     var acknowledgment: Acknowledgment.AckType  { get set }
@@ -17,43 +19,39 @@ public protocol NeedleTailTransportDelegate: AnyObject {
     
     @NeedleTailClientActor
     func clientMessage(_
-                       channel: Channel,
                        command: IRCCommand,
                        tags: [IRCTags]?
     ) async throws
     
     @NeedleTailTransportActor
     func transportMessage(_
-                          channel: Channel,
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
 
     @BlobActor
     func blobMessage(_
-                     channel: Channel,
                      command: IRCCommand,
                      tags: [IRCTags]?
     ) async throws
     
 }
 
+//MARK: Client Side
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
     public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 
     public func clientMessage(_
-                              channel: Channel,
                               command: IRCCommand,
                               tags: [IRCTags]? = nil
     ) async throws {
         let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
-        try await sendAndFlushMessage(channel, message: message)
+        try await sendAndFlushMessage(message)
     }
     
     public func transportMessage(_
-                                 channel: Channel,
                                  type: TransportMessageType,
                                  tags: [IRCTags]? = nil
     ) async throws {
@@ -80,20 +78,66 @@ extension NeedleTailTransportDelegate {
             }
         }
         guard let message = message else { return }
-        try await sendAndFlushMessage(channel, message: message)
+        try await sendAndFlushMessage(message)
     }
 
     public func blobMessage(_
-                            channel: Channel,
                             command: IRCCommand,
                             tags: [IRCTags]? = nil
     ) async throws {
         let message = IRCMessage(command: command, tags: tags)
-        try await sendAndFlushMessage(channel, message: message)
+        try await sendAndFlushMessage(message)
     }
     
-    public func sendAndFlushMessage(_ channel: Channel, message: IRCMessage) async throws {
+    public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         try await channel.writeAndFlush(message)
+    }
+}
+
+//MARK: Server Side
+@NeedleTailTransportActor
+extension NeedleTailTransportDelegate {
+    
+    func sendError(
+        _ code: IRCCommandCode,
+        message: String? = nil,
+        _ args: String...
+    ) async throws {
+        let enrichedArgs = args + [ message ?? code.errorMessage ]
+        let message = IRCMessage(origin: origin,
+                                 target: target,
+                                 command: .numeric(code, enrichedArgs),
+                                 tags: nil)
+        try await sendAndFlushMessage(message)
+    }
+    
+    func sendReply(
+        _ code: IRCCommandCode,
+        _ args: String...
+    ) async throws {
+        let message = IRCMessage(origin: origin,
+                                 target: target,
+                                 command: .numeric(code, args),
+                                 tags: nil)
+        try await sendAndFlushMessage(message)
+    }
+    
+    func sendMotD(_ message: String) async throws {
+        guard !message.isEmpty else { return }
+        let origin = self.origin ?? "??"
+        try await sendReply(.replyMotDStart, "- \(origin) Message of the Day -")
+        
+        let lines = message.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\r", with: "") }
+            .map { "- " + $0 }
+        
+        _ = try await lines.asyncMap {
+            let message = IRCMessage(origin: origin,
+                                     command: .numeric(.replyMotD, [ target, $0 ]),
+                                     tags: nil)
+            try await sendAndFlushMessage(message)
+        }
+        try await sendReply(.replyEndOfMotD, "End of /MOTD command.")
     }
 }
 

@@ -15,8 +15,8 @@ import CypherMessaging
 
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
-    
-    @NeedleTailClientActor var channel: Channel?
+
+    @NeedleTailClientActor var channel: Channel
     @NeedleTailClientActor var userConfig: UserConfig?
     @NeedleTailClientActor var updateKeyBundle = false
     
@@ -54,12 +54,12 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let signer: TransportCreationRequest?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
-    var delegate: IRCDispatcher?
+    weak var delegate: IRCDispatcher?
     
     init(
         cypher: CypherMessenger? = nil,
         messenger: NeedleTailMessenger,
-        channel: Channel? = nil,
+        channel: Channel,
         messageOfTheDay: String = "",
         userMode: IRCUserMode,
         transportState: TransportState,

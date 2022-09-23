@@ -39,7 +39,7 @@ public final class NeedleTail {
     public var cypher: CypherMessenger?
     public var emitter = makeEventEmitter()
     public var state = NetworkMonitor()
-    var plugin: NeedleTailPlugin?
+    public static let shared = NeedleTail()
     public var messageType: MessageType = .message {
         didSet {
             messenger?.messageType = messageType
@@ -47,8 +47,12 @@ public final class NeedleTail {
     }
     var registrationApproved = false
     var registeringNewDevice = false
-    public static let shared = NeedleTail()
     var needleTailViewModel = NeedleTailViewModel()
+    var plugin: NeedleTailPlugin?
+    @NeedleTailClientActor
+    private var queue = NeedleTailStack<Int>()
+    @NeedleTailClientActor
+    private var totalRequests = 0
 
     // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
     @NeedleTailClientActor
@@ -132,10 +136,7 @@ public final class NeedleTail {
             )
         }
     }
-    
-    
-    
-    
+
     @NeedleTailClientActor
     @discardableResult
     public func registerNeedleTail(
@@ -252,15 +253,14 @@ public final class NeedleTail {
         return self.cypher
     }
     
-    var queue = NeedleTailStack<Int>()
-    var totalRequests = 0
-    
+    @NeedleTailClientActor
     private func resumeRequest(_ request: Int) async {
         totalRequests += request
         queue.enqueue(totalRequests)
     }
     
     
+    @NeedleTailClientActor
     public func resumeService(_ appleToken: String = "") async throws {
 
         await resumeRequest(1)
@@ -277,27 +277,20 @@ public final class NeedleTail {
                 }
             
             guard let messenger = messenger else { return }
-            if await messenger.client?.channel == nil {
+            if messenger.client?.channel == nil {
                 try await messenger.createClient(appleToken)
                 messenger.isConnected = true
             }
-            
-            switch messenger.clientServerState {
-            case .lockState:
-              break
-            case .clientRegistering:
-                messenger.clientServerState = .lockState
                 try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
-            }
         }
     }
     
+    @NeedleTailClientActor
     public func serviceInterupted(_ isSuspending: Bool = false) async {
         totalRequests = 0
         queue.drain()
         guard let messenger = messenger else { return }
         await messenger.suspend(isSuspending)
-        messenger.clientServerState = .clientRegistering
     }
     
     public func registerAPN(_ token: Data) async throws {
