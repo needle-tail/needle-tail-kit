@@ -129,7 +129,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
             await self.encodeMessage(channel: channel, value: message)
         }.whenComplete { switch $0 {
         case .success(let buffer):
-            context.write(NIOAny(buffer), promise: promise)
+            context.writeAndFlush(NIOAny(buffer), promise: promise)
         case .failure(let error):
             self.logger.error("\(error)")
         }

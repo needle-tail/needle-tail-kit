@@ -679,19 +679,3 @@ extension Array {
         return nil
     }
 }
-//[NeedleTailProtocol] IRCChannelHandler Read
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info MessageParser : [NeedleTailProtocol] Parsing Message....
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailKit : [NeedleTailProtocol] IRCChannelHandler is Inactive
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info MessageParser : [NeedleTailProtocol] Parsed Message IRCMessage(id: 2D2F1B88-F16D-49F7-8F65-97163FFD1944, origin: Optional("TQAAAAJuYW1lAAsAAABuZWVkbGV0YWlsAAJkZXZpY2VJZAAlAAAANTNkMzhiNDMtNmExOC00ZGNhLTk0MjgtNDFmZmU4ODAyMzNkAAA="), target: nil, command: QUIT, tags: nil)
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailServer : [NeedleTail] Unregistered Nick: NeedleTailNick(name: needletail, deviceId: Optional(53d38b43-6a18-4dca-9428-41ffe880233d))
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info SessionState : [NeedleTail] Initial Session State
-//needletailserver-irc-1  | 2022-09-19T04:16:46+0000 info NeedleTailIOHandler : [NeedleTail] NeedleTailIOHandler is Inactive
-//
-//
-//[NeedleTailProtocol] IRCChannelHandler Read
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info MessageParser : [NeedleTailProtocol] Parsing Message....
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailKit : [NeedleTailProtocol] IRCChannelHandler is Inactive
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailServer : [NeedleTail] Unregistered Nick: NeedleTailNick(name: whitetipped, deviceId: Optional(81b01f1b-1353-4285-a989-134612bfec21))
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info SessionState : [NeedleTail] Initial Session State
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info NeedleTailIOHandler : [NeedleTail] NeedleTailIOHandler is Inactive
-//needletailserver-irc-1  | 2022-09-19T04:16:58+0000 info MessageParser : [NeedleTailProtocol] Parsed Message IRCMessage(id: D35F6A37-F8A4-4250-A755-94639526AF9C, origin: Optional("TgAAAAJuYW1lAAwAAAB3aGl0ZXRpcHBlZAACZGV2aWNlSWQAJQAAADgxYjAxZjFiLTEzNTMtNDI4NS1hOTg5LTEzNDYxMmJmZWMyMQAA"), target: nil, command: QUIT, tags: nil)
