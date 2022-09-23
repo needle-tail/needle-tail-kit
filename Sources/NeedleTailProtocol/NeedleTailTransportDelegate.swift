@@ -98,7 +98,7 @@ extension NeedleTailTransportDelegate {
 @NeedleTailTransportActor
 extension NeedleTailTransportDelegate {
     
-    func sendError(
+    public func sendError(
         _ code: IRCCommandCode,
         message: String? = nil,
         _ args: String...
@@ -111,7 +111,7 @@ extension NeedleTailTransportDelegate {
         try await sendAndFlushMessage(message)
     }
     
-    func sendReply(
+    public func sendReply(
         _ code: IRCCommandCode,
         _ args: String...
     ) async throws {
@@ -122,7 +122,7 @@ extension NeedleTailTransportDelegate {
         try await sendAndFlushMessage(message)
     }
     
-    func sendMotD(_ message: String) async throws {
+    public func sendMotD(_ message: String) async throws {
         guard !message.isEmpty else { return }
         let origin = self.origin ?? "??"
         try await sendReply(.replyMotDStart, "- \(origin) Message of the Day -")
