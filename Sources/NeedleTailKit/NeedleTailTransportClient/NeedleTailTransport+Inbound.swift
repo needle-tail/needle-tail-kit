@@ -83,7 +83,7 @@ extension NeedleTailTransport {
         guard let data = Data(base64Encoded: message) else { return }
         let buffer = ByteBuffer(data: data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
-
+        
         for recipient in recipients {
             switch recipient {
             case .everything:
@@ -125,10 +125,7 @@ extension NeedleTailTransport {
                             return
                         }
                     } else if acknowledgment == .quited {
-                        _ = try await messenger.client?.channel?.close(mode: .all).get()
-                        try await messenger.client?.groupManager.shutdown()
-                        messenger.client = nil
-                        print("SHUTDOWN")
+                        await messenger.shutdownClient()
                     }
                 case .requestRegistry:
                     try await receivedRegistryRequest(packet.id)

@@ -16,6 +16,7 @@ extension NeedleTailTransport {
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
+        await messenger.clientServerState = .clientRegistering
         guard let channel = channel else { return }
         await transportState.transition(to: .transportRegistering(
             channel: channel,
@@ -27,14 +28,12 @@ extension NeedleTailTransport {
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
             try await clientMessage(channel, command:  .NICK(nick), tags: [tag])
-            await messenger.clientServerState = .clientRegistered
             return
         }
         
         try await clientMessage(channel, command: .otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
         try await clientMessage(channel, command: .NICK(nick), tags: [tag])
-        await messenger.clientServerState = .clientRegistered
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {

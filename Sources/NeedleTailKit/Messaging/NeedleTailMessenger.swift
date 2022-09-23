@@ -48,7 +48,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
-    var clientServerState: ClientServerState = .clientConnecting
+    var clientServerState: ClientServerState = .clientRegistering
     
     @NeedleTailTransportActor
     public init(
@@ -71,7 +71,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     enum ClientServerState {
-        case clientConnecting, clientConnected, clientRegistered, lockState
+        case clientRegistering, lockState
     }
     
     
@@ -122,11 +122,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                                 nameToVerify: String? = nil,
                                 state: RegistrationState? = .full
     ) async throws {
-        if client?.channel == nil {
-            try await createClient(nameToVerify)
-            
-        }
-        print("Starting registration")
+        
         switch registrationState {
         case .full:
             let regObject = regRequest(with: appleToken)
@@ -137,7 +133,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             let packet = try BSONEncoder().encode(regObject).makeData()
             try await client?.transport?.registerNeedletailSession(packet, true)
         }
-//        clientServerState = .clientConnected
     }
     
     @NeedleTailClientActor
@@ -359,7 +354,25 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     
     @NeedleTailClientActor
     public func suspend(_ isSuspending: Bool = false) async {
-        await client?.attemptDisconnect(isSuspending)
+        do {
+            try await client?.attemptDisconnect(isSuspending)
+        } catch {
+            await shutdownClient()
+        }
+    }
+    
+    @NeedleTailClientActor
+    func shutdownClient() async {
+        do {
+            _ = try await client?.channel?.close(mode: .all).get()
+            try await client?.groupManager.shutdown()
+            client = nil
+            isConnected = false
+            logger.info("disconnected from server")
+        } catch {
+            logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
+            exit(0)
+        }
     }
 }
 

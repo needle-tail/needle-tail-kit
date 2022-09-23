@@ -213,7 +213,7 @@ public final class NeedleTail {
                 }
                 if status == .satisfied {
                     if messenger.isConnected == false {
-                        try await messenger.createClient(nameToVerify)
+                        try await resumeService(nameToVerify)
                     }
                 }
             }
@@ -255,39 +255,27 @@ public final class NeedleTail {
     public func resumeService(_
                               appleToken: String = ""
     ) async throws {
+
         guard let messenger = messenger else { return }
-//        if messenger.client == nil {
-//            try await messenger.createClient("")
-//            messenger.clientServerState = .clientConnected
-//        }
-        print(messenger.clientServerState)
+        
+        if await messenger.client?.channel == nil {
+            try await messenger.createClient(appleToken)
+            messenger.isConnected = true
+        }
+        
         switch messenger.clientServerState {
         case .lockState:
             break
-        case .clientConnecting:
-            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
-        case .clientConnected:
-            if cypher?.authenticated != nil, !messenger.isConnected {
-                messenger.isConnected = true
-            } else {
-                return
-            }
-        case .clientRegistered:
+        case .clientRegistering:
             messenger.clientServerState = .lockState
+            try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
         }
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async {
         guard let messenger = messenger else { return }
         await messenger.suspend(isSuspending)
-        try? await RunLoop.run(5, sleep: 1) {
-            var running = true
-            if !messenger.isConnected {
-                running = false
-            }
-            return running
-        }
-        messenger.clientServerState = .clientConnecting
+        messenger.clientServerState = .clientRegistering
     }
     
     public func registerAPN(_ token: Data) async throws {
@@ -431,9 +419,9 @@ extension NeedleTail: ObservableObject {
                                 try? await NeedleTail.shared.resumeService()
                             case .background:
                                 print("Went into Background")
-                                await NeedleTail.shared.serviceInterupted(true)
                             case .inactive:
                                 print("Inactive")
+                                await NeedleTail.shared.serviceInterupted(true)
                             @unknown default:
                                 break
                             }

@@ -16,22 +16,31 @@ enum IRCClientErrors: Error {
 
 extension NeedleTailClient {
     
+    func attemptConnection() async throws {
+        switch transportState.current {
+        case .clientOffline:
+            transportState.transition(to: .clientConnecting)
+            try await startClient()
+        default:
+            break
+        }
+    }
+    
     func startClient() async throws {
-       var channel: Channel?
-       do {
-           channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
-           self.channel = channel
-           self.transport?.channel = channel
-           self.userInfo = clientContext.userInfo
-           transportState.transition(to: .clientConnected)
-//           messenger.clientServerState = .clientConnected
-       } catch {
-           logger.error("Could not start client: \(error)")
-           transportState.transition(to: .clientOffline)
-           await self.shutdownClient()
-           messenger.authenticated  = .unauthenticated
-       }
-   }
+        var channel: Channel?
+        do {
+            channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
+            self.channel = channel
+            self.transport?.channel = channel
+            self.userInfo = clientContext.userInfo
+            transportState.transition(to: .clientConnected)
+        } catch {
+            logger.error("Could not start client: \(error)")
+            transportState.transition(to: .clientOffline)
+            try await attemptDisconnect(true)
+            messenger.authenticated  = .unauthenticated
+        }
+    }
     
     func createChannel(host: String, port: Int) async throws -> Channel {
         userMode = IRCUserMode()
@@ -64,55 +73,25 @@ extension NeedleTailClient {
             }
     }
     
-//    func handlerDidDisconnect(_ context: ChannelHandlerContext) async {
-//        switch transportState.current {
-//        case .error:
-//            break
-//        case .quit:
-//            break
-//        case .registering, .connecting:
-//           transportState.transition(to: .disconnect)
-//        default:
-//            transportState.transition(to: .disconnect)
-//        }
-//    }
-    
-    func attemptConnection() async throws {
+    func attemptDisconnect(_ isSuspending: Bool) async throws {
+        
+        if isSuspending {
+            transportState.transition(to: .transportDeregistering)
+        }
+        
         switch transportState.current {
-        case .clientOffline:
-            transportState.transition(to: .clientConnecting)
-            try await startClient()
+        case .transportDeregistering:
+            
+            transportState.transition(to: .clientOffline)
+            messenger.authenticated = .unauthenticated
+            
+            guard let username = self.messenger.username else { return }
+            guard let deviceId = self.messenger.deviceId else { return }
+            try await transport?.sendQuit(username, deviceId: deviceId)
+            
         default:
             break
         }
     }
-
-     func attemptDisconnect(_ isSuspending: Bool) async {
-        if isSuspending {
-            transportState.transition(to: .transportDeregistering)
-        }
-         switch transportState.current {
-         case .transportDeregistering:
-             transportState.transition(to: .clientOffline)
-             messenger.authenticated = .unauthenticated
-            await shutdownClient()
-         default:
-             break
-         }
-    }
     
-    //We must make sure shutdown client is called before the NeedleTailClient is deinitialized
-    func shutdownClient() async {
-        do {
-            guard let username = self.messenger.username else { return }
-            guard let deviceId = self.messenger.deviceId else { return }
-            try await transport?.sendQuit(username, deviceId: deviceId)
-        } catch {
-            print("Could not gracefully shutdown, Forcing the exit (\(error))")
-            exit(0)
-        }
-        logger.info("disconnected from server")
-        messenger.isConnected = false
-    }
-
 }
