@@ -673,7 +673,6 @@ extension Array {
                 return element
             }
         }
-        
         return nil
     }
 }

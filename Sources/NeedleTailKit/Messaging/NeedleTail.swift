@@ -50,9 +50,12 @@ public final class NeedleTail {
     var needleTailViewModel = NeedleTailViewModel()
     var plugin: NeedleTailPlugin?
     @NeedleTailClientActor
-    private var queue = NeedleTailStack<Int>()
+    private var resumeQueue = NeedleTailStack<Int>()
     @NeedleTailClientActor
-    private var totalRequests = 0
+    private var suspendQueue = NeedleTailStack<Int>()
+    @NeedleTailClientActor
+    private var totalResumeRequests = 0
+    private var totalSuspendRequests = 0
 
     // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
     @NeedleTailClientActor
@@ -255,28 +258,22 @@ public final class NeedleTail {
     
     @NeedleTailClientActor
     private func resumeRequest(_ request: Int) async {
-        totalRequests += request
-        queue.enqueue(totalRequests)
+        totalResumeRequests += request
+       await resumeQueue.enqueue(totalResumeRequests)
     }
     
     
     @NeedleTailClientActor
     public func resumeService(_ appleToken: String = "") async throws {
-
+        
+        guard let messenger = messenger else { return }
         await resumeRequest(1)
-        let result = queue.popFirst()
 
-        if result == 1 {
+        if await resumeQueue.popFirst() == 1 {
             
-            try await RunLoop.run(20, sleep: 1) {
-                var canRun = true
-                    if messenger != nil {
-                        canRun = false
-                    }
-                    return canRun
-                }
+            totalSuspendRequests = 0
+            await suspendQueue.drain()
             
-            guard let messenger = messenger else { return }
             if messenger.client?.channel == nil {
                 try await messenger.createClient(appleToken)
                 messenger.isConnected = true
@@ -286,11 +283,26 @@ public final class NeedleTail {
     }
     
     @NeedleTailClientActor
-    public func serviceInterupted(_ isSuspending: Bool = false) async {
-        totalRequests = 0
-        queue.drain()
+    private func suspendRequest(_ request: Int) async {
+        totalSuspendRequests += request
+        await suspendQueue.enqueue(totalSuspendRequests)
+    }
+    
+    
+    @NeedleTailClientActor
+    public func serviceInterupted(_ isSuspending: Bool = false) async throws {
+        
         guard let messenger = messenger else { return }
-        await messenger.suspend(isSuspending)
+        await suspendRequest(1)
+
+        if await suspendQueue.popFirst() == 1 {
+            if messenger.client != nil {
+                
+                totalResumeRequests = 0
+                await resumeQueue.drain()
+                await messenger.suspend(isSuspending)
+            }
+        }
     }
     
     public func registerAPN(_ token: Data) async throws {
@@ -426,25 +438,9 @@ extension NeedleTail: ObservableObject {
                 return (needleTailViewModel.cypher,  needleTailViewModel.emitter)
             }) { (cypher, emitter) in
                 view
-                    .onChange(of: scenePhase) { (phase) in
-                        let task = Task {
-                            switch phase {
-                            case .active:
-                                print("Active")
-                                try? await NeedleTail.shared.resumeService()
-                            case .background:
-                                print("Went into Background")
-                            case .inactive:
-                                print("Inactive")
-                                await NeedleTail.shared.serviceInterupted(true)
-                            @unknown default:
-                                break
-                            }
-                        }
-                        task.cancel()
-                    }
                     .environment(\._emitter, emitter)
                     .environment(\._messenger, cypher)
+                
             }
         }
     }
@@ -694,3 +690,34 @@ public func makeP2PFactories() -> [P2PTransportClientFactory] {
 }
 
 #endif
+extension View {
+    #if os(iOS)
+    func onBackground(_ f: @escaping () -> Void) -> some View {
+        self.onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification),
+            perform: { _ in f() }
+        )
+    }
+    
+    func onForeground(_ f: @escaping () -> Void) -> some View {
+        self.onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification),
+            perform: { _ in f() }
+        )
+    }
+    #else
+    func onBackground(_ f: @Sendable @escaping () async-> Void) -> some View {
+        self.onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification),
+            perform: { _ in Task { await f() } }
+        )
+    }
+    
+    func onForeground(_ f: @Sendable @escaping () async-> Void) -> some View {
+        self.onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification),
+            perform: { _ in Task { await f() } }
+        )
+    }
+    #endif
+}

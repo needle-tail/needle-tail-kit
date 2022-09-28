@@ -36,8 +36,8 @@ public final class IRCChannelName: Codable, Hashable, CustomStringConvertible, S
   
   let storage: String
   let normalized: String
-  let lock = Lock()
-static let staticLock = Lock()
+  let lock = NIOLock()
+static let staticLock = NIOLock()
 
   public init?(_ s: String) {
     guard IRCChannelName.validate(string: s) else { return nil }

@@ -59,10 +59,10 @@ extension IRCUserInfo : CustomStringConvertible {
   
   public var description : String {
     var ms = "<IRCUserInfo: \(username)"
-    if let v = usermask   { ms += " mask=\(v)" }
-    if let v = hostname   { ms += " host=\(v)" }
-    if let v = servername { ms += " srv=\(v)" }
-    ms += " '\(realname)'"
+//    if let v = usermask   { ms += " mask=\(v)" }
+//    if let v = hostname   { ms += " host=\(v)" }
+//    if let v = servername { ms += " srv=\(v)" }
+//    ms += " '\(realname)'"
     ms += ">"
     return ms
   }

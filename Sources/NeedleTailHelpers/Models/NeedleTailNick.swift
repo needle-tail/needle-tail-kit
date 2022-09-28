@@ -14,7 +14,7 @@ import NIOConcurrencyHelpers
 /// This class can be Sendable because we are using a lock to protect any mutated state
 public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, @unchecked Sendable {
 
-    let lock = Lock()
+    let lock = NIOLock()
     public var description: String {
         let result = lock.withSendableLock {
             "NeedleTailNick(name: \(self.name), deviceId: \(String(describing: self.deviceId)))"

@@ -63,32 +63,39 @@ enum NextParseResult: Sendable {
     case ready(String), finished
 }
 
+public enum ConsumptionState: Sendable {
+    case enquing, dequing, draining, ready
+}
 
 
 public var consumedState = ConsumedState.consumed
 public var parseConsumedState = ConsumedState.consumed
 var nextParseResult = NextParseResult.finished
+public var consumptionState = ConsumptionState.ready
 
 @ParsingActor
 public final class ParseConsumer {
     
     public var stack = NeedleTailStack<String>()
+    public var count = 0
     
     public init() {}
     
 
-    public func feedConsumer(_ conversation: String) {
-        stack.enqueue(conversation)
+    public func feedConsumer(_ strings: [String]) async {
+        await stack.enqueue(nil , elements: strings)
+        count = await stack.enqueueStack.count
     }
     
     func next() async -> NextParseResult {
         switch parseConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = stack.dequeue() else { return .finished }
+            guard let message = await stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
             return .finished
         }
     }
 }
+

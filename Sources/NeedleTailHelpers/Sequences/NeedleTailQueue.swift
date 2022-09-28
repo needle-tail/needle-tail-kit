@@ -9,32 +9,34 @@ import Foundation
 
 public protocol NeedleTailQueue: Sendable {
     associatedtype Element
-    mutating func enqueue(_ element: Element?, elements: [Element]?)
-    mutating func dequeue() -> Element?
-    mutating func popFirst() -> Element?
-    mutating func drain()
-    var isEmpty: Bool { get }
-    var peek: Element? { get }
+    func enqueue(_ element: Element?, elements: [Element]?) async
+    func dequeue() async -> Element?
+    func popFirst() async -> Element?
+    func drain() async
+    func isEmpty() async -> Bool
+    func peek() async -> Element?
 }
 
 
-public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
+public actor NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
     
     public init() {}
     
     public var enqueueStack: [T] = []
     public var dequeueStack: [T] = []
-    public var isEmpty: Bool {
+
+    public func isEmpty() async -> Bool {
         return dequeueStack.isEmpty && enqueueStack.isEmpty
     }
-
-
-    public var peek: T? {
+    
+    public func peek() async -> T? {
         return !dequeueStack.isEmpty ? dequeueStack.last : enqueueStack.first
     }
 
 
-    public mutating func enqueue(_ element: T? = nil, elements: [T]? = nil) {
+
+    public func enqueue(_ element: T? = nil, elements: [T]? = nil) async {
+        consumptionState = .enquing
         //If stack is empty we want to set the array to the enqueue stack
         if enqueueStack.isEmpty {
             dequeueStack = enqueueStack
@@ -47,8 +49,8 @@ public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
         }
     }
 
-    public mutating func dequeue() -> T? {
-
+    public func dequeue() async -> T? {
+        consumptionState = .draining
         if dequeueStack.isEmpty {
             dequeueStack = enqueueStack.reversed()
             enqueueStack.removeAll()
@@ -56,12 +58,14 @@ public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
         if !dequeueStack.isEmpty {
             return dequeueStack.popLast()
         } else {
+            consumptionState = .ready
             return nil
         }
     }
     
-    public mutating func popFirst() -> T? {
-
+    public func popFirst() async -> T? {
+        consumptionState = .draining
+        
         if dequeueStack.isEmpty {
             dequeueStack = enqueueStack.reversed()
             enqueueStack.removeAll()
@@ -69,6 +73,84 @@ public struct NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
         if !dequeueStack.isEmpty {
             return dequeueStack.first
         } else {
+            consumptionState = .ready
+            return nil
+        }
+    }
+
+    
+    public func drain() async {
+        enqueueStack.removeAll()
+        dequeueStack.removeAll()
+    }
+}
+
+
+public protocol SyncQueue: Sendable {
+    associatedtype Element
+    mutating func enqueue(_ element: Element?, elements: [Element]?)
+    mutating func dequeue() -> Element?
+    mutating func popFirst() -> Element?
+    mutating func drain()
+    mutating func isEmpty() -> Bool
+    mutating func peek() -> Element?
+}
+
+
+public struct SyncStack<T: Sendable>: SyncQueue, Sendable  {
+    
+    public init() {}
+    
+    public var enqueueStack: [T] = []
+    public var dequeueStack: [T] = []
+
+    public mutating func isEmpty() -> Bool {
+        return dequeueStack.isEmpty && enqueueStack.isEmpty
+    }
+    
+    public mutating func peek() -> T? {
+        return !dequeueStack.isEmpty ? dequeueStack.last : enqueueStack.first
+    }
+
+    public mutating func enqueue(_ element: T? = nil, elements: [T]? = nil) {
+        consumptionState = .enquing
+        //If stack is empty we want to set the array to the enqueue stack
+        if enqueueStack.isEmpty {
+            dequeueStack = enqueueStack
+        }
+        //Then we append the element
+        if let element = element {
+        enqueueStack.append(element)
+        } else if let elements = elements {
+            enqueueStack.append(contentsOf: elements)
+        }
+    }
+    
+    public mutating func dequeue() -> T? {
+        consumptionState = .draining
+        if dequeueStack.isEmpty {
+            dequeueStack = enqueueStack.reversed()
+            enqueueStack.removeAll()
+        }
+        if !dequeueStack.isEmpty {
+            return dequeueStack.popLast()
+        } else {
+            consumptionState = .ready
+            return nil
+        }
+    }
+    
+    public mutating func popFirst() -> T? {
+        consumptionState = .draining
+        
+        if dequeueStack.isEmpty {
+            dequeueStack = enqueueStack.reversed()
+            enqueueStack.removeAll()
+        }
+        if !dequeueStack.isEmpty {
+            return dequeueStack.first
+        } else {
+            consumptionState = .ready
             return nil
         }
     }

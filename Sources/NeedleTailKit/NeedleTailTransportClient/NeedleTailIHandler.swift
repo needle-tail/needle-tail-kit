@@ -26,12 +26,12 @@ final class NeedleTailHandler: ChannelInboundHandler {
     }
     
     func channelActive(context: ChannelHandlerContext) {
-        logger.info("Channel Active")
+        logger.trace("Channel Active")
         context.fireChannelActive()
     }
     
     func channelInactive(context: ChannelHandlerContext) {
-        logger.info("Channel Inactive")
+        logger.trace("Channel Inactive")
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {

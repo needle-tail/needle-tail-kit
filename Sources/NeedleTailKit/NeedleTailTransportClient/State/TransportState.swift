@@ -58,9 +58,9 @@ public class TransportState: StateMachine {
         case .clientConnected:
             logger.info("The client has connected")
         case .transportRegistering(channel: _, nick: let nick, userInfo: let userInfo):
-            logger.info("Now registering Nick: \(nick.name) has UserInfo: \(userInfo)")
+            logger.info("Now registering Nick: \(nick.name) has UserInfo: \(userInfo.description)")
         case .transportOnline(channel: _, nick: let nick, userInfo: let userInfo):
-            logger.info("Nick: \(nick.name) with UserInfo: \(userInfo) is now online")
+            logger.info("Nick: \(nick.name) with UserInfo: \(userInfo.description) is now online")
         case .transportDeregistering:
             logger.info("We are de-registering Session")
         case .transportOffline:

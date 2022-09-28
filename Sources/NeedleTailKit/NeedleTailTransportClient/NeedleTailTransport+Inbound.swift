@@ -10,6 +10,9 @@ import CypherMessaging
 import BSON
 import NeedleTailHelpers
 import NeedleTailProtocol
+#if os(macOS)
+import AppKit
+#endif
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 @NeedleTailTransportActor
@@ -127,6 +130,9 @@ extension NeedleTailTransport {
                         }
                     } else if acknowledgment == .quited {
                         await messenger.shutdownClient()
+#if os(macOS)
+                        await NSApplication.shared.reply(toApplicationShouldTerminate: true)
+#endif
                     }
                 case .requestRegistry:
                     try await receivedRegistryRequest(packet.id)
@@ -280,33 +286,23 @@ extension NeedleTailTransport {
     
     
     func handleInfo(_ info: [String]) {
-        for message in info {
-            print("Handle Info", message)
-        }
+        var infoMessage = ""
+        let info = info.dropFirst()
+        let stringArray = info.map{ String($0) }
+        infoMessage = stringArray.joined(separator: " ")
+        logger.info("Server information: \(infoMessage)")
     }
     
     
     func handleTopic(_ topic: String, on channel: IRCChannelName) {
-        print("Handle Topic \(topic), on channel \(channel)")
+        logger.info("Topic: \(topic), on Channel: \(channel)")
     }
     
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) {
         var serverMessage = ""
-        switch type {
-        case .replyWelcome:
-            let stringArray = messages.map{ String($0) }
-            serverMessage = stringArray.joined(separator: ",")
-            print("REPLY_WELCOME", serverMessage)
-        case .replyMyInfo:
-            let stringArray = messages.map{ String($0) }
-            serverMessage = stringArray.joined(separator: ",")
-            print("REPLY_MY_INFO", serverMessage)
-        case .replyInfo:
-            let stringArray = messages.map{ String($0) }
-            serverMessage = stringArray.joined(separator: ",")
-            print("REPLY_INFO", serverMessage)
-        default:
-            break
-        }
+        let messages = messages.dropFirst()
+        let stringArray = messages.map{ String($0) }
+        serverMessage = stringArray.joined(separator: ",")
+        logger.info("\(type): \(serverMessage)")
     }
 }
