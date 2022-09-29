@@ -33,8 +33,6 @@ public actor NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
         return !dequeueStack.isEmpty ? dequeueStack.last : enqueueStack.first
     }
 
-
-
     public func enqueue(_ element: T? = nil, elements: [T]? = nil) async {
         consumptionState = .enquing
         //If stack is empty we want to set the array to the enqueue stack
@@ -118,6 +116,7 @@ public struct SyncStack<T: Sendable>: SyncQueue, Sendable  {
         if enqueueStack.isEmpty {
             dequeueStack = enqueueStack
         }
+
         //Then we append the element
         if let element = element {
         enqueueStack.append(element)
@@ -132,6 +131,7 @@ public struct SyncStack<T: Sendable>: SyncQueue, Sendable  {
             dequeueStack = enqueueStack.reversed()
             enqueueStack.removeAll()
         }
+        
         if !dequeueStack.isEmpty {
             return dequeueStack.popLast()
         } else {

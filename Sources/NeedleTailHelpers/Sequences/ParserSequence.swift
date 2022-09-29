@@ -64,7 +64,7 @@ enum NextParseResult: Sendable {
 }
 
 public enum ConsumptionState: Sendable {
-    case enquing, dequing, draining, ready
+    case consuming, enquing, dequing, draining, ready
 }
 
 
@@ -83,6 +83,7 @@ public final class ParseConsumer {
     
 
     public func feedConsumer(_ strings: [String]) async {
+        consumptionState = .consuming
         await stack.enqueue(nil , elements: strings)
         count = await stack.enqueueStack.count
     }

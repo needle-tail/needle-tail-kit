@@ -24,4 +24,5 @@ public enum NeedleTailError: String, Error {
     case senderNil
     case channelIsNil
     case parsingError
+    case channelMonitorIsNil
 }

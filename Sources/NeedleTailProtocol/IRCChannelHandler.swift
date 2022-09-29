@@ -48,11 +48,6 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         context.fireChannelInactive()
     }
     
-    enum SyncDequeueState {
-        case drained, process, none
-    }
-    var syncDequeueState: SyncDequeueState = .none
-    
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         self.logger.trace("IRCChannelHandler Read")
         var buffer = self.unwrapInboundIn(data)
@@ -62,24 +57,27 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
         
+        
         context.eventLoop.executeAsync {
             await self.consumer.feedConsumer(messages)
             await self.monitor?.monitorQueue()
-            guard let monitor = await self.monitor else { throw NeedleTailError.channelIsNil }
-            return await monitor.stack
+            
+            return try await self.feedAndDrain({ monitor in
+                return await monitor?.stack
+            }, { monitor in
+                if consumptionState == .ready {
+                    await self.drain(monitor)
+                }
+            })
         }
         .whenComplete{  switch $0 {
         case .success(let stack):
             var stack = stack
-
             if !stack.isEmpty() {
                 for _ in stack.enqueueStack {
                     if stack.peek() != nil {
                         guard let message = stack.dequeue() else { return }
                         self.channelRead(context: context, value: message)
-                    }
-                    if consumptionState == .ready {
-                        stack.drain()
                     }
                 }
             }
@@ -91,10 +89,19 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     }
     
     @ParsingActor
-    private func feedAndDrain(_ drain: @Sendable @escaping (_ monitor: ChannelMonitor?) async -> ChannelMonitor) async -> ChannelMonitor {
-        //        guard let monitor = monitor else { return nil }
-        return await drain(monitor)
-        //        return monitor
+    private func drain(_ monitor: ChannelMonitor?) {
+        monitor?.stack.drain()
+    }
+    
+    @ParsingActor
+    private func feedAndDrain(
+        _ feed: @Sendable @escaping (_ monitor: ChannelMonitor?) async -> SyncStack<IRCMessage>?,
+        _ drain: @Sendable @escaping (_ monitor: ChannelMonitor?) async -> Void
+    ) async throws -> SyncStack<IRCMessage> {
+        guard let monitor = self.monitor else { throw NeedleTailError.channelMonitorIsNil }
+        guard let mon = await feed(monitor) else { throw NeedleTailError.channelMonitorIsNil }
+        _ = await drain(monitor)
+        return mon
     }
     
     public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
@@ -167,13 +174,16 @@ final class ChannelMonitor {
         return
     }
     
+    // We process our Message twice before we consume it
     private func processMessage() async {
         do {
             for try await result in ParserSequence(consumer: consumer) {
                 switch result {
                 case.success(let msg):
                     let parsedMessage = try await IRCTaskHelpers.parseMessageTask(task: msg, messageParser: parser)
-                    stack.enqueue(parsedMessage)
+                    if !stack.enqueueStack.contains(parsedMessage) {
+                        stack.enqueue(parsedMessage)
+                    }
                 case .finished:
                     return
                 }
