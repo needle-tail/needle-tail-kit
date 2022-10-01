@@ -120,11 +120,11 @@ extension NeedleTailTransport {
                     logger.info("INFO RECEIVED - ACK: - \(acknowledgment)")
                     
                     if acknowledgment == .registered("true") {
-                        switch await transportState.current {
+                        switch transportState.current {
                         case .transportRegistering(channel: let channel, nick: let nick, userInfo: let user):
                             let type = TransportMessageType.standard(.USER(user))
                             try await transportMessage(type)
-                            await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
+                            transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
                         default:
                             return
                         }
@@ -200,10 +200,10 @@ extension NeedleTailTransport {
     
     
     func doNick(_ newNick: NeedleTailNick) async throws {
-        switch await transportState.current {
+        switch transportState.current {
         case .transportRegistering(let channel, let nick, let info):
             guard nick != newNick else { return }
-            await transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
+            transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
         default:
             return
         }
@@ -264,7 +264,7 @@ extension NeedleTailTransport {
     
     
     private func respondToTransportState() async  {
-        switch await transportState.current {
+        switch transportState.current {
         case .clientOffline:
             break
         case .clientConnecting:

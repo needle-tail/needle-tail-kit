@@ -8,7 +8,7 @@
 import Foundation
 import NeedleTailHelpers
 
-@NeedleTailClientActor
+@NeedleTailTransportActor
 public protocol StateMachine {
     associatedtype State
     var current: State { get }

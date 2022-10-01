@@ -18,9 +18,9 @@ enum IRCClientErrors: Error {
 extension NeedleTailClient {
     
     func attemptConnection() async throws {
-        switch transportState.current {
+        switch await transportState.current {
         case .clientOffline:
-            transportState.transition(to: .clientConnecting)
+            await transportState.transition(to: .clientConnecting)
             try await startClient()
         default:
             break
@@ -31,10 +31,10 @@ extension NeedleTailClient {
         do {
             self.channel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
             self.userInfo = clientContext.userInfo
-            transportState.transition(to: .clientConnected)
+            await transportState.transition(to: .clientConnected)
         } catch {
             logger.error("Could not start client: \(error)")
-            transportState.transition(to: .clientOffline)
+            await transportState.transition(to: .clientOffline)
             try await attemptDisconnect(true)
             messenger.authenticated  = .unauthenticated
         }
@@ -79,13 +79,13 @@ extension NeedleTailClient {
     func attemptDisconnect(_ isSuspending: Bool) async throws {
         
         if isSuspending {
-            transportState.transition(to: .transportDeregistering)
+            await transportState.transition(to: .transportDeregistering)
         }
         
-        switch transportState.current {
+        switch await transportState.current {
         case .transportDeregistering:
             
-            transportState.transition(to: .clientOffline)
+            await transportState.transition(to: .clientOffline)
             messenger.authenticated = .unauthenticated
             
             guard let username = self.messenger.username else { return }

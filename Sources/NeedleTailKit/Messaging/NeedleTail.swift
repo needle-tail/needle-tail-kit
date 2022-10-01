@@ -264,8 +264,7 @@ public final class NeedleTail {
     
     
     @NeedleTailClientActor
-    public func resumeService(_ appleToken: String = "") async throws {
-        
+    public func resumeService(_ nameToVerify: String = "", appleToken: String = "") async throws {
         guard let messenger = messenger else { return }
         await resumeRequest(1)
 
@@ -273,12 +272,12 @@ public final class NeedleTail {
             
             totalSuspendRequests = 0
             await suspendQueue.drain()
-            
+
             if messenger.client?.channel == nil {
-                try await messenger.createClient(appleToken)
+                try await messenger.createClient(nameToVerify)
                 messenger.isConnected = true
             }
-                try await messenger.startSession(messenger.registrationType(appleToken), nil, .full)
+                try await messenger.startSession(messenger.registrationType(appleToken), nil, messenger.registrationState)
         }
     }
     

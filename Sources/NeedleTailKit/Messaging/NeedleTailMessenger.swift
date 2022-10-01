@@ -143,7 +143,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             } else {
                 name = nameToVerify?.ircLowercased()
             }
-            guard let name = name else { return }
+            
+            guard let name = name else { throw NeedleTailError.nilNickName }
             guard let nick = NeedleTailNick(name: name, deviceId: signer?.deviceId) else { throw NeedleTailError.nilNickName }
             let clientContext = ClientContext(
                 clientInfo: self.clientInfo,
@@ -592,7 +593,6 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         guard let myDeviceId = self.deviceId else { return }
         switch type {
