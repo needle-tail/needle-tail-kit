@@ -82,7 +82,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
             }
             
         case .failure(let error):
-            logger.error("\(error)")
+            self.logger.error("\(error)")
             
         }}
     }
