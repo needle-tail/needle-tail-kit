@@ -103,7 +103,8 @@ extension IRCCommand: CustomStringConvertible {
   
   public var arguments : [ String ] {
     switch self {
-      case .NICK(let nick): return [ nick.stringValue ]
+      case .NICK(let nick):
+        return [ nick.stringValue ]
       case .USER(let info):
         if let usermask = info.usermask {
             return [ info.username, usermask.stringValue, "*", info.realname ]

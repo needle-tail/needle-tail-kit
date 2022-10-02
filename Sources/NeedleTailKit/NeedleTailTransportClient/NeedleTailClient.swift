@@ -46,7 +46,7 @@ final class NeedleTailClient {
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
             group = NIOTSEventLoopGroup()
         } else {
-            print("Sorry, your OS is too old for Network.framework.")
+            logger.error("Sorry, your OS is too old for Network.framework.")
             exit(0)
         }
 #else

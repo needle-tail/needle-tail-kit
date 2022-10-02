@@ -57,7 +57,6 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
         
-        
         context.eventLoop.executeAsync {
             await self.consumer.feedConsumer(messages)
             await self.monitor?.monitorQueue()
@@ -83,7 +82,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
             }
             
         case .failure(let error):
-            print(error)
+            logger.error("\(error)")
             
         }}
     }

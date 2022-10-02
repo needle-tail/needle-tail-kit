@@ -159,7 +159,6 @@ extension NeedleTailTransport {
                                 recipient: IRCMessageRecipient,
                                 messageType: MessageType
     ) async throws {
-        print("Recieved Message from server", packet)
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
         guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
@@ -242,7 +241,6 @@ extension NeedleTailTransport {
     }
     
     func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
-        print("PARTING CHANNEL")
         await respondToTransportState()
         
         guard let tag = tags?.first?.value else { return }
@@ -252,7 +250,6 @@ extension NeedleTailTransport {
     }
     
     func doModeGet(nick: NeedleTailNick) async throws {
-        print("DO MODE GET - NICK: \(nick)")
         await respondToTransportState()
     }
     

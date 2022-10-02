@@ -23,8 +23,7 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     }
     
     public var stringValue: String {
-        guard let deviceId = deviceId else { return "" }
-        return "\(name):\(deviceId)"
+        return "\(name):\(String(describing: deviceId))"
     }
     public var name: String
     public let deviceId: DeviceId?

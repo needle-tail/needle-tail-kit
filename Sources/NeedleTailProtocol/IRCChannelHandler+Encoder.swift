@@ -67,7 +67,6 @@ extension IRCChannelHandler {
         case .NICK(let v), .MODEGET(let v):
             buffer.writeInteger(cSpace)
             buffer.writeString(v.stringValue)
-            
         case .MODE(let nick, let add, let remove):
             buffer.writeInteger(cSpace)
             buffer.writeString(nick.stringValue)

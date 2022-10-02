@@ -112,7 +112,7 @@ public final class NeedleTail {
                 return running
             })
             
-            await messenger?.suspend(true)
+            try await serviceInterupted(true)
             messenger = nil
             
             return try await registerNeedleTail(
@@ -267,7 +267,6 @@ public final class NeedleTail {
     public func resumeService(_ nameToVerify: String = "", appleToken: String = "") async throws {
         guard let messenger = messenger else { return }
         await resumeRequest(1)
-
         if await resumeQueue.popFirst() == 1 {
             
             totalSuspendRequests = 0
@@ -290,10 +289,8 @@ public final class NeedleTail {
     
     @NeedleTailClientActor
     public func serviceInterupted(_ isSuspending: Bool = false) async throws {
-        
         guard let messenger = messenger else { return }
         await suspendRequest(1)
-
         if await suspendQueue.popFirst() == 1 {
             if messenger.client != nil {
                 
@@ -560,7 +557,7 @@ extension NeedleTail: ObservableObject {
                                 //TODO: Send RETRY with new Username Notification
                             }
                         } catch {
-                            print(error)
+                            print("\(error)")
                         }
                     }
                 }

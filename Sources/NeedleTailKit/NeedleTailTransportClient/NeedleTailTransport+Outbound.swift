@@ -16,10 +16,13 @@ extension NeedleTailTransport {
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
-        await transportState.transition(to: .transportRegistering(
-            channel: channel,
-            nick: clientContext.nickname,
-            userInfo: clientContext.userInfo))
+        await transportState.transition(to:
+                .transportRegistering(
+                    channel: channel,
+                    nick: clientContext.nickname,
+                    userInfo: clientContext.userInfo
+                )
+        )
         
         guard case .transportRegistering(_, let nick, _) = await transportState.current else { return }
         let value = regPacket.base64EncodedString()

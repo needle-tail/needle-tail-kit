@@ -160,7 +160,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
-                return print("ERROR: topic args incomplete:", message)
+                return logger.error("ERROR: topic args incomplete: \(message)")
             }
             handleTopic(args[2], on: channel)
         case .otherNumeric(let code, let args):

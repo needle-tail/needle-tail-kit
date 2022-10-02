@@ -24,7 +24,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.trace("Parsing Message....")
+        self.logger.info("Parsing Message....\(message)")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>

@@ -82,13 +82,12 @@ public extension IRCCommand {
             
         case "NICK":
             try expect(argc: 1)
-            let splitNick = arguments[0].components(separatedBy: ":")
-            let deviceId = DeviceId(splitNick[1])
-            guard let nick = NeedleTailNick(name: splitNick[0], deviceId: deviceId) else {
-                throw Error.invalidNickName(arguments[0])
-            }
-            self = .NICK(nick)
-            
+                let splitNick = arguments[0].components(separatedBy: ":")
+                let deviceId = DeviceId(splitNick[1])
+                guard let nick = NeedleTailNick(name: splitNick[0], deviceId: deviceId) else {
+                    throw Error.invalidNickName(arguments[0])
+                }
+                self = .NICK(nick)
         case "MODE":
             try expect(min: 1)
             guard let recipient = IRCMessageRecipient(arguments[0]) else {
