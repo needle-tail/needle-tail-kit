@@ -17,13 +17,15 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     let lock = NIOLock()
     public var description: String {
         let result = lock.withSendableLock {
-            "NeedleTailNick(name: \(self.name), deviceId: \(String(describing: self.deviceId)))"
+            let did = self.deviceId ?? DeviceId("")
+            return "NeedleTailNick(name: \(self.name), deviceId: \(did))"
         }
         return result
     }
     
     public var stringValue: String {
-        return "\(name):\(String(describing: deviceId))"
+        guard let deviceId = deviceId else { return "" }
+        return "\(name):\(deviceId)"
     }
     public var name: String
     public let deviceId: DeviceId?

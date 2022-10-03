@@ -9,13 +9,13 @@ import NeedleTailHelpers
          var hostname: String
          var port: Int
          var password: String
-         var tls: Bool = true
+         var tls: Bool
         
          public init(
             hostname: String = "localhost",
             port: Int = 6667,
             password: String = "",
-            tls: Bool = true
+            tls: Bool
         ) {
             self.hostname = hostname
             self.port = port
