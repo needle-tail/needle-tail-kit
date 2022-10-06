@@ -35,7 +35,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     
     @ParsingActor
     private func initializeMonitor() async {
-        self.monitor =  ChannelMonitor(consumer: consumer)
+        self.monitor = ChannelMonitor(consumer: consumer)
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -129,9 +129,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     ) {
         let channel = context.channel
         let message = self.unwrapOutboundIn(data)
-        context.eventLoop.executeAsync {
-            await self.encodeMessage(channel: channel, value: message)
-        }.whenComplete { switch $0 {
+        let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
+           return await self.encodeMessage(channel: channel, value: message)
+        }
+            buffer.whenComplete { switch $0 {
         case .success(let buffer):
             context.writeAndFlush(NIOAny(buffer), promise: promise)
         case .failure(let error):

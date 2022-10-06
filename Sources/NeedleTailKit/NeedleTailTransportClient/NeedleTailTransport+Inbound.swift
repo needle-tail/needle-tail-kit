@@ -52,11 +52,13 @@ extension NeedleTailTransport {
     }
     
     // This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
-    func receivedNewDevice(_ deviceState: NewDeviceState) async {
+    func receivedNewDevice(_ deviceState: NewDeviceState, contacts: [NTKContact]) async throws {
 #if (os(macOS) || os(iOS))
         messenger.plugin.emitter.qrCodeData = nil
 #endif
         self.receivedNewDeviceAdded = deviceState
+        //TODO: We want to add the list of contacts to our DB Here
+        try await messenger.addMasterDevicesContacts(contacts)
     }
     
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
@@ -137,7 +139,8 @@ extension NeedleTailTransport {
                 case .requestRegistry:
                     try await receivedRegistryRequest(packet.id)
                 case .newDevice(let state):
-                    await receivedNewDevice(state)
+                    guard let contacts = packet.contacts else { return }
+                    try await receivedNewDevice(state, contacts: contacts)
                 default:
                     return
                 }

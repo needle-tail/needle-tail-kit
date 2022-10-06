@@ -36,6 +36,7 @@ public struct MessagePacket: Codable, Sendable {
     public let readReceipt: ReadReceiptPacket?
     public let channelName: String?
     public let addKeyBundle: Bool?
+    public let contacts: [NTKContact]?
     
     public init(
         id: String,
@@ -47,7 +48,8 @@ public struct MessagePacket: Codable, Sendable {
         message: RatchetedCypherMessage?,
         readReceipt: ReadReceiptPacket?,
         channelName: String? = nil,
-        addKeyBundle: Bool? = nil
+        addKeyBundle: Bool? = nil,
+        contacts: [NTKContact]? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -59,6 +61,17 @@ public struct MessagePacket: Codable, Sendable {
         self.readReceipt = readReceipt
         self.channelName = channelName
         self.addKeyBundle = addKeyBundle
+        self.contacts = contacts
+    }
+}
+
+public struct NTKContact: Codable, Sendable {
+    public var username: Username
+    public var nickname: String
+    
+    public init(username: Username, nickname: String) {
+        self.username = username
+        self.nickname = nickname
     }
 }
 

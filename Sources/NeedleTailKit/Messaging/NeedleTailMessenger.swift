@@ -17,6 +17,7 @@ import JWTKit
 import Logging
 import NeedleTailProtocol
 import NeedleTailHelpers
+//import AsyncAlgorithms
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -172,6 +173,20 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
         guard let updateKeyBundle = client?.transport?.updateKeyBundle else { return }
         
+        var contacts: [NTKContact]?
+        if updateKeyBundle {
+            contacts = [NTKContact]()
+            for contact in try await cypher?.listContacts() ?? [] {
+                print("CONTACT___", contact)
+                await contacts?.append(
+                    NTKContact(
+                        username: contact.username,
+                        nickname: contact.nickname ?? ""
+                    )
+                )
+            }
+        }
+        
         try await startSession(registrationType(appleToken ?? ""), nil, registrationState)
         try await RunLoop.run(240, sleep: 1, stopRunning: {
             var running = true
@@ -197,7 +212,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             recipient: nil,
             message: nil,
             readReceipt: .none,
-            addKeyBundle: updateKeyBundle
+            addKeyBundle: updateKeyBundle,
+            contacts: contacts
         )
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
@@ -242,6 +258,14 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func processApproval(_ code: String) async throws -> Bool {
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         return await transport.computeApproval(code)
+    }
+    
+    @NeedleTailClientActor
+    func addMasterDevicesContacts(_ contactList: [NTKContact]) async throws {
+        for contact in contactList {
+            let createdContact = try await cypher?.createContact(byUsername: contact.username)
+            try await createdContact?.setNickname(to: contact.nickname)
+        }
     }
     
     @NeedleTailTransportActor
