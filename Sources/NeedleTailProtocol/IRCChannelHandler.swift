@@ -10,6 +10,7 @@ import NIOSSL
 
 public final class IRCChannelHandler: ChannelDuplexHandler {
     
+    
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
     public typealias OutboundIn  = IRCMessage
@@ -51,12 +52,12 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         self.logger.trace("IRCChannelHandler Read")
         var buffer = self.unwrapInboundIn(data)
-        let lines = buffer.readString(length: buffer.readableBytes) ?? ""
+        guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
         guard !lines.isEmpty else { return }
         let messages = lines.components(separatedBy: "\n")
             .map { $0.replacingOccurrences(of: "\r", with: "") }
             .filter{ $0 != ""}
-        
+
         context.eventLoop.executeAsync {
             await self.consumer.feedConsumer(messages)
             await self.monitor?.monitorQueue()

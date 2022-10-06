@@ -40,6 +40,7 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
+        print(message)
         try await channel.writeAndFlush(message)
     }
 }

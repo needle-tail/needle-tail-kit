@@ -150,6 +150,7 @@ public final class MessageParser {
         case .int(let int):
             //            :localhost 332 Guest31 #NIO :Welcome to #nio!
             var spread = message.components(separatedBy: " ")
+            guard spread.count >= 4 else { return nil }
             let right = spread[4...]
             let left = spread[0...3]
             spread = Array(left)

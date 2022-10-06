@@ -174,7 +174,6 @@ extension IRCChannelHandler {
         
         buffer.writeInteger(cCR)
         buffer.writeInteger(cLF)
-        
         return buffer
     }
 }
