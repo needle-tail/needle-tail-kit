@@ -14,7 +14,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
     public typealias OutboundIn  = IRCMessage
-    public typealias OutboundOut = IRCMessage
+    public typealias OutboundOut = ByteBuffer
     
     let logger: Logger
     var channel: Channel?
@@ -104,8 +104,10 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
         return mon
     }
     
-    public func channelRead(context: ChannelHandlerContext, value: InboundOut) {
+    private func channelRead(context: ChannelHandlerContext, value: InboundOut) {
+        print("Value", value)
         let wioValue = wrapInboundOut(value)
+        print("IOVALUE", value)
         context.fireChannelRead(wioValue)
     }
     
