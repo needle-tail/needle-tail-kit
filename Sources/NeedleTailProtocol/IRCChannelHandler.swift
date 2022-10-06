@@ -105,9 +105,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     }
     
     private func channelRead(context: ChannelHandlerContext, value: InboundOut) {
-        print("Value", value)
         let wioValue = wrapInboundOut(value)
-        print("IOVALUE", value)
         context.fireChannelRead(wioValue)
     }
     
