@@ -14,7 +14,7 @@ public final class IRCChannelHandler: ChannelDuplexHandler {
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
     public typealias OutboundIn  = IRCMessage
-    public typealias OutboundOut = ByteBuffer
+    public typealias OutboundOut = IRCMessage
     
     let logger: Logger
     var channel: Channel?
