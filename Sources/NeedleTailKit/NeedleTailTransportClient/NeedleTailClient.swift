@@ -10,7 +10,7 @@ import NIOTransportServices
 @NeedleTailClientActor
 final class NeedleTailClient {
     
-    public let clientContext: ClientContext
+    public var clientContext: ClientContext
     public let clientInfo: ClientContext.ServerClientInfo
     var eventLoop: EventLoop?
     var cypher: CypherMessenger?

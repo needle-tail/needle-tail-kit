@@ -56,7 +56,7 @@ public final class NeedleTail {
     @NeedleTailClientActor
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
-
+    
     // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
     @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
@@ -92,9 +92,7 @@ public final class NeedleTail {
         )
         
         do {
-            let masterKeyBundle = try await messenger?
-                .readKeyBundle(forUsername: Username(username))
-            
+            let masterKeyBundle = try await messenger?.readKeyBundle(forUsername: Username(username))
             for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
                 try await messenger?.requestDeviceRegistration(nick)
@@ -103,7 +101,7 @@ public final class NeedleTail {
             await MainActor.run {
                 emitter.showScanner = true
             }
-
+            
             try await RunLoop.run(240, sleep: 1, stopRunning: {
                 var running = true
                 if registrationApproved == true {
@@ -127,7 +125,7 @@ public final class NeedleTail {
             
         } catch {
             print("User Does not exist,  proceed...")
-            await self.messenger?.suspend()
+            try await self.serviceInterupted(true)
             self.messenger = nil
             return try await registerNeedleTail(
                 appleToken: appleToken,
@@ -139,7 +137,7 @@ public final class NeedleTail {
             )
         }
     }
-
+    
     @NeedleTailClientActor
     @discardableResult
     public func registerNeedleTail(
@@ -181,7 +179,6 @@ public final class NeedleTail {
             )
             messenger?.cypher = cypher
             emitter.needleTailNick = messenger?.needleTailNick
-            
         }
         return cypher
     }
@@ -250,7 +247,7 @@ public final class NeedleTail {
             database: store,
             eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
-
+        
         messenger?.cypher = self.cypher
         emitter.needleTailNick = messenger?.needleTailNick
         return self.cypher
@@ -259,7 +256,7 @@ public final class NeedleTail {
     @NeedleTailClientActor
     private func resumeRequest(_ request: Int) async {
         totalResumeRequests += request
-       await resumeQueue.enqueue(totalResumeRequests)
+        await resumeQueue.enqueue(totalResumeRequests)
     }
     
     
@@ -271,12 +268,16 @@ public final class NeedleTail {
             
             totalSuspendRequests = 0
             await suspendQueue.drain()
-
-            if messenger.client?.channel == nil {
-                try await messenger.createClient(nameToVerify)
-                messenger.isConnected = true
-            }
-                try await messenger.startSession(messenger.registrationType(appleToken), nil, messenger.registrationState)
+            
+            let client = try await messenger.createClient(nameToVerify)
+            messenger.isConnected = true
+            
+            try await messenger.startSession(
+                client,
+                type: messenger.registrationType(appleToken),
+                nameToVerify: nil,
+                state: messenger.registrationState
+            )
         }
     }
     
@@ -317,7 +318,7 @@ public final class NeedleTail {
             try await contact.unfriend()
         }
     }
-
+    
     public func addContact(newContact: String, nick: String = "") async throws {
         let chat = try await cypher?.createPrivateChat(with: Username(newContact))
         let contact = try await cypher?.createContact(byUsername: Username(newContact))
@@ -350,7 +351,9 @@ public final class NeedleTail {
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
+        guard let transport = await self.messenger?.client?.transport else { throw NeedleTailError.transportNotIntitialized }
         try await messenger?.createLocalChannel(
+            transport: transport,
             name: name,
             admin: admin,
             organizers: organizers,
@@ -376,13 +379,13 @@ public final class NeedleTail {
     }
     
     public func startVideoChat(_ username: String, data: Data) async throws {
-//        let chat = try await cypher?.createPrivateChat(with: Username(username))
-//        try await chat?.buildP2PConnections()
-//
-//        let packet = try RTPPacket(from: data)
-//        let data = try BSONEncoder().encode(packet).makeData()
-//        let string = data.base64EncodedString()
-//        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
+        //        let chat = try await cypher?.createPrivateChat(with: Username(username))
+        //        try await chat?.buildP2PConnections()
+        //
+        //        let packet = try RTPPacket(from: data)
+        //        let data = try BSONEncoder().encode(packet).makeData()
+        //        let string = data.base64EncodedString()
+        //        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
         
     }
 }
@@ -601,12 +604,12 @@ public struct AsyncView<T, V: View>: View {
             case .none:
                 NeedleTailProgressView()
                     .task {
-                    do {
-                        self.result = .success(try await run())
-                    } catch {
-                        self.result = .failure(error)
+                        do {
+                            self.result = .success(try await run())
+                        } catch {
+                            self.result = .failure(error)
+                        }
                     }
-                }
             }
         }.id(result.debugDescription)
     }
@@ -681,7 +684,7 @@ func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation
 public func makeP2PFactories() -> [P2PTransportClientFactory] {
     return [
         IPv6TCPP2PTransportClientFactory()
-//        SpineTailedTransportFactory()
+        //        SpineTailedTransportFactory()
     ]
 }
 

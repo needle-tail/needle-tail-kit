@@ -5,6 +5,7 @@ public enum NeedleTailError: String, Error {
     case nilToken
     case urlResponseNil
     case nilClient
+    case clientExists
     case nilChannelName
     case nilNickName
     case nilNTM
@@ -23,6 +24,7 @@ public enum NeedleTailError: String, Error {
     case messageReceivedError
     case senderNil
     case channelIsNil
+    case channelExists
     case parsingError
     case channelMonitorIsNil
 }

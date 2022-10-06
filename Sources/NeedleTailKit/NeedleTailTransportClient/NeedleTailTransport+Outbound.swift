@@ -23,7 +23,7 @@ extension NeedleTailTransport {
                     userInfo: clientContext.userInfo
                 )
         )
-        
+
         guard case .transportRegistering(_, let nick, _) = await transportState.current else { return }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
