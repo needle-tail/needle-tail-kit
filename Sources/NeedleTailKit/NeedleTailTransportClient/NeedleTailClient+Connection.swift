@@ -85,13 +85,12 @@ extension NeedleTailClient {
         switch await transportState.current {
         case .transportDeregistering:
             
-            await transportState.transition(to: .clientOffline)
+            await transportState.transition(to: .transportOffline)
             messenger.authenticated = .unauthenticated
             
             guard let username = self.messenger.username else { return }
             guard let deviceId = self.messenger.deviceId else { return }
             try await transport?.sendQuit(username, deviceId: deviceId)
-            
         default:
             break
         }

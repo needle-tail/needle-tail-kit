@@ -36,7 +36,6 @@ public final class MessageParser {
         } else {
             stripedMessage = message
         }
-        
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else { throw MessageParserError.messageWithWhiteSpaceNil }
         var command = ""
         var parameter = ""

@@ -24,7 +24,7 @@ extension NeedleTailTransport {
                 )
         )
 
-        guard case .transportRegistering(_, let nick, _) = await transportState.current else { return }
+        guard case .transportRegistering(_, let nick, _) = await transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
@@ -133,7 +133,7 @@ extension NeedleTailTransport {
         toDevice: DeviceId,
         messageType: MessageType,
         conversationType: ConversationType,
-        readReceipt: ReadReceiptPacket?
+        readReceipt: ReadReceipt?
     ) async throws {
         let packet = MessagePacket(
             id: messageId,
@@ -145,7 +145,7 @@ extension NeedleTailTransport {
             message: message,
             readReceipt: readReceipt
         )
-        
+        print("PACKET___", packet)
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
@@ -163,7 +163,7 @@ extension NeedleTailTransport {
         toDevice: DeviceId,
         messageType: MessageType,
         conversationType: ConversationType,
-        readReceipt: ReadReceiptPacket?
+        readReceipt: ReadReceipt?
     ) async throws {
         
         //We look up all device identities on the server and create the NeedleTailNick there
@@ -201,7 +201,8 @@ extension NeedleTailTransport {
             sender: nil,
             recipient: nil,
             message: nil,
-            readReceipt: .none
+            readReceipt: .none,
+            addDeviceType: .master
         )
         
         //Store UUID Temporarily

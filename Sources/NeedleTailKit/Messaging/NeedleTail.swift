@@ -90,14 +90,12 @@ public final class NeedleTail {
             plugin: plugin,
             nameToVerify: username
         )
-        
         do {
             let masterKeyBundle = try await messenger?.readKeyBundle(forUsername: Username(username))
             for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
                 try await messenger?.requestDeviceRegistration(nick)
             }
-            
             await MainActor.run {
                 emitter.showScanner = true
             }
@@ -119,8 +117,7 @@ public final class NeedleTail {
                 store: store,
                 clientInfo: clientInfo,
                 p2pFactories: p2pFactories,
-                eventHandler: eventHandler,
-                isNewDevice: true
+                eventHandler: eventHandler
             )
             
         } catch {
@@ -146,32 +143,21 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
-        eventHandler: PluginEventHandler? = nil,
-        isNewDevice: Bool = false
+        eventHandler: PluginEventHandler? = nil
     ) async throws -> CypherMessenger? {
         if cypher == nil {
             //Create plugin here
             plugin = NeedleTailPlugin(emitter: emitter)
             guard let plugin = plugin else { return nil }
-            
             cypher = try await CypherMessenger.registerMessenger(
                 username: Username(username),
                 appPassword: clientInfo.password,
                 usingTransport: { transportRequest async throws -> NeedleTailMessenger in
-                    if isNewDevice {
-                        return try await self.createMessenger(
-                            clientInfo: clientInfo,
-                            plugin: plugin,
-                            transportRequest: transportRequest,
-                            nameToVerify: username
-                        )
-                    } else {
                         return try await self.createMessenger(
                             clientInfo: clientInfo,
                             plugin: plugin,
                             transportRequest: transportRequest
                         )
-                    }
                 },
                 p2pFactories: p2pFactories,
                 database: store,
@@ -271,7 +257,6 @@ public final class NeedleTail {
             
             let client = try await messenger.createClient(nameToVerify)
             messenger.isConnected = true
-            
             try await messenger.startSession(
                 client,
                 type: messenger.registrationType(appleToken),

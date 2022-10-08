@@ -53,14 +53,16 @@ extension NeedleTailTransport {
     
     // This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
     func receivedNewDevice(_ deviceState: NewDeviceState, contacts: [NTKContact]) async throws {
-#if (os(macOS) || os(iOS))
-        messenger.plugin.emitter.qrCodeData = nil
-#endif
         self.receivedNewDeviceAdded = deviceState
-        //TODO: We want to add the list of contacts to our DB Here
         try await messenger.addMasterDevicesContacts(contacts)
+#if (os(macOS) || os(iOS))
+        let emitter = messenger.plugin.emitter
+        await MainActor.run {
+            emitter.qrCodeData = nil
+        }
+#endif
     }
-    
+ 
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -106,12 +108,28 @@ extension NeedleTailTransport {
                 case .multiRecipientMessage:
                     break
                 case .readReceipt:
+                    
+                    guard let receipt = packet.readReceipt else { throw NeedleTailError.nilReadReceipt }
                     switch packet.readReceipt?.state {
                     case .displayed:
-                        break
+                        try await messenger.delegate?.receiveServerEvent(
+                            .messageDisplayed(
+                                by: receipt.sender,
+                                deviceId: receipt.senderDevice.device,
+                                id: receipt.messageId,
+                                receivedAt: receipt.receivedAt
+                            )
+                        )
                     case .received:
-                        break
-                    case .none:
+                        try await messenger.delegate?.receiveServerEvent(
+                            .messageReceived(
+                                by: receipt.sender,
+                                deviceId: receipt.senderDevice.device,
+                                id: receipt.messageId,
+                                receivedAt: receipt.receivedAt
+                            )
+                        )
+                    default:
                         break
                     }
                 case .ack(let ack):
@@ -137,8 +155,19 @@ extension NeedleTailTransport {
 #endif
                     }
                 case .requestRegistry:
-                    try await receivedRegistryRequest(packet.id)
+                    switch packet.addDeviceType {
+                    case .master:
+                        try await receivedRegistryRequest(packet.id)
+                    case .child:
+                        guard let childDeviceConfig = packet.childDeviceConfig else { return }
+                        try await messenger.delegate?.receiveServerEvent(
+                            .requestDeviceRegistery(childDeviceConfig)
+                        )
+                    default:
+                        break
+                    }
                 case .newDevice(let state):
+                    print("CONTACTS____", packet.contacts)
                     guard let contacts = packet.contacts else { return }
                     try await receivedNewDevice(state, contacts: contacts)
                 default:

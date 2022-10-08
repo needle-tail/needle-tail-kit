@@ -44,7 +44,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
-    var readReceipt: ReadReceiptPacket?
+    var readReceipt: ReadReceipt?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
     let username: Username?
     let deviceId: DeviceId?
@@ -205,12 +205,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
         }
         
-        try await startSession(
-            client,
-            type: registrationType(appleToken ?? ""),
-            nameToVerify: nil,
-            state: registrationState
-        )
+        switch await transportState.current {
+        case .transportOffline:
+            try await startSession(
+                client,
+                type: registrationType(appleToken ?? ""),
+                nameToVerify: nil,
+                state: registrationState
+            )
+        
         try await RunLoop.run(240, sleep: 1, stopRunning: {
             var running = true
             if await transport.acknowledgment == .registered("true") {
@@ -218,6 +221,11 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
+        default:
+            break
+        }
+        
+
         
         let jwt = try makeToken()
         
@@ -243,6 +251,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         
         try await transport.transportMessage(type)
+        //TODO: ACK PUB KEY
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -266,8 +275,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
-        guard let userConfig = userConfig else { throw NeedleTailError.nilUserConfig }
-        print(userConfig)
+        guard let userConfig = userConfig else {
+            throw NeedleTailError.nilUserConfig
+            
+        }
         return userConfig
     }
     
@@ -286,6 +297,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     func addMasterDevicesContacts(_ contactList: [NTKContact]) async throws {
         for contact in contactList {
+            print("CONTACT__", contact)
             let createdContact = try await cypher?.createContact(byUsername: contact.username)
             try await createdContact?.setNickname(to: contact.nickname)
         }
@@ -419,6 +431,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             self.client = nil
             isConnected = false
             logger.info("disconnected from server")
+            await transportState.transition(to: .clientOffline)
         } catch {
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
@@ -450,13 +463,19 @@ extension NeedleTailMessenger {
     @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        guard let transport = self.client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        try await startSession(
-            client,
-            type: registrationType(appleToken ?? ""),
-            nameToVerify: nil,
-            state: registrationState
-        )
+        
+        switch await transportState.current {
+        case .transportOffline:
+            try await startSession(
+                client,
+                type: registrationType(appleToken ?? ""),
+                nameToVerify: nil,
+                state: registrationState
+            )
+        default:
+            break
+        }
+        
         //rebuild the device config sp we can create a master device
         let newMaster = UserDeviceConfig(
             deviceId: config.deviceId,
@@ -486,15 +505,12 @@ extension NeedleTailMessenger {
 #endif
             return running
         }
-        
-        guard let username = client.messenger.username else { return }
-        guard let deviceId = client.messenger.deviceId else { return }
-        try await transport.sendQuit(username, deviceId: deviceId)
     }
     
+    /// This method is called when we send a PRIVMSG Packet that is specified as a .requestDeviceRegistery Packet. We then call it on our inbound handler. This is only called when the device created is not a master device.
     public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
         print(#function)
-        //        try await messenger.addDevice(config)
+        try await messenger.addDevice(config)
     }
     
     public struct SetToken: Codable {

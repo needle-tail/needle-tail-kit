@@ -25,6 +25,10 @@ public enum MessageType: Codable, Sendable {
     case rejectedRegistry(String)
 }
 
+public enum AddDeviceType: Codable, Sendable {
+    case master, child
+}
+
 public struct MessagePacket: Codable, Sendable {
     public let id: String
     public let pushType: PushType
@@ -33,10 +37,12 @@ public struct MessagePacket: Codable, Sendable {
     public let sender: DeviceId?
     public let recipient: DeviceId?
     public let message: RatchetedCypherMessage?
-    public let readReceipt: ReadReceiptPacket?
+    public let readReceipt: ReadReceipt?
     public let channelName: String?
     public let addKeyBundle: Bool?
     public let contacts: [NTKContact]?
+    public let addDeviceType: AddDeviceType?
+    public let childDeviceConfig: UserDeviceConfig?
     
     public init(
         id: String,
@@ -46,10 +52,12 @@ public struct MessagePacket: Codable, Sendable {
         sender: DeviceId?,
         recipient: DeviceId?,
         message: RatchetedCypherMessage?,
-        readReceipt: ReadReceiptPacket?,
+        readReceipt: ReadReceipt?,
         channelName: String? = nil,
         addKeyBundle: Bool? = nil,
-        contacts: [NTKContact]? = nil
+        contacts: [NTKContact]? = nil,
+        addDeviceType: AddDeviceType? = nil,
+        childDeviceConfig: UserDeviceConfig? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -62,6 +70,8 @@ public struct MessagePacket: Codable, Sendable {
         self.channelName = channelName
         self.addKeyBundle = addKeyBundle
         self.contacts = contacts
+        self.addDeviceType = addDeviceType
+        self.childDeviceConfig = childDeviceConfig
     }
 }
 
