@@ -22,6 +22,7 @@ public struct Acknowledgment: Codable, Sendable {
         case blocked
         case unblocked
         case quited
+        case publishedKeyBundle(String)
     }
 
     public var acknowledgment: AckType

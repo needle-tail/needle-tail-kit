@@ -29,4 +29,5 @@ public enum NeedleTailError: String, Error {
     case parsingError
     case channelMonitorIsNil
     case nilReadReceipt
+    case cannotPublishKeyBundle
 }

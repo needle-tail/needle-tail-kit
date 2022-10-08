@@ -1,7 +1,7 @@
 import Logging
 import NeedleTailHelpers
 
-enum IRCTaskHelpers: Sendable {
+enum AsyncMessageTask: Sendable {
     @ParsingActor
     static func parseMessageTask(
         task: String,

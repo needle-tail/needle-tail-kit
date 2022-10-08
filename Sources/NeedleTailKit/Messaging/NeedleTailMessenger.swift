@@ -225,10 +225,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             break
         }
         
-
-        
         let jwt = try makeToken()
-        
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
         self.keyBundle = bundleData.base64EncodedString()
@@ -249,9 +246,20 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        
         try await transport.transportMessage(type)
-        //TODO: ACK PUB KEY
+        
+        
+        
+        try await RunLoop.run(240, sleep: 1, stopRunning: {
+        var running = true
+        if await transport.acknowledgment == .publishedKeyBundle("true") {
+            running = false
+        }
+        return running
+    })
+        if await transport.acknowledgment != .publishedKeyBundle("true") {
+            throw NeedleTailError.cannotPublishKeyBundle
+        }
     }
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
