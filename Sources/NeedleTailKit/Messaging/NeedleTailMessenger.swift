@@ -195,7 +195,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         if updateKeyBundle {
             contacts = [NTKContact]()
             for contact in try await cypher?.listContacts() ?? [] {
-                print("CONTACT___", contact)
                 await contacts?.append(
                     NTKContact(
                         username: contact.username,
@@ -213,17 +212,25 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                 nameToVerify: nil,
                 state: registrationState
             )
-        
-        try await RunLoop.run(240, sleep: 1, stopRunning: {
-            var running = true
-            if await transport.acknowledgment == .registered("true") {
-                running = false
-            }
-            return running
-        })
         default:
             break
         }
+        
+        try await RunLoop.run(240, sleep: 1, stopRunning: {
+            var running = true
+            
+            if await transport.acknowledgment == .registered("true") {
+                running = false
+            }
+            
+            switch await transportState.current {
+            case .transportOnline(channel: _, nick: _, userInfo: _):
+                running = false
+            default:
+                running = true
+            }
+            return running
+        })
         
         let jwt = try makeToken()
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
@@ -251,12 +258,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         
         try await RunLoop.run(240, sleep: 1, stopRunning: {
-        var running = true
-        if await transport.acknowledgment == .publishedKeyBundle("true") {
-            running = false
-        }
-        return running
-    })
+            var running = true
+            if await transport.acknowledgment == .publishedKeyBundle("true") {
+                running = false
+            }
+            return running
+        })
         if await transport.acknowledgment != .publishedKeyBundle("true") {
             throw NeedleTailError.cannotPublishKeyBundle
         }
@@ -271,6 +278,17 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         // We need to set the userConfig to nil for the next read flow
         transport.userConfig = nil
         let jwt = try makeToken()
+        
+        
+        
+        
+        //TODO: We are always sending self deviceId, we need to get the deviceId for the bundle we are requesting.. HOW DO WE GET A USERNAME'S SPECIFIC KEY BUNDLE????
+        //1. We can get all usernames keybundles and filter the one we want according to the state we are in or???
+        //2.
+        
+        
+        
+        
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
         var userConfig: UserConfig? = nil

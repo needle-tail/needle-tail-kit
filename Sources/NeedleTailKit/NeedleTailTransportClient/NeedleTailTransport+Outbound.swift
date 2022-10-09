@@ -145,7 +145,7 @@ extension NeedleTailTransport {
             message: message,
             readReceipt: readReceipt
         )
-        print("PACKET___", packet)
+
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")

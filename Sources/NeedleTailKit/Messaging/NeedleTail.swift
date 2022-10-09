@@ -56,6 +56,7 @@ public final class NeedleTail {
     @NeedleTailClientActor
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
+    private var store: CypherMessengerStore?
     
     // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
     @NeedleTailClientActor
@@ -71,6 +72,8 @@ public final class NeedleTail {
         messenger?.client?.transport?.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger?.recipientDeviceId = config.deviceId
+        
+        //TODO: FIX - We Get a crazy loop
         try await cypher?.addDevice(config)
     }
     
@@ -83,6 +86,7 @@ public final class NeedleTail {
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler? = nil
     ) async throws -> CypherMessenger? {
+        self.store = store
         plugin = NeedleTailPlugin(emitter: emitter)
         guard let plugin = plugin else { return nil }
         _ = try await createMessenger(

@@ -167,7 +167,6 @@ extension NeedleTailTransport {
                         break
                     }
                 case .newDevice(let state):
-                    print("CONTACTS____", packet.contacts)
                     guard let contacts = packet.contacts else { return }
                     try await receivedNewDevice(state, contacts: contacts)
                 default:
@@ -184,25 +183,33 @@ extension NeedleTailTransport {
             }
         }
     }
-    
+
     private func processMessage(_
                                 packet: MessagePacket,
                                 sender: IRCUserID?,
                                 recipient: IRCMessageRecipient,
                                 messageType: MessageType
     ) async throws {
+//        2022-10-09T22:34:47+0300 error NeedleTailHandler : [NeedleTailKit] messageReceivedError// On Device ADDITION
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
         guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
         
-        try await messenger.delegate?.receiveServerEvent(
-            .messageSent(
-                message,
-                id: packet.id,
-                byUser: Username(sender),
-                deviceId: deviceId
+        do {
+            try await messenger.delegate?.receiveServerEvent(
+                .messageSent(
+                    message,
+                    id: packet.id,
+                    byUser: Username(sender),
+                    deviceId: deviceId
+                )
             )
-        )
+        } catch {
+//            if error == "CypherSDKError.cannotFindDeviceConfig" {
+            print("CAUGHT_RECEIVE_SERVER_EVENT_ERROR \(error.localizedDescription)")
+                return
+//            }
+        }
         
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()

@@ -54,7 +54,6 @@ extension NeedleTailClient {
                 channel.eventLoop.executeAsync {
                     let transport = await self.createTransport(channel)
                     try await channel.pipeline.addHandlers([
-//                        IRCChannelHandler(logger: self.logger),
                         AsyncMessageChannelHandler(logger: self.logger),
                         NeedleTailHandler(client: self, transport: transport)
                     ])
