@@ -137,12 +137,12 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             }
         }
         channelRead(context: context)
+        self.bufferDeque.removeAll()
     }
     
         private func channelRead(context: ChannelHandlerContext) {
             let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
             self.writerDelegate.didYieldHandler = { deq in
-                print("DEQ__", deq)
             promise.succeed(deq)
             }
             promise.futureResult.whenSuccess { messages in
@@ -150,7 +150,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                     let wioValue = self.wrapInboundOut(message)
                     context.fireChannelRead(wioValue)
                     context.flush()
-                    self.bufferDeque.removeAll()
                 }
             }
         }
