@@ -24,7 +24,7 @@ public final class MessageParser {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        self.logger.info("Parsing Message....")
+        self.logger.trace("Parsing Message....")
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -36,10 +36,10 @@ public final class MessageParser {
         } else {
             stripedMessage = message
         }
-//        AAAABIzMAAOAAAAAAAAABIzMQARAAAAAAAAAAAIZAABAAAFc2lnbmF0dXJlAEAAAAAAdbfE9dVI1xcJ6lRo899cdYkQ4h2fyYjUlPx6sIiOhQbp54cleJCXsyhXkRA5GGnqtBzzXGZ2kcqQUldnud53BAAA
+        
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: " ") else {
-            print("THIS MESSAGE DOESN'T HAVE WHITESPACE", stripedMessage)
-            throw MessageParserError.messageWithWhiteSpaceNil }
+            throw MessageParserError.messageWithWhiteSpaceNil
+        }
         var command = ""
         var parameter = ""
         ///This strippedMessage represents our irc message portion without tags. If we have the source then we will get the source here

@@ -4,6 +4,7 @@ import Foundation
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
 import NIOSSL
+import DequeModule
 
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
@@ -18,26 +19,30 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     var channel: Channel?
     var sslServerHandler: NIOSSLServerHandler?
     @ParsingActor private let parser = MessageParser()
-    private var backPressureStrategy: MockNIOElementStreamBackPressureStrategy!
-    private var delegate: MockNIOBackPressuredStreamSourceDelegate!
+    private var backPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark!
+    private var delegate: NIOBackPressuredStreamSourceDelegate!
     private var sequence: NIOThrowingAsyncSequenceProducer<
-        String,
+        ByteBuffer,
         Error,
-        MockNIOElementStreamBackPressureStrategy,
-        MockNIOBackPressuredStreamSourceDelegate
+        NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
+        NIOBackPressuredStreamSourceDelegate
     >!
     private var source: NIOThrowingAsyncSequenceProducer<
-        String,
+        ByteBuffer,
         Error,
-        MockNIOElementStreamBackPressureStrategy,
-        MockNIOBackPressuredStreamSourceDelegate
+        NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
+        NIOBackPressuredStreamSourceDelegate
     >.Source!
     
     
-    private var writer: NIOAsyncWriter<IRCMessage, MockAsyncWriterDelegate>!
-    private var sink: NIOAsyncWriter<IRCMessage, MockAsyncWriterDelegate>.Sink!
-    private var writerDelegate: MockAsyncWriterDelegate!
-    private var iterator: NIOThrowingAsyncSequenceProducer<String, Error, MockNIOElementStreamBackPressureStrategy, MockNIOBackPressuredStreamSourceDelegate>.AsyncIterator?
+    private var bufferDeque = Deque<ByteBuffer>()
+    private var writer: NIOAsyncWriter<IRCMessage, AsyncWriterDelegate>!
+    private var writerDelegate: AsyncWriterDelegate!
+    private var iterator: NIOThrowingAsyncSequenceProducer<
+        ByteBuffer,
+        Error,
+        NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
+        NIOBackPressuredStreamSourceDelegate>.AsyncIterator?
     
     public init(
         logger: Logger = Logger(label: "NeedleTailKit"),
@@ -46,12 +51,12 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.logger = logger
         self.sslServerHandler = sslServerHandler
         
-        self.backPressureStrategy = .init()
+        self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 20)
         self.delegate = .init()
         let result = NIOThrowingAsyncSequenceProducer.makeSequence(
-            elementType: String.self,
+            elementType: ByteBuffer.self,
             failureType: Error.self,
-            backPressureStrategy: self.backPressureStrategy,
+            backPressureStrategy:  self.backPressureStrategy,
             delegate: self.delegate
         )
         self.source = result.source
@@ -65,7 +70,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             delegate: self.writerDelegate
         )
         self.writer = newWriter.writer
-        self.sink = newWriter.sink
         self.iterator = self.sequence?.makeAsyncIterator()
     }
     
@@ -75,7 +79,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.sequence = nil
         self.writerDelegate = nil
         self.writer = nil
-        self.sink = nil
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -89,122 +92,65 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        self.logger.info("AsyncMessageChannelHandler Read")
-        var buffer = self.unwrapInboundIn(data)
-        
-            guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
+        self.logger.trace("AsyncMessageChannelHandler Read")
+        let buffer = self.unwrapInboundIn(data)
+        bufferDeque.append(buffer)
+    }
+    
+    
+    public func channelReadComplete(context: ChannelHandlerContext) {
+        self.logger.trace("AsyncMessageChannelHandler Read Complete")
 
-            guard !lines.isEmpty else { return }
-            let messages = lines.components(separatedBy: "\n")
-                .map { $0.replacingOccurrences(of: "\r", with: "") }
-                .filter{ $0 != ""}
+        let result = self.source.yield(contentsOf: bufferDeque)
+        switch result {
+        case .produceMore:
+            logger.trace("Produce More")
+            context.read()
+        case .stopProducing:
+            logger.trace("Stop Producing")
+        case .dropped:
+            logger.trace("Dropped Yield Result")
+        }
+        
 
-            let result = self.source.yield(contentsOf: messages)
-            switch result {
-            case .produceMore:
-                logger.trace("Produce More")
-                context.read()
-            case .stopProducing:
-                logger.trace("Stop Producing")
-            case .dropped:
-                logger.trace("Dropped Yield Result")
-            }
-            
-        
-        
-        
-            _ = context.eventLoop.executeAsync {
-//                let element: String? = try await withThrowingTaskGroup(of: String?.self) { group in
-//                    group.addTask {
-//                        return try await self.sequence.first { _ in true }
-//                    }
-//
-//                    return try await group.next() ?? nil
-//                }
-                func runIterator() async throws {
-                    guard let result = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: result, messageParser: self.parser)
+        _ = context.eventLoop.executeAsync {
+            func runIterator() async throws {
+                guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
+                
+                guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
+                guard !lines.isEmpty else { return }
+                let messages = lines.components(separatedBy: "\n")
+                    .map { $0.replacingOccurrences(of: "\r", with: "") }
+                    .filter{ $0 != ""}
+                
+                for message in messages {
+                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
                     try await self.writer.yield(parsedMessage)
                 }
-                
+            }
+            
+            try await runIterator()
+            if self.delegate.produceMoreCallCount != 0 {
                 try await runIterator()
-                if self.delegate.produceMoreCallCount != 0 {
-                    try await runIterator()
+            }
+        }
+        channelRead(context: context)
+        bufferDeque.removeAll()
+    }
+    
+        private func channelRead(context: ChannelHandlerContext) {
+            let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
+            self.writerDelegate.didYieldHandler = { deq in
+            promise.succeed(deq)
+            }
+            promise.futureResult.whenSuccess { messages in
+                for message in messages {
+                    let wioValue = self.wrapInboundOut(message)
+                    context.fireChannelRead(wioValue)
+                    context.flush()
                 }
             }
-            channelRead(context: context)
-
-//        self.backPressureStrategy.didYieldHandler = { bufferDepth in
-//            bufferDepth < buffer.readableBytes
-//        }
-//        self.backPressureStrategy.didNextHandler = { bufferDepth in
-//            bufferDepth < 0
-//        }
-        
-//        let highwater = backPressureStrategy.didConsume(bufferDepth: buffer.readableBytes)
-        
-        
-    }
-    
-    
-//    public func channelReadComplete(context: ChannelHandlerContext) {
-//        self.logger.info("AsyncMessageChannelHandler Read Complete")
-//            guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
-//
-//            guard !lines.isEmpty else { return }
-//            let messages = lines.components(separatedBy: "\n")
-//                .map { $0.replacingOccurrences(of: "\r", with: "") }
-//                .filter{ $0 != ""}
-//
-//            let result = self.source.yield(contentsOf: messages)
-//            switch result {
-//            case .produceMore:
-//                logger.trace("Produce More")
-//                context.read()
-//            case .stopProducing:
-//                logger.trace("Stop Producing")
-//            case .dropped:
-//                logger.trace("Dropped Yield Result")
-//            }
-//
-//
-//
-//
-//            _ = context.eventLoop.executeAsync {
-////                let element: String? = try await withThrowingTaskGroup(of: String?.self) { group in
-////                    group.addTask {
-////                        return try await self.sequence.first { _ in true }
-////                    }
-////
-////                    return try await group.next() ?? nil
-////                }
-//                func runIterator() async throws {
-//                    guard let result = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-//                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: result, messageParser: self.parser)
-//                    try await self.writer.yield(parsedMessage)
-//                }
-//
-//                try await runIterator()
-//                if self.delegate.produceMoreCallCount != 0 {
-//                    try await runIterator()
-//                }
-//            }
-//            channelRead(context: context)
-//
-//    }
-    
-    private func channelRead(context: ChannelHandlerContext) {
-        let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
-        self.writerDelegate.didYieldHandler = { deq in
-            promise.succeed(deq)
         }
-        promise.futureResult.whenSuccess { messages in
-            for message in messages {
-                let wioValue = self.wrapInboundOut(message)
-                context.fireChannelRead(wioValue)
-            }
-        }
-    }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
         let error = MessageParserError.transportError(error)
@@ -216,10 +162,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         context.fireErrorCaught(error)
     }
     
-    public func encodeMessage(channel: Channel, value: IRCMessage) async -> ByteBuffer {
-        await self.encode(value: value, target: value.target, channel: channel)
-    }
-    
     public func write(
         context: ChannelHandlerContext,
         data: NIOAny,
@@ -228,9 +170,9 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         let channel = context.channel
         let message = self.unwrapOutboundIn(data)
         let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
-           return await self.encodeMessage(channel: channel, value: message)
+            return await self.encodeMessage(channel: channel, value: message)
         }
-            buffer.whenComplete { switch $0 {
+        buffer.whenComplete { switch $0 {
         case .success(let buffer):
             context.writeAndFlush(NIOAny(buffer), promise: promise)
         case .failure(let error):
@@ -238,31 +180,13 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         }
         }
     }
-}
-
-final class MockNIOElementStreamBackPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategy, @unchecked Sendable {
-    var didYieldCallCount = 0
-    var didYieldHandler: ((Int) -> Bool)?
-    func didYield(bufferDepth: Int) -> Bool {
-        self.didYieldCallCount += 1
-        if let didYieldHandler = self.didYieldHandler {
-            return didYieldHandler(bufferDepth)
-        }
-        return false
-    }
-
-    var didNextCallCount = 0
-    var didNextHandler: ((Int) -> Bool)?
-    func didConsume(bufferDepth: Int) -> Bool {
-        self.didNextCallCount += 1
-        if let didNextHandler = self.didNextHandler {
-            return didNextHandler(bufferDepth)
-        }
-        return false
+    
+    private func encodeMessage(channel: Channel, value: IRCMessage) async -> ByteBuffer {
+        await self.encode(value: value, target: value.target, channel: channel)
     }
 }
 
-final class MockNIOBackPressuredStreamSourceDelegate: NIOAsyncSequenceProducerDelegate, @unchecked Sendable {
+final class NIOBackPressuredStreamSourceDelegate: NIOAsyncSequenceProducerDelegate, @unchecked Sendable {
     var produceMoreCallCount = 0
     var produceMoreHandler: (() -> Void)?
     func produceMore() {
@@ -271,7 +195,7 @@ final class MockNIOBackPressuredStreamSourceDelegate: NIOAsyncSequenceProducerDe
             return produceMoreHandler()
         }
     }
-
+    
     var didTerminateCallCount = 0
     var didTerminateHandler: (() -> Void)?
     func didTerminate() {
@@ -282,10 +206,9 @@ final class MockNIOBackPressuredStreamSourceDelegate: NIOAsyncSequenceProducerDe
     }
 }
 
-import DequeModule
-private final class MockAsyncWriterDelegate: NIOAsyncWriterSinkDelegate, @unchecked Sendable {
+private final class AsyncWriterDelegate: NIOAsyncWriterSinkDelegate, @unchecked Sendable {
     typealias Element = IRCMessage
-
+    
     var didYieldCallCount = 0
     var didYieldHandler: ((Deque<IRCMessage>) -> Void)?
     func didYield(contentsOf sequence: Deque<IRCMessage>) {
@@ -294,7 +217,7 @@ private final class MockAsyncWriterDelegate: NIOAsyncWriterSinkDelegate, @unchec
             didYieldHandler(sequence)
         }
     }
-
+    
     var didTerminateCallCount = 0
     var didTerminateHandler: ((Error?) -> Void)?
     func didTerminate(error: Error?) {
