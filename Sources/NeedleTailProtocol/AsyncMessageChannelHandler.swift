@@ -135,7 +135,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             }
         }
         channelRead(context: context)
-        bufferDeque.removeAll()
     }
     
         private func channelRead(context: ChannelHandlerContext) {
@@ -148,6 +147,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                     let wioValue = self.wrapInboundOut(message)
                     context.fireChannelRead(wioValue)
                     context.flush()
+                    self.bufferDeque.removeAll()
                 }
             }
         }
