@@ -37,6 +37,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     
     private var bufferDeque = Deque<ByteBuffer>()
     private var writer: NIOAsyncWriter<IRCMessage, AsyncWriterDelegate>!
+    private var sink: NIOAsyncWriter<IRCMessage, AsyncWriterDelegate>.Sink!
     private var writerDelegate: AsyncWriterDelegate!
     private var iterator: NIOThrowingAsyncSequenceProducer<
         ByteBuffer,
@@ -51,7 +52,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.logger = logger
         self.sslServerHandler = sslServerHandler
         
-        self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 20)
+        self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 10)
         self.delegate = .init()
         let result = NIOThrowingAsyncSequenceProducer.makeSequence(
             elementType: ByteBuffer.self,
@@ -70,6 +71,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             delegate: self.writerDelegate
         )
         self.writer = newWriter.writer
+        self.sink = newWriter.sink
         self.iterator = self.sequence?.makeAsyncIterator()
     }
     
@@ -79,6 +81,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.sequence = nil
         self.writerDelegate = nil
         self.writer = nil
+        self.sink = nil
     }
     
     public func channelActive(context: ChannelHandlerContext) {
@@ -122,13 +125,12 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                 let messages = lines.components(separatedBy: "\n")
                     .map { $0.replacingOccurrences(of: "\r", with: "") }
                     .filter{ $0 != ""}
-                
+
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
                     try await self.writer.yield(parsedMessage)
                 }
             }
-            
             try await runIterator()
             if self.delegate.produceMoreCallCount != 0 {
                 try await runIterator()
@@ -140,6 +142,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         private func channelRead(context: ChannelHandlerContext) {
             let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
             self.writerDelegate.didYieldHandler = { deq in
+                print("DEQ__", deq)
             promise.succeed(deq)
             }
             promise.futureResult.whenSuccess { messages in
