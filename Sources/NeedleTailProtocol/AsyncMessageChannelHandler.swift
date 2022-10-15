@@ -8,7 +8,6 @@ import DequeModule
 
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
-
 public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     public typealias InboundIn   = ByteBuffer
     public typealias InboundOut  = IRCMessage
@@ -122,8 +121,8 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                 
                 guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
                 guard !lines.isEmpty else { return }
-                let messages = lines.components(separatedBy: "\n")
-                    .map { $0.replacingOccurrences(of: "\r", with: "") }
+                let messages = lines.components(separatedBy: Constants.cLF)
+                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                     .filter{ $0 != ""}
                 
                 for message in messages {
@@ -169,8 +168,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-        
-        let channel = context.channel
         let message = self.unwrapOutboundIn(data)
         let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
             return await self.encode(value: message)

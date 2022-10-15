@@ -27,12 +27,12 @@ public struct IRCUserID: Codable, Hashable, CustomStringConvertible, @unchecked 
   }
   
     public init?(_ s: String, deviceId: DeviceId? = nil) {
-    if let atIdx = s.firstIndex(of: "@") {
+    if let atIdx = s.firstIndex(of: Character(Constants.atString)) {
       let hs = s.index(after: atIdx)
       self.host = String(s[hs..<s.endIndex])
       
       let nickString : String
-      if let exIdx = s.firstIndex(of: "!") {
+      if let exIdx = s.firstIndex(of: Character(Constants.exclamation)) {
         let hs = s.index(after: exIdx)
         self.user = String(s[hs..<atIdx])
         
@@ -60,8 +60,8 @@ public struct IRCUserID: Codable, Hashable, CustomStringConvertible, @unchecked 
   public var stringValue : String {
     var ms = "\(nick)"
     if let host = host {
-      if let user = user { ms += "!\(user)" }
-      ms += "@\(host)"
+        if let user = user { ms += "\(Constants.exclamation)\(user)" }
+        ms += "\(Constants.atString)\(host)"
     }
     return ms
   }

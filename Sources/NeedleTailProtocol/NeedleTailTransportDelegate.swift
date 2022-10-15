@@ -69,14 +69,14 @@ extension NeedleTailTransportDelegate {
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: "\n")
-                    .map { $0.replacingOccurrences(of: "\r", with: "") }
+                let lines = messageLines.components(separatedBy: Constants.cLF)
+                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = await lines.asyncMap {
                     message = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                 }
             case .NOTICE(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: "\n")
-                    .map { $0.replacingOccurrences(of: "\r", with: "") }
+                let lines = messageLines.components(separatedBy: Constants.cLF)
+                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = await lines.asyncMap {
                     message = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
                 }
@@ -128,11 +128,11 @@ extension NeedleTailTransportDelegate {
     public func sendMotD(_ message: String) async throws {
         guard !message.isEmpty else { return }
         let origin = self.origin ?? "??"
-        try await sendReply(.replyMotDStart, "- \(origin) Message of the Day -")
+        try await sendReply(.replyMotDStart, "\(origin) - Message of the Day -")
         
-        let lines = message.components(separatedBy: "\n")
-            .map { $0.replacingOccurrences(of: "\r", with: "") }
-            .map { "- " + $0 }
+        let lines = message.components(separatedBy: Constants.cLF)
+            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+            .map { Constants.minus + Constants.space + $0 }
         
         _ = try await lines.asyncMap {
             let message = IRCMessage(origin: origin,

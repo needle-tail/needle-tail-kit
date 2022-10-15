@@ -9,35 +9,21 @@ extension AsyncMessageChannelHandler {
         var newOrigin = ""
         var newTarget = ""
         var newString = ""
-        let cCR = "\r"
-        let cLF = "\n"
-        let star = "*"
-        let colon = ":"
-        let comma = ","
-        let space = " "
-        let bString = "b"
-        let oString = "o"
-        let plus = "+"
-        let minus = "-"
-        let atString = "@"
-        let equalsString = "="
-        let semiColon = ";"
         let command = value.command.commandAsString
-        
         
         if value.tags != [], value.tags != nil {
             for tag in value.tags ?? [] {
-                newTag += atString + tag.key + equalsString + tag.value + semiColon
+                newTag += Constants.atString + tag.key + Constants.equalsString + tag.value + Constants.semiColon
             }
-            newTag = newTag + space
+            newTag = newTag + Constants.space
         }
         
         if let origin = value.origin, !origin.isEmpty {
-            newOrigin = colon + origin + space
+            newOrigin = Constants.colon + origin + Constants.space
         }
         
         if let target = value.target {
-            newTarget = space + target
+            newTarget = Constants.space + target
         }
         
         let base = newTag + newOrigin + command + newTarget
@@ -45,42 +31,42 @@ extension AsyncMessageChannelHandler {
         switch value.command {
             
         case .NICK(let v), .MODEGET(let v):
-            newString = base + space + v.stringValue
+            newString = base + Constants.space + v.stringValue
             
         case .USER(let userInfo):
-            let userBase = base + space + userInfo.username
+            let userBase = base + Constants.space + userInfo.username
             if let mask = userInfo.usermask {
-                newString = userBase + space + String(mask.maskValue) + space + star
+                newString = userBase + Constants.space + String(mask.maskValue) + Constants.space + Constants.star
             } else {
-                newString = userBase + space + (userInfo.hostname ?? star) + space + (userInfo.servername ?? star)
+                newString = userBase + Constants.space + (userInfo.hostname ?? Constants.star) + Constants.space + (userInfo.servername ?? Constants.star)
             }
-            newString += space + colon + userInfo.realname
+            newString += Constants.space + Constants.colon + userInfo.realname
             
         case .ISON(let nicks):
-            newString += base + space + arguments(nicks.lazy.map({ $0.stringValue }))
+            newString += base + Constants.space + arguments(nicks.lazy.map({ $0.stringValue }))
             
         case .QUIT(.none):
             break
         case .QUIT(.some(let value)):
-            newString = base + space + colon + value
+            newString = base + Constants.space + Constants.colon + value
             
         case .PING(server: let server, server2: let server2),
                 .PONG(server: let server, server2: let server2):
             if let server2 = server2 {
-                newString = base + space + server + space + colon + server2
+                newString = base + Constants.space + server + Constants.space + Constants.colon + server2
             } else {
-                newString = "\(base)\(space)\(colon)\(server)"
+                newString = "\(base)\(Constants.space)\(Constants.colon)\(server)"
             }
             
         case .JOIN(channels: let channels, keys: let keys):
-            newString = base + space
+            newString = base + Constants.space
             newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
             if let keys = keys {
                 newString +=  commaSeperatedValues(keys)
             }
             
         case .JOIN0:
-            newString = base + space + star
+            newString = base + Constants.space + Constants.star
             
         case .PART(channels: let channels):
             newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
@@ -89,53 +75,53 @@ extension AsyncMessageChannelHandler {
             if let channels = channels {
                 newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
             } else {
-                newString = base + space + star
+                newString = base + Constants.space + Constants.star
             }
             if let target = target {
-                newString += space + colon + target
+                newString += Constants.space + Constants.colon + target
             }
             
         case .PRIVMSG(let recipients, let message),
                 .NOTICE(let recipients, let message):
             newString = base + commaSeperatedValues(recipients.lazy.map({ $0.stringValue }))
-            newString += space + colon + message
+            newString += Constants.space + Constants.colon + message
             
         case .MODE(let nick, add: let add, remove: let remove):
-            newString = base + space + nick.stringValue
-            let adds = add.stringValue.map({ "\(plus)\($0)" })
-            let removes = remove.stringValue.map({ "\(minus)\($0)" })
+            newString = base + Constants.space + nick.stringValue
+            let adds = add.stringValue.map({ "\(Constants.plus)\($0)" })
+            let removes = remove.stringValue.map({ "\(Constants.minus)\($0)" })
             
             if add.isEmpty && remove.isEmpty {
-                newString += space + colon
+                newString += Constants.space + Constants.colon
             } else {
                 newString += arguments(adds) + arguments(removes) + argumentsWithLast()
             }
             
         case .CHANNELMODE(let channel, add: let add, remove: let remove):
-            let adds = add.stringValue.map({ "\(plus)\($0)" })
-            let removes = remove.stringValue.map({ "\(minus)\($0)" })
+            let adds = add.stringValue.map({ "\(Constants.plus)\($0)" })
+            let removes = remove.stringValue.map({ "\(Constants.minus)\($0)" })
             
-            newString = base + space + channel.stringValue
+            newString = base + Constants.space + channel.stringValue
             newString += arguments(adds) + arguments(removes) + argumentsWithLast()
             
         case .CHANNELMODE_GET(let value):
-            newString = base + space + value.stringValue
+            newString = base + Constants.space + value.stringValue
             
         case .CHANNELMODE_GET_BANMASK(let value):
-            newString = base + space + bString + space + value.stringValue
+            newString = base + Constants.space + Constants.bString + Constants.space + value.stringValue
         case .WHOIS(server: let server, usermasks: let usermasks):
             newString = base
             if let target = server {
-                newString += space + target
+                newString += Constants.space + target
             }
-            newString += space + usermasks.joined(separator: comma)
+            newString += Constants.space + usermasks.joined(separator: Constants.comma)
             
         case .WHO(usermask: let usermask, onlyOperators: let onlyOperators):
             newString += base
             if let mask = usermask {
-            newString += space + mask
+                newString += Constants.space + mask
                 if onlyOperators {
-                    newString += space + oString
+                    newString += Constants.space + Constants.oString
                 }
             }
         case .numeric(_, let args),
@@ -143,10 +129,10 @@ extension AsyncMessageChannelHandler {
                 .otherNumeric(_, let args):
             newString = base + argumentsWithLast(args)
         case .CAP(let subCommand, let capabilityIds):
-            newString = base + space + subCommand.commandAsString + space + colon
-            newString += capabilityIds.joined(separator: space)
+            newString = base + Constants.space + subCommand.commandAsString + Constants.space + Constants.colon
+            newString += capabilityIds.joined(separator: Constants.space)
         }
-        newString += cCR + cLF
+        newString += Constants.cCR + Constants.cLF
 
         return ByteBuffer(string: newString)
     }
@@ -154,7 +140,7 @@ extension AsyncMessageChannelHandler {
     private func arguments(_ args: [String] = [""]) -> String {
         var newString = ""
         for arg in args {
-            newString += " \(arg)"
+            newString += Constants.space + arg
         }
         return newString
     }
@@ -163,22 +149,22 @@ extension AsyncMessageChannelHandler {
         guard !args.isEmpty else { return "" }
         var newString = ""
         for arg in args.dropLast() {
-            newString += " \(arg)"
+            newString += Constants.space + arg
         }
         
         let lastIdx = args.index(args.startIndex, offsetBy: args.count - 1)
-        newString += " :\(args[lastIdx])"
+        newString += Constants.space + Constants.colon + args[lastIdx]
         return newString
     }
     
     private func commaSeperatedValues(_ args: [String] = [""]) -> String {
-        var newString = " "
+        var newString = Constants.space
         var isFirst = true
         for arg in args {
             if isFirst {
                 isFirst = false
             } else {
-                newString += ","
+                newString += Constants.comma
             }
             newString += arg
         }

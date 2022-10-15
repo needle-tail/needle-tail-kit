@@ -62,7 +62,7 @@ extension NeedleTailTransport {
         }
 #endif
     }
- 
+    
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -183,14 +183,13 @@ extension NeedleTailTransport {
             }
         }
     }
-
+    
     private func processMessage(_
                                 packet: MessagePacket,
                                 sender: IRCUserID?,
                                 recipient: IRCMessageRecipient,
                                 messageType: MessageType
     ) async throws {
-//        2022-10-09T22:34:47+0300 error NeedleTailHandler : [NeedleTailKit] messageReceivedError// On Device ADDITION
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
         guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
@@ -205,10 +204,10 @@ extension NeedleTailTransport {
                 )
             )
         } catch {
-//            if error == "CypherSDKError.cannotFindDeviceConfig" {
+            //            if error == "CypherSDKError.cannotFindDeviceConfig" {
             print("CAUGHT_RECEIVE_SERVER_EVENT_ERROR \(error.localizedDescription)")
-                return
-//            }
+            return
+            //            }
         }
         
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
@@ -299,7 +298,7 @@ extension NeedleTailTransport {
     }
     
     
-    private func respondToTransportState() async  {
+    private func respondToTransportState() async {
         switch transportState.current {
         case .clientOffline:
             break
@@ -322,11 +321,18 @@ extension NeedleTailTransport {
     
     
     func handleInfo(_ info: [String]) {
-        var infoMessage = ""
-        let info = info.dropFirst()
-        let stringArray = info.map{ String($0) }
-        infoMessage = stringArray.joined(separator: " ")
-        logger.info("Server information: \(infoMessage)")
+        print(info)
+        var newArray = [String]()
+        if info.first?.contains(Constants.colon) != nil {
+            newArray.append(contentsOf: info.dropFirst())
+        }
+        let filtered = newArray
+            .filter{ !$0.isEmpty}
+            .joined(separator: Constants.space)
+        let infoMessage = filtered.components(separatedBy: Constants.cLF)
+            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+            .filter{ !$0.isEmpty}
+        logger.info("Server information: \(infoMessage.joined())")
     }
     
     
@@ -335,10 +341,16 @@ extension NeedleTailTransport {
     }
     
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) {
-        var serverMessage = ""
-        let messages = messages.dropFirst()
-        let stringArray = messages.map{ String($0) }
-        serverMessage = stringArray.joined(separator: ",")
-        logger.info("\(type): \(serverMessage)")
+        var newArray = [String]()
+        if messages.first?.contains(Constants.colon) != nil {
+            newArray.append(contentsOf: messages.dropFirst())
+        }
+        let filtered = newArray
+            .filter{ !$0.isEmpty}
+            .joined(separator: Constants.space)
+        let message = filtered.components(separatedBy: Constants.cLF)
+            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+            .filter{ !$0.isEmpty}
+        logger.info("Server Message: \(message.joined()), type: \(type)")
     }
 }
