@@ -89,7 +89,8 @@ extension IRCCommand: CustomStringConvertible {
       case .CHANNELMODE:    return "MODE"
       case .CHANNELMODE_GET, .CHANNELMODE_GET_BANMASK: return "MODE"
 
-      case .otherCommand(let cmd, _): return cmd
+      case .otherCommand(let cmd, _):
+        return cmd
       case .otherNumeric(let cmd, _):
         let s = String(cmd)
         if s.count >= 3 { return s }

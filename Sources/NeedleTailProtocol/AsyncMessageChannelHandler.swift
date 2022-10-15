@@ -103,7 +103,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     
     public func channelReadComplete(context: ChannelHandlerContext) {
         self.logger.trace("AsyncMessageChannelHandler Read Complete")
-
+        
         let result = self.source.yield(contentsOf: bufferDeque)
         switch result {
         case .produceMore:
@@ -115,7 +115,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             logger.trace("Dropped Yield Result")
         }
         
-
+        
         _ = context.eventLoop.executeAsync {
             func runIterator() async throws {
                 guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
@@ -125,7 +125,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                 let messages = lines.components(separatedBy: "\n")
                     .map { $0.replacingOccurrences(of: "\r", with: "") }
                     .filter{ $0 != ""}
-
+                
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
                     try await self.writer.yield(parsedMessage)
@@ -140,19 +140,19 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.bufferDeque.removeAll()
     }
     
-        private func channelRead(context: ChannelHandlerContext) {
-            let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
-            self.writerDelegate.didYieldHandler = { deq in
+    private func channelRead(context: ChannelHandlerContext) {
+        let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
+        self.writerDelegate.didYieldHandler = { deq in
             promise.succeed(deq)
-            }
-            promise.futureResult.whenSuccess { messages in
-                for message in messages {
-                    let wioValue = self.wrapInboundOut(message)
-                    context.fireChannelRead(wioValue)
-                    context.flush()
-                }
+        }
+        promise.futureResult.whenSuccess { messages in
+            for message in messages {
+                let wioValue = self.wrapInboundOut(message)
+                context.fireChannelRead(wioValue)
+                context.flush()
             }
         }
+    }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
         let error = MessageParserError.transportError(error)
@@ -169,10 +169,11 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
+        
         let channel = context.channel
         let message = self.unwrapOutboundIn(data)
         let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
-            return await self.encodeMessage(channel: channel, value: message)
+            return await self.encode(value: message)
         }
         buffer.whenComplete { switch $0 {
         case .success(let buffer):
@@ -181,10 +182,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             self.logger.error("\(error)")
         }
         }
-    }
-    
-    private func encodeMessage(channel: Channel, value: IRCMessage) async -> ByteBuffer {
-        await self.encode(value: value, target: value.target, channel: channel)
     }
 }
 

@@ -1,178 +1,187 @@
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-nio-irc open source project
-//
-// Copyright (c) 2018-2021 ZeeZide GmbH. and the swift-nio-irc project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftNIOIRC project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-
 import NIOCore
 
 extension AsyncMessageChannelHandler {
+    
     func encode(
-        value: IRCMessage,
-        target: String?,
-        channel: Channel
+        value: IRCMessage
     ) async -> ByteBuffer {
+        var newTag = ""
+        var newOrigin = ""
+        var newTarget = ""
+        var newString = ""
+        let cCR = "\r"
+        let cLF = "\n"
+        let star = "*"
+        let colon = ":"
+        let comma = ","
+        let space = " "
+        let bString = "b"
+        let oString = "o"
+        let plus = "+"
+        let minus = "-"
+        let atString = "@"
+        let equalsString = "="
+        let semiColon = ";"
+        let command = value.command.commandAsString
         
-        var buffer = channel.allocator.buffer(capacity: 200)
-        let cColon : UInt8 = 58
-        let cSpace : UInt8 = 32
-        let cStar  : UInt8 = 42
-        let cCR    : UInt8 = 13
-        let cLF    : UInt8 = 10
         
         if value.tags != [], value.tags != nil {
             for tag in value.tags ?? [] {
-                buffer.writeString("@\(tag.key)=")
-                buffer.writeString("\(tag.value);")
+                newTag += atString + tag.key + equalsString + tag.value + semiColon
             }
-            buffer.writeInteger(cSpace)
+            newTag = newTag + space
         }
         
         if let origin = value.origin, !origin.isEmpty {
-            buffer.writeInteger(cColon)
-            buffer.writeString(origin)
-            buffer.writeInteger(cSpace)
+            newOrigin = colon + origin + space
         }
         
-        buffer.writeString(value.command.commandAsString)
-        
-        if let s = target {
-            buffer.writeInteger(cSpace)
-            buffer.writeString(s)
+        if let target = value.target {
+            newTarget = space + target
         }
         
+        let base = newTag + newOrigin + command + newTarget
+
         switch value.command {
-        case .PING(let s, let s2), .PONG(let s, let s2):
-            if let s2 = s2 {
-                buffer.writeInteger(cSpace)
-                buffer.writeString(s)
-                buffer.writeLastArgument(s2)
-            }
-            else {
-                buffer.writeLastArgument(s)
-            }
-            
-        case .QUIT(.some(let v)):
-            buffer.writeLastArgument(v)
             
         case .NICK(let v), .MODEGET(let v):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(v.stringValue)
-        case .MODE(let nick, let add, let remove):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(nick.stringValue)
-            
-            let adds = add   .stringValue.map { "+\($0)" }
-            let rems = remove.stringValue.map { "-\($0)" }
-            if adds.isEmpty && rems.isEmpty {
-                buffer.writeLastArgument("")
-            }
-            else {
-                buffer.writeArguments(adds + rems, useLast: true)
-            }
-            
-        case .CHANNELMODE_GET(let v):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(v.stringValue)
-            
-        case .CHANNELMODE_GET_BANMASK(let v):
-            buffer.writeInteger(cSpace)
-            buffer.writeInteger(UInt8(98)) // 'b'
-            buffer.writeInteger(cSpace)
-            buffer.writeString(v.stringValue)
-            
-        case .CHANNELMODE(let channel, let add, let remove):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(channel.stringValue)
-            
-            let adds = add   .stringValue.map { "+\($0)" }
-            let rems = remove.stringValue.map { "-\($0)" }
-            buffer.writeArguments(adds + rems, useLast: true)
+            newString = base + space + v.stringValue
             
         case .USER(let userInfo):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(userInfo.username)
+            let userBase = base + space + userInfo.username
             if let mask = userInfo.usermask {
-                buffer.writeInteger(cSpace)
-                buffer.write(integerAsString: Int(mask.maskValue))
-                buffer.writeInteger(cSpace)
-                buffer.writeInteger(cStar)
+                newString = userBase + space + String(mask.maskValue) + space + star
+            } else {
+                newString = userBase + space + (userInfo.hostname ?? star) + space + (userInfo.servername ?? star)
             }
-            else {
-                buffer.writeInteger(cSpace)
-                buffer.writeString(userInfo.hostname ?? "*")
-                buffer.writeInteger(cSpace)
-                buffer.writeString(userInfo.servername ?? "*")
-            }
-            buffer.writeLastArgument(userInfo.realname)
+            newString += space + colon + userInfo.realname
+            
+        case .ISON(let nicks):
+            newString += base + space + arguments(nicks.lazy.map({ $0.stringValue }))
             
         case .QUIT(.none):
             break
+        case .QUIT(.some(let value)):
+            newString = base + space + colon + value
             
-        case .ISON(let nicks):
-            buffer.writeArguments(nicks.lazy.map { $0.stringValue })
+        case .PING(server: let server, server2: let server2),
+                .PONG(server: let server, server2: let server2):
+            if let server2 = server2 {
+                newString = base + space + server + space + colon + server2
+            } else {
+                newString = "\(base)\(space)\(colon)\(server)"
+            }
+            
+        case .JOIN(channels: let channels, keys: let keys):
+            newString = base + space
+            newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+            if let keys = keys {
+                newString +=  commaSeperatedValues(keys)
+            }
             
         case .JOIN0:
-            buffer.writeString(" *")
+            newString = base + space + star
             
-        case .JOIN(let channels, let keys):
-            buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
-            if let keys = keys { buffer.writeCSVArgument(keys) }
+        case .PART(channels: let channels):
+            newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
             
-        case .PART(let channels):
-            buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
-            
-        case .LIST(let channels, let target):
+        case .LIST(channels: let channels, target: let target):
             if let channels = channels {
-                buffer.writeCSVArgument(channels.lazy.map { $0.stringValue })
+                newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+            } else {
+                newString = base + space + star
             }
-            else { buffer.writeString(" *") }
-            if let target = target { buffer.writeLastArgument(target) }
+            if let target = target {
+                newString += space + colon + target
+            }
             
         case .PRIVMSG(let recipients, let message),
-                .NOTICE (let recipients, let message):
-            buffer.writeCSVArgument(recipients.lazy.map { $0.stringValue })
-            buffer.writeLastArgument(message)
+                .NOTICE(let recipients, let message):
+            newString = base + commaSeperatedValues(recipients.lazy.map({ $0.stringValue }))
+            newString += space + colon + message
             
-        case .CAP(let subcmd, let capIDs):
-            buffer.writeInteger(cSpace)
-            buffer.writeString(subcmd.commandAsString)
-            buffer.writeLastArgument(capIDs.joined(separator: " "))
+        case .MODE(let nick, add: let add, remove: let remove):
+            newString = base + space + nick.stringValue
+            let adds = add.stringValue.map({ "\(plus)\($0)" })
+            let removes = remove.stringValue.map({ "\(minus)\($0)" })
             
-        case .WHOIS(let target, let masks):
-            if let target = target {
-                buffer.writeInteger(cSpace)
-                buffer.writeString(target)
+            if add.isEmpty && remove.isEmpty {
+                newString += space + colon
+            } else {
+                newString += arguments(adds) + arguments(removes) + argumentsWithLast()
             }
-            buffer.writeInteger(cSpace)
-            buffer.writeString(masks.joined(separator: ","))
             
-        case .WHO(let mask, let opOnly):
-            if let mask = mask {
-                buffer.writeInteger(cSpace)
-                buffer.writeString(mask)
-                if opOnly {
-                    buffer.writeInteger(cSpace)
-                    buffer.writeInteger(UInt8(111)) // o
+        case .CHANNELMODE(let channel, add: let add, remove: let remove):
+            let adds = add.stringValue.map({ "\(plus)\($0)" })
+            let removes = remove.stringValue.map({ "\(minus)\($0)" })
+            
+            newString = base + space + channel.stringValue
+            newString += arguments(adds) + arguments(removes) + argumentsWithLast()
+            
+        case .CHANNELMODE_GET(let value):
+            newString = base + space + value.stringValue
+            
+        case .CHANNELMODE_GET_BANMASK(let value):
+            newString = base + space + bString + space + value.stringValue
+        case .WHOIS(server: let server, usermasks: let usermasks):
+            newString = base
+            if let target = server {
+                newString += space + target
+            }
+            newString += space + usermasks.joined(separator: comma)
+            
+        case .WHO(usermask: let usermask, onlyOperators: let onlyOperators):
+            newString += base
+            if let mask = usermask {
+            newString += space + mask
+                if onlyOperators {
+                    newString += space + oString
                 }
             }
-            
-        case .otherCommand(_, let args),
-                .otherNumeric(_, let args),
-                .numeric     (_, let args):
-            buffer.writeArguments(args, useLast: true)
+        case .numeric(_, let args),
+                .otherCommand(_, let args),
+                .otherNumeric(_, let args):
+            newString = base + argumentsWithLast(args)
+        case .CAP(let subCommand, let capabilityIds):
+            newString = base + space + subCommand.commandAsString + space + colon
+            newString += capabilityIds.joined(separator: space)
+        }
+        newString += cCR + cLF
+
+        return ByteBuffer(string: newString)
+    }
+    
+    private func arguments(_ args: [String] = [""]) -> String {
+        var newString = ""
+        for arg in args {
+            newString += " \(arg)"
+        }
+        return newString
+    }
+    
+    private func argumentsWithLast(_ args: [String] = [""]) -> String {
+        guard !args.isEmpty else { return "" }
+        var newString = ""
+        for arg in args.dropLast() {
+            newString += " \(arg)"
         }
         
-        buffer.writeInteger(cCR)
-        buffer.writeInteger(cLF)
-        return buffer
+        let lastIdx = args.index(args.startIndex, offsetBy: args.count - 1)
+        newString += " :\(args[lastIdx])"
+        return newString
+    }
+    
+    private func commaSeperatedValues(_ args: [String] = [""]) -> String {
+        var newString = " "
+        var isFirst = true
+        for arg in args {
+            if isFirst {
+                isFirst = false
+            } else {
+                newString += ","
+            }
+            newString += arg
+        }
+        return newString
     }
 }
