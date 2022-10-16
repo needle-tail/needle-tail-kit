@@ -321,7 +321,6 @@ extension NeedleTailTransport {
     
     
     func handleInfo(_ info: [String]) {
-        print(info)
         var newArray = [String]()
         if info.first?.contains(Constants.colon) != nil {
             newArray.append(contentsOf: info.dropFirst())

@@ -14,10 +14,11 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     public typealias OutboundIn  = IRCMessage
     public typealias OutboundOut = ByteBuffer
     
-    let logger: Logger
-    var channel: Channel?
-    var sslServerHandler: NIOSSLServerHandler?
-    @ParsingActor private let parser = MessageParser()
+    @ParsingActor
+    private let parser = MessageParser()
+    private let logger: Logger
+    private var channel: Channel?
+    private var sslServerHandler: NIOSSLServerHandler?
     private var backPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark!
     private var delegate: NIOBackPressuredStreamSourceDelegate!
     private var sequence: NIOThrowingAsyncSequenceProducer<
@@ -51,7 +52,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.logger = logger
         self.sslServerHandler = sslServerHandler
         
-        self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 10)
+        self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 20)
         self.delegate = .init()
         let result = NIOThrowingAsyncSequenceProducer.makeSequence(
             elementType: ByteBuffer.self,
@@ -102,7 +103,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     
     public func channelReadComplete(context: ChannelHandlerContext) {
         self.logger.trace("AsyncMessageChannelHandler Read Complete")
-        
         let result = self.source.yield(contentsOf: bufferDeque)
         switch result {
         case .produceMore:
@@ -118,12 +118,11 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         _ = context.eventLoop.executeAsync {
             func runIterator() async throws {
                 guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-                
                 guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
                 guard !lines.isEmpty else { return }
                 let messages = lines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                    .filter{ $0 != ""}
+                    .filter { $0 != ""}
                 
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
@@ -131,24 +130,26 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                 }
             }
             try await runIterator()
-            if self.delegate.produceMoreCallCount != 0 {
-                try await runIterator()
-            }
         }
         channelRead(context: context)
         self.bufferDeque.removeAll()
     }
     
     private func channelRead(context: ChannelHandlerContext) {
-        let promise = context.eventLoop.makePromise(of: Deque<IRCMessage>.self)
+        
+        var writes = Deque<IRCMessage>()
         self.writerDelegate.didYieldHandler = { deq in
-            promise.succeed(deq)
+            writes.append(contentsOf: deq)
         }
-        promise.futureResult.whenSuccess { messages in
-            for message in messages {
-                let wioValue = self.wrapInboundOut(message)
-                context.fireChannelRead(wioValue)
-                context.flush()
+        context.eventLoop.scheduleRepeatedTask(initialDelay: TimeAmount.seconds(1), delay: TimeAmount.seconds(1)) { task in
+            if writes.count >= 0 {
+                for message in writes {
+                    let wioValue = self.wrapInboundOut(message)
+                    context.fireChannelRead(wioValue)
+                    context.fireChannelReadComplete()
+                    context.flush()
+                }
+                task.cancel()
             }
         }
     }
@@ -182,44 +183,3 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     }
 }
 
-final class NIOBackPressuredStreamSourceDelegate: NIOAsyncSequenceProducerDelegate, @unchecked Sendable {
-    var produceMoreCallCount = 0
-    var produceMoreHandler: (() -> Void)?
-    func produceMore() {
-        self.produceMoreCallCount += 1
-        if let produceMoreHandler = self.produceMoreHandler {
-            return produceMoreHandler()
-        }
-    }
-    
-    var didTerminateCallCount = 0
-    var didTerminateHandler: (() -> Void)?
-    func didTerminate() {
-        self.didTerminateCallCount += 1
-        if let didTerminateHandler = self.didTerminateHandler {
-            return didTerminateHandler()
-        }
-    }
-}
-
-private final class AsyncWriterDelegate: NIOAsyncWriterSinkDelegate, @unchecked Sendable {
-    typealias Element = IRCMessage
-    
-    var didYieldCallCount = 0
-    var didYieldHandler: ((Deque<IRCMessage>) -> Void)?
-    func didYield(contentsOf sequence: Deque<IRCMessage>) {
-        self.didYieldCallCount += 1
-        if let didYieldHandler = self.didYieldHandler {
-            didYieldHandler(sequence)
-        }
-    }
-    
-    var didTerminateCallCount = 0
-    var didTerminateHandler: ((Error?) -> Void)?
-    func didTerminate(error: Error?) {
-        self.didTerminateCallCount += 1
-        if let didTerminateHandler = self.didTerminateHandler {
-            didTerminateHandler(error)
-        }
-    }
-}
