@@ -73,15 +73,18 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         self.writer = newWriter.writer
         self.sink = newWriter.sink
         self.iterator = self.sequence?.makeAsyncIterator()
+        logger.trace("Initalized AsyncMessageHandler")
     }
     
     deinit {
+        logger.trace("Reclaiming Memory in AsyncMessageHandler")
         self.backPressureStrategy = nil
         self.delegate = nil
         self.sequence = nil
         self.writerDelegate = nil
         self.writer = nil
         self.sink = nil
+        self.iterator = nil
     }
     
     public func channelActive(context: ChannelHandlerContext) {

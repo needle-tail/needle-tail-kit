@@ -63,6 +63,7 @@ public final class RunLoop {
                           stopRunning: () async throws -> Bool
     ) async throws {
         let date = RunLoop.timeInterval(expiresIn)
+        print(date)
         var canRun = true
         repeat {
             try? await Task.sleep(nanoseconds: sleep)

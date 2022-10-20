@@ -195,7 +195,7 @@ public final class MessageParser {
                         commandKey.hasPrefix(Constants.quit) {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == Character(Constants.colon) {
-                    stripedMessage = String(stripedMessage.dropFirst())
+                    stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 let seperated = stripedMessage.components(separatedBy: Constants.colon)
                 args.append(seperated[1])

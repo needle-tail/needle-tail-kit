@@ -66,7 +66,7 @@ extension NeedleTailTransport {
     @BlobActor
     func publishBlob(_ packet: String) async throws {
         try await blobMessage(.otherCommand("BLOBS", [packet]))
-        try await RunLoop.run(240, sleep: 1) {
+        try await RunLoop.run(20, sleep: 1) {
             var running = true
             if await channelBlob != nil {
                 running = false
