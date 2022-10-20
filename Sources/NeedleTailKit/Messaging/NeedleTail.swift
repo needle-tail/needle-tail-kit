@@ -74,7 +74,7 @@ public final class NeedleTail {
         messenger?.recipientDeviceId = config.deviceId
         
         //TODO: FIX - We Get a crazy loop
-        try await cypher?.addDevice(config)
+//        try await cypher?.addDevice(config)
     }
     
     @NeedleTailClientActor
@@ -121,7 +121,8 @@ public final class NeedleTail {
                 store: store,
                 clientInfo: clientInfo,
                 p2pFactories: p2pFactories,
-                eventHandler: eventHandler
+                eventHandler: eventHandler,
+                addChildDevice: true
             )
             
         } catch {
@@ -147,7 +148,8 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
-        eventHandler: PluginEventHandler? = nil
+        eventHandler: PluginEventHandler? = nil,
+        addChildDevice: Bool = false
     ) async throws -> CypherMessenger? {
         if cypher == nil {
             //Create plugin here
@@ -160,7 +162,8 @@ public final class NeedleTail {
                         return try await self.createMessenger(
                             clientInfo: clientInfo,
                             plugin: plugin,
-                            transportRequest: transportRequest
+                            transportRequest: transportRequest,
+                            addChildDevice: addChildDevice
                         )
                 },
                 p2pFactories: p2pFactories,
@@ -178,7 +181,8 @@ public final class NeedleTail {
         clientInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
         transportRequest: TransportCreationRequest? = nil,
-        nameToVerify: String = ""
+        nameToVerify: String = "",
+        addChildDevice: Bool = false
     ) async throws -> NeedleTailMessenger {
         if self.messenger == nil {
             //We also need to pass the plugin to our transport
@@ -188,6 +192,7 @@ public final class NeedleTail {
                 plugin: plugin
             )
         }
+        self.messenger?.addChildDevice = addChildDevice
         guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
         if !nameToVerify.isEmpty {
             messenger.registrationState = .temp
@@ -668,6 +673,8 @@ func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation
         return true
     }
 }
+
+extension TargetConversation.Resolved: Sendable {}
 
 
 public func makeP2PFactories() -> [P2PTransportClientFactory] {

@@ -72,7 +72,9 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         )
         self.writer = newWriter.writer
         self.sink = newWriter.sink
-        self.iterator = self.sequence?.makeAsyncIterator()
+        if iterator == nil {
+            self.iterator = self.sequence?.makeAsyncIterator()
+        }
         logger.trace("Initalized AsyncMessageHandler")
     }
     

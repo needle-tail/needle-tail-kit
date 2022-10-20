@@ -49,6 +49,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     let username: Username?
     let deviceId: DeviceId?
     var registrationState: RegistrationState = .full
+    var addChildDevice = false
     
     @NeedleTailTransportActor
     public init(
@@ -511,36 +512,40 @@ extension NeedleTailMessenger {
             deviceId: config.deviceId,
             identity: config.identity,
             publicKey: config.publicKey,
-            isMasterDevice: true
+            isMasterDevice: false
         )
         logger.info("We are requesting a Device Registry with this configuration: \(newMaster)")
-        let bsonData = try BSONEncoder().encode(newMaster).makeData()
-        let base64String = bsonData.base64EncodedString()
-        let data = base64String.data(using: .ascii)
-#if (os(macOS) || os(iOS))
-        await MainActor.run {
-            plugin.emitter.showScanner = false
-            // Send user config data to generate a QRCode in the requesting client
-            plugin.emitter.received = nil
-            plugin.emitter.qrCodeData = data
-        }
-#endif
-        
-        try await RunLoop.run(240, sleep: 1) {
-            var running = true
-#if (os(macOS) || os(iOS))
-            if plugin.emitter.qrCodeData == nil {
-                running = false
+
+        if addChildDevice {
+            guard let username = username else { return }
+            let masterKeyBundle = try await readKeyBundle(forUsername: username)
+            for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
+                guard let nick = NeedleTailNick(name: username.raw, deviceId: validatedMaster.deviceId) else { continue }
+                try await client.transport?.sendChildDeviceConfig(nick, config: newMaster)
             }
-#endif
-            return running
+        } else {
+            let bsonData = try BSONEncoder().encode(newMaster).makeData()
+            let base64String = bsonData.base64EncodedString()
+            let data = base64String.data(using: .ascii)
+    #if (os(macOS) || os(iOS))
+            await MainActor.run {
+                plugin.emitter.showScanner = false
+                // Send user config data to generate a QRCode in the requesting client
+                plugin.emitter.received = nil
+                plugin.emitter.qrCodeData = data
+            }
+    #endif
+            
+            try await RunLoop.run(240, sleep: 1) {
+                var running = true
+    #if (os(macOS) || os(iOS))
+                if plugin.emitter.qrCodeData == nil {
+                    running = false
+                }
+    #endif
+                return running
+            }
         }
-    }
-    
-    /// This method is called when we send a PRIVMSG Packet that is specified as a .requestDeviceRegistery Packet. We then call it on our inbound handler. This is only called when the device created is not a master device.
-    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
-        print(#function)
-        try await messenger.addDevice(config)
     }
     
     public struct SetToken: Codable {
@@ -780,28 +785,3 @@ extension Array {
         return nil
     }
 }
-
-//
-//1 TransportCreationRequest(username: whitetipped, deviceId: f0fef21d-18bf-4b2a-a35d-3aaebc15d040, userConfig: CypherMessaging.UserConfig(identity: CypherProtocol.PublicSigningKey(publicKey: CryptoKit.Curve25519.Signing.PublicKey(baseKey: CryptoKit.Curve25519.Signing.CoreCryptoCurve25519PublicKeyImpl(keyBytes: [19, 127, 206, 185, 1, 119, 232, 222, 219, 10, 103, 115, 128, 133, 35, 173, 48, 80, 109, 40, 182, 252, 41, 132, 153, 124, 84, 101, 192, 149, 144, 154]))), devices: CypherProtocol.Signed<Swift.Array<CypherMessaging.UserDeviceConfig>>(value: [["a": "f0fef21d-18bf-4b2a-a35d-3aaebc15d040", "b": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 32, readableBytes: 32, capacity: 32, storageCapacity: 2048, slice: _ByteBufferSlice { 698..<730 }, storage: 0x00000001310aa800 (2048 bytes) }), "c": [168, 166, 183, 59, 18, 3, 247, 178, 148, 54, 102, 2, 129, 42, 121, 6, 94, 47, 250, 223, 141, 135, 164, 134, 225, 204, 101, 148, 23, 75, 173, 110], "d": true]], signature: 64 bytes)), signingIdentity: CypherProtocol.PrivateSigningKey(privateKey: CryptoKit.Curve25519.Signing.PrivateKey(baseKey: CryptoKit.Curve25519.Signing.CoreCryptoCurve25519PrivateKeyImpl(key: CryptoKit.SecureBytes(backing: CryptoKit.SecureBytes.Backing)))))
-//2 whitetipped
-//3 f0fef21d-18bf-4b2a-a35d-3aaebc15d040
-//RKB whitetipped
-//2022-10-20 10:37:35 +0000
-//2022-10-20 10:37:25 +0000
-//UserConfig(identity: CypherProtocol.PublicSigningKey(publicKey: CryptoKit.Curve25519.Signing.PublicKey(baseKey: CryptoKit.Curve25519.Signing.CoreCryptoCurve25519PublicKeyImpl(keyBytes: [19, 127, 206, 185, 1, 119, 232, 222, 219, 10, 103, 115, 128, 133, 35, 173, 48, 80, 109, 40, 182, 252, 41, 132, 153, 124, 84, 101, 192, 149, 144, 154]))), devices: CypherProtocol.Signed<Swift.Array<CypherMessaging.UserDeviceConfig>>(value: [["a": "f0fef21d-18bf-4b2a-a35d-3aaebc15d040", "b": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 32, readableBytes: 32, capacity: 32, storageCapacity: 2048, slice: _ByteBufferSlice { 121..<153 }, storage: 0x0000000131189200 (2048 bytes) }), "c": [168, 166, 183, 59, 18, 3, 247, 178, 148, 54, 102, 2, 129, 42, 121, 6, 94, 47, 250, 223, 141, 135, 164, 134, 225, 204, 101, 148, 23, 75, 173, 110], "d": true], ["a": "c2245aea-06cb-465d-b9ab-3cb0d758b857", "b": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 32, readableBytes: 32, capacity: 32, storageCapacity: 2048, slice: _ByteBufferSlice { 599..<631 }, storage: 0x0000000131189200 (2048 bytes) }), "c": [169, 117, 230, 243, 126, 185, 129, 33, 65, 155, 56, 9, 204, 184, 182, 193, 133, 30, 87, 3, 101, 76, 239, 111, 54, 218, 61, 28, 133, 134, 244, 0], "d": true]], signature: 64 bytes))
-//none 2022-10-20T10:37:17.833Z ["Job error", CypherMessaging.CypherSDKError.cannotFindDeviceConfig]
-//
-//
-//
-//none 2022-10-20T10:37:47.518Z ["Job error", NeedleTailHelpers.NeedleTailError.nilUserConfig]
-//none 2022-10-20T10:37:47.518Z ["Looking for next task"]
-//none 2022-10-20T10:37:47.518Z ["Available jobs", 1]
-//none 2022-10-20T10:37:47.519Z ["Running job", CypherMessaging.JobModel.SecureProps(taskKey: "b", task: ["a": "b", "b": ["a": ["_": "a", "a": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 1068, readableBytes: 1068, capacity: 1068, storageCapacity: 2048, slice: _ByteBufferSlice { 67..<1135 }, storage: 0x0000000144010c00 (2048 bytes) }), "b": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 64, readableBytes: 64, capacity: 64, storageCapacity: 2048, slice: _ByteBufferSlice { 1143..<1207 }, storage: 0x0000000144010c00 (2048 bytes) }), "c": true], "b": "13F67B05-616E-4976-BAF3-5D0E0E60D6E5", "c": "whitetipped", "d": "f0fef21d-18bf-4b2a-a35d-3aaebc15d040", "e": 2022-10-20 10:36:47 +0000]], delayedUntil: nil, scheduledAt: 2022-10-20 10:36:47 +0000, attempts: 0, isBackgroundTask: false)]
-//none 2022-10-20T10:37:47.521Z ["Processing message sent by whitetipped"]
-//1 TransportCreationRequest(username: whitetipped, deviceId: c2245aea-06cb-465d-b9ab-3cb0d758b857, userConfig: CypherMessaging.UserConfig(identity: CypherProtocol.PublicSigningKey(publicKey: CryptoKit.Curve25519.Signing.PublicKey(baseKey: CryptoKit.Curve25519.Signing.CoreCryptoCurve25519PublicKeyImpl(keyBytes: [183, 167, 134, 71, 161, 164, 38, 94, 93, 45, 210, 82, 160, 45, 205, 182, 98, 176, 183, 255, 197, 184, 195, 40, 228, 244, 143, 124, 106, 12, 238, 200]))), devices: CypherProtocol.Signed<Swift.Array<CypherMessaging.UserDeviceConfig>>(value: [["a": "c2245aea-06cb-465d-b9ab-3cb0d758b857", "b": BSON.Binary(subType: BSON.Binary.SubType.generic, storage: ByteBuffer { readerIndex: 0, writerIndex: 32, readableBytes: 32, capacity: 32, storageCapacity: 4096, slice: _ByteBufferSlice { 63..<95 }, storage: 0x0000000144041c00 (4096 bytes) }), "c": [169, 117, 230, 243, 126, 185, 129, 33, 65, 155, 56, 9, 204, 184, 182, 193, 133, 30, 87, 3, 101, 76, 239, 111, 54, 218, 61, 28, 133, 134, 244, 0], "d": true]], signature: 64 bytes)), signingIdentity: CypherProtocol.PrivateSigningKey(privateKey: CryptoKit.Curve25519.Signing.PrivateKey(baseKey: CryptoKit.Curve25519.Signing.CoreCryptoCurve25519PrivateKeyImpl(key: CryptoKit.SecureBytes(backing: CryptoKit.SecureBytes.Backing)))))
-//2 whitetipped
-//3 c2245aea-06cb-465d-b9ab-3cb0d758b857
-//RKB whitetipped
-//2022-10-20 10:38:07 +0000
-//2022-10-20 10:37:57 +0000
-//2022-10-20T13:37:49+0300 info Transport : [NeedleTailKit] Server information:

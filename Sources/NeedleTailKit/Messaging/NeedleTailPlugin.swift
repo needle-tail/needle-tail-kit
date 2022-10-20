@@ -67,9 +67,11 @@ public class NeedleTailPlugin: Plugin {
     //    }
     //
     
-    //    public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
-    //
-    //    }
+    /// This method is called when we send a PRIVMSG Packet that is specified as a .requestDeviceRegistery Packet. We then call it on our inbound handler. This is only called when the device created is not a master device.
+        public func onDeviceRegisteryRequest(_ config: UserDeviceConfig, messenger: CypherMessenger) async throws {
+            print(#function)
+            try await messenger.addDevice(config)
+        }
     public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) async throws {
         DispatchQueue.main.async {
             //            emitter.userDevicesChanged.send()

@@ -213,6 +213,29 @@ extension NeedleTailTransport {
         try await transportMessage(type)
     }
     
+    func sendChildDeviceConfig(_ masterNick: NeedleTailNick, config: UserDeviceConfig) async throws {
+        let recipient = IRCMessageRecipient.nick(masterNick)
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .requestRegistry,
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none,
+            addDeviceType: .child,
+            childDeviceConfig: config
+        )
+        
+        //Store UUID Temporarily
+        self.registryRequestId = packet.id
+        
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        try await transportMessage(type)
+    }
+    
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
     @NeedleTailClientActor
