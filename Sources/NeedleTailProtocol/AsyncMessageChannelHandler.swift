@@ -121,7 +121,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         
         
         Task {
-           try await withThrowingTaskGroup(of: Void.self, body: { group in
+           await withThrowingTaskGroup(of: Void.self, body: { group in
                 group.addTask {
                     guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
                     guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
@@ -135,7 +135,6 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
                         try await self.writer.yield(parsedMessage)
                     }
                 }
-                try await group.waitForAll()
             })
         }
         channelRead(context: context)
