@@ -72,9 +72,8 @@ public final class NeedleTail {
         messenger?.client?.transport?.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger?.recipientDeviceId = config.deviceId
-        
-        //TODO: FIX - We Get a crazy loop
-//        try await cypher?.addDevice(config)
+
+        try await cypher?.addDevice(config)
     }
     
     @NeedleTailClientActor
@@ -84,7 +83,8 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
-        eventHandler: PluginEventHandler? = nil
+        eventHandler: PluginEventHandler? = nil,
+        withChildDevice: Bool = false
     ) async throws -> CypherMessenger? {
         self.store = store
         plugin = NeedleTailPlugin(emitter: emitter)
@@ -122,7 +122,7 @@ public final class NeedleTail {
                 clientInfo: clientInfo,
                 p2pFactories: p2pFactories,
                 eventHandler: eventHandler,
-                addChildDevice: true
+                addChildDevice: withChildDevice
             )
             
         } catch {

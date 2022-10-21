@@ -120,21 +120,23 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         }
         
         
-        _ = context.eventLoop.executeAsync {
-            func runIterator() async throws {
-                guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-                guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
-                guard !lines.isEmpty else { return }
-                let messages = lines.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                    .filter { $0 != ""}
-                
-                for message in messages {
-                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
-                    try await self.writer.yield(parsedMessage)
+        Task {
+           try await withThrowingTaskGroup(of: Void.self, body: { group in
+                group.addTask {
+                    guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
+                    guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
+                    guard !lines.isEmpty else { return }
+                    let messages = lines.components(separatedBy: Constants.cLF)
+                        .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                        .filter { $0 != ""}
+                    
+                    for message in messages {
+                        let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
+                        try await self.writer.yield(parsedMessage)
+                    }
                 }
-            }
-            try await runIterator()
+                try await group.waitForAll()
+            })
         }
         channelRead(context: context)
         self.bufferDeque.removeAll()
