@@ -17,8 +17,10 @@ import CypherMessaging
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
 
     var channel: Channel
-    @NeedleTailClientActor var userConfig: UserConfig?
-    @NeedleTailClientActor var updateKeyBundle = false
+    @KeyBundleActor
+    var userConfig: UserConfig?
+    @NeedleTailClientActor
+    var updateKeyBundle = false
     
     let logger = Logger(label: "Transport")
     //    var usermask: String? {

@@ -119,26 +119,29 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             logger.trace("Dropped Yield Result")
         }
         
-        
-        Task {
-           await withThrowingTaskGroup(of: Void.self, body: { group in
-                group.addTask {
-                    guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-                    guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
-                    guard !lines.isEmpty else { return }
-                    let messages = lines.components(separatedBy: Constants.cLF)
-                        .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                        .filter { $0 != ""}
-                    
-                    for message in messages {
-                        let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
-                        try await self.writer.yield(parsedMessage)
-                    }
-                }
-            })
+        print("Hit FIRST")
+        _ = context.eventLoop.executeAsync {
+                 try await withThrowingTaskGroup(of: Void.self, body: { group in
+                      group.addTask {
+                          print("Hit once")
+                          guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
+                          guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
+                          guard !lines.isEmpty else { return }
+                          let messages = lines.components(separatedBy: Constants.cLF)
+                              .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                              .filter { $0 != ""}
+                          
+                          for message in messages {
+                              let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
+                              try await self.writer.yield(parsedMessage)
+                          }
+                      }
+                     try await group.waitForAll()
+                  })
         }
-        channelRead(context: context)
-        self.bufferDeque.removeAll()
+            print("READY TO READ")
+            self.channelRead(context: context)
+            self.bufferDeque.removeAll()
     }
     
     private func channelRead(context: ChannelHandlerContext) {

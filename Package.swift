@@ -28,8 +28,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
         .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0"),
-//        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3")
-//        .package(path: "../spine-tailed-kit")
+        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3"),
+        .package(path: "../spine-tailed-kit")
     ],
     targets: [
         .target(
@@ -43,8 +43,8 @@ let package = Package(
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "Crypto", package: "swift-crypto"),
-//            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-//            .product(name: "SpineTailedKit", package: "spine-tailed-kit"),
+            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "SpineTailedKit", package: "spine-tailed-kit"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol")
         ]),

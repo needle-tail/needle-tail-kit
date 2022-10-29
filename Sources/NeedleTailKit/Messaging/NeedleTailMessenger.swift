@@ -277,7 +277,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         // We need to set the userConfig to nil for the next read flow
-        transport.userConfig = nil
+        try await clearUserConfig()
         let jwt = try makeToken()
         print("RKB", username)
         
@@ -306,8 +306,14 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             throw NeedleTailError.nilUserConfig
             
         }
-        print(userConfig)
+        print("Received_CONFIG", userConfig)
         return userConfig
+    }
+    
+    @KeyBundleActor
+    private func clearUserConfig() async throws {
+        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        transport.userConfig = nil
     }
     
     

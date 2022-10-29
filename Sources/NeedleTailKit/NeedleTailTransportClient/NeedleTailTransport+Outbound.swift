@@ -243,12 +243,12 @@ extension NeedleTailTransport {
         try await clientMessage(.otherCommand("READKEYBNDL", [packet]))
         try await RunLoop.run(10, sleep: 1, stopRunning: {
             var running = true
-            if userConfig != nil {
+            if await userConfig != nil {
                 running = false
             }
             return running
         })
-        return userConfig
+        return await userConfig
     }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name

@@ -26,7 +26,7 @@ extension NeedleTailTransport {
 @NeedleTailTransportActor
 extension NeedleTailTransport {
     
-    @NeedleTailClientActor
+    @KeyBundleActor
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
