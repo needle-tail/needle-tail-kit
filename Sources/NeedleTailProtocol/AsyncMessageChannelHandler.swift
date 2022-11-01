@@ -36,6 +36,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
     
     
     private var bufferDeque = Deque<ByteBuffer>()
+    private var writes = Deque<IRCMessage>()
     private var writer: NIOAsyncWriter<IRCMessage, AsyncWriterDelegate>!
     private var sink: NIOAsyncWriter<IRCMessage, AsyncWriterDelegate>.Sink!
     private var writerDelegate: AsyncWriterDelegate!
@@ -115,51 +116,57 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
             context.read()
         case .stopProducing:
             logger.trace("Stop Producing")
+            return
         case .dropped:
             logger.trace("Dropped Yield Result")
+            break
         }
         
         print("Hit FIRST")
-        _ = context.eventLoop.executeAsync {
-                 try await withThrowingTaskGroup(of: Void.self, body: { group in
-                      group.addTask {
-                          print("Hit once")
-                          guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
-                          guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
-                          guard !lines.isEmpty else { return }
-                          let messages = lines.components(separatedBy: Constants.cLF)
-                              .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                              .filter { $0 != ""}
-                          
-                          for message in messages {
-                              let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
-                              try await self.writer.yield(parsedMessage)
-                          }
-                      }
-                     try await group.waitForAll()
-                  })
+        Task {
+            try await withThrowingTaskGroup(of: Void.self, body: { group in
+                group.addTask {
+                    print("Hit once")
+                    guard var buffer = try await self.iterator?.next() else { throw NeedleTailError.parsingError }
+                    guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
+                    guard !lines.isEmpty else { return }
+                    let messages = lines.components(separatedBy: Constants.cLF)
+                        .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                        .filter { $0 != ""}
+                    
+                    for message in messages {
+                        let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
+                        try await self.writer.yield(parsedMessage)
+                    }
+                }
+                try await group.waitForAll()
+            })
         }
-            print("READY TO READ")
-            self.channelRead(context: context)
-            self.bufferDeque.removeAll()
+        print("READY TO READ")
+        self.channelRead(context: context)
+        self.bufferDeque.removeAll()
     }
     
     private func channelRead(context: ChannelHandlerContext) {
         
-        var writes = Deque<IRCMessage>()
-        self.writerDelegate.didYieldHandler = { deq in
-            writes.append(contentsOf: deq)
-        }
-        context.eventLoop.scheduleRepeatedTask(initialDelay: TimeAmount.seconds(1), delay: TimeAmount.seconds(1)) { task in
-            if writes.count >= 0 {
-                for message in writes {
+        func processWrites() {
+            context.eventLoop.execute {
+                if self.writes.count >= 1 {
+                    guard let message = self.writes.popLast() else { return }
                     let wioValue = self.wrapInboundOut(message)
                     context.fireChannelRead(wioValue)
                     context.fireChannelReadComplete()
                     context.flush()
+                    processWrites()
+                } else {
+                    return
                 }
-                task.cancel()
             }
+        }
+        
+        self.writerDelegate.didYieldHandler = { deq in
+            self.writes.append(contentsOf: deq)
+            processWrites()
         }
     }
     

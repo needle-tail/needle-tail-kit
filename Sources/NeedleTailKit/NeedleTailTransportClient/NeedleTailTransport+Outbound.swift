@@ -241,7 +241,7 @@ extension NeedleTailTransport {
     @NeedleTailClientActor
     func readKeyBundle(_ packet: String) async throws -> UserConfig? {
         try await clientMessage(.otherCommand("READKEYBNDL", [packet]))
-        try await RunLoop.run(10, sleep: 1, stopRunning: {
+        try await RunLoop.run(20, sleep: 1, stopRunning: {
             var running = true
             if await userConfig != nil {
                 running = false
