@@ -119,7 +119,7 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        self.logger.trace("AsyncMessageChannelHandlerAdapter Read")
+        self.logger.info("AsyncMessageChannelHandlerAdapter Read")
         bufferDeque.append(self.unwrapInboundIn(data))
     }
     
@@ -239,11 +239,13 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
                 var writes = writes
                 if writes.count >= 1 {
                     let message = writes.removeFirst()
+                    print("MESSAGE___", message)
+                    context.flush()
                     let wioValue = self.wrapInboundOut(message)
                     context.fireChannelRead(wioValue)
-                    context.flush()
                     processWrites(writes)
                 } else {
+                    context.fireChannelReadComplete()
                     return
                 }
             }
@@ -252,8 +254,6 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
         self.writerDelegate.didYieldHandler = { deq in
             processWrites(deq)
         }
-        
-        context.fireChannelReadComplete()
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Swift.Error) {
