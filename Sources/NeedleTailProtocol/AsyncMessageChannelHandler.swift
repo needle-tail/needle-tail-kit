@@ -239,7 +239,6 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
                 var writes = writes
                 if writes.count >= 1 {
                     let message = writes.removeFirst()
-                    print("MESSAGE___", message)
                     context.flush()
                     let wioValue = self.wrapInboundOut(message)
                     context.fireChannelRead(wioValue)

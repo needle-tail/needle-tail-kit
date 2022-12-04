@@ -82,12 +82,10 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     
     func channelActive(context: ChannelHandlerContext) {
         logger.trace("Channel Active")
-//        context.fireChannelActive()
     }
     
     func channelInactive(context: ChannelHandlerContext) {
         logger.trace("Channel Inactive")
-//        context.fireChannelInactive()
     }
     
     var pendingReadState: PendingReadState = .canRead
@@ -103,7 +101,6 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        print("CHANNEL_READ____")
         messageDeque.append(self.unwrapInboundIn(data))
     }
     
@@ -161,25 +158,6 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
         streamResult.whenFailure { error in
             self.logger.error("\(error)")
         }
-        
-//        streamResult.eventLoop.execute {
-//            self.channelRead(context: context)
-//        }
-        
-        
-        
-        
-        
-//        let message = self.unwrapInboundIn(data)
-//        _ = context.eventLoop.executeAsync {
-//            do {
-//                try await self.transport.processReceivedMessages(message)
-//            } catch let error as NeedleTailError {
-//                self.logger.error("\(error.rawValue)")
-//            } catch {
-//                self.logger.error("\(error)")
-//            }
-//        }
     }
     
     private struct DequeSequence: Sendable {
