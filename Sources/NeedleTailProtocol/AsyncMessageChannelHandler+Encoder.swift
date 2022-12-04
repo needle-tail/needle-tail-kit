@@ -1,6 +1,6 @@
 import NIOCore
 
-extension AsyncMessageChannelHandler {
+extension AsyncMessageChannelHandlerAdapter {
     
     func encode(
         value: IRCMessage

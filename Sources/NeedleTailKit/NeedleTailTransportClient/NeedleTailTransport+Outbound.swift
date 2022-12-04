@@ -248,6 +248,7 @@ extension NeedleTailTransport {
             }
             return running
         })
+        print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: await userConfig))")
         return await userConfig
     }
     

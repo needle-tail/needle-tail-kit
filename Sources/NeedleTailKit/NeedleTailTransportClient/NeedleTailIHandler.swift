@@ -18,34 +18,44 @@ final class NeedleTailHandler: ChannelInboundHandler {
     
     let client: NeedleTailClient
     let transport: NeedleTailTransport
-    let logger = Logger(label: "NeedleTailHandler")
+    var logger = Logger(label: "NeedleTailHandler")
+    
+    private var channel: Channel?
+//    private var stream: NIOInboundChannelStream<InboundIn>?
     
     init(client: NeedleTailClient, transport: NeedleTailTransport) {
         self.client = client
         self.transport = transport
+        self.logger.logLevel = .trace
     }
     
     func channelActive(context: ChannelHandlerContext) {
         logger.trace("Channel Active")
-        context.fireChannelActive()
+        self.channel = context.channel
     }
     
     func channelInactive(context: ChannelHandlerContext) {
         logger.trace("Channel Inactive")
+//        stream = nil
+//        channel = nil
+        context.fireChannelInactive()
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let task = Task {
-            let message = unwrapInboundIn(data)
+        _ = context.eventLoop.executeAsync {
+            let message = self.unwrapInboundIn(data)
             do {
-                try await transport.processReceivedMessages(message)
+                try await self.transport.processReceivedMessages(message)
             } catch let error as NeedleTailError {
-                logger.error("\(error.rawValue)")
+                self.logger.error("\(error.rawValue)")
             } catch {
-                logger.error("\(error)")
+                self.logger.error("\(error)")
             }
         }
-        task.cancel()
+    }
+    
+    func channelReadComplete(context: ChannelHandlerContext) {
+        
     }
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {

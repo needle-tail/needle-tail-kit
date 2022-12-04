@@ -15,6 +15,7 @@ import NeedleTailProtocol
 public class TransportState: StateMachine {
 
     public let identifier: UUID
+    public var current: State = .clientOffline
     private var logger: Logger
     @MainActor private var emitter: NeedleTailEmitter
     
@@ -27,7 +28,9 @@ public class TransportState: StateMachine {
         self.logger = Logger(label: "TransportState:")
     }
 
+    
     public enum State {
+        
         case clientOffline
         case clientConnecting
         case clientConnected
@@ -44,13 +47,9 @@ public class TransportState: StateMachine {
         case clientDisconnected
     }
     
-    public var current: State = .clientOffline
-    
-    public func transition(to nextState: State) {
-      Task {
-            await setState(nextState)
-        }
-        self.current = nextState
+    public func transition(to nextState: State) async {
+        async let set = setState(nextState)
+        self.current = await set
         switch self.current {
         case .clientOffline:
             logger.info("The client is offline")
@@ -72,9 +71,10 @@ public class TransportState: StateMachine {
     }
     
     @MainActor
-    func setState(_ currentState: State) {
+    func setState(_ currentState: State) -> State {
 #if (os(macOS) || os(iOS))
-    self.emitter.state = currentState
+        self.emitter.state = currentState
+        return self.emitter.state
 #endif
     }
 }

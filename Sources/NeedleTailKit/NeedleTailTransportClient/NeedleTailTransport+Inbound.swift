@@ -28,6 +28,7 @@ extension NeedleTailTransport {
     
     @KeyBundleActor
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
+        print("READ_KEY_BUNDLE_REQUEST_RECEIVED_WE_SHOULD_HAVE_A_KEY_HERE_AND_NEXT_WE_SHOULD_FINISH_WITH_THE_REQUEST_METHOD: - BUNDLE: \(keyBundle)")
         guard let keyBundle = keyBundle.first else { return }
         guard let data = Data(base64Encoded: keyBundle) else { return }
         let buffer = ByteBuffer(data: data)
@@ -144,7 +145,7 @@ extension NeedleTailTransport {
                         case .transportRegistering(channel: let channel, nick: let nick, userInfo: let user):
                             let type = TransportMessageType.standard(.USER(user))
                             try await transportMessage(type)
-                            transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
+                            await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
                         default:
                             return
                         }
@@ -237,14 +238,14 @@ extension NeedleTailTransport {
     
     
     func doNick(_ newNick: NeedleTailNick) async throws {
-        switch transportState.current {
-        case .transportRegistering(let channel, let nick, let info):
-            guard nick != newNick else { return }
-            transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
-        default:
-            return
-        }
-        await respondToTransportState()
+//        switch transportState.current {
+//        case .transportRegistering(let channel, let nick, let info):
+//            guard nick != newNick else { return }
+//            transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
+//        default:
+//            return
+//        }
+//        await respondToTransportState()
     }
     
     

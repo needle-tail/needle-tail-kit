@@ -13,7 +13,7 @@ public final class MessageParser {
     }
     var logger: Logger
     
-    init() {
+    public init() {
         self.logger = Logger(label: "MessageParser")
     }
     

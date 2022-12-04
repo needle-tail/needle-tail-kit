@@ -306,7 +306,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             throw NeedleTailError.nilUserConfig
             
         }
-        print("Received_CONFIG", userConfig)
+
         return userConfig
     }
     
@@ -369,9 +369,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         guard let signer = signer else { return "" }
         guard let username = username else { return "" }
         guard let deviceId = deviceId else { return "" }
-        print("1", signer)
-        print("2", username)
-        print("3", deviceId)
         var signerAlgorithm: JWTAlgorithm
 #if os(Linux)
         signerAlgorithm = signer as! JWTAlgorithm
