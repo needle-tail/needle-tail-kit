@@ -26,10 +26,12 @@ public class NeedleTailEmitter: NeedleTailRepository, Equatable {
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
     @Published public var needleTailNick: NeedleTailNick?
-    @Published public var received: String?
+    @Published public var requestMessageId: String?
     @Published public var qrCodeData: Data?
     @Published public var accountExists: String = ""
     @Published public var showScanner: Bool = false
+    @Published public var dismiss: Bool = false
+    @Published public var showProgress: Bool = false
     @Published public var state: TransportState.State = .clientOffline
 #endif
 //    public let onRekey = PassthroughSubject<Void, Never>()

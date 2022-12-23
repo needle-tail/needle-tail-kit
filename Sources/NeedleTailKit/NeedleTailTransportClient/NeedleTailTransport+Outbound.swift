@@ -66,9 +66,10 @@ extension NeedleTailTransport {
     @BlobActor
     func publishBlob(_ packet: String) async throws {
         try await blobMessage(.otherCommand("BLOBS", [packet]))
-        try await RunLoop.run(20, sleep: 1) {
+        try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
+            guard let strongSelf = self else { return false }
             var running = true
-            if await channelBlob != nil {
+            if await strongSelf.channelBlob != nil {
                 running = false
             }
             return running
@@ -190,7 +191,7 @@ extension NeedleTailTransport {
         }
     }
     
-    //The requesting device sends this packet while setting the request identity until we hear back from the master device via a QR Code
+    /// The **CHILD DEVICE** sends this packet while setting the request identity until we hear back from the **Master Device** via a **QR Code**
     func sendDeviceRegistryRequest(_ masterNick: NeedleTailNick) async throws {
         let recipient = IRCMessageRecipient.nick(masterNick)
         let packet = MessagePacket(
@@ -238,19 +239,10 @@ extension NeedleTailTransport {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    @NeedleTailClientActor
-    func readKeyBundle(_ packet: String) async throws -> UserConfig? {
+    func readKeyBundle(_ packet: String) async throws {
         try await clientMessage(.otherCommand("READKEYBNDL", [packet]))
-        try await RunLoop.run(20, sleep: 1, stopRunning: {
-            var running = true
-            if await userConfig != nil {
-                running = false
-            }
-            return running
-        })
-        print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: await userConfig))")
-        return await userConfig
     }
+
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick

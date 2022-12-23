@@ -10,10 +10,6 @@ import NeedleTailProtocol
 import NeedleTailHelpers
 import BSON
 
-enum IRCClientErrors: Error {
-    case notImplemented
-}
-
 @NeedleTailClientActor
 extension NeedleTailClient {
     
@@ -70,8 +66,10 @@ extension NeedleTailClient {
             transportState: self.transportState,
             signer: self.signer,
             clientContext: self.clientContext,
-            clientInfo: self.clientInfo
+            clientInfo: self.clientInfo,
+            keyBundleStore: keyBundleStore
         )
+        self.keyBundleReader = KeyBundleReader(transport: transport, store: keyBundleStore)
         self.transport = transport
         return transport
     }

@@ -45,6 +45,7 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
+    @NeedleTailClientActor
     var registrationApproved = false
     var registeringNewDevice = false
     var needleTailViewModel = NeedleTailViewModel()
@@ -58,7 +59,8 @@ public final class NeedleTail {
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
     
-    // We are going to run a loop on this actor until the requesting client scans the masters approval QRCode. When then complete the loop in onBoardAccount(), finish registering this device locally and then we request the master device to add the new device to the remote DB before we are allowed spool up an IRC Session.
+    /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
+    /// - Parameter code: The **QR Code** scanned from the **Master Device**
     @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
         guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
@@ -100,13 +102,17 @@ public final class NeedleTail {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
                 try await messenger?.requestDeviceRegistration(nick)
             }
-            await MainActor.run {
-                emitter.showScanner = true
-            }
             
-            try await RunLoop.run(240, sleep: 1, stopRunning: {
+            //Show the Scanner for scanning the QRCode from the Master Device
+            Task { @MainActor [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.emitter.showScanner = true
+            }
+
+            try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
+                guard let strongSelf = self else { return false }
                 var running = true
-                if registrationApproved == true {
+                if strongSelf.registrationApproved == true {
                     running = false
                 }
                 return running
@@ -129,7 +135,7 @@ public final class NeedleTail {
             print("User Does not exist,  proceed...")
             try await self.serviceInterupted(true)
             self.messenger = nil
-            return try await registerNeedleTail(
+            let messenger = try await registerNeedleTail(
                 appleToken: appleToken,
                 username: username,
                 store: store,
@@ -137,6 +143,9 @@ public final class NeedleTail {
                 p2pFactories: p2pFactories,
                 eventHandler: eventHandler
             )
+            plugin.emitter.dismiss = true
+            plugin.emitter.showProgress = false
+            return messenger
         }
     }
     
@@ -200,7 +209,7 @@ public final class NeedleTail {
         if messenger.client == nil {
             //We need to make sure we have internet before we try this
             for status in await NeedleTail.shared.state.receiver.statusArray {
-                try await RunLoop.run(10, sleep: 1) {
+                try await RunLoop.run(10, sleep: 1) { @NeedleTailClientActor in
                     var running = true
                     if status == .satisfied {
                         running = false
@@ -454,10 +463,10 @@ extension NeedleTail: ObservableObject {
         public var password: String = ""
         public var store: CypherMessengerStore? = nil
         public var clientInfo: ClientContext.ServerClientInfo? = nil
-        @Binding public var dismiss: Bool
-        @Binding var showProgress: Bool
-        @Binding var qrCodeData: Data?
-        @Binding var showScanner: Bool?
+//        @Binding public var dismiss: Bool
+//        @Binding var showProgress: Bool
+//        @Binding var qrCodeData: Data?
+//        @Binding var showScanner: Bool?
         @State var buttonTask: Task<(), Error>? = nil
         
         public init(
@@ -475,11 +484,11 @@ extension NeedleTail: ObservableObject {
             members: Set<Username>? = nil,
             permissions: IRCChannelMode? = nil,
             store: CypherMessengerStore? = nil,
-            clientInfo: ClientContext.ServerClientInfo? = nil,
-            dismiss: Binding<Bool>,
-            showProgress: Binding<Bool>,
-            qrCodeData: Binding<Data?>,
-            showScanner: Binding<Bool?>
+            clientInfo: ClientContext.ServerClientInfo? = nil
+//            dismiss: Binding<Bool>,
+//            showProgress: Binding<Bool>,
+//            qrCodeData: Binding<Data?>,
+//            showScanner: Binding<Bool?>
         ) {
             self.exists = exists
             self.createContact = createContact
@@ -497,10 +506,10 @@ extension NeedleTail: ObservableObject {
             self.store = store
             self.clientInfo = clientInfo
             self.clientInfo?.password = password
-            self._dismiss = dismiss
-            self._showProgress = showProgress
-            self._qrCodeData = qrCodeData
-            self._showScanner = showScanner
+//            self._dismiss = dismiss
+//            self._showProgress = showProgress
+//            self._qrCodeData = qrCodeData
+//            self._showScanner = showScanner
         }
         
         public var body: some View {
@@ -509,12 +518,12 @@ extension NeedleTail: ObservableObject {
 #if os(iOS)
                 UIApplication.shared.endEditing()
 #endif
-                showProgress = true
+//                showProgress = true
                 self.buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
-                        showProgress = false
-                        dismiss = true
+//                        showProgress = false
+//                        dismiss = true
                     } else if createChannel {
                         guard let channelName = channelName else { return }
                         guard let admin = admin else { return }
@@ -528,8 +537,8 @@ extension NeedleTail: ObservableObject {
                             members: members,
                             permissions: permissions
                         )
-                        showProgress = false
-                        dismiss = true
+//                        showProgress = false
+//                        dismiss = true
                     } else {
                         do {
                             let needleTailViewModel = NeedleTail.shared.needleTailViewModel
@@ -545,8 +554,9 @@ extension NeedleTail: ObservableObject {
                             )
                             
                             needleTailViewModel.emitter = NeedleTail.shared.emitter
-                            showProgress = false
-                            dismiss = true
+//                            showProgress = false
+                            // we need to dismiss else where. here works for initial registration, but device addition is messed up
+//                            dismiss = true
                         } catch let error as NeedleTailError {
                             if error == .masterDeviceReject {
                                 //TODO: Send REJECTED/RETRY Notification
@@ -561,14 +571,6 @@ extension NeedleTail: ObservableObject {
             })
             .onDisappear {
                 self.buttonTask?.cancel()
-            }
-            .onReceive(NeedleTail.shared.emitter.$qrCodeData) { data in
-                self.qrCodeData = data
-                self.showProgress = false
-            }
-            .onReceive(NeedleTail.shared.emitter.$showScanner) { show in
-                self.showScanner = show
-                self.showProgress = false
             }
         }
     }

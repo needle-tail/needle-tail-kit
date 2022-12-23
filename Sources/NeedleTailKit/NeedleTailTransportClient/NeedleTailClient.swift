@@ -24,6 +24,8 @@ final class NeedleTailClient {
     let logger = Logger(label: "Client")
     var transportDelegate: CypherTransportClientDelegate?
     public var channel: Channel?
+    let keyBundleStore: KeyBundleStore
+    var keyBundleReader: KeyBundleReader?
     
     init(
         cypher: CypherMessenger?,
@@ -31,7 +33,8 @@ final class NeedleTailClient {
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest?,
-        clientContext: ClientContext
+        clientContext: ClientContext,
+        keyBundleStore: KeyBundleStore
     ) async {
         self.cypher = cypher
         self.messenger = messenger
@@ -40,7 +43,7 @@ final class NeedleTailClient {
         self.signer = signer
         self.transportState = transportState
         self.transportDelegate = transportDelegate
-        
+        self.keyBundleStore = keyBundleStore
         let group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {

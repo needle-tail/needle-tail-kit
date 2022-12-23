@@ -109,7 +109,7 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
     }
     
     public func channelActive(context: ChannelHandlerContext) {
-        self.logger.info("AsyncMessageChannelHandlerAdapter is Active")
+        self.logger.trace("AsyncMessageChannelHandlerAdapter is Active")
         context.fireChannelActive()
     }
     
@@ -119,7 +119,7 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        self.logger.info("AsyncMessageChannelHandlerAdapter Read")
+        self.logger.trace("AsyncMessageChannelHandlerAdapter Read")
         bufferDeque.append(self.unwrapInboundIn(data))
     }
     
@@ -153,43 +153,16 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
         default:
             fatalError("TODO: can this happen!")
         }
-        
-        //        let streamResult = context.eventLoop.executeAsync {
-        //            guard var buffer = try await self.iterator?.next() as? ByteBuffer else { throw NeedleTailError.parsingError }
-        //            guard let lines = buffer.readString(length: buffer.readableBytes) else { return }
-        //            guard !lines.isEmpty else { return }
-        //            let messages = lines.components(separatedBy: Constants.cLF)
-        //                .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-        //                .filter { $0 != ""}
-        //
-        //            for message in messages {
-        //                let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
-        //                try await self.writer.yield(parsedMessage)
-        //            }
-        //        }
-        //
-        //        streamResult.eventLoop.execute {
-        //            self.channelRead(context: context)
-        //            self.bufferDeque.removeAll(keepingCapacity: true)
-        //        }
-        
+
         let streamResult = context.eventLoop.executeAsync {
             
-            while self.bufferDeque.count != 0 && self.bufferDeque.count >= 1 {
-                let nextIteration = try await self.iterator.next()
-                if self.bufferDeque.count != 0 {
-                    let firstMessage = self.bufferDeque.removeFirst()
-                    let state = DequeSequenceState.containsElement(nextIteration, firstMessage)
-                    self.dequeSequeneces.append(DequeSequence(state: state))
-                }
-            }
-            
-            while self.dequeSequeneces.count != 0 && self.dequeSequeneces.count >= 1 {
-                switch self.dequeSequeneces.removeFirst().state {
-                case .containsElement(let nextIteration, _):
+            while !self.bufferDeque.isEmpty {
+                var nextIteration = try await self.iterator.next() as! ByteBuffer
+                let firstMessage = self.bufferDeque.removeFirst() as! ByteBuffer
+                
+                if nextIteration.byteBufferIdentifer == firstMessage.byteBufferIdentifer {
                     do {
-                        guard var nextIteration = nextIteration as? ByteBuffer else { return }
-                        self.logger.info("Successfully got message from sequence")
+                        self.logger.trace("Successfully got message from sequence in AsyncMessageChannelHandlerAdapter")
                         guard let lines = nextIteration.readString(length: nextIteration.readableBytes) else { return }
                         guard !lines.isEmpty else { return }
                         let messages = lines.components(separatedBy: Constants.cLF)
@@ -204,10 +177,6 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn>: ChannelDuplexHa
                         print(error)
                         //                        self.error = error
                     }
-                case .emptyDeque:
-                    fatalError("This can't happen")
-                case .none:
-                    break
                 }
             }
         }
@@ -335,4 +304,10 @@ extension AsyncMessageChannelHandlerAdapter {
     }
 }
 
-
+fileprivate var _byteBufferIdentifier: UUID = UUID()
+extension ByteBuffer {
+    var byteBufferIdentifer: UUID {
+        get { return _byteBufferIdentifier }
+        set { _byteBufferIdentifier = newValue }
+    }
+}

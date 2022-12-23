@@ -31,7 +31,6 @@ import Foundation
 import CypherMessaging
 import NeedleTailHelpers
 
-@NeedleTailTransportActor
 public protocol IRCDispatcher: AnyObject {
     
     // MARK: - Implementations

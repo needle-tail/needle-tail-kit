@@ -51,6 +51,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var registrationState: RegistrationState = .full
     var addChildDevice = false
     
+    
+    let keyBundleStore = KeyBundleStore()
+
+    
     @NeedleTailTransportActor
     public init(
         username: Username?,
@@ -125,7 +129,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
                          nameToVerify: String? = nil,
                          state: RegistrationState? = .full
     ) async throws {
-        
         switch registrationState {
         case .full:
             let regObject = regRequest(with: appleToken)
@@ -143,7 +146,9 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         do {
             guard await self.client?.transport?.channel == nil else { throw NeedleTailError.channelExists }
             guard self.client == nil else { throw NeedleTailError.clientExists }
-        } catch {}
+        } catch {
+            print(error)
+        }
         
         var name: String?
         var deviceId: DeviceId?
@@ -175,8 +180,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             transportState: self.transportState,
             transportDelegate: self.delegate,
             signer: signer,
-            clientContext: clientContext
+            clientContext: clientContext,
+            keyBundleStore: keyBundleStore
         )
+        
         self.client = newClient
         try await connect()
         return newClient
@@ -217,14 +224,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             break
         }
         
-        try await RunLoop.run(20, sleep: 1, stopRunning: {
+        try await RunLoop.run(20, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
+            guard let strongSelf = self else { return false }
             var running = true
             
             if await transport.acknowledgment == .registered("true") {
                 running = false
             }
             
-            switch await transportState.current {
+            switch await strongSelf.transportState.current {
             case .transportOnline(channel: _, nick: _, userInfo: _):
                 running = false
             default:
@@ -258,7 +266,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         
         
-        try await RunLoop.run(20, sleep: 1, stopRunning: {
+        try await RunLoop.run(20, sleep: 1, stopRunning: { @NeedleTailClientActor in
             var running = true
             if await transport.acknowledgment == .publishedKeyBundle("true") {
                 running = false
@@ -273,50 +281,48 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
-        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         // We need to set the userConfig to nil for the next read flow
         try await clearUserConfig()
         let jwt = try makeToken()
-        print("RKB", username)
-        
-        
-        
-        //TODO: We are always sending self deviceId, we need to get the deviceId for the bundle we are requesting.. HOW DO WE GET A USERNAME'S SPECIFIC KEY BUNDLE????
-        //1. We can get all usernames keybundles and filter the one we want according to the state we are in or???
-        //2.
-        
-        
-        
-        
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
-        var userConfig: UserConfig? = nil
-    
-        try await RunLoop.run(20, sleep: 1, stopRunning: {
-            var running = true
-            if client != nil {
-                userConfig = try await transport.readKeyBundle(packet.base64EncodedString())
-                running = false
-            }
-            return running
-        })
-        guard let userConfig = userConfig else {
+        try await client?.keyBundleReader?.requestBundle(packet, type: .serializedCall)
+        
+        guard let userConfig = keyBundleStore.keyBundle else {
             throw NeedleTailError.nilUserConfig
-            
-        }
 
+        }
+        print("FEEDING_CONFIG_TO_CTK_______", userConfig)
         return userConfig
     }
+//    @NeedleTailClientActor
+//    private var userConfig: UserConfig? = nil
+//    @NeedleTailClientActor
+//    func readKeyBundleLoop(_ packet: Data) async throws -> UserConfig? {
+//
+//        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+//        try await RunLoop.run(10, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
+//            guard let strongSelf = self else { return false }
+//            var running = true
+//            if strongSelf.client != nil {
+//                strongSelf.userConfig = try await transport.readKeyBundle(packet.base64EncodedString())
+//                running = false
+//            }
+//            return running
+//        })
+//        return userConfig
+//    }
     
-    @KeyBundleActor
+    @NeedleTailClientActor
     private func clearUserConfig() async throws {
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
         transport.userConfig = nil
     }
     
-    
+    /// Request a **QRCode** to be generated on the **Master Device** for new Device Registration
+    /// - Parameter nick: The **Master Device's** **NeedleTailNick**
     @NeedleTailClientActor
     public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
         guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
@@ -531,23 +537,23 @@ extension NeedleTailMessenger {
             let base64String = bsonData.base64EncodedString()
             let data = base64String.data(using: .ascii)
     #if (os(macOS) || os(iOS))
-            await MainActor.run {
-                plugin.emitter.showScanner = false
-                // Send user config data to generate a QRCode in the requesting client
-                plugin.emitter.received = nil
-                plugin.emitter.qrCodeData = data
+            Task { @MainActor [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.plugin.emitter.showScanner = true
+                /// Send **User Config** data to generate a QRCode in the **Child Device**
+                strongSelf.plugin.emitter.requestMessageId = nil
+                strongSelf.plugin.emitter.qrCodeData = data
             }
-    #endif
             
-            try await RunLoop.run(240, sleep: 1) {
+            try await RunLoop.run(240, sleep: 1) { @NeedleTailClientActor [weak self] in
+                guard let strongSelf = self else { return false }
                 var running = true
-    #if (os(macOS) || os(iOS))
-                if plugin.emitter.qrCodeData == nil {
+                if strongSelf.plugin.emitter.qrCodeData == nil {
                     running = false
                 }
-    #endif
                 return running
             }
+#endif
         }
     }
     
@@ -735,7 +741,7 @@ extension NeedleTailMessenger {
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
-        fatalError("AsyncIRC Doesn't support sendMultiRecipientMessage() in this manner")
+        fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
     }
 }
 
@@ -753,21 +759,16 @@ private func itoh(_ value: UInt8) -> UInt8 {
 
 extension DataProtocol {
     var hexString: String {
-        let hexLen = self.count * 2
-        let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: hexLen)
-        //        var bytes = [UInt8]()
-        var offset = 0
+        var bytes = [UInt8]()
         
         self.regions.forEach { (_) in
             for i in self {
-                bytes[Int(offset * 2)] = itoh((i >> 4) & 0xF)
-                bytes[Int(offset * 2 + 1)] = itoh(i & 0xF)
-                offset += 1
+                bytes.append(itoh((i >> 4) & 0xF))
+                bytes.append(itoh(i & 0xF))
             }
         }
-        
-        //        return String(buffer: ByteBuffer(bytes: bytes))
-        return String(bytesNoCopy: bytes, length: hexLen, encoding: .utf8, freeWhenDone: true)!
+       
+        return String(bytes: bytes, encoding: .utf8)!
     }
 }
 
@@ -786,5 +787,55 @@ extension Array {
             }
         }
         return nil
+    }
+}
+
+
+final class KeyBundleStore: NSObject, ObservableObject {
+    @Published var keyBundle: UserConfig?
+}
+
+enum KeyBundleRequestType {
+    case serializedCall, detached
+}
+
+final actor KeyBundleReader {
+    
+    private let transport: NeedleTailTransport
+    private let store: KeyBundleStore
+
+    init(
+        transport: NeedleTailTransport,
+        store: KeyBundleStore
+    ) {
+        self.transport = transport
+        self.store = store
+    }
+    
+    func requestBundle(_ data: Data, type: KeyBundleRequestType) async throws {
+        switch type {
+        case .serializedCall:
+           try await readKeyBundleLoop(data)
+        case .detached:
+            try await readKeyBundleLoop(data)
+        }
+    }
+    
+   
+    private func readKeyBundleLoop(_ packet: Data) async throws {
+
+        try await transport.readKeyBundle(packet.base64EncodedString())
+//        while store.keyBundle == nil {
+//            print("KEY_BUNDLE__NIL")
+//        }
+        try await RunLoop.run(10, sleep: 1) { [weak self] in
+            guard let strongSelf = self else { return false }
+            var canRun = true
+            if strongSelf.store.keyBundle != nil {
+                canRun = false
+            }
+            return canRun
+        }
+        print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: store.keyBundle))")
     }
 }

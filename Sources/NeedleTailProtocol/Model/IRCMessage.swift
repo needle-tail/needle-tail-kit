@@ -31,7 +31,7 @@ import Foundation
  */
 public struct IRCMessage: @unchecked Sendable {
 
-    let id = UUID()
+    public let id = UUID()
     public var origin: String?
     public var target: String?
     ///The IRC command and its arguments (max 15).

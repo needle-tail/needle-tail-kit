@@ -12,15 +12,17 @@ import NeedleTailProtocol
 import Foundation
 import Logging
 import CypherMessaging
+import Combine
 
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
     var channel: Channel
-    @KeyBundleActor
+    @NeedleTailClientActor
     var userConfig: UserConfig?
     @NeedleTailClientActor
     var updateKeyBundle = false
+   
     
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
@@ -57,6 +59,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
     weak var delegate: IRCDispatcher?
+    private var keyBundle: Cancellable?
+    let keyBundleStore: KeyBundleStore
     
     init(
         cypher: CypherMessenger? = nil,
@@ -67,7 +71,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         transportState: TransportState,
         signer: TransportCreationRequest?,
         clientContext: ClientContext,
-        clientInfo: ClientContext.ServerClientInfo
+        clientInfo: ClientContext.ServerClientInfo,
+        keyBundleStore: KeyBundleStore
     ) {
         self.cypher = cypher
         self.messenger = messenger
@@ -78,14 +83,21 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         self.signer = signer
         self.clientContext = clientContext
         self.clientInfo = clientInfo
+        self.keyBundleStore = keyBundleStore
         self.delegate = self
+        keyBundle = keyBundleStore.publisher(for: \.keyBundle) as? Cancellable
+    }
+    
+    deinit {
+        keyBundle?.cancel()
+        keyBundle = nil
     }
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
-        
+        print("RECEIVED_MESSAGE_TO_PROCESS_____", message)
         var sender: IRCUserID?
         if let origin = message.origin {
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
@@ -137,6 +149,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         case .LIST(let channels, let target):
             try await doList(channels, target)
         case .otherCommand("READKEYBNDL", let keyBundle):
+            print("RECEIVED USER CONFIG IN PROCESS MESSAGE______")
             try await delegate?.doReadKeyBundle(keyBundle)
         case .otherCommand("BLOBS", let blob):
             try await delegate?.doBlobs(blob)

@@ -6,7 +6,7 @@ public protocol NeedleTailTransportDelegate: AnyObject {
     
     @NeedleTailTransportActor
     var channel: Channel { get set }
-    @KeyBundleActor
+    @NeedleTailClientActor
     var userConfig: UserConfig? { get set }
     @NeedleTailTransportActor
     var acknowledgment: Acknowledgment.AckType  { get set }

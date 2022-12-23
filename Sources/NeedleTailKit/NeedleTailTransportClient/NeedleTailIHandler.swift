@@ -51,7 +51,7 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     init(client: NeedleTailClient, transport: NeedleTailTransport) {
         self.client = client
         self.transport = transport
-        self.logger.logLevel = .trace
+        self.logger.logLevel = .info
         
         self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 5, highWatermark: 20)
         self.delegate = .init()
@@ -138,7 +138,7 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
             while self.dequeSequeneces.count != 0 && self.dequeSequeneces.count >= 1 {
                 switch self.dequeSequeneces.removeFirst().state {
                 case .containsElement(let nextIteration, _):
-                        self.logger.info("Successfully got message from sequence")
+                        self.logger.trace("Successfully got message from sequence in NeedleTailHandler")
                         do {
                             guard let nextIteration = nextIteration as? IRCMessage else { return }
                             try await self.transport.processReceivedMessages(nextIteration)

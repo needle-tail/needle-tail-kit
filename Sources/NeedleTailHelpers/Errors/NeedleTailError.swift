@@ -30,5 +30,6 @@ public enum NeedleTailError: String, Error {
     case channelMonitorIsNil
     case nilReadReceipt
     case cannotPublishKeyBundle
+    case cannotReadKeyBundle
     case saltIsNotInKeychain
 }
