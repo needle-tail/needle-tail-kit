@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public enum IRCCommandCode: Int, Sendable {
+public enum IRCCommandCode: Int, Codable, Sendable {
   
   // RFC 2812
   

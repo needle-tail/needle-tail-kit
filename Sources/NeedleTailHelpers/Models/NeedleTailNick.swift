@@ -12,22 +12,24 @@ import NIOConcurrencyHelpers
 
 /// We are using classes because we want a reference to the object on the server, in order to use ObjectIdentifier to Cache the Object.
 /// This class can be Sendable because we are using a lock to protect any mutated state
-public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, @unchecked Sendable {
+public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, Sendable {
 
-    let lock = NIOLock()
+    private let lock = NIOLock()
+    private static let staticLock = NIOLock()
     public var description: String {
-        let result = lock.withSendableLock {
+        lock.withSendableLock {
             let did = self.deviceId ?? DeviceId("")
             return "NeedleTailNick(name: \(self.name), deviceId: \(did))"
         }
-        return result
     }
     
     public var stringValue: String {
-        guard let deviceId = deviceId else { return "" }
-        return "\(name):\(deviceId)"
+        lock.withSendableLock {
+            guard let deviceId = deviceId else { return "" }
+            return "\(name):\(deviceId)"
+        }
     }
-    public var name: String
+    public let name: String
     public let deviceId: DeviceId?
 
     
@@ -36,9 +38,11 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
         deviceId: DeviceId?,
         nameRules: NameRules = NameRules()
     ) {
+        lock.lock()
         self.deviceId = deviceId
-        guard NeedleTailNick.validateName(name, nameRules: nameRules) == .isValidated else { return nil }
         self.name = name.ircLowercased()
+        lock.unlock()
+        guard NeedleTailNick.validateName(name, nameRules: nameRules) == .isValidated else { return nil }
     }
     
     public func hash(into hasher: inout Hasher) {
@@ -46,7 +50,9 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     }
     
     public static func ==(lhs: NeedleTailNick, rhs: NeedleTailNick) -> Bool {
-        return lhs.deviceId == lhs.deviceId
+        staticLock.withSendableLock {
+            return lhs.deviceId == lhs.deviceId
+        }
     }
     
     //We want to validate our Nick
@@ -56,7 +62,6 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     public struct NameRules: Sendable {
         public var allowsStartingDigit: Bool = true
         public var lengthLimit: Int = 1024
-        
         public init() {}
     }
     
@@ -84,15 +89,19 @@ public class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertib
     
     // MARK: - Codable
     public init(from decoder: Decoder) async throws {
+        lock.lock()
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
         self.deviceId = try container.decode(DeviceId.self, forKey: .deviceId)
+        lock.unlock()
     }
     
     public func encode(to encoder: Encoder) throws {
+        lock.lock()
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(deviceId, forKey: .deviceId)
+        lock.unlock()
     }
 }
 

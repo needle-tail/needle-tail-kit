@@ -18,10 +18,10 @@ import Combine
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
     var channel: Channel
-    @NeedleTailClientActor
-    var userConfig: UserConfig?
-    @NeedleTailClientActor
-    var updateKeyBundle = false
+//    @NeedleTailClientActor
+//    var userConfig: UserConfig?
+//    @NeedleTailClientActor
+//    var updateKeyBundle = false
    
     
     let logger = Logger(label: "Transport")
@@ -38,12 +38,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     }
     var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
-    var acknowledgment: Acknowledgment.AckType = .none
-    var setAcknowledgement: Acknowledgment.AckType = .none {
-        didSet {
-            acknowledgment = setAcknowledgement
-        }
-    }
     var tags: [IRCTags]?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
@@ -58,9 +52,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let signer: TransportCreationRequest?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
+    let store: TransportStore
     weak var delegate: IRCDispatcher?
-    private var keyBundle: Cancellable?
-    let keyBundleStore: KeyBundleStore
+
     
     init(
         cypher: CypherMessenger? = nil,
@@ -72,8 +66,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         signer: TransportCreationRequest?,
         clientContext: ClientContext,
         clientInfo: ClientContext.ServerClientInfo,
-        keyBundleStore: KeyBundleStore
+        store: TransportStore
     ) {
+        self.store = store
         self.cypher = cypher
         self.messenger = messenger
         self.channel = channel
@@ -83,21 +78,16 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         self.signer = signer
         self.clientContext = clientContext
         self.clientInfo = clientInfo
-        self.keyBundleStore = keyBundleStore
         self.delegate = self
-        keyBundle = keyBundleStore.publisher(for: \.keyBundle) as? Cancellable
     }
     
-    deinit {
-        keyBundle?.cancel()
-        keyBundle = nil
-    }
+    deinit{}
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
-        print("RECEIVED_MESSAGE_TO_PROCESS_____", message)
+
         var sender: IRCUserID?
         if let origin = message.origin {
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
@@ -148,9 +138,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-        case .otherCommand("READKEYBNDL", let keyBundle):
-            print("RECEIVED USER CONFIG IN PROCESS MESSAGE______")
-            try await delegate?.doReadKeyBundle(keyBundle)
+//        case .otherCommand("READKEYBNDL", let keyBundle):
+//            try await delegate?.doReadKeyBundle(keyBundle)
         case .otherCommand("BLOBS", let blob):
             try await delegate?.doBlobs(blob)
         case .numeric(.replyMotDStart, let args):
@@ -159,19 +148,19 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             messageOfTheDay += (args.last ?? "") + "\n"
         case .numeric(.replyEndOfMotD, _):
             if !messageOfTheDay.isEmpty {
-                handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
+                await handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
             }
             messageOfTheDay = ""
         case .numeric(.replyNameReply, let args):
-            handleServerMessages(args, type: .replyNameReply)
+            await handleServerMessages(args, type: .replyNameReply)
         case .numeric(.replyEndOfNames, let args):
-            handleServerMessages(args, type: .replyEndOfNames)
+            await handleServerMessages(args, type: .replyEndOfNames)
         case .numeric(.replyInfo, let info):
-            handleInfo(info)
+            await handleInfo(info)
         case .numeric(.replyMyInfo, let info):
-            handleServerMessages(info, type: .replyMyInfo)
+            await handleServerMessages(info, type: .replyMyInfo)
         case .numeric(.replyWelcome, let args):
-            handleServerMessages(args, type: .replyWelcome)
+            await handleServerMessages(args, type: .replyWelcome)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
@@ -181,9 +170,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
-            handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
+            await handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
         default:
-            handleInfo(message.command.arguments)
+            await handleInfo(message.command.arguments)
         }
     }
 }

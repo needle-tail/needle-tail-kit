@@ -6,10 +6,10 @@ public protocol NeedleTailTransportDelegate: AnyObject {
     
     @NeedleTailTransportActor
     var channel: Channel { get set }
-    @NeedleTailClientActor
-    var userConfig: UserConfig? { get set }
-    @NeedleTailTransportActor
-    var acknowledgment: Acknowledgment.AckType  { get set }
+//    @NeedleTailClientActor
+//    var userConfig: UserConfig? { get set }
+//    @NeedleTailTransportActor
+//    var acknowledgment: Acknowledgment.AckType  { get set }
     @NeedleTailTransportActor
     var origin: String? { get }
     @NeedleTailTransportActor
@@ -48,7 +48,7 @@ extension NeedleTailTransportDelegate {
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
-    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
+//    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 
     public func clientMessage(_
                               command: IRCCommand,

@@ -237,11 +237,7 @@ extension NeedleTailTransport {
         try await transportMessage(type)
     }
     
-    /// Request from the server a users key bundle
-    /// - Parameter packet: Our Authentication Packet
-    func readKeyBundle(_ packet: String) async throws {
-        try await clientMessage(.otherCommand("READKEYBNDL", [packet]))
-    }
+
 
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name

@@ -9,9 +9,16 @@ import NIO
 import NeedleTailProtocol
 import NeedleTailHelpers
 import BSON
+import Foundation
 
 @NeedleTailClientActor
-extension NeedleTailClient {
+extension NeedleTailClient: NeedleTailHandlerDelegate {
+    
+    func passMessage(_ message: NeedleTailProtocol.IRCMessage) async throws {
+        try await self.mechanism?.processKeyBundle(message)
+        try await self.transport?.processReceivedMessages(message)
+    }
+    
     
     func attemptConnection() async throws {
         switch await transportState.current {
@@ -43,22 +50,43 @@ extension NeedleTailClient {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
+       
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
                 channel.eventLoop.executeAsync {
-                    let transport = await self.createTransport(channel)
-                    try await channel.pipeline.addHandlers([
-                        AsyncMessageChannelHandlerAdapter<ByteBuffer>(logger: self.logger),
-                        NeedleTailHandler<IRCMessage>(client: self, transport: transport)
+                await self.createHandlers(channel)
+                   return try await channel.pipeline.addHandlers([
+                        AsyncMessageChannelHandlerAdapter<ByteBuffer, ByteBuffer>(logger: self.logger, closeRatchet: NeedleTailProtocol.CloseRatchet()),
+                        NeedleTailHandler<ByteBuffer>(closeRatchet: CloseRatchet(), needleTailHandlerDelegate: self)
                     ])
                 }
             }
     }
     
-    func createTransport(_ channel: Channel) async -> NeedleTailTransport {
-        let transport = await NeedleTailTransport(
+    
+    func createHandlers(_ channel: Channel) async {
+        self.store = await createStore()
+        guard let store = self.store else { return }
+        self.mechanism = await createMechanism(channel, store: store)
+        self.transport = await createTransport(channel, store: store)
+    }
+    
+    @TransportStoreActor
+    func createStore() async -> TransportStore {
+        TransportStore()
+    }
+    
+    @KeyBundleMechanismActor
+    func createMechanism(_ channel: Channel, store: TransportStore) async -> KeyBundleMechanism {
+        let context = await self.clientContext
+        return KeyBundleMechanism(channel: channel, store: store, clientContext: context)
+    }
+    
+    @NeedleTailTransportActor
+    func createTransport(_ channel: Channel, store: TransportStore) async -> NeedleTailTransport {
+        return await NeedleTailTransport(
             cypher: self.cypher,
             messenger: self.messenger,
             channel: channel,
@@ -67,11 +95,9 @@ extension NeedleTailClient {
             signer: self.signer,
             clientContext: self.clientContext,
             clientInfo: self.clientInfo,
-            keyBundleStore: keyBundleStore
+            store: store
+            
         )
-        self.keyBundleReader = KeyBundleReader(transport: transport, store: keyBundleStore)
-        self.transport = transport
-        return transport
     }
     
     func attemptDisconnect(_ isSuspending: Bool) async throws {

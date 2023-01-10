@@ -64,17 +64,19 @@ public final class NeedleTail {
     @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
         guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
-        registrationApproved = try await messenger.processApproval(code)
+        let approved = try await messenger.processApproval(code)
+        registrationApproved = approved
     }
     
     // After the master scans the new device we feed it to cypher in order to add the new device locally and remotely
-    @NeedleTailClientActor
+    @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
         //set this to true in order to tell publishKeyBundle that we are adding a device
-        messenger?.client?.transport?.updateKeyBundle = true
+//        messenger?.client?.transport?.updateKeyBundle = true
+        await messenger?.client?.mechanism?.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger?.recipientDeviceId = config.deviceId
-
+print("ADDING NEW DEVICE", config)
         try await cypher?.addDevice(config)
     }
     
@@ -96,6 +98,7 @@ public final class NeedleTail {
             plugin: plugin,
             nameToVerify: username
         )
+
         do {
             let masterKeyBundle = try await messenger?.readKeyBundle(forUsername: Username(username))
             for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
@@ -103,7 +106,7 @@ public final class NeedleTail {
                 try await messenger?.requestDeviceRegistration(nick)
             }
             
-            //Show the Scanner for scanning the QRCode from the Master Device
+            //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
             Task { @MainActor [weak self] in
                 guard let strongSelf = self else { return }
                 strongSelf.emitter.showScanner = true
@@ -118,10 +121,16 @@ public final class NeedleTail {
                 return running
             })
             
-            try await serviceInterupted(true)
+            guard self.registrationApproved == true else {
+                throw NeedleTailError.cannotRegisterNewDevice
+            }
+            
+            
+            
+            await serviceInterupted(true)
             messenger = nil
             
-            return try await registerNeedleTail(
+            let cypher = try await registerNeedleTail(
                 appleToken: appleToken,
                 username: username,
                 store: store,
@@ -130,23 +139,47 @@ public final class NeedleTail {
                 eventHandler: eventHandler,
                 addChildDevice: withChildDevice
             )
-            
+            NeedleTail.shared.emitter = plugin.emitter
+            NeedleTail.shared.needleTailViewModel.emitter = NeedleTail.shared.emitter
+            return cypher
+        } catch let nterror as NeedleTailError {
+            switch nterror {
+            case .nilUserConfig:
+                print("User Does not exist,  proceed...", nterror)
+                await self.serviceInterupted(true)
+                self.messenger = nil
+                do {
+                    let cypher = try await registerNeedleTail(
+                        appleToken: appleToken,
+                        username: username,
+                        store: store,
+                        clientInfo: clientInfo,
+                        p2pFactories: p2pFactories,
+                        eventHandler: eventHandler
+                    )
+                    await dismissUI(plugin)
+                    self.cypher = cypher
+                    messenger?.cypher = cypher
+                    emitter.needleTailNick = messenger?.needleTailNick
+                } catch {
+                    print("ERROR REGISTERING", error)
+                }
+                return self.cypher
+            default:
+                return nil
+            }
         } catch {
-            print("User Does not exist,  proceed...")
-            try await self.serviceInterupted(true)
-            self.messenger = nil
-            let messenger = try await registerNeedleTail(
-                appleToken: appleToken,
-                username: username,
-                store: store,
-                clientInfo: clientInfo,
-                p2pFactories: p2pFactories,
-                eventHandler: eventHandler
-            )
-            plugin.emitter.dismiss = true
-            plugin.emitter.showProgress = false
-            return messenger
+            print(error)
+            return nil
         }
+    }
+    
+    @MainActor
+    private func dismissUI(_ plugin: NeedleTailPlugin) {
+        NeedleTail.shared.emitter = plugin.emitter
+        NeedleTail.shared.needleTailViewModel.emitter = NeedleTail.shared.emitter
+        NeedleTail.shared.emitter.dismiss = true
+        NeedleTail.shared.emitter.showProgress = false
     }
     
     @NeedleTailClientActor
@@ -179,8 +212,6 @@ public final class NeedleTail {
                 database: store,
                 eventHandler: eventHandler ?? makeEventHandler(plugin)
             )
-            messenger?.cypher = cypher
-            emitter.needleTailNick = messenger?.needleTailNick
         }
         return cypher
     }
@@ -292,7 +323,7 @@ public final class NeedleTail {
     
     
     @NeedleTailClientActor
-    public func serviceInterupted(_ isSuspending: Bool = false) async throws {
+    public func serviceInterupted(_ isSuspending: Bool = false) async {
         guard let messenger = messenger else { return }
         await suspendRequest(1)
         if await suspendQueue.popFirst() == 1 {
@@ -463,10 +494,6 @@ extension NeedleTail: ObservableObject {
         public var password: String = ""
         public var store: CypherMessengerStore? = nil
         public var clientInfo: ClientContext.ServerClientInfo? = nil
-//        @Binding public var dismiss: Bool
-//        @Binding var showProgress: Bool
-//        @Binding var qrCodeData: Data?
-//        @Binding var showScanner: Bool?
         @State var buttonTask: Task<(), Error>? = nil
         
         public init(
@@ -485,10 +512,6 @@ extension NeedleTail: ObservableObject {
             permissions: IRCChannelMode? = nil,
             store: CypherMessengerStore? = nil,
             clientInfo: ClientContext.ServerClientInfo? = nil
-//            dismiss: Binding<Bool>,
-//            showProgress: Binding<Bool>,
-//            qrCodeData: Binding<Data?>,
-//            showScanner: Binding<Bool?>
         ) {
             self.exists = exists
             self.createContact = createContact
@@ -506,10 +529,6 @@ extension NeedleTail: ObservableObject {
             self.store = store
             self.clientInfo = clientInfo
             self.clientInfo?.password = password
-//            self._dismiss = dismiss
-//            self._showProgress = showProgress
-//            self._qrCodeData = qrCodeData
-//            self._showScanner = showScanner
         }
         
         public var body: some View {
@@ -522,8 +541,6 @@ extension NeedleTail: ObservableObject {
                 self.buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
-//                        showProgress = false
-//                        dismiss = true
                     } else if createChannel {
                         guard let channelName = channelName else { return }
                         guard let admin = admin else { return }
@@ -537,8 +554,6 @@ extension NeedleTail: ObservableObject {
                             members: members,
                             permissions: permissions
                         )
-//                        showProgress = false
-//                        dismiss = true
                     } else {
                         do {
                             let needleTailViewModel = NeedleTail.shared.needleTailViewModel
@@ -552,16 +567,13 @@ extension NeedleTail: ObservableObject {
                                 p2pFactories: makeP2PFactories(),
                                 eventHandler: nil
                             )
-                            
-                            needleTailViewModel.emitter = NeedleTail.shared.emitter
-//                            showProgress = false
-                            // we need to dismiss else where. here works for initial registration, but device addition is messed up
-//                            dismiss = true
                         } catch let error as NeedleTailError {
                             if error == .masterDeviceReject {
                                 //TODO: Send REJECTED/RETRY Notification
+                                print("MASTER_DEVICE_REJECTED_REGISTRATION", error)
                             } else if error == .registrationFailure {
                                 //TODO: Send RETRY with new Username Notification
+                                print("REGISTRATION_FAILED", error)
                             }
                         } catch {
                             print("\(error)")

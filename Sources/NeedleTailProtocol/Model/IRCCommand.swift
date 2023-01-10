@@ -15,50 +15,40 @@
 import struct Foundation.Data
 import NeedleTailHelpers
 
-public enum IRCCommand: @unchecked Sendable {
+public enum IRCCommand: Codable, Sendable {
     
     case NICK(NeedleTailNick)
     case USER(IRCUserInfo)
-    
     case ISON([NeedleTailNick])
-    
     case QUIT(String?)
     case PING(server: String, server2: String?)
     case PONG(server: String, server2: String?)
-    //Keys are passwords for a Channe.
+    /// Keys are passwords for a Channel.
     case JOIN(channels: [ IRCChannelName ], keys: [ String ]?)
-    
     /// JOIN-0 is actually "unsubscribe all channels"
     case JOIN0
-    
     /// Unsubscribe the given channels.
     case PART(channels: [ IRCChannelName ])
-    
     case LIST(channels: [ IRCChannelName ]?, target: String?)
-    
     case PRIVMSG([ IRCMessageRecipient ], String)
     case NOTICE ([ IRCMessageRecipient ], String)
-    
     case MODE(NeedleTailNick, add: IRCUserMode, remove: IRCUserMode)
     case MODEGET(NeedleTailNick)
     case CHANNELMODE(IRCChannelName, add: IRCChannelMode, remove: IRCChannelMode)
     case CHANNELMODE_GET(IRCChannelName)
     case CHANNELMODE_GET_BANMASK(IRCChannelName)
-    
     case WHOIS(server: String?, usermasks: [ String ])
     case WHO(usermask: String?, onlyOperators: Bool)
     
     case numeric(IRCCommandCode, [ String ])
-    case otherCommand(String,         [ String ])
-    case otherNumeric(Int,            [ String ])
+    case otherCommand(String, [ String ])
+    case otherNumeric(Int, [ String ])
     
     
     // MARK: - IRCv3.net
     
-    public enum CAPSubCommand: String, Sendable {
+    public enum CAPSubCommand: String, Sendable, Codable {
         case LS, LIST, REQ, ACK, NAK, END
-        
-        
         public var commandAsString : String { return rawValue }
     }
     case CAP(CAPSubCommand, [ String ])
@@ -68,7 +58,7 @@ public enum IRCCommand: @unchecked Sendable {
 // MARK: - Description
 
 extension IRCCommand: CustomStringConvertible {
-    
+
     public var commandAsString : String {
         switch self {
         case .NICK:
@@ -105,7 +95,7 @@ extension IRCCommand: CustomStringConvertible {
             return Constants.mode
         case .CHANNELMODE_GET, .CHANNELMODE_GET_BANMASK:
             return Constants.mode
-            
+
         case .otherCommand(let cmd, _):
             return cmd
         case .otherNumeric(let cmd, _):
@@ -118,7 +108,7 @@ extension IRCCommand: CustomStringConvertible {
             return String(repeating: "0", count: 3 - s.count) + s
         }
     }
-    
+
     public var arguments : [ String ] {
         switch self {
         case .NICK(let nick):
@@ -133,37 +123,37 @@ extension IRCCommand: CustomStringConvertible {
                          info.servername ?? Constants.star,
                          info.realname ]
             }
-            
+
         case .ISON(let nicks): return nicks.map { $0.stringValue }
-            
+
         case .QUIT(.none):                          return []
         case .QUIT(.some(let message)):             return [ message ]
         case .PING(let server, .none):              return [ server ]
         case .PONG(let server, .none):              return [ server ]
         case .PING(let server, .some(let server2)): return [ server, server2 ]
         case .PONG(let server, .some(let server2)): return [ server, server2 ]
-            
+
         case .JOIN(let channels, .none):
             return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
         case .JOIN(let channels, .some(let keys)):
             return [ channels.map { $0.stringValue }.joined(separator: Constants.comma),
                      keys.joined(separator: Constants.comma)]
-            
+
         case .JOIN0: return [ "0" ]
-            
+
         case .PART(let channels):
             return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
-            
+
         case .LIST(let channels, .none):
             guard let channels = channels else { return [] }
             return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
         case .LIST(let channels, .some(let target)):
             return [ (channels ?? []).map { $0.stringValue }.joined(separator: Constants.comma),
                      target ]
-            
+
         case .PRIVMSG(let recipients, let m), .NOTICE (let recipients, let m):
             return [ recipients.map { $0.stringValue }.joined(separator: Constants.comma), m ]
-            
+
         case .MODE(let name, let add, let remove):
             if add.isEmpty && remove.isEmpty { return [ name.stringValue, Constants.none ] }
             else if !add.isEmpty && !remove.isEmpty {
@@ -202,17 +192,17 @@ extension IRCCommand: CustomStringConvertible {
             return [ usermask ]
         case .WHO(.some(let usermask), true):
             return [ usermask, Constants.oString ]
-            
+
         case .numeric     (_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):
             return args
-            
+
         default: // TBD: which case do we miss???
             fatalError("unexpected case \(self)")
         }
     }
-    
+
     public var description : String {
         switch self {
         case .PING(let server, let server2), .PONG(let server, let server2):

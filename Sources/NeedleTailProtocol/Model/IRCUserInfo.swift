@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct IRCUserInfo: Sendable, Equatable {
+public struct IRCUserInfo: Codable, Sendable, Equatable {
   
   public let username   : String
   public let usermask   : IRCUserMode?

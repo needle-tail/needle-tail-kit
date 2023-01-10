@@ -15,7 +15,7 @@
 import CypherProtocol
 import NeedleTailHelpers
 
-public enum IRCMessageRecipient: Codable, Hashable, @unchecked Sendable {
+public enum IRCMessageRecipient: Codable, Hashable, Sendable {
   
   case channel (IRCChannelName)
   case nick(NeedleTailNick)
@@ -65,9 +65,12 @@ public extension IRCMessageRecipient {
   
   var stringValue : String {
     switch self {
-      case .channel (let name) : return name.stringValue
-    case .nick(let name) : return name.stringValue
-      case .everything         : return Constants.star
+      case .channel (let name):
+        return name.stringValue
+    case .nick(let name):
+        return name.stringValue
+      case .everything:
+        return Constants.star
     }
   }
 }

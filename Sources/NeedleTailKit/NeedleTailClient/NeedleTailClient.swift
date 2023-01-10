@@ -21,11 +21,11 @@ final class NeedleTailClient {
     var userInfo: IRCUserInfo?
     var userMode = IRCUserMode()
     var transport: NeedleTailTransport?
+    var store: TransportStore?
+    var mechanism: KeyBundleMechanism?
     let logger = Logger(label: "Client")
     var transportDelegate: CypherTransportClientDelegate?
     public var channel: Channel?
-    let keyBundleStore: KeyBundleStore
-    var keyBundleReader: KeyBundleReader?
     
     init(
         cypher: CypherMessenger?,
@@ -33,8 +33,7 @@ final class NeedleTailClient {
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest?,
-        clientContext: ClientContext,
-        keyBundleStore: KeyBundleStore
+        clientContext: ClientContext
     ) async {
         self.cypher = cypher
         self.messenger = messenger
@@ -43,7 +42,6 @@ final class NeedleTailClient {
         self.signer = signer
         self.transportState = transportState
         self.transportDelegate = transportDelegate
-        self.keyBundleStore = keyBundleStore
         let group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
@@ -60,11 +58,13 @@ final class NeedleTailClient {
         self.groupManager = EventLoopGroupManager(provider: provider)
     }
     
-    deinit {
-        channel = nil
-        eventLoop = nil
-        cypher = nil
+    func removeReferences() async {
+            channel = nil
+            eventLoop = nil
+            cypher = nil
     }
+    
+    deinit {}
 }
 
 extension NeedleTailClient: Equatable {

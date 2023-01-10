@@ -31,5 +31,7 @@ public enum NeedleTailError: String, Error {
     case nilReadReceipt
     case cannotPublishKeyBundle
     case cannotReadKeyBundle
+    case cannotRegisterNewDevice
     case saltIsNotInKeychain
+    case acknowledgmentCorrupted
 }

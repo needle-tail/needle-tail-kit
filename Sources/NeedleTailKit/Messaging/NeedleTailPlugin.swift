@@ -73,9 +73,9 @@ public class NeedleTailPlugin: Plugin {
             try await messenger.addDevice(config)
         }
     public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) async throws {
-        DispatchQueue.main.async {
+//        DispatchQueue.main.async {
             //            emitter.userDevicesChanged.send()
-        }
+//        }
     }
     //
     //    public func onMessageChange(_ message: AnyChatMessage) {

@@ -52,7 +52,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var addChildDevice = false
     
     
-    let keyBundleStore = KeyBundleStore()
+//    let transportStore: TransportStore
 
     
     @NeedleTailTransportActor
@@ -66,6 +66,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         plugin: NeedleTailPlugin
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
+//        self.transportStore = await TransportStore()
         self.transportState = transportState
         self.clientInfo = clientInfo
         self.username = username
@@ -180,8 +181,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             transportState: self.transportState,
             transportDelegate: self.delegate,
             signer: signer,
-            clientContext: clientContext,
-            keyBundleStore: keyBundleStore
+            clientContext: clientContext
+//            keyBundleStore: transportStore
         )
         
         self.client = newClient
@@ -190,14 +191,21 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     }
     
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
-    @NeedleTailClientActor
     public func publishKeyBundle(_ data: UserConfig) async throws {
+        let result = try await registerForBundle()
+        try await mechanismToPublishBundle(data, contacts: result.0, updateKeyBundle: result.1)
+
+    }
+    
+    @NeedleTailClientActor
+    func registerForBundle() async throws -> ([NTKContact]?, Bool) {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        guard let transport = self.client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        guard let username = username else { return }
-        guard isConnected else { return }
+        guard let mechanism = client.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = client.store else { throw NeedleTailError.transportNotIntitialized }
+        
+        guard isConnected else { return (nil, false) }
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
-        let updateKeyBundle = transport.updateKeyBundle
+        let updateKeyBundle = await mechanism.updateKeyBundle
         
         var contacts: [NTKContact]?
         if updateKeyBundle {
@@ -224,14 +232,12 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             break
         }
         
-        try await RunLoop.run(20, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
+        try await RunLoop.run(20, sleep: 1, stopRunning: { @TransportStoreActor [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
-            
-            if await transport.acknowledgment == .registered("true") {
+            if store.acknowledgment == .registered("true") {
                 running = false
             }
-            
             switch await strongSelf.transportState.current {
             case .transportOnline(channel: _, nick: _, userInfo: _):
                 running = false
@@ -240,13 +246,22 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             }
             return running
         })
+        return (contacts, updateKeyBundle)
+    }
+    
+    @KeyBundleMechanismActor
+    func mechanismToPublishBundle(_ data: UserConfig, contacts: [NTKContact]?, updateKeyBundle: Bool) async throws {
+        guard let client = self.client else { throw NeedleTailError.nilClient }
+        guard let mechanism = await client.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await client.store else { throw NeedleTailError.transportNotIntitialized }
+        guard let username = username else { return }
         
         let jwt = try makeToken()
         let configObject = configRequest(jwt, config: data, recipientDeviceId: self.recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
         self.keyBundle = bundleData.base64EncodedString()
         
-        let recipient = try await transport.recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
+        let recipient = try await recipient(conversationType: type, deviceId: self.deviceId, name: "\(username.raw)")
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
@@ -262,76 +277,61 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transport.transportMessage(type)
+        try await mechanism.keyBundleMessage(type)
         
-        
-        
-        try await RunLoop.run(20, sleep: 1, stopRunning: { @NeedleTailClientActor in
+        try await RunLoop.run(20, sleep: 1, stopRunning: { @TransportStoreActor in
             var running = true
-            if await transport.acknowledgment == .publishedKeyBundle("true") {
+            if store.acknowledgment == .publishedKeyBundle("true") {
                 running = false
             }
             return running
         })
-        if await transport.acknowledgment != .publishedKeyBundle("true") {
+        
+        if await store.acknowledgment != .publishedKeyBundle("true") {
             throw NeedleTailError.cannotPublishKeyBundle
         }
     }
     
+    
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
-//    @NeedleTailClientActor
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
         // We need to set the userConfig to nil for the next read flow
+        guard let client = self.client else { throw NeedleTailError.nilClient }
+        guard let mechanism = await client.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await client.store else { throw NeedleTailError.transportNotIntitialized }
         try await clearUserConfig()
         let jwt = try makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
-        try await client?.keyBundleReader?.requestBundle(packet, type: .serializedCall)
+        try await mechanism.readKeyBundle(packet.base64EncodedString())
         
-        guard let userConfig = keyBundleStore.keyBundle else {
+        guard let userConfig = await store.keyBundle else {
             throw NeedleTailError.nilUserConfig
-
         }
         print("FEEDING_CONFIG_TO_CTK_______", userConfig)
         return userConfig
     }
-//    @NeedleTailClientActor
-//    private var userConfig: UserConfig? = nil
-//    @NeedleTailClientActor
-//    func readKeyBundleLoop(_ packet: Data) async throws -> UserConfig? {
-//
-//        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
-//        try await RunLoop.run(10, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
-//            guard let strongSelf = self else { return false }
-//            var running = true
-//            if strongSelf.client != nil {
-//                strongSelf.userConfig = try await transport.readKeyBundle(packet.base64EncodedString())
-//                running = false
-//            }
-//            return running
-//        })
-//        return userConfig
-//    }
     
-    @NeedleTailClientActor
+    @TransportStoreActor
     private func clearUserConfig() async throws {
-        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        transport.userConfig = nil
+        guard let client = self.client else { throw NeedleTailError.nilClient }
+        guard let store = await client.store else { throw NeedleTailError.transportNotIntitialized }
+        store.keyBundle = nil
     }
     
     /// Request a **QRCode** to be generated on the **Master Device** for new Device Registration
     /// - Parameter nick: The **Master Device's** **NeedleTailNick**
-    @NeedleTailClientActor
+    @NeedleTailTransportActor
     public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
-        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         try await transport.sendDeviceRegistryRequest(nick)
     }
     
-    @NeedleTailClientActor
+    @NeedleTailTransportActor
     public func processApproval(_ code: String) async throws -> Bool {
-        guard let transport = client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
         return await transport.computeApproval(code)
     }
     
@@ -353,7 +353,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData()
         guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
-        let recipient = try await transport.recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
+        let recipient = try await recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -468,13 +468,29 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             guard let channel = client.channel else { throw NeedleTailError.channelIsNil }
             _ = try await channel.close(mode: .all).get()
             try await client.groupManager.shutdown()
+            await client.removeReferences()
+            await transportState.transition(to: .clientOffline)
             self.client = nil
             isConnected = false
             logger.info("disconnected from server")
-            await transportState.transition(to: .clientOffline)
         } catch {
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
+        }
+    }
+    
+    public func recipient(
+        conversationType: ConversationType,
+        deviceId: DeviceId?,
+        name: String
+    ) async throws -> IRCMessageRecipient {
+        switch conversationType {
+        case .groupMessage(_):
+            guard let name = IRCChannelName(name) else { throw NeedleTailError.nilChannelName }
+            return .channel(name)
+        case .privateMessage:
+            guard let validatedName = NeedleTailNick(name: name, deviceId: deviceId) else { throw NeedleTailError.nilNickName }
+            return .nick(validatedName)
         }
     }
 }
@@ -500,10 +516,10 @@ extension NeedleTailMessenger {
     
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
     /// - Parameter config: The Requesters User Device Configuration
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        
+        print("REQUESTING___")
         switch await transportState.current {
         case .transportOffline:
             try await startSession(
@@ -790,52 +806,27 @@ extension Array {
     }
 }
 
-
-final class KeyBundleStore: NSObject, ObservableObject {
-    @Published var keyBundle: UserConfig?
+@globalActor actor TransportStoreActor {
+    static var shared = TransportStoreActor()
+    internal init() {}
 }
 
-enum KeyBundleRequestType {
-    case serializedCall, detached
-}
-
-final actor KeyBundleReader {
-    
-    private let transport: NeedleTailTransport
-    private let store: KeyBundleStore
-
-    init(
-        transport: NeedleTailTransport,
-        store: KeyBundleStore
-    ) {
-        self.transport = transport
-        self.store = store
-    }
-    
-    func requestBundle(_ data: Data, type: KeyBundleRequestType) async throws {
-        switch type {
-        case .serializedCall:
-           try await readKeyBundleLoop(data)
-        case .detached:
-            try await readKeyBundleLoop(data)
+@TransportStoreActor
+final class TransportStore {
+    var keyBundle: UserConfig?
+    var acknowledgment: Acknowledgment.AckType = .none
+    var setAcknowledgement: Acknowledgment.AckType = .none {
+        didSet {
+            acknowledgment = setAcknowledgement
         }
     }
     
-   
-    private func readKeyBundleLoop(_ packet: Data) async throws {
-
-        try await transport.readKeyBundle(packet.base64EncodedString())
-//        while store.keyBundle == nil {
-//            print("KEY_BUNDLE__NIL")
-//        }
-        try await RunLoop.run(10, sleep: 1) { [weak self] in
-            guard let strongSelf = self else { return false }
-            var canRun = true
-            if strongSelf.store.keyBundle != nil {
-                canRun = false
-            }
-            return canRun
-        }
-        print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: store.keyBundle))")
+    func setAck(_ ack: Acknowledgment.AckType) {
+        acknowledgment = ack
+        Logger(label: "Transport Store").info("INFO RECEIVED - ACK: - \(acknowledgment)")
+    }
+    
+    func setKeyBundle(_ config: UserConfig) {
+        keyBundle = config
     }
 }

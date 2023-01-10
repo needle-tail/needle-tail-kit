@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct IRCUserMode: OptionSet, Sendable {
+public struct IRCUserMode: Codable, OptionSet, Sendable {
   
   public let rawValue: UInt16
   
