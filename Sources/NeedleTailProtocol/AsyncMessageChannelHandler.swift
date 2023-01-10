@@ -11,30 +11,27 @@ import CypherMessaging
 /// Basic syntax:
 /// [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
 public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: ChannelDuplexHandler, @unchecked Sendable {
-    public typealias InboundOut  = ByteBuffer
-    public typealias InboundIn  = ByteBuffer
-    public typealias OutboundIn  = IRCMessage
+    public typealias InboundOut = ByteBuffer
+    public typealias OutboundIn = IRCMessage
     typealias Source = NIOThrowingAsyncSequenceProducer<InboundIn, Error, NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark, AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>.Delegate>.Source
-    
-    
     typealias Writer = NIOAsyncWriter<OutboundOut, AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>.WriterDelegate>
     typealias Sink = Writer.Sink
-    var sink: Sink?
-    var writer: Writer?
     
     
+
+    private let logger: Logger
+    private var context: ChannelHandlerContext?
+    private var channel: Channel?
+    private var loop: EventLoop?
+    private var sink: Sink?
+    private var writer: Writer?
+    private let closeRatchet: CloseRatchet
+    private var producingState: ProducingState = .keepProducing
     @ParsingActor
     private let parser = MessageParser()
-    private let logger: Logger
-    private var channel: Channel?
-    
-    var loop: EventLoop?
-    
-    let closeRatchet: CloseRatchet
-    var producingState: ProducingState = .keepProducing
     
     
-    var context: ChannelHandlerContext?
+
     
     private var backPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark!
     private var delegate: NIOBackPressuredStreamSourceDelegate!
@@ -117,27 +114,10 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
         self.sink?.finish(error: error)
         context.fireErrorCaught(error)
     }
-    
-    public func write(
-        context: ChannelHandlerContext,
-        data: NIOAny,
-        promise: EventLoopPromise<Void>?
-    ) {
-        let message = self.unwrapOutboundIn(data)
-        let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
-            return await self.encode(value: message)
-        }
-        buffer.whenComplete { switch $0 {
-        case .success(let buffer):
-            context.writeAndFlush(NIOAny(buffer), promise: promise)
-        case .failure(let error):
-            self.logger.error("\(error)")
-        }
-        }
-    }
 
     public func channelActive(context: ChannelHandlerContext) {
         logger.trace("Channel Active")
+        context.fireChannelActive()
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
@@ -166,10 +146,10 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let message = self.unwrapInboundIn(data)
-        if !bufferDeque.contains(where: { $0.readableBytes == message.readableBytes }) {
+        let message = self.unwrapInboundIn(data) as! ByteBuffer
+//        if !bufferDeque.contains(where: { $0.readableBytes == message.readableBytes }) {
             bufferDeque.append(message)
-        }
+//        }
     }
     public func channelReadComplete(context: ChannelHandlerContext) {
         self._deliverReads(context: context)
@@ -252,13 +232,32 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
         }
         parsedYielded.whenSuccess { _ in
             context.fireChannelReadComplete()
-            self.stringDeque.removeAll()
-            self.bufferDeque.removeAll()
+            self.stringDeque.removeAll(keepingCapacity: true)
+            self.bufferDeque.removeAll(keepingCapacity: true)
         }
         parsedYielded.whenFailure { error in
             self.logger.error("\(error)")
-            self.stringDeque.removeAll()
-            self.bufferDeque.removeAll()
+            self.stringDeque.removeAll(keepingCapacity: true)
+            self.bufferDeque.removeAll(keepingCapacity: true)
+        }
+    }
+    
+    
+    public func write(
+        context: ChannelHandlerContext,
+        data: NIOAny,
+        promise: EventLoopPromise<Void>?
+    ) {
+        let message = self.unwrapOutboundIn(data)
+        let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
+            return await self.encode(value: message)
+        }
+        buffer.whenComplete { switch $0 {
+        case .success(let buffer):
+            context.writeAndFlush(NIOAny(buffer), promise: promise)
+        case .failure(let error):
+            self.logger.error("\(error)")
+        }
         }
     }
     

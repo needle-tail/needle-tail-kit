@@ -110,8 +110,7 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let buffer = self.unwrapInboundIn(data)
-        messageDeque.append(buffer)
+        messageDeque.append(self.unwrapInboundIn(data))
     }
     
     func channelReadComplete(context: ChannelHandlerContext) {
@@ -120,7 +119,6 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         self._completeStream(with: error, context: context)
-        context.fireErrorCaught(error)
     }
     
     func read(context: ChannelHandlerContext) {
@@ -141,7 +139,6 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
         default:
             ()
         }
-        
         context.fireUserInboundEventTriggered(event)
     }
     
@@ -188,11 +185,14 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
                 let decodedMessage = try BSONDecoder().decode(IRCMessage.self, from: document)
                 try await self.needleTailHandlerDelegate.passMessage(decodedMessage)
             }
-            self.messageDeque.removeAll(keepingCapacity: true)
         }
         
+        processedResult.whenSuccess { _ in
+            self.messageDeque.removeAll(keepingCapacity: true)
+        }
         processedResult.whenFailure { error in
             self.logger.error("\(error)")
+            self.messageDeque.removeAll(keepingCapacity: true)
         }
     }
 }

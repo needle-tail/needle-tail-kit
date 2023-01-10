@@ -116,7 +116,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     }
     
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
-        print("READ_KEY_BUNDLE_REQUEST_RECEIVED_WE_SHOULD_HAVE_A_KEY_HERE_AND_NEXT_WE_SHOULD_FINISH_WITH_THE_REQUEST_METHOD: - BUNDLE: \(keyBundle)")
+//        print("READ_KEY_BUNDLE_REQUEST_RECEIVED_WE_SHOULD_HAVE_A_KEY_HERE_AND_NEXT_WE_SHOULD_FINISH_WITH_THE_REQUEST_METHOD: - BUNDLE: \(keyBundle)")
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }
         guard let data = Data(base64Encoded: keyBundle) else { throw KeyBundleErrors.cannotReadKeyBundle }
         let buffer = ByteBuffer(data: data)

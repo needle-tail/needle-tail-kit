@@ -310,7 +310,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         guard let userConfig = await store.keyBundle else {
             throw NeedleTailError.nilUserConfig
         }
-        print("FEEDING_CONFIG_TO_CTK_______", userConfig)
+//        print("FEEDING_CONFIG_TO_CTK_______", userConfig)
         return userConfig
     }
     
@@ -338,7 +338,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     func addMasterDevicesContacts(_ contactList: [NTKContact]) async throws {
         for contact in contactList {
-            print("CONTACT__", contact)
+//            print("CONTACT__", contact)
             let createdContact = try await cypher?.createContact(byUsername: contact.username)
             try await createdContact?.setNickname(to: contact.nickname)
         }
