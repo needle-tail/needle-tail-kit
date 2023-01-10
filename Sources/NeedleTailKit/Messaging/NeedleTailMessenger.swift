@@ -519,7 +519,6 @@ extension NeedleTailMessenger {
 //    @NeedleTailClientActor
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        print("REQUESTING___")
         switch await transportState.current {
         case .transportOffline:
             try await startSession(
@@ -539,7 +538,7 @@ extension NeedleTailMessenger {
             publicKey: config.publicKey,
             isMasterDevice: false
         )
-        logger.info("We are requesting a Device Registry with this configuration: \(newMaster)")
+//        logger.info("We are requesting a Device Registry with this configuration: \(newMaster)")
 
         if addChildDevice {
             guard let username = username else { return }
