@@ -241,8 +241,6 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
                 .filter { !$0.isEmpty }
             stringDeque.append(contentsOf: messages)
         }
-
-        print("MESSAGES", stringDeque)
         
         let parsedYielded = context.eventLoop.executeAsync {
             for message in self.stringDeque {
@@ -255,12 +253,12 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
         parsedYielded.whenSuccess { _ in
             context.fireChannelReadComplete()
             self.stringDeque.removeAll()
-//            self.bufferDeque.removeAll()
+            self.bufferDeque.removeAll()
         }
         parsedYielded.whenFailure { error in
             self.logger.error("\(error)")
             self.stringDeque.removeAll()
-//            self.bufferDeque.removeAll()
+            self.bufferDeque.removeAll()
         }
     }
     

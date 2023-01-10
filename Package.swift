@@ -26,8 +26,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.21.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
-//        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
+//        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
+        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3"),
 //        .package(path: "../spine-tailed-kit")
