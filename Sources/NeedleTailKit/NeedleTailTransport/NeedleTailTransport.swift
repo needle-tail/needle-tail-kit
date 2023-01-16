@@ -17,13 +17,7 @@ import Combine
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
-    var channel: Channel
-//    @NeedleTailClientActor
-//    var userConfig: UserConfig?
-//    @NeedleTailClientActor
-//    var updateKeyBundle = false
-   
-    
+    var channel: Channel?
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }

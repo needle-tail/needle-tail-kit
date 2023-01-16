@@ -22,7 +22,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/needle-tail/swift-nio-transport-services.git", branch: "main"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.45.0"),
+//        .package(url: "https://github.com/apple/swift-nio.git", from: "2.45.0"),
+        .package(url: "https://github.com/Lukasa/swift-nio.git", revision: "b987bcf8e0643df55745c723e5a6229506bd5e71"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.21.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),

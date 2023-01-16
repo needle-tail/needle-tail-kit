@@ -34,7 +34,7 @@ final class NeedleTailClient {
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest?,
         clientContext: ClientContext
-    ) async {
+    ) {
         self.cypher = cypher
         self.messenger = messenger
         self.clientContext = clientContext

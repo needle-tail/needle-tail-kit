@@ -27,12 +27,6 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
     private var writer: Writer?
     private let closeRatchet: CloseRatchet
     private var producingState: ProducingState = .keepProducing
-    @ParsingActor
-    private let parser = MessageParser()
-    
-    
-
-    
     private var backPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark!
     private var delegate: NIOBackPressuredStreamSourceDelegate!
     private var sequence: NIOThrowingAsyncSequenceProducer<
@@ -211,35 +205,37 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
             }
         }
         
-        for buffer in self.bufferDeque {
-            var buffer = buffer
-            self.logger.trace("Successfully got message from sequence in AsyncMessageChannelHandlerAdapter")
-            guard let message = buffer.readString(length: buffer.readableBytes) else { return }
-            guard !message.isEmpty else { return }
-            let messages = message.components(separatedBy: Constants.cLF)
-                .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                .filter { !$0.isEmpty }
-            stringDeque.append(contentsOf: messages)
-        }
+
         
-        let parsedYielded = context.eventLoop.executeAsync {
+//        let parsedYielded = context.eventLoop.executeAsync {
+        Task {
+                        guard var buffer = try await self.iterator.next() else { return }
+                        self.logger.trace("Successfully got message from sequence in AsyncMessageChannelHandlerAdapter")
+                        guard let message = buffer.readString(length: buffer.readableBytes) else { return }
+                        guard !message.isEmpty else { return }
+                        let messages = message.components(separatedBy: Constants.cLF)
+                            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                            .filter { !$0.isEmpty }
+                            self.stringDeque.append(contentsOf: messages)
+            
             for message in self.stringDeque {
-                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: self.parser)
+                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
+                print("MESSAGES___", parsedMessage)
                     let data = try BSONEncoder().encode(parsedMessage).makeData()
                     let buffer = ByteBuffer(data: data)
                     try await self.writer?.yield(buffer as! OutboundOut)
                 }
         }
-        parsedYielded.whenSuccess { _ in
+//        parsedYielded.whenSuccess { _ in
             context.fireChannelReadComplete()
             self.stringDeque.removeAll(keepingCapacity: true)
             self.bufferDeque.removeAll(keepingCapacity: true)
-        }
-        parsedYielded.whenFailure { error in
-            self.logger.error("\(error)")
-            self.stringDeque.removeAll(keepingCapacity: true)
-            self.bufferDeque.removeAll(keepingCapacity: true)
-        }
+//        }
+//        parsedYielded.whenFailure { error in
+//            self.logger.error("\(error)")
+//            self.stringDeque.removeAll(keepingCapacity: true)
+//            self.bufferDeque.removeAll(keepingCapacity: true)
+//        }
     }
     
     
@@ -254,6 +250,7 @@ public final class AsyncMessageChannelHandlerAdapter<InboundIn, OutboundOut>: Ch
         }
         buffer.whenComplete { switch $0 {
         case .success(let buffer):
+            print("FLUSHING_MESSAGE", message)
             context.writeAndFlush(NIOAny(buffer), promise: promise)
         case .failure(let error):
             self.logger.error("\(error)")

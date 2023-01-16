@@ -13,7 +13,7 @@ import NeedleTailHelpers
 extension NeedleTailEmitter: ObservableObject {}
 #endif
 
-public class NeedleTailEmitter: NeedleTailRepository, Equatable {
+public final class NeedleTailEmitter: NeedleTailRepository, Equatable, @unchecked Sendable {
     
     public var id = UUID()
 #if (os(macOS) || os(iOS))

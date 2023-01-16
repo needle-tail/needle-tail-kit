@@ -18,13 +18,14 @@ public class NeedleTailRepository {
     @MainActor public var cursor: AnyChatMessageCursor?
     @MainActor public var chats: [AnyChatMessage] = []
     
-    let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
-    public init(sortChats: @escaping @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
+    public init(sortChats: @escaping @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
         self.sortChats = sortChats
     }
     
     //MARK: Inbound
+    @MainActor
     public func fetchConversations(_
                                    cypher: CypherMessenger
     ) async throws {
@@ -35,7 +36,7 @@ public class NeedleTailRepository {
         )
         await consumer.feedConsumer(conversations)
     }
-    
+
     public func fetchContacts(_ cypher: CypherMessenger) async throws -> [Contact] {
         try await cypher.listContacts()
     }

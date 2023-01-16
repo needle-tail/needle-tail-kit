@@ -19,10 +19,6 @@ import NeedleTailHelpers
 import Cocoa
 #endif
 
-private func makeEventEmitter() -> NeedleTailEmitter {
-    let emitter = NeedleTailEmitter(sortChats: sortConversations)
-    return emitter
-}
 
 extension PublicSigningKey: Equatable {
     public static func == (lhs: CypherProtocol.PublicSigningKey, rhs: CypherProtocol.PublicSigningKey) -> Bool {
@@ -37,7 +33,7 @@ public final class NeedleTail {
     public typealias NTPrivateChat = PrivateChat
     public var messenger: NeedleTailMessenger?
     public var cypher: CypherMessenger?
-    public var emitter = makeEventEmitter()
+    public var emitter: NeedleTailEmitter?
     public var state = NetworkMonitor()
     public static let shared = NeedleTail()
     public var messageType: MessageType = .message {
@@ -59,6 +55,10 @@ public final class NeedleTail {
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
     
+    init() {
+        self.emitter = NeedleTailEmitter(sortChats: sortConversations)
+    }
+
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
     @NeedleTailClientActor
@@ -72,11 +72,9 @@ public final class NeedleTail {
     @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
         //set this to true in order to tell publishKeyBundle that we are adding a device
-//        messenger?.client?.transport?.updateKeyBundle = true
         await messenger?.client?.mechanism?.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger?.recipientDeviceId = config.deviceId
-print("ADDING NEW DEVICE", config)
         try await cypher?.addDevice(config)
     }
     
@@ -91,9 +89,10 @@ print("ADDING NEW DEVICE", config)
         withChildDevice: Bool = false
     ) async throws -> CypherMessenger? {
         self.store = store
+        guard let emitter = emitter else { return nil }
         plugin = NeedleTailPlugin(emitter: emitter)
         guard let plugin = plugin else { return nil }
-        _ = try await createMessenger(
+        self.messenger = try await createMessenger(
             clientInfo: clientInfo,
             plugin: plugin,
             nameToVerify: username
@@ -107,11 +106,8 @@ print("ADDING NEW DEVICE", config)
             }
             
             //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
-            Task { @MainActor [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.emitter.showScanner = true
-            }
-
+            await displayScanner()
+            
             try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
@@ -175,11 +171,16 @@ print("ADDING NEW DEVICE", config)
     }
     
     @MainActor
+    private func displayScanner() {
+        emitter?.showScanner = true
+    }
+    
+    @MainActor
     private func dismissUI(_ plugin: NeedleTailPlugin) {
-        NeedleTail.shared.emitter = plugin.emitter
-        NeedleTail.shared.needleTailViewModel.emitter = NeedleTail.shared.emitter
-        NeedleTail.shared.emitter.dismiss = true
-        NeedleTail.shared.emitter.showProgress = false
+        emitter = plugin.emitter
+        needleTailViewModel.emitter = NeedleTail.shared.emitter
+        emitter?.dismiss = true
+        emitter?.showProgress = false
     }
     
     @NeedleTailClientActor
@@ -195,6 +196,7 @@ print("ADDING NEW DEVICE", config)
     ) async throws -> CypherMessenger? {
         if cypher == nil {
             //Create plugin here
+            guard let emitter = emitter else { return nil }
             plugin = NeedleTailPlugin(emitter: emitter)
             guard let plugin = plugin else { return nil }
             cypher = try await CypherMessenger.registerMessenger(
@@ -267,6 +269,7 @@ print("ADDING NEW DEVICE", config)
         p2pFactories: [P2PTransportClientFactory]
     ) async throws -> CypherMessenger? {
         //Create plugin here
+        guard let emitter = emitter else { return nil }
         plugin = NeedleTailPlugin(emitter: emitter)
         guard let plugin = plugin else { return nil }
         cypher = try await CypherMessenger.resumeMessenger(
@@ -674,18 +677,31 @@ extension EnvironmentValues {
     }
 }
 
-@MainActor
-func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
-    switch (lhs.lastActivity, rhs.lastActivity) {
-    case (.some(let lhs), .some(let rhs)):
-        return lhs > rhs
-    case (.some, .none):
-        return true
-    case (.none, .some):
-        return false
-    case (.none, .none):
-        return true
-    }
+@MainActor func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
+//    let task = Task { @Sendable @MainActor in
+        
+//        switch (lhs.isPinned, rhs.isPinned) {
+//        case (true, true), (false, false):
+//            ()
+//        case (true, false):
+//            return true
+//        case (false, true):
+//            return false
+//        }
+        
+        
+        switch (lhs.lastActivity, rhs.lastActivity) {
+        case (.some(let lhs), .some(let rhs)):
+            return lhs > rhs
+        case (.some, .none):
+            return true
+        case (.none, .some):
+            return false
+        case (.none, .none):
+            return true
+        }
+//    }
+//    return await task.value
 }
 
 extension TargetConversation.Resolved: Sendable {}

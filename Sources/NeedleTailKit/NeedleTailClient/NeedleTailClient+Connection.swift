@@ -10,6 +10,7 @@ import NeedleTailProtocol
 import NeedleTailHelpers
 import BSON
 import Foundation
+import CypherMessaging
 
 @NeedleTailClientActor
 extension NeedleTailClient: NeedleTailHandlerDelegate {
@@ -50,7 +51,6 @@ extension NeedleTailClient: NeedleTailHandlerDelegate {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
-       
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
@@ -73,7 +73,6 @@ extension NeedleTailClient: NeedleTailHandlerDelegate {
         self.transport = await createTransport(channel, store: store)
     }
     
-    @TransportStoreActor
     func createStore() async -> TransportStore {
         TransportStore()
     }
@@ -96,25 +95,26 @@ extension NeedleTailClient: NeedleTailHandlerDelegate {
             clientContext: self.clientContext,
             clientInfo: self.clientInfo,
             store: store
-            
         )
     }
     
     func attemptDisconnect(_ isSuspending: Bool) async throws {
-        
         if isSuspending {
             await transportState.transition(to: .transportDeregistering)
         }
         
         switch await transportState.current {
         case .transportDeregistering:
-            
+            if self.messenger.username == nil && self.messenger.deviceId == nil {
+                guard let nick = messenger.needleTailNick else { return }
+                self.messenger.username = Username(nick.name)
+                self.messenger.deviceId = nick.deviceId
+            }
+            guard let username = self.messenger.username else { throw NeedleTailError.usernameNil }
+            guard let deviceId = self.messenger.deviceId else { throw NeedleTailError.deviceIdNil }
+            try await transport?.sendQuit(username, deviceId: deviceId)
             await transportState.transition(to: .transportOffline)
             messenger.authenticated = .unauthenticated
-            
-            guard let username = self.messenger.username else { return }
-            guard let deviceId = self.messenger.deviceId else { return }
-            try await transport?.sendQuit(username, deviceId: deviceId)
         default:
             break
         }

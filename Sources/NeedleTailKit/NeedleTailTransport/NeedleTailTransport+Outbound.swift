@@ -16,6 +16,7 @@ extension NeedleTailTransport {
     /// - Parameter regPacket: Our Registration Packet
     @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
+        guard let channel = await channel else { return }
         await transportState.transition(to:
                 .transportRegistering(
                     channel: channel,

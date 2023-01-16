@@ -5,11 +5,7 @@ import NIOCore
 public protocol NeedleTailTransportDelegate: AnyObject {
     
     @NeedleTailTransportActor
-    var channel: Channel { get set }
-//    @NeedleTailClientActor
-//    var userConfig: UserConfig? { get set }
-//    @NeedleTailTransportActor
-//    var acknowledgment: Acknowledgment.AckType  { get set }
+    var channel: Channel? { get set }
     @NeedleTailTransportActor
     var origin: String? { get }
     @NeedleTailTransportActor
@@ -40,7 +36,10 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        try await channel.writeAndFlush(message)
+        _ = await channel?.eventLoop.executeAsync { [weak self] in
+            guard let strongSelf = self else { return }
+            try await strongSelf.channel?.writeAndFlush(message)
+        }
     }
 }
 

@@ -34,4 +34,6 @@ public enum NeedleTailError: String, Error {
     case cannotRegisterNewDevice
     case saltIsNotInKeychain
     case acknowledgmentCorrupted
+    case deviceIdNil
+    case usernameNil
 }

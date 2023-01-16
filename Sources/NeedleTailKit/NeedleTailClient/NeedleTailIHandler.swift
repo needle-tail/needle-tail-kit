@@ -28,13 +28,13 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     private var backPressureStrategy: NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark!
     private var delegate: NIOBackPressuredStreamSourceDelegate!
     private var sequence: NIOThrowingAsyncSequenceProducer<
-        InboundIn,
+        ByteBuffer,
         Error,
         NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
         NIOBackPressuredStreamSourceDelegate
     >!
     private var source: NIOThrowingAsyncSequenceProducer<
-        InboundIn,
+        ByteBuffer,
         Error,
         NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
         NIOBackPressuredStreamSourceDelegate
@@ -43,9 +43,9 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     var context: ChannelHandlerContext?
     let closeRatchet: CloseRatchet
     var producingState: ProducingState = .keepProducing
-    private var messageDeque = Deque<InboundIn>()
+    private var bufferDeque = Deque<ByteBuffer>()
     private var iterator: NIOThrowingAsyncSequenceProducer<
-        InboundIn,
+        ByteBuffer,
         Error,
         NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark,
         NIOBackPressuredStreamSourceDelegate>.AsyncIterator!
@@ -63,7 +63,7 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
         self.backPressureStrategy = NIOAsyncSequenceProducerBackPressureStrategies.HighLowWatermark(lowWatermark: 2, highWatermark: 10)
         self.delegate = .init()
         let result = NIOThrowingAsyncSequenceProducer.makeSequence(
-            elementType: InboundIn.self,
+            elementType: ByteBuffer.self,
             failureType: Error.self,
             backPressureStrategy:  self.backPressureStrategy,
             delegate: self.delegate
@@ -110,7 +110,10 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        messageDeque.append(self.unwrapInboundIn(data))
+        let buffer = self.unwrapInboundIn(data) as! ByteBuffer
+//        if !bufferDeque.contains(where: { $0.readableBytes == buffer.readableBytes }) {
+            bufferDeque.append(buffer)
+//        }
     }
     
     func channelReadComplete(context: ChannelHandlerContext) {
@@ -160,14 +163,14 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
     }
     
     func _deliverReads(context: ChannelHandlerContext) {
-        if self.messageDeque.isEmpty { return }
+        if self.bufferDeque.isEmpty { return }
         
         guard let source = self.source else {
-            self.messageDeque.removeAll()
+            self.bufferDeque.removeAll()
             return
         }
         
-        let result = source.yield(contentsOf: self.messageDeque)
+        let result = source.yield(contentsOf: self.bufferDeque)
         switch result {
         case .produceMore, .dropped:
             ()
@@ -178,22 +181,21 @@ final class NeedleTailHandler<InboundIn>: ChannelInboundHandler, @unchecked Send
         }
         
         self.logger.trace("Successfully got message from sequence in NeedleTailHandler")
-        let processedResult = context.eventLoop.executeAsync {
-            for message in self.messageDeque {
-                let message = message as! ByteBuffer
-                let document = Document(buffer: message)
+//        let processedResult = context.eventLoop.executeAsync {
+        Task {
+                guard let buffer = try await self.iterator.next() else { return }
+                let document = Document(buffer: buffer)
                 let decodedMessage = try BSONDecoder().decode(IRCMessage.self, from: document)
                 try await self.needleTailHandlerDelegate.passMessage(decodedMessage)
-            }
         }
         
-        processedResult.whenSuccess { _ in
-            self.messageDeque.removeAll(keepingCapacity: true)
-        }
-        processedResult.whenFailure { error in
-            self.logger.error("\(error)")
-            self.messageDeque.removeAll(keepingCapacity: true)
-        }
+//        processedResult.whenSuccess { _ in
+            self.bufferDeque.removeAll(keepingCapacity: true)
+//        }
+//        processedResult.whenFailure { error in
+//            self.logger.error("\(error)")
+//            self.bufferDeque.removeAll(keepingCapacity: true)
+//        }
     }
 }
 
