@@ -5,7 +5,8 @@
 //  Created by Cole M on 3/4/22.
 //
 
-import NIO
+import NIOCore
+import NIOPosix
 import NeedleTailProtocol
 import NeedleTailHelpers
 import BSON
@@ -54,17 +55,23 @@ extension NeedleTailClient: NeedleTailHandlerDelegate {
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-            .channelInitializer { channel in
-                channel.eventLoop.executeAsync {
-                await self.createHandlers(channel)
-                   return try await channel.pipeline.addHandlers([
-                        AsyncMessageChannelHandlerAdapter<ByteBuffer, ByteBuffer>(logger: self.logger, closeRatchet: NeedleTailProtocol.CloseRatchet()),
-                        NeedleTailHandler<ByteBuffer>(closeRatchet: CloseRatchet(), needleTailHandlerDelegate: self)
-                    ])
-                }
-            }
+        //            .channelInitializer { channel in
+        ////                channel.eventLoop.executeAsync {
+        //////                await self.createHandlers(channel)
+        ////
+        ////                   return try await channel.pipeline.addHandlers([
+        //////                        AsyncMessageChannelHandlerAdapter<ByteBuffer, ByteBuffer>(logger: self.logger, closeRatchet: NeedleTailProtocol.CloseRatchet()),
+        //////                        NeedleTailHandler<ByteBuffer>(closeRatchet: CloseRatchet(), needleTailHandlerDelegate: self)
+        ////                    ])
+        ////                }
+        //            }
     }
     
+    
+    func createAsyncHandler(_ wrapping: Channel, completionHandler: (NIOAsyncChannel<ByteBuffer, ByteBuffer>) -> NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+        let handler = try await NIOAsyncChannel<ByteBuffer, ByteBuffer>(wrapping: wrapping)
+        return completionHandler(handler)
+    }
     
     func createHandlers(_ channel: Channel) async {
         self.store = await createStore()
