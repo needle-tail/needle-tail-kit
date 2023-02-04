@@ -20,12 +20,13 @@ final class NeedleTailClient {
     var transportState: TransportState
     var userInfo: IRCUserInfo?
     var userMode = IRCUserMode()
-    var transport: NeedleTailTransport?
-    var store: TransportStore?
-    var mechanism: KeyBundleMechanism?
+    static var transport: NeedleTailTransport?
+    static var store: TransportStore?
+    static var mechanism: KeyBundleMechanism?
     let logger = Logger(label: "Client")
     var transportDelegate: CypherTransportClientDelegate?
     public var channel: Channel?
+    public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     
     init(
         cypher: CypherMessenger?,

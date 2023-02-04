@@ -130,18 +130,18 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         case .full:
             let regObject = regRequest(with: appleToken)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try await client.transport?.registerNeedletailSession(packet)
+            try await NeedleTailClient.transport?.registerNeedletailSession(packet)
         case .temp:
             let regObject = regRequest(true)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try await client.transport?.registerNeedletailSession(packet, true)
+            try await NeedleTailClient.transport?.registerNeedletailSession(packet, true)
         }
     }
     
     @NeedleTailClientActor
     func createClient(_ nameToVerify: String? = nil) async throws -> NeedleTailClient {
         do {
-            guard await self.client?.transport?.channel == nil else { throw NeedleTailError.channelExists }
+            guard await NeedleTailClient.transport?.channel == nil else { throw NeedleTailError.channelExists }
             guard self.client == nil else { throw NeedleTailError.clientExists }
         } catch {
             print(error)
@@ -195,8 +195,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     func registerForBundle() async throws -> ([NTKContact]?, Bool) {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        guard let mechanism = client.mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = client.store else { throw NeedleTailError.transportNotIntitialized }
+        guard let mechanism = NeedleTailClient.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = NeedleTailClient.store else { throw NeedleTailError.transportNotIntitialized }
         
         guard isConnected else { return (nil, false) }
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
@@ -247,8 +247,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @KeyBundleMechanismActor
     func mechanismToPublishBundle(_ data: UserConfig, contacts: [NTKContact]?, updateKeyBundle: Bool) async throws {
         guard let client = await self.client else { throw NeedleTailError.nilClient }
-        guard let mechanism = await client.mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = await client.store else { throw NeedleTailError.transportNotIntitialized }
+        guard let mechanism = await NeedleTailClient.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await NeedleTailClient.store else { throw NeedleTailError.transportNotIntitialized }
         guard let username = username else { return }
         
         let jwt = try makeToken()
@@ -295,8 +295,8 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         // We need to set the userConfig to nil for the next read flow
         print("READ USER CONFIG WITH NAME", username)
         guard let client = await self.client else { throw NeedleTailError.nilClient }
-        guard let mechanism = await client.mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = await client.store else { throw NeedleTailError.transportNotIntitialized }
+        guard let mechanism = await NeedleTailClient.mechanism else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await NeedleTailClient.store else { throw NeedleTailError.transportNotIntitialized }
         try await clearUserConfig()
         let jwt = try makeToken()
         let readBundleObject = readBundleRequest(jwt, recipient: username)
@@ -315,7 +315,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     @NeedleTailClientActor
     private func clearUserConfig() async throws {
         guard let client = self.client else { throw NeedleTailError.nilClient }
-        guard let store = client.store else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = NeedleTailClient.store else { throw NeedleTailError.transportNotIntitialized }
         store.keyBundle = nil
     }
     
@@ -323,13 +323,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     /// - Parameter nick: The **Master Device's** **NeedleTailNick**
     @NeedleTailTransportActor
     public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         try await transport.sendDeviceRegistryRequest(nick)
     }
     
     @NeedleTailTransportActor
     public func processApproval(_ code: String) async throws -> Bool {
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         return await transport.computeApproval(code)
     }
     
@@ -349,7 +349,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         let jwt = try makeToken()
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData()
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await recipient(conversationType: type, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
@@ -544,7 +544,7 @@ extension NeedleTailMessenger {
             let masterKeyBundle = try await readKeyBundle(forUsername: username)
             for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                 guard let nick = NeedleTailNick(name: username.raw, deviceId: validatedMaster.deviceId) else { continue }
-                try await client.transport?.sendChildDeviceConfig(nick, config: newMaster)
+                try await NeedleTailClient.transport?.sendChildDeviceConfig(nick, config: newMaster)
             }
         } else {
             let bsonData = try BSONEncoder().encode(newMaster).makeData()
@@ -583,7 +583,7 @@ extension NeedleTailMessenger {
     
     @BlobActor
     public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         let blobString = try BSONEncoder().encode(blob).makeData()
         try await transport.publishBlob(blobString.base64EncodedString())
         
@@ -727,7 +727,7 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        guard let transport = await client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         guard let myDeviceId = self.deviceId else { return }
         switch type {
         case .groupMessage(let name):

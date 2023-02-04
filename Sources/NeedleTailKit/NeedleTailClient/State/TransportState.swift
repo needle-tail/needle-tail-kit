@@ -35,11 +35,11 @@ public class TransportState: StateMachine {
         case clientConnecting
         case clientConnected
         case transportRegistering(
-            channel: Channel,
+            channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
             nick: NeedleTailNick,
             userInfo: IRCUserInfo)
         case transportOnline(
-            channel: Channel,
+            channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
             nick: NeedleTailNick,
             userInfo: IRCUserInfo)
         case transportDeregistering

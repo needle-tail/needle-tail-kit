@@ -5,7 +5,7 @@ import NIOCore
 public protocol NeedleTailTransportDelegate: AnyObject {
     
     @NeedleTailTransportActor
-    var channel: Channel? { get set }
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>? { get set }
     @NeedleTailTransportActor
     var origin: String? { get }
     @NeedleTailTransportActor
@@ -36,10 +36,8 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        _ = await channel?.eventLoop.executeAsync { [weak self] in
-            guard let strongSelf = self else { return }
-            try await strongSelf.channel?.writeAndFlush(message)
-        }
+        let encoded = await NeedleTailEncoder.encode(value: message)
+        try await channel?.writeAndFlush(encoded)
     }
 }
 

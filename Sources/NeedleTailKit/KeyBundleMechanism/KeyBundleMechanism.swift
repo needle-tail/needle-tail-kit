@@ -22,7 +22,7 @@ import CypherMessaging
 @KeyBundleMechanismActor
 public protocol KeyBundleMechanisimDelegate: AnyObject {
     var origin: String? { get }
-    var channel: Channel { get }
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
     func keyBundleMessage(_
                           type: TransportMessageType,
                           tags: [IRCTags]?
@@ -57,11 +57,8 @@ extension KeyBundleMechanisimDelegate {
     }
     
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        _ = channel.eventLoop.executeAsync { [weak self] in
-            guard let strongSelf = self else { return }
-            try await strongSelf.channel.writeAndFlush(message)
-        }
-
+        let encoded = await NeedleTailEncoder.encode(value: message)
+        try await channel.writeAndFlush(encoded)
     }
 }
 
@@ -72,13 +69,13 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var channel: Channel
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var updateKeyBundle = false
     let store: TransportStore
     let clientContext: ClientContext
     
     internal init(
-        channel: Channel,
+        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         store: TransportStore,
         clientContext: ClientContext
     ) {

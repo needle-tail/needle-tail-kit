@@ -1,8 +1,10 @@
 import NIOCore
 
-extension AsyncMessageChannelHandlerAdapter {
+//extension AsyncMessageChannelHandlerAdapter {
     
-    func encode(
+public final class NeedleTailEncoder {
+    
+    public class func encode(
         value: IRCMessage
     ) async -> ByteBuffer {
         var newTag = ""
@@ -137,7 +139,7 @@ extension AsyncMessageChannelHandlerAdapter {
         return ByteBuffer(string: newString)
     }
     
-    private func arguments(_ args: [String] = [""]) -> String {
+    private class func arguments(_ args: [String] = [""]) -> String {
         var newString = ""
         for arg in args {
             newString += Constants.space + arg
@@ -145,7 +147,7 @@ extension AsyncMessageChannelHandlerAdapter {
         return newString
     }
     
-    private func argumentsWithLast(_ args: [String] = [""]) -> String {
+    private class func argumentsWithLast(_ args: [String] = [""]) -> String {
         guard !args.isEmpty else { return "" }
         var newString = ""
         for arg in args.dropLast() {
@@ -157,7 +159,7 @@ extension AsyncMessageChannelHandlerAdapter {
         return newString
     }
     
-    private func commaSeperatedValues(_ args: [String] = [""]) -> String {
+    private class func commaSeperatedValues(_ args: [String] = [""]) -> String {
         var newString = Constants.space
         var isFirst = true
         for arg in args {

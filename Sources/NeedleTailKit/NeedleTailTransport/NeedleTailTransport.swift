@@ -17,7 +17,7 @@ import Combine
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     
-    var channel: Channel?
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -53,7 +53,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     init(
         cypher: CypherMessenger? = nil,
         messenger: NeedleTailMessenger,
-        channel: Channel,
+        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
         userMode: IRCUserMode,
         transportState: TransportState,

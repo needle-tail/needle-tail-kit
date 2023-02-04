@@ -72,7 +72,7 @@ public final class NeedleTail {
     @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
         //set this to true in order to tell publishKeyBundle that we are adding a device
-        await messenger?.client?.mechanism?.updateKeyBundle = true
+        await NeedleTailClient.mechanism?.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger?.recipientDeviceId = config.deviceId
         try await cypher?.addDevice(config)
@@ -388,7 +388,7 @@ public final class NeedleTail {
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
-        guard let transport = await self.messenger?.client?.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         try await messenger?.createLocalChannel(
             transport: transport,
             name: name,
