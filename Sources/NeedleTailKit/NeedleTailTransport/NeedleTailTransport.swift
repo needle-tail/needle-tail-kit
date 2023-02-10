@@ -12,7 +12,9 @@ import NeedleTailProtocol
 import Foundation
 import Logging
 import CypherMessaging
+#if canImport(Combine)
 import Combine
+#endif
 
 @NeedleTailTransportActor
 protocol MessengerTransportBridge: AnyObject {
@@ -33,7 +35,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
    var plugin: NeedleTailPlugin?
    var emitter: NeedleTailEmitter?
 
-    
+//    @NeedleTailTransportActor
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
@@ -66,11 +68,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     let store: TransportStore
     weak var delegate: IRCDispatcher?
     weak var ctDelegate: ClientTransportDelegate?
-
     
     init(
         cypher: CypherMessenger? = nil,
-//        messenger: NeedleTailMessenger,
         channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
         userMode: IRCUserMode,
@@ -83,7 +83,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     ) {
         self.store = store
         self.cypher = cypher
-//        self.messenger = messenger
         self.channel = channel
         self.messageOfTheDay = messageOfTheDay
         self.userMode = userMode
@@ -101,7 +100,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     /// - Parameter message: Our IRCMessage
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
-
         var sender: IRCUserID?
         if let origin = message.origin {
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }

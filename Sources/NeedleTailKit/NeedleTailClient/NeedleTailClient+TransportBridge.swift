@@ -53,20 +53,20 @@ protocol TransportBridge: AnyObject {
     ) async throws
     func registerAPNSToken(_ token: Data) async throws
     func processApproval(_ code: String) async throws -> Bool
-    func addNewDevice(_ config: UserDeviceConfig) async throws
+    func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws
 }
 
 
 extension NeedleTailClient: TransportBridge {
     
     @KeyBundleMechanismActor
-    func addNewDevice(_ config: UserDeviceConfig) async throws {
+    func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws {
         guard let mechanism = mechanism else { return }
         //set this to true in order to tell publishKeyBundle that we are adding a device
         mechanism.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
         messenger.recipientDeviceId = config.deviceId
-        try await cypher?.addDevice(config)
+        try await cypher.addDevice(config)
     }
     
     func createNeedleTailChannel(

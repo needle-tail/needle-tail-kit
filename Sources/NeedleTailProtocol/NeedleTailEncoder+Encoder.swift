@@ -1,6 +1,4 @@
 import NIOCore
-
-//extension AsyncMessageChannelHandlerAdapter {
     
 public final class NeedleTailEncoder {
     

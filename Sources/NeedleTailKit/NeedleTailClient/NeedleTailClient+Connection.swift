@@ -49,6 +49,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     @NeedleTailTransportActor
     func setTransport(_ transport: NeedleTailTransport) {
+        self.mtDelegate = transport
         self.transport = transport
     }
     
@@ -68,7 +69,6 @@ extension NeedleTailClient: ClientTransportDelegate {
         do {
             for try await buffer in stream {
                 var buffer = buffer
-                self.logger.trace("Successfully got message from sequence in AsyncMessageChannelHandlerAdapter")
                 guard let message = buffer.readString(length: buffer.readableBytes) else { return }
                 guard !message.isEmpty else { return }
                 let messages = message.components(separatedBy: Constants.cLF)
@@ -78,6 +78,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                 
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
+                    self.logger.info("Message Parsed \(parsedMessage)")
                     try await mechanism.processKeyBundle(parsedMessage)
                     try await transport.processReceivedMessages(parsedMessage)
                 }
@@ -97,7 +98,6 @@ extension NeedleTailClient: ClientTransportDelegate {
         let store = await createStore()
         let mechanism = try await createMechanism(channel, store: store)
         let transport = await createTransport(channel, store: store)
-        self.mtDelegate = transport
         return (mechanism, transport, store)
     }
     

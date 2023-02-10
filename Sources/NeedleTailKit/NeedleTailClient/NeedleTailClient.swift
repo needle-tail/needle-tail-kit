@@ -40,7 +40,7 @@ final class NeedleTailClient {
         }
     }
     var registrationState: RegistrationState = .full
-    var mtDelegate: MessengerTransportBridge?
+    weak var mtDelegate: MessengerTransportBridge?
     
     init(
         cypher: CypherMessenger?,
@@ -50,8 +50,7 @@ final class NeedleTailClient {
         signer: TransportCreationRequest?,
         clientContext: ClientContext,
         username: Username,
-        deviceId: DeviceId,
-        mtDelegate: MessengerTransportBridge?
+        deviceId: DeviceId
     ) {
         self.cypher = cypher
         self.messenger = messenger
@@ -62,7 +61,6 @@ final class NeedleTailClient {
         self.transportDelegate = transportDelegate
         self.username = username
         self.deviceId = deviceId
-        self.mtDelegate = mtDelegate
         let group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {

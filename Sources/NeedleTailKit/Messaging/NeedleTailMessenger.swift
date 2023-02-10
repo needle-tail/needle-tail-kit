@@ -42,7 +42,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     private var keyBundle: String = ""
     var recipientDeviceId: DeviceId?
     var cypher: CypherMessenger?
-//    var client: NeedleTailClient?
     @MainActor var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
@@ -141,12 +140,13 @@ public class NeedleTailMessenger: CypherServerTransportClient {
             signer: signer,
             clientContext: clientContext,
             username: username,
-            deviceId: deviceId,
-            mtDelegate: self.mtDelegate
+            deviceId: deviceId
         )
-        await setMTDelegate()
+
         self.transportBridge = client
         try await transportBridge?.startClient(appleToken ?? "")
+        self.mtDelegate = client.mtDelegate
+        await setMTDelegate()
     }
     
     @NeedleTailTransportActor

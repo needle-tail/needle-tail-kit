@@ -9,7 +9,9 @@ import Foundation
 import NeedleTailProtocol
 import NeedleTailHelpers
 import NIOCore
+#if canImport(Combine)
 import Combine
+#endif
 import BSON
 import CypherMessaging
 
@@ -19,7 +21,7 @@ import CypherMessaging
 }
 
 
-@KeyBundleMechanismActor
+//@KeyBundleMechanismActor
 public protocol KeyBundleMechanisimDelegate: AnyObject {
     var origin: String? { get }
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
@@ -55,7 +57,16 @@ extension KeyBundleMechanisimDelegate {
         }
     }
     
+    @KeyBundleMechanismActor
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
+        //THIS IS ANNOYING BUT WORKS
+        try await RunLoop.run(5, sleep: 1, stopRunning: {
+            var canRun = true
+            if self.channel.channel.isActive  {
+                canRun = false
+            }
+            return canRun
+        })
         let encoded = await NeedleTailEncoder.encode(value: message)
         try await channel.writeAndFlush(encoded)
     }

@@ -71,7 +71,8 @@ public final class NeedleTail {
     // After the master scans the new device we feed it to cypher in order to add the new device locally and remotely
 //    @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
-        try await messenger?.transportBridge?.addNewDevice(config)
+        guard let cypher = cypher else { throw NeedleTailError.cypherMessengerNotSet}
+        try await messenger?.transportBridge?.addNewDevice(config, cypher: cypher)
     }
     
 //    @NeedleTailClientActor
@@ -94,18 +95,17 @@ public final class NeedleTail {
             plugin: plugin,
             nameToVerify: username
         )
-
         do {
             let masterKeyBundle = try await messenger.readKeyBundle(forUsername: Username(username))
             for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
                 try await messenger.transportBridge?.requestDeviceRegistration(nick)
             }
-            
+
             //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
             await displayScanner()
             
-            try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailClientActor [weak self] in
+            try await RunLoop.run(240, sleep: 1, stopRunning: { [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
                 if strongSelf.registrationApproved == true {
@@ -121,7 +121,7 @@ public final class NeedleTail {
             
             
             try await serviceInterupted(true,  messenger: messenger)
-            
+            self.messenger = nil
             let cypher = try await registerNeedleTail(
                 appleToken: appleToken,
                 username: username,
@@ -131,6 +131,8 @@ public final class NeedleTail {
                 eventHandler: eventHandler,
                 addChildDevice: withChildDevice
             )
+            self.cypher = cypher
+            messenger.cypher = cypher
             NeedleTail.shared.emitter = plugin.emitter
             NeedleTail.shared.needleTailViewModel.emitter = NeedleTail.shared.emitter
             return cypher
@@ -139,6 +141,7 @@ public final class NeedleTail {
             case .nilUserConfig:
                 print("User Does not exist,  proceed...", nterror)
                 try await self.serviceInterupted(true, messenger: messenger)
+                self.messenger = nil
                 do {
                     let cypher = try await registerNeedleTail(
                         appleToken: appleToken,

@@ -68,30 +68,31 @@ extension NeedleTailTransportDelegate {
                                  type: TransportMessageType,
                                  tags: [IRCTags]? = nil
     ) async throws {
-        var message: IRCMessage?
         switch type {
         case .standard(let command):
-            message = IRCMessage(command: command, tags: tags)
+            let message = IRCMessage(command: command, tags: tags)
+            try await sendAndFlushMessage(message)
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                _ = await lines.asyncMap {
-                    message = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                _ = try await lines.asyncMap {
+                   let message = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(message)
                 }
+                
             case .NOTICE(let recipients, let messageLines):
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-                _ = await lines.asyncMap {
-                    message = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                _ = try await lines.asyncMap {
+                    let message = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(message)
                 }
             default:
                 break
             }
         }
-        guard let message = message else { return }
-        try await sendAndFlushMessage(message)
     }
 
     public func blobMessage(_

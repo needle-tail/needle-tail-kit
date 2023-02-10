@@ -37,4 +37,5 @@ public enum NeedleTailError: String, Error {
     case deviceIdNil
     case usernameNil
     case bridgeDelegateNotSet
+    case cypherMessengerNotSet
 }
