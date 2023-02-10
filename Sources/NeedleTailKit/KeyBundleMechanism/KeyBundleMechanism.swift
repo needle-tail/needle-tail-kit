@@ -9,9 +9,6 @@ import Foundation
 import NeedleTailProtocol
 import NeedleTailHelpers
 import NIOCore
-#if canImport(Combine)
-import Combine
-#endif
 import BSON
 import CypherMessaging
 
