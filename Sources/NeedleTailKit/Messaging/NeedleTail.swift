@@ -41,16 +41,16 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     var registrationApproved = false
     var registeringNewDevice = false
     var needleTailViewModel = NeedleTailViewModel()
     var plugin: NeedleTailPlugin?
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private var resumeQueue = NeedleTailStack<Int>()
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private var suspendQueue = NeedleTailStack<Int>()
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
@@ -61,24 +61,20 @@ public final class NeedleTail {
 
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
-        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
-        let approved = try await messenger.processApproval(code)
+        guard let transportBridge = messenger?.transportBridge else { throw NeedleTailError.messengerNotIntitialized }
+        let approved = try await transportBridge.processApproval(code)
         registrationApproved = approved
     }
     
     // After the master scans the new device we feed it to cypher in order to add the new device locally and remotely
-    @KeyBundleMechanismActor
+//    @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
-        //set this to true in order to tell publishKeyBundle that we are adding a device
-        await NeedleTailClient.mechanism?.updateKeyBundle = true
-        //set the recipient Device Id so that the server knows which device is requesting this addition
-        messenger?.recipientDeviceId = config.deviceId
-        try await cypher?.addDevice(config)
+        try await messenger?.transportBridge?.addNewDevice(config)
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     func onBoardAccount(
         appleToken: String,
         username: String,
@@ -92,17 +88,18 @@ public final class NeedleTail {
         guard let emitter = emitter else { return nil }
         plugin = NeedleTailPlugin(emitter: emitter)
         guard let plugin = plugin else { return nil }
-        self.messenger = try await createMessenger(
+        
+        let messenger = try await createMessenger(
             clientInfo: clientInfo,
             plugin: plugin,
             nameToVerify: username
         )
 
         do {
-            let masterKeyBundle = try await messenger?.readKeyBundle(forUsername: Username(username))
-            for validatedMaster in try masterKeyBundle?.readAndValidateDevices() ?? [] {
+            let masterKeyBundle = try await messenger.readKeyBundle(forUsername: Username(username))
+            for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                 guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
-                try await messenger?.requestDeviceRegistration(nick)
+                try await messenger.transportBridge?.requestDeviceRegistration(nick)
             }
             
             //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
@@ -123,8 +120,7 @@ public final class NeedleTail {
             
             
             
-            await serviceInterupted(true)
-            messenger = nil
+            try await serviceInterupted(true,  messenger: messenger)
             
             let cypher = try await registerNeedleTail(
                 appleToken: appleToken,
@@ -142,8 +138,7 @@ public final class NeedleTail {
             switch nterror {
             case .nilUserConfig:
                 print("User Does not exist,  proceed...", nterror)
-                await self.serviceInterupted(true)
-                self.messenger = nil
+                try await self.serviceInterupted(true, messenger: messenger)
                 do {
                     let cypher = try await registerNeedleTail(
                         appleToken: appleToken,
@@ -155,8 +150,8 @@ public final class NeedleTail {
                     )
                     await dismissUI(plugin)
                     self.cypher = cypher
-                    messenger?.cypher = cypher
-                    emitter.needleTailNick = messenger?.needleTailNick
+                    messenger.cypher = cypher
+                    emitter.needleTailNick = messenger.needleTailNick
                 } catch {
                     print("ERROR REGISTERING", error)
                 }
@@ -183,7 +178,7 @@ public final class NeedleTail {
         emitter?.showProgress = false
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     @discardableResult
     public func registerNeedleTail(
         appleToken: String,
@@ -218,7 +213,7 @@ public final class NeedleTail {
         return cypher
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private func createMessenger(
         clientInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
@@ -235,14 +230,13 @@ public final class NeedleTail {
             )
         }
         self.messenger?.addChildDevice = addChildDevice
-        guard let messenger = self.messenger else { throw NeedleTailError.nilNTM }
+        guard let messenger = self.messenger else { throw NeedleTailError.messengerNotIntitialized }
         if !nameToVerify.isEmpty {
             messenger.registrationState = .temp
         }
-        if messenger.client == nil {
             //We need to make sure we have internet before we try this
             for status in await NeedleTail.shared.state.receiver.statusArray {
-                try await RunLoop.run(10, sleep: 1) { @NeedleTailClientActor in
+                try await RunLoop.run(10, sleep: 1) {
                     var running = true
                     if status == .satisfied {
                         running = false
@@ -255,11 +249,10 @@ public final class NeedleTail {
                     }
                 }
             }
-        }
         return messenger
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     @discardableResult
     public func spoolService(
         appleToken: String,
@@ -291,14 +284,14 @@ public final class NeedleTail {
         return self.cypher
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private func resumeRequest(_ request: Int) async {
         totalResumeRequests += request
         await resumeQueue.enqueue(totalResumeRequests)
     }
     
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     public func resumeService(_ nameToVerify: String = "", appleToken: String = "") async throws {
         guard let messenger = messenger else { return }
         await resumeRequest(1)
@@ -306,41 +299,35 @@ public final class NeedleTail {
             
             totalSuspendRequests = 0
             await suspendQueue.drain()
-            
-            let client = try await messenger.createClient(nameToVerify)
+            try await messenger.createClient(nameToVerify)
             messenger.isConnected = true
-            try await messenger.startSession(
-                client,
-                type: messenger.registrationType(appleToken),
-                nameToVerify: nil,
-                state: messenger.registrationState
-            )
         }
     }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     private func suspendRequest(_ request: Int) async {
         totalSuspendRequests += request
         await suspendQueue.enqueue(totalSuspendRequests)
     }
     
     
-    @NeedleTailClientActor
-    public func serviceInterupted(_ isSuspending: Bool = false) async {
-        guard let messenger = messenger else { return }
+//    @NeedleTailClientActor
+    public func serviceInterupted(_ isSuspending: Bool = false) async throws {
+        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
+        try await serviceInterupted(isSuspending, messenger: messenger)
+    }
+    
+    internal func serviceInterupted(_ isSuspending: Bool = false, messenger: NeedleTailMessenger) async throws {
         await suspendRequest(1)
         if await suspendQueue.popFirst() == 1 {
-            if messenger.client != nil {
-                
                 totalResumeRequests = 0
                 await resumeQueue.drain()
-                await messenger.suspend(isSuspending)
-            }
+            try await messenger.transportBridge?.suspendClient(isSuspending)
         }
     }
     
     public func registerAPN(_ token: Data) async throws {
-        try await messenger?.registerAPNSToken(token)
+        try await messenger?.transportBridge?.registerAPNSToken(token)
     }
     
     public func blockUnblockUser(_ contact: Contact) async throws {
@@ -388,9 +375,7 @@ public final class NeedleTail {
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
-        guard let transport = await NeedleTailClient.transport else { throw NeedleTailError.transportNotIntitialized }
         try await messenger?.createLocalChannel(
-            transport: transport,
             name: name,
             admin: admin,
             organizers: organizers,
@@ -577,9 +562,11 @@ extension NeedleTail: ObservableObject {
                             } else if error == .registrationFailure {
                                 //TODO: Send RETRY with new Username Notification
                                 print("REGISTRATION_FAILED", error)
+                            } else {
+                                print(error)
                             }
                         } catch {
-                            print("\(error)")
+                            print(error)
                         }
                     }
                 }
@@ -709,7 +696,7 @@ extension TargetConversation.Resolved: Sendable {}
 
 public func makeP2PFactories() -> [P2PTransportClientFactory] {
     return [
-        IPv6TCPP2PTransportClientFactory()
+//        IPv6TCPP2PTransportClientFactory()
         //        SpineTailedTransportFactory()
     ]
 }

@@ -7,7 +7,7 @@ import NeedleTailProtocol
 import NIOTransportServices
 #endif
 
-@NeedleTailClientActor
+//@NeedleTailClientActor
 final class NeedleTailClient {
     
     public var clientContext: ClientContext
@@ -20,13 +20,27 @@ final class NeedleTailClient {
     var transportState: TransportState
     var userInfo: IRCUserInfo?
     var userMode = IRCUserMode()
-    static var transport: NeedleTailTransport?
-    static var store: TransportStore?
-    static var mechanism: KeyBundleMechanism?
+    @NeedleTailTransportActor
+    var transport: NeedleTailTransport?
+    var store: TransportStore?
+    @KeyBundleMechanismActor
+    var mechanism: KeyBundleMechanism?
     let logger = Logger(label: "Client")
     var transportDelegate: CypherTransportClientDelegate?
-    public var channel: Channel?
-    public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
+    
+    //NEW
+    var username: Username
+    var deviceId: DeviceId
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
+    
+    
+    func handleStream(_ stream:  NIOInboundChannelStream<ByteBuffer>) {
+        Task {
+            await handleChildChannel(stream, mechanism: await self.mechanism!, transport: await self.transport!, store: self.store!)
+        }
+    }
+    var registrationState: RegistrationState = .full
+    var mtDelegate: MessengerTransportBridge?
     
     init(
         cypher: CypherMessenger?,
@@ -34,7 +48,10 @@ final class NeedleTailClient {
         transportState: TransportState,
         transportDelegate: CypherTransportClientDelegate?,
         signer: TransportCreationRequest?,
-        clientContext: ClientContext
+        clientContext: ClientContext,
+        username: Username,
+        deviceId: DeviceId,
+        mtDelegate: MessengerTransportBridge?
     ) {
         self.cypher = cypher
         self.messenger = messenger
@@ -43,6 +60,9 @@ final class NeedleTailClient {
         self.signer = signer
         self.transportState = transportState
         self.transportDelegate = transportDelegate
+        self.username = username
+        self.deviceId = deviceId
+        self.mtDelegate = mtDelegate
         let group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
@@ -60,7 +80,6 @@ final class NeedleTailClient {
     }
     
     func removeReferences() async {
-            channel = nil
             eventLoop = nil
             cypher = nil
     }
@@ -73,3 +92,5 @@ extension NeedleTailClient: Equatable {
         return lhs === rhs
     }
 }
+
+

@@ -36,4 +36,5 @@ public enum NeedleTailError: String, Error {
     case acknowledgmentCorrupted
     case deviceIdNil
     case usernameNil
+    case bridgeDelegateNotSet
 }

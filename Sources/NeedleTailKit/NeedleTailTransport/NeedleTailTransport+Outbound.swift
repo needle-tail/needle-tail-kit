@@ -14,9 +14,8 @@ extension NeedleTailTransport {
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
-        guard let channel = await channel else { return }
         await transportState.transition(to:
                 .transportRegistering(
                     channel: channel,
@@ -25,7 +24,7 @@ extension NeedleTailTransport {
                 )
         )
 
-        guard case .transportRegistering(_, let nick, _) = await transportState.current else { throw NeedleTailError.transportationStateError }
+        guard case .transportRegistering(_, let nick, _) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)

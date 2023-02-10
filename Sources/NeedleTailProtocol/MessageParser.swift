@@ -198,7 +198,7 @@ public final class MessageParser {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 let seperated = stripedMessage.components(separatedBy: Constants.colon)
-                args.append(seperated[1])
+                args.append(seperated[1].trimmingCharacters(in: .whitespaces))
             }
         }
         return args

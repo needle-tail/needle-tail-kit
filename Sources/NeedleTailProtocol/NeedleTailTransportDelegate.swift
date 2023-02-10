@@ -4,8 +4,8 @@ import NIOCore
 
 public protocol NeedleTailTransportDelegate: AnyObject {
     
-    @NeedleTailTransportActor
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>? { get set }
+//    @NeedleTailTransportActor
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
     @NeedleTailTransportActor
     var origin: String? { get }
     @NeedleTailTransportActor
@@ -13,7 +13,7 @@ public protocol NeedleTailTransportDelegate: AnyObject {
     @NeedleTailTransportActor
     var tags: [IRCTags]? { get }
     
-    @NeedleTailClientActor
+//    @NeedleTailClientActor
     func clientMessage(_
                        command: IRCCommand,
                        tags: [IRCTags]?
@@ -36,8 +36,17 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
+        //THIS IS ANNOYING BUT WORKS
+        try await RunLoop.run(5, sleep: 1, stopRunning: {
+            var canRun = true
+            if self.channel.channel.isActive  {
+                canRun = false
+            }
+            return canRun
+        })
+        
         let encoded = await NeedleTailEncoder.encode(value: message)
-        try await channel?.writeAndFlush(encoded)
+        try await channel.writeAndFlush(encoded)
     }
 }
 
@@ -146,3 +155,4 @@ public enum TransportMessageType: Sendable {
     case `private`(IRCCommand)
     case notice(IRCCommand)
 }
+

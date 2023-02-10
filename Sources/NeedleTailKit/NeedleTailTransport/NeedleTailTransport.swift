@@ -15,9 +15,26 @@ import CypherMessaging
 import Combine
 
 @NeedleTailTransportActor
-final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
+protocol MessengerTransportBridge: AnyObject {
+    var ctcDelegate: CypherTransportClientDelegate? { get set }
+    var plugin: NeedleTailPlugin? { get set }
+    var emitter: NeedleTailEmitter? { get set }
+}
+
+protocol ClientTransportDelegate: AnyObject {
+    func shutdown() async
+}
+
+
+@NeedleTailTransportActor
+final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
     
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
+   var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
+   var plugin: NeedleTailPlugin?
+   var emitter: NeedleTailEmitter?
+
+    
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -31,7 +48,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
     var cypher: CypherMessenger?
-    var messenger: NeedleTailMessenger
+
     var tags: [IRCTags]?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
@@ -48,11 +65,12 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     let clientInfo: ClientContext.ServerClientInfo
     let store: TransportStore
     weak var delegate: IRCDispatcher?
+    weak var ctDelegate: ClientTransportDelegate?
 
     
     init(
         cypher: CypherMessenger? = nil,
-        messenger: NeedleTailMessenger,
+//        messenger: NeedleTailMessenger,
         channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
         userMode: IRCUserMode,
@@ -60,11 +78,12 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         signer: TransportCreationRequest?,
         clientContext: ClientContext,
         clientInfo: ClientContext.ServerClientInfo,
-        store: TransportStore
+        store: TransportStore,
+        ctDelegate: ClientTransportDelegate
     ) {
         self.store = store
         self.cypher = cypher
-        self.messenger = messenger
+//        self.messenger = messenger
         self.channel = channel
         self.messageOfTheDay = messageOfTheDay
         self.userMode = userMode
@@ -73,6 +92,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
         self.clientContext = clientContext
         self.clientInfo = clientInfo
         self.delegate = self
+        self.ctDelegate = ctDelegate
     }
     
     deinit{}
