@@ -21,10 +21,10 @@ let package = Package(
             targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/needle-tail/swift-nio-transport-services.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", .upToNextMajor(from: "1.15.0")),
 //        .package(path: "../swift-nio-transport-services"),
-//        .package(url: "https://github.com/apple/swift-nio.git", from: "2.45.0"),
-        .package(url: "https://github.com/Cartisim/swift-nio.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio.git", revision: "03170858585699dcb93654521d0767f7157fad06"),
+//        .package(url: "https://github.com/Cartisim/swift-nio.git", branch: "main"),
 //            .package(path: "../ForkedSwiftNIO/Apple/swift-nio"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.21.0"),

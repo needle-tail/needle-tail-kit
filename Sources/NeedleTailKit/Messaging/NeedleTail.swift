@@ -177,8 +177,10 @@ public final class NeedleTail {
     private func dismissUI(_ plugin: NeedleTailPlugin) {
         emitter = plugin.emitter
         needleTailViewModel.emitter = NeedleTail.shared.emitter
+#if (os(macOS) || os(iOS))
         emitter?.dismiss = true
         emitter?.showProgress = false
+#endif
     }
     
 //    @NeedleTailClientActor

@@ -204,11 +204,12 @@ extension NeedleTailMessenger {
     
     @MainActor
     func updateEmitter(_ data: Data?) {
-        print("Updating Emitter")
+#if (os(macOS) || os(iOS))
         plugin.emitter.showScanner = true
         /// Send **User Config** data to generate a QRCode in the **Child Device**
         plugin.emitter.requestMessageId = nil
         plugin.emitter.qrCodeData = data
+#endif
     }
     
     public struct SetToken: Codable {
