@@ -64,9 +64,11 @@ extension NeedleTailTransport {
     
     @MainActor
     private func clearNewDeviceState(_ emitter: NeedleTailEmitter) {
+#if (os(macOS) || os(iOS))
         emitter.qrCodeData = nil
         emitter.showProgress = false
         emitter.dismiss = true
+#endif
     }
     
     private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
