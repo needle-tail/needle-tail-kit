@@ -75,6 +75,8 @@ public class TransportState: StateMachine {
 #if (os(macOS) || os(iOS))
         self.emitter.state = currentState
         return self.emitter.state
+#else
+return State.clientOffline
 #endif
     }
 }
