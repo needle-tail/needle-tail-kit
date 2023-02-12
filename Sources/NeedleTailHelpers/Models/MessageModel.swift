@@ -10,19 +10,19 @@ import Foundation
 import JWTKit
 
 public enum MessageType: Codable, Sendable {
-    case publishKeyBundle(String)
+    case publishKeyBundle(Data)
     case registerAPN(Data)
     case message
     case multiRecipientMessage
     case readReceipt
-    case ack(String)
+    case ack(Data)
     case blockUnblock
     case newDevice(NewDeviceState)
     case requestRegistry
-    case acceptedRegistry(String)
-    case isOffline(String)
+    case acceptedRegistry(Data)
+    case isOffline(Data)
     case temporarilyRegisterSession
-    case rejectedRegistry(String)
+    case rejectedRegistry(Data)
 }
 
 public enum AddDeviceType: Codable, Sendable {

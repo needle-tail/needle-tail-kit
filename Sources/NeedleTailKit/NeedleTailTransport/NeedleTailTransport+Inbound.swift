@@ -219,7 +219,6 @@ extension NeedleTailTransport {
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-        print("PACKET0___" ,packet)
         try await transportMessage(type)
     }
     
@@ -231,7 +230,7 @@ extension NeedleTailTransport {
         let packet = MessagePacket(
             id: id ?? UUID().uuidString,
             pushType: .none,
-            type: .ack(ack.base64EncodedString()),
+            type: .ack(ack),
             createdAt: Date(),
             sender: nil,
             recipient: nil,

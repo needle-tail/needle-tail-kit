@@ -345,14 +345,12 @@ extension NeedleTailClient: TransportBridge {
         let jwt = try makeToken(username)
         let configObject = configRequest(jwt, config: data, recipientDeviceId: recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
-        let keyBundle = bundleData.base64EncodedString()
-        
         let recipient = try await recipient(conversationType: .privateMessage, deviceId: deviceId, name: "\(username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .publishKeyBundle(keyBundle),
+            type: .publishKeyBundle(bundleData),
             createdAt: Date(),
             sender: nil,
             recipient: nil,
