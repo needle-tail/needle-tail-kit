@@ -406,7 +406,7 @@ extension NeedleTailClient: TransportBridge {
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
-            type: .registerAPN(payload.base64EncodedString()),
+            type: .registerAPN(payload),
             createdAt: Date(),
             sender: nil,
             recipient: nil,
@@ -415,7 +415,8 @@ extension NeedleTailClient: TransportBridge {
         )
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        let encodedString = encodedData.base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         try await transport.transportMessage(type)
     }
     

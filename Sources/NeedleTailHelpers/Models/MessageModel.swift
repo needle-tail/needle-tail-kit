@@ -11,7 +11,7 @@ import JWTKit
 
 public enum MessageType: Codable, Sendable {
     case publishKeyBundle(String)
-    case registerAPN(String)
+    case registerAPN(Data)
     case message
     case multiRecipientMessage
     case readReceipt

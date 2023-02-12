@@ -82,7 +82,6 @@ extension NeedleTailTransport {
             message: nil,
             readReceipt: .none
         )
-        
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
         try await transportMessage(type)
@@ -220,6 +219,7 @@ extension NeedleTailTransport {
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+        print("PACKET0___" ,packet)
         try await transportMessage(type)
     }
     

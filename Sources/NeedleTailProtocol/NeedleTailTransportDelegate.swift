@@ -44,9 +44,8 @@ extension NeedleTailTransportDelegate {
             }
             return canRun
         })
-        
-        let encoded = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(encoded)
+        let buffer = await NeedleTailEncoder.encode(value: message)
+        try await channel.writeAndFlush(buffer)
     }
 }
 

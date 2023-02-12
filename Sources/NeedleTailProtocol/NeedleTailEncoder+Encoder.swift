@@ -85,7 +85,6 @@ public final class NeedleTailEncoder {
                 .NOTICE(let recipients, let message):
             newString = base + commaSeperatedValues(recipients.lazy.map({ $0.stringValue }))
             newString += Constants.space + Constants.colon + message
-            
         case .MODE(let nick, add: let add, remove: let remove):
             newString = base + Constants.space + nick.stringValue
             let adds = add.stringValue.map({ "\(Constants.plus)\($0)" })
@@ -133,7 +132,7 @@ public final class NeedleTailEncoder {
             newString += capabilityIds.joined(separator: Constants.space)
         }
         newString += Constants.cCR + Constants.cLF
-
+    
         return ByteBuffer(string: newString)
     }
     

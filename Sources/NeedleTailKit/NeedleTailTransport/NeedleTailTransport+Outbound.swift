@@ -146,7 +146,6 @@ extension NeedleTailTransport {
             message: message,
             readReceipt: readReceipt
         )
-
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
@@ -179,7 +178,6 @@ extension NeedleTailTransport {
             readReceipt: readReceipt,
             channelName: channelName
         )
-        
         let encodedData = try BSONEncoder().encode(packet).makeData()
         do {
             //Channel Recipient
@@ -208,7 +206,6 @@ extension NeedleTailTransport {
         
         //Store UUID Temporarily
         self.registryRequestId = packet.id
-        
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         try await transportMessage(type)
@@ -231,7 +228,6 @@ extension NeedleTailTransport {
         
         //Store UUID Temporarily
         self.registryRequestId = packet.id
-        
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         try await transportMessage(type)
