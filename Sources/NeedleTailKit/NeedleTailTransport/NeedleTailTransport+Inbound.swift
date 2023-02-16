@@ -140,8 +140,7 @@ extension NeedleTailTransport {
                         break
                     }
                 case .ack(let ack):
-                    guard let data = Data(base64Encoded: ack) else { throw NeedleTailError.acknowledgmentCorrupted }
-                    let buffer = ByteBuffer(data: data)
+                    let buffer = ByteBuffer(data: ack)
                     let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                     store.setAck(ack.acknowledgment)
                     
