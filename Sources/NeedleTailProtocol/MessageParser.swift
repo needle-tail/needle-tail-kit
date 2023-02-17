@@ -71,14 +71,14 @@ public final class MessageParser {
         let commandIndex = rest.startIndex
         let commandMessage = rest[commandIndex...]
         
-        guard let arguments = try parseArgument(
+        let arguments = parseArgument(
             commandKey: commandKey,
             message: message,
             commandMessage: String(commandMessage),
             stripedMessage: stripedMessage,
             parameter: parameter
-        ) else { throw MessageParserError.argumentsAreNil }
-        
+        )
+
         var tags: [IRCTags]?
         if seperatedTags != [] {
             tags = try parseTags(
@@ -144,14 +144,14 @@ public final class MessageParser {
         commandMessage: String,
         stripedMessage: String,
         parameter: String
-    ) throws -> [String]? {
+    ) -> [String] {
         
         var args = [String]()
         switch commandKey {
         case .int(let int):
             //            :localhost 332 Guest31 #NIO :Welcome to #nio!
             var spread = message.components(separatedBy: Constants.space)
-            guard spread.count >= 4 else { return nil }
+            guard spread.count >= 4 else { return [] }
             let right = spread[4...]
             let left = spread[0...3]
             spread = Array(left)

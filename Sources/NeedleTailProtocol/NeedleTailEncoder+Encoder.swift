@@ -132,7 +132,7 @@ public final class NeedleTailEncoder {
             newString += capabilityIds.joined(separator: Constants.space)
         }
         newString += Constants.cCR + Constants.cLF
-    
+
         return ByteBuffer(string: newString)
     }
     

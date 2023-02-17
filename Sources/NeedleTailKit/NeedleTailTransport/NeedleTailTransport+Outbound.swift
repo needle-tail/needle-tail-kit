@@ -9,7 +9,6 @@ import Foundation
 import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
-import Compression
 
 
 extension NeedleTailTransport {

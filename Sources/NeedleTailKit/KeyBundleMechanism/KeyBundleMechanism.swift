@@ -67,8 +67,19 @@ extension KeyBundleMechanisimDelegate {
             }
             return canRun
         })
-        let encoded = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(encoded)
+        let encodedBuffer = await NeedleTailEncoder.encode(value: message)
+        var newBuffer = encodedBuffer
+        _ = try await withCheckedThrowingContinuation { continuation in
+            do {
+                let length = try newBuffer.writeLengthPrefixed(as: Int.self) { buffer in
+                    buffer.writeBytes(encodedBuffer.readableBytesView)
+                }
+                continuation.resume(returning: length)
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+        try await channel.writeAndFlush(newBuffer)
     }
 }
 
