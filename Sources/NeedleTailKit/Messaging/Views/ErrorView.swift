@@ -1,6 +1,6 @@
 //
 //  ErrorView.swift
-//  
+//
 //
 //  Created by Cole M on 4/22/22.
 //

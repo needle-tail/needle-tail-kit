@@ -1,16 +1,12 @@
 //
 //  NeedleTail.swift
-//  
+//
 //
 //  Created by Cole M on 4/17/22.
 //
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-import Foundation
-import CypherMessaging
-import NIOTransportServices
 import CypherMessaging
 import MessagingHelpers
-import NeedleTailProtocol
 import SwiftUI
 import NeedleTailHelpers
 //import SpineTailedKit

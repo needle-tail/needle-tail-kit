@@ -27,8 +27,7 @@
  *       default implementation by calling `irc_defaultMsgSend`. Which contains
  *       the actual dispatcher implementation.
  */
-import Foundation
-import CypherMessaging
+
 import NeedleTailHelpers
 
 public protocol IRCDispatcher: AnyObject {

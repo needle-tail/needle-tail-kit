@@ -1,11 +1,11 @@
 //
 //  NeedleTailTransportClient+Outbound.swift
-//  
+//
 //
 //  Created by Cole M on 4/29/22.
 //
 
-import Foundation
+
 import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
@@ -15,33 +15,33 @@ extension NeedleTailTransport {
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-//    @NeedleTailClientActor
     func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
         await transportState.transition(to:
                 .transportRegistering(
                     channel: channel,
-                    nick: clientContext.nickname,
-                    userInfo: clientContext.userInfo
+                    clientContext: clientContext
                 )
         )
 
-        guard case .transportRegistering(_, let nick, _) = transportState.current else { throw NeedleTailError.transportationStateError }
+        guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
-            try await clientMessage(.NICK(nick), tags: [tag])
+            try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
             return
         }
         
         try await clientMessage(.otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
-        try await clientMessage(.NICK(nick), tags: [tag])
+        try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
         let authObject = AuthPacket(
-            username: username,
-            deviceId: deviceId,
+            ntkUser: NTKUser(
+                username: username,
+                deviceId: deviceId
+            ),
             tempRegister: false
         )
         let packet = try BSONEncoder().encode(authObject).makeData()
@@ -130,9 +130,8 @@ extension NeedleTailTransport {
         messageId: String,
         pushType: PushType,
         message: RatchetedCypherMessage,
-        fromDevice: DeviceId,
-        toUser: Username,
-        toDevice: DeviceId,
+        toUser: NTKUser,
+        fromUser: NTKUser,
         messageType: MessageType,
         conversationType: ConversationType,
         readReceipt: ReadReceipt?
@@ -142,14 +141,14 @@ extension NeedleTailTransport {
             pushType: pushType,
             type: messageType,
             createdAt: Date(),
-            sender: fromDevice,
-            recipient: toDevice,
+            sender: fromUser.deviceId,
+            recipient: toUser.deviceId,
             message: message,
             readReceipt: readReceipt
         )
         let encodedData = try BSONEncoder().encode(packet).makeData()
-        let ircUser = toUser.raw.replacingOccurrences(of: " ", with: "").lowercased()
-        let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: "\(ircUser)")
+        let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         try await transportMessage(type)
     }
@@ -159,9 +158,8 @@ extension NeedleTailTransport {
         pushType: PushType,
         message: RatchetedCypherMessage,
         channelName: String,
-        fromDevice: DeviceId,
-        toUser: Username,
-        toDevice: DeviceId,
+        toUser: NTKUser,
+        fromUser: NTKUser,
         messageType: MessageType,
         conversationType: ConversationType,
         readReceipt: ReadReceipt?
@@ -173,8 +171,8 @@ extension NeedleTailTransport {
             pushType: pushType,
             type: messageType,
             createdAt: Date(),
-            sender: fromDevice,
-            recipient: toDevice,
+            sender: fromUser.deviceId,
+            recipient: toUser.deviceId,
             message: message,
             readReceipt: readReceipt,
             channelName: channelName
@@ -182,7 +180,7 @@ extension NeedleTailTransport {
         let encodedData = try BSONEncoder().encode(packet).makeData()
         do {
             //Channel Recipient
-            let recipient = try await recipient(conversationType: conversationType, deviceId: toDevice, name: channelName)
+            let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
             try await transportMessage(type)
         } catch {

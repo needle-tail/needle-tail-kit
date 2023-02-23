@@ -1,11 +1,9 @@
 //
-//  File.swift
+//  IRCCommandCode.swift
 //  
 //
 //  Created by Cole M on 9/23/22.
 //
-
-import Foundation
 
 extension IRCCommandCode {
   

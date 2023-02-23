@@ -1,13 +1,12 @@
 //
 //  MessageModel.swift
-//  
+//
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import Foundation
-@preconcurrency import CypherMessaging
-import JWTKit
+//
+import CypherMessaging
 
 public enum MessageType: Codable, Sendable {
     case publishKeyBundle(Data)

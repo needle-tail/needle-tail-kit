@@ -1,13 +1,21 @@
 //
 //  ReadReceiptPacket.swift
-//  
+//
 //
 //  Created by Cole M on 6/18/22.
 //
 
-import Foundation
 import CypherMessaging
-import BSON
+
+public struct NTKUser: Hashable, Codable, Sendable {
+    public var username: Username
+    public var deviceId: DeviceId
+    
+    public init(username: Username, deviceId: DeviceId) {
+        self.username = username
+        self.deviceId = deviceId
+    }
+}
 
 public struct ReadReceipt: Codable, Sendable {
     public enum State: Int, Codable, Sendable {
@@ -18,7 +26,7 @@ public struct ReadReceipt: Codable, Sendable {
     public let messageId: String
     public let state: State
     public let sender: Username
-    public let senderDevice: UserDeviceId
-    public let recipient: UserDeviceId
+    public let senderDevice: NTKUser
+    public let recipient: NTKUser
     public let receivedAt: Date
 }

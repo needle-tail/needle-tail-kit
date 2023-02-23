@@ -1,11 +1,9 @@
 //
 //  NeedleTailQueue.swift
-//  
+//
 //
 //  Created by Cole M on 4/16/22.
 //
-
-import Foundation
 
 public protocol NeedleTailQueue: Sendable {
     associatedtype Element

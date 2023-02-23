@@ -1,15 +1,12 @@
 //
 //  KeyBundleMechanisimDelegate.swift
-//  
+//
 //
 //  Created by Cole M on 12/25/22.
 //
 
-import Foundation
 import NeedleTailProtocol
 import NeedleTailHelpers
-import NIOCore
-import BSON
 import CypherMessaging
 
 @globalActor actor KeyBundleMechanismActor {
@@ -67,19 +64,8 @@ extension KeyBundleMechanisimDelegate {
             }
             return canRun
         })
-        let encodedBuffer = await NeedleTailEncoder.encode(value: message)
-        var newBuffer = encodedBuffer
-        _ = try await withCheckedThrowingContinuation { continuation in
-            do {
-                let length = try newBuffer.writeLengthPrefixed(as: Int.self) { buffer in
-                    buffer.writeBytes(encodedBuffer.readableBytesView)
-                }
-                continuation.resume(returning: length)
-            } catch {
-                continuation.resume(throwing: error)
-            }
-        }
-        try await channel.writeAndFlush(newBuffer)
+        var buffer = await NeedleTailEncoder.encode(value: message)
+        try await channel.writeAndFlush(buffer)
     }
 }
 
@@ -109,7 +95,6 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     deinit {}
     
     
-    
     func processKeyBundle(
         _ message: IRCMessage
     ) async throws {
@@ -137,6 +122,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: store.keyBundle))")
     }
     
+    @KeyBundleMechanismActor
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
         print("READ_KEY_BUNDLE_REQUEST_RECEIVED_WE_SHOULD_HAVE_A_KEY_HERE_AND_NEXT_WE_SHOULD_FINISH_WITH_THE_REQUEST_METHOD: - BUNDLE: \(keyBundle)")
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }

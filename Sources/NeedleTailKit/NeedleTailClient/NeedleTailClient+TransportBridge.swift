@@ -1,26 +1,20 @@
 //
-//  File.swift
-//  
+//  TransportBridge.swift
+//
 //
 //  Created by Cole M on 2/9/23.
 //
 
-import NIOCore
-import Logging
 import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
 import JWTKit
-#if canImport(Network)
-import NIOTransportServices
-#endif
 
 
 protocol TransportBridge: AnyObject {
     
-    func startClient(_ appleToken: String) async throws
-    func resumeClient(_
-                      nameToVerify: String?,
+    func connectClient() async throws
+    func resumeClient(
                       type: RegistrationType,
                       state: RegistrationState?
     ) async throws
@@ -34,11 +28,11 @@ protocol TransportBridge: AnyObject {
         type: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws
-    func receiveMessage() async
     func readKeyBundle(_ username: Username) async throws -> UserConfig
     func publishKeyBundle(_
                           data: UserConfig,
                           appleToken: String,
+                          nameToVerify: String,
                           recipientDeviceId: DeviceId?
     ) async throws
     func requestDeviceRegistration(_ nick: NeedleTailNick) async throws
@@ -65,7 +59,7 @@ extension NeedleTailClient: TransportBridge {
         //set this to true in order to tell publishKeyBundle that we are adding a device
         mechanism.updateKeyBundle = true
         //set the recipient Device Id so that the server knows which device is requesting this addition
-        messenger.recipientDeviceId = config.deviceId
+        ntkBundle.messenger.recipientDeviceId = config.deviceId
         try await cypher.addDevice(config)
     }
     
@@ -103,23 +97,29 @@ extension NeedleTailClient: TransportBridge {
                 pushType: pushType,
                 message: message,
                 channelName: name,
-                fromDevice: self.deviceId,
-                toUser: username,
-                toDevice: deviceId,
+                toUser: NTKUser(
+                    username: username,
+                    deviceId: deviceId
+                ),
+                fromUser: self.ntkUser,
                 messageType: .message,
                 conversationType: type,
-                readReceipt: readReceipt)
+                readReceipt: readReceipt
+            )
         case .privateMessage:
             try await transport.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
-                fromDevice: self.deviceId,
-                toUser: username,
-                toDevice: deviceId,
+                toUser: NTKUser(
+                    username: username,
+                    deviceId: deviceId
+                ),
+                fromUser: self.ntkUser,
                 messageType: .message,
                 conversationType: type,
-                readReceipt: readReceipt)
+                readReceipt: readReceipt
+            )
         }
     }
     
@@ -140,7 +140,6 @@ extension NeedleTailClient: TransportBridge {
         switch await transportState.current {
         case .transportOffline:
             try await startSession(
-                nil,
                 type: registrationType(appleToken),
                 state: registrationState
             )
@@ -158,9 +157,9 @@ extension NeedleTailClient: TransportBridge {
         //        logger.info("We are requesting a Device Registry with this configuration: \(newMaster)")
         
         if addChildDevice {
-            let masterKeyBundle = try await readKeyBundle(username)
+            let masterKeyBundle = try await readKeyBundle(ntkUser.username)
             for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
-                guard let nick = NeedleTailNick(name: username.raw, deviceId: validatedMaster.deviceId) else { continue }
+                guard let nick = NeedleTailNick(name: ntkUser.username.raw, deviceId: validatedMaster.deviceId) else { continue }
                 
                 guard let transport = await transport else { return }
                 try await transport.sendChildDeviceConfig(nick, config: newMaster)
@@ -170,11 +169,11 @@ extension NeedleTailClient: TransportBridge {
             let base64String = bsonData.base64EncodedString()
             let data = base64String.data(using: .ascii)
 #if (os(macOS) || os(iOS))
-            await messenger.updateEmitter(data)
+            await ntkBundle.messenger.updateEmitter(data)
             try await RunLoop.run(240, sleep: 1) { @MainActor [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
-                if strongSelf.messenger.plugin.emitter.qrCodeData == nil {
+                if strongSelf.ntkBundle.messenger.plugin.emitter.qrCodeData == nil {
                     running = false
                 }
                 return running
@@ -184,36 +183,33 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
-        // We need to set the userConfig to nil for the next read flow
-        
         guard let mechanism = await mechanism else { throw NeedleTailError.transportNotIntitialized }
         guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         try await clearUserConfig()
-        let jwt = try makeToken(username)
-        let readBundleObject = readBundleRequest(jwt, recipient: username)
+        
+        let jwt = try makeToken(ntkUser.username)
+        let readBundleObject = readBundleRequest(jwt, for: username)
         let packet = try BSONEncoder().encode(readBundleObject).makeData()
         try await mechanism.readKeyBundle(packet.base64EncodedString())
         
         guard let userConfig = store.keyBundle else {
             throw NeedleTailError.nilUserConfig
         }
-        print("FEEDING_CONFIG_TO_CTK_______", userConfig)
         return userConfig
     }
     
     
-    func resumeClient(_
-                      nameToVerify: String? = nil,
+    func resumeClient(
                       type: RegistrationType,
-                      state: RegistrationState? = .full) async throws {
-        try await startSession(nameToVerify, type: type, state: state)
+                      state: RegistrationState? = .full
+    ) async throws {
+        try await startSession(type: type, state: state)
     }
     
-    
-    func startClient(_ appleToken: String) async throws {
+
+    func connectClient() async throws {
         try await attemptConnection()
-        try await startSession(nil, type: registrationType(appleToken), state: registrationState)
-        //        self.authenticated = .authenticated
+        ntkBundle.messenger.authenticated = .authenticated
     }
     
     
@@ -223,20 +219,15 @@ extension NeedleTailClient: TransportBridge {
         } catch {
             await shutdownClient()
         }
-        
-    }
-    
-    
-    func receiveMessage() async {
-        
     }
     
     func publishKeyBundle(_
                           data: UserConfig,
                           appleToken: String,
+                          nameToVerify: String,
                           recipientDeviceId: DeviceId?
     ) async throws {
-        let result = try await registerForBundle(appleToken)
+        let result = try await registerForBundle(appleToken, nameToVerify: nameToVerify)
         try await mechanismToPublishBundle(
             data,
             contacts: result.0,
@@ -245,24 +236,23 @@ extension NeedleTailClient: TransportBridge {
         )
     }
     
-    public func registrationType(_ appleToken: String = "") -> RegistrationType {
+    public func registrationType(_ appleToken: String = "", nameToVerify: String = "") -> RegistrationType {
         if !appleToken.isEmpty {
             return .siwa(appleToken)
         } else {
-            return .plain
+            return .plain(nameToVerify)
         }
     }
     
     
-    func startSession(_
-                      nameToVerify: String? = nil,
+    func startSession(
                       type: RegistrationType,
                       state: RegistrationState? = .full
     ) async throws {
         switch type {
         case .siwa(let apple):
             try await self.registerSession(apple)
-        case .plain:
+        case .plain(let nameToVerify):
             try await self.registerSession(nameToVerify: nameToVerify, state: state)
         }
     }
@@ -284,7 +274,7 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    func registerForBundle(_ appleToken: String) async throws -> ([NTKContact]?, Bool) {
+    func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
         guard let mechanism = await mechanism else { throw NeedleTailError.transportNotIntitialized }
         guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         
@@ -294,7 +284,7 @@ extension NeedleTailClient: TransportBridge {
         var contacts: [NTKContact]?
         if updateKeyBundle {
             contacts = [NTKContact]()
-            for contact in try await cypher?.listContacts() ?? [] {
+            for contact in try await ntkBundle.cypher?.listContacts() ?? [] {
                 await contacts?.append(
                     NTKContact(
                         username: contact.username,
@@ -307,8 +297,7 @@ extension NeedleTailClient: TransportBridge {
         switch await transportState.current {
         case .transportOffline:
             try await startSession(
-                nil,
-                type: registrationType(appleToken),
+                type: registrationType(appleToken, nameToVerify: nameToVerify),
                 state: registrationState
             )
         default:
@@ -322,7 +311,7 @@ extension NeedleTailClient: TransportBridge {
                 running = false
             }
             switch await strongSelf.transportState.current {
-            case .transportOnline(channel: _, nick: _, userInfo: _):
+            case .transportOnline(channel: _, clientContext: _):
                 running = false
             default:
                 running = true
@@ -340,12 +329,12 @@ extension NeedleTailClient: TransportBridge {
                                   recipientDeviceId: DeviceId?
     ) async throws {
         guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await store else { throw NeedleTailError.transportNotIntitialized }
         
-        let jwt = try makeToken(username)
-        let configObject = configRequest(jwt, config: data, recipientDeviceId: recipientDeviceId)
+        let jwt = try await makeToken(ntkUser.username)
+        let configObject = await configRequest(jwt, config: data, recipientDeviceId: recipientDeviceId)
         let bundleData = try BSONEncoder().encode(configObject).makeData()
-        let recipient = try await recipient(conversationType: .privateMessage, deviceId: deviceId, name: "\(username.raw)")
+        let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ntkUser.username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -386,20 +375,19 @@ extension NeedleTailClient: TransportBridge {
         try await transport.sendDeviceRegistryRequest(nick)
     }
     
-    @NeedleTailTransportActor
     public func processApproval(_ code: String) async throws -> Bool {
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         return await transport.computeApproval(code)
     }
     
     @NeedleTailTransportActor
     public func registerAPNSToken(_ token: Data) async throws {
         
-        let jwt = try makeToken(username)
-        let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: deviceId)
+        let jwt = try await makeToken(ntkUser.username)
+        let apnObject = await apnRequest(jwt, apnToken: token.hexString, deviceId: ntkUser.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData()
         guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
-        let recipient = try await recipient(conversationType: .privateMessage, deviceId: deviceId, name: "\(username.raw)")
+        let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ntkUser.username.raw)")
         
         let packet = MessagePacket(
             id: UUID().uuidString,
@@ -419,7 +407,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func makeToken(_ username: Username) throws -> String {
-        guard let signer = signer else { return "" }
+        guard let signer = ntkBundle.signer else { return "" }
         var signerAlgorithm: JWTAlgorithm
 #if os(Linux)
         signerAlgorithm = signer as! JWTAlgorithm
@@ -429,7 +417,7 @@ extension NeedleTailClient: TransportBridge {
         return try JWTSigner(algorithm: signerAlgorithm)
             .sign(
                 Token(
-                    device: UserDeviceId(user: username, device: deviceId),
+                    device: NTKUser(username: username, deviceId: ntkUser.deviceId),
                     exp: ExpirationClaim(value: Date().addingTimeInterval(3600))
                 )
             )
@@ -438,8 +426,10 @@ extension NeedleTailClient: TransportBridge {
     func configRequest(_ jwt: String, config: UserConfig, recipientDeviceId: DeviceId? = nil) -> AuthPacket {
         return AuthPacket(
             jwt: jwt,
-            username: self.username,
-            deviceId: self.deviceId,
+            ntkUser: NTKUser(
+                username: ntkUser.username,
+                deviceId: ntkUser.deviceId
+            ),
             config: config,
             tempRegister: false,
             recipientDeviceId: recipientDeviceId
@@ -452,13 +442,15 @@ extension NeedleTailClient: TransportBridge {
     ) -> AuthPacket {
         return AuthPacket(
             appleToken: appleToken,
-            username: signer?.username,
-            deviceId: signer?.deviceId,
-            config: signer?.userConfig,
+            ntkUser: NTKUser(
+                username: ntkBundle.signer?.username ?? ntkUser.username,
+                deviceId: ntkBundle.signer?.deviceId ?? ntkUser.deviceId
+            ),
+            config: ntkBundle.signer?.userConfig,
             tempRegister: tempRegister
         )
     }
-    
+
     private func apnRequest(_
                             jwt: String,
                             apnToken: String,
@@ -467,21 +459,28 @@ extension NeedleTailClient: TransportBridge {
         AuthPacket(
             jwt: jwt,
             apnToken: apnToken,
-            username: self.username,
-            deviceId: deviceId,
+            ntkUser: NTKUser(
+                username: ntkUser.username,
+                deviceId: deviceId
+            ),
             tempRegister: false
         )
     }
     
     func readBundleRequest(_
                            jwt: String,
-                           recipient: Username
+                           for username: Username
     ) -> AuthPacket {
         AuthPacket(
             jwt: jwt,
-            username: self.username,
-            recipient: recipient,
-            deviceId: deviceId,
+            ntkUser: NTKUser(
+                username: self.ntkUser.username,
+                deviceId: self.ntkUser.deviceId
+            ),
+            ntkContact: NTKContact(
+                username: username,
+                nickname: username.raw
+            ),
             tempRegister: false
         )
     }

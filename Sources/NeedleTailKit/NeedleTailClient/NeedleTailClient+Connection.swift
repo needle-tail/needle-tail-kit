@@ -1,19 +1,16 @@
 //
 //  NeedleTailTransportClient+Connection.swift
-//  
+//
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import NIOCore
-import NIOPosix
 import NeedleTailProtocol
 import NeedleTailHelpers
-import BSON
-import Foundation
 import CypherMessaging
+import NIOExtras
 
-//@NeedleTailClientActor
+@NeedleTailClientActor
 extension NeedleTailClient: ClientTransportDelegate {
     
     func attemptConnection() async throws {
@@ -21,51 +18,89 @@ extension NeedleTailClient: ClientTransportDelegate {
         case .clientOffline:
             await transportState.transition(to: .clientConnecting)
             do {
-                let clientChannel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
-                try await addChildHandle(clientChannel)
-                self.userInfo = clientContext.userInfo
-                await transportState.transition(to: .clientConnected)
+                let childChannel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
+                    try await addChildHandle(childChannel)
+                    await transportState.transition(to: .clientConnected)
             } catch {
                 logger.error("Could not start client: \(error)")
                 await transportState.transition(to: .clientOffline)
                 try await attemptDisconnect(true)
-                messenger.authenticated  = .unauthenticated
+                ntkBundle.messenger.authenticated  = .unauthenticated
             }
         default:
             break
         }
     }
     
-    
     func createChannel(host: String, port: Int) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
-        userMode = IRCUserMode()
         return try await createBootstrap().connectAsync(host: host, port:port)
     }
     
+    func setStore(_ store: TransportStore?) async throws -> TransportStore {
+        self.store = store
+        guard let store = self.store else { throw NeedleTailError.storeNotIntitialized }
+        return store
+    }
+    
     @KeyBundleMechanismActor
-    func setMechanisim(_ mechanism: KeyBundleMechanism) {
+    func setMechanisim(_ mechanism: KeyBundleMechanism?) async throws -> KeyBundleMechanism {
         self.mechanism = mechanism
+        guard let mechanism = self.mechanism else { throw NeedleTailError.mechanisimNotIntitialized }
+        return mechanism
     }
     
     @NeedleTailTransportActor
-    func setTransport(_ transport: NeedleTailTransport) {
-        self.mtDelegate = transport
+    func setTransport(_ transport: NeedleTailTransport?) async throws -> NeedleTailTransport {
         self.transport = transport
+        guard let transport = self.transport else { throw NeedleTailError.transportNotIntitialized }
+        return transport
     }
     
-    
-    //This never exits the stream
-    func addChildHandle(_ clientChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws {
-        let handlers = try await self.createHandlers(clientChannel)
-        store = handlers.2
-        await setMechanisim(handlers.0)
-        await setTransport(handlers.1)
-        self.asyncChannel = clientChannel
-        handleStream(clientChannel.inboundStream)
+    func addChildHandle(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws {
+        let handlers: (KeyBundleMechanism, NeedleTailTransport, TransportStore)? = try await withThrowingTaskGroup(of: (KeyBundleMechanism, NeedleTailTransport, TransportStore).self) { taskGroup in
+            taskGroup.addTask { [weak self] in
+                guard let strongSelf = self else { throw NeedleTailError.couldNotCreateHandlers }
+                let handlers = try await strongSelf.createHandlers(childChannel)
+                return handlers
+            }
+            return try await taskGroup.next()
+        }
+            await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
+                taskGroup.addTask {
+                    try await childChannel.channel.pipeline.addHandlers([
+                        LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
+                        ByteToMessageHandler(
+                            LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
+                            maximumBufferSize: 2000
+                        ),
+                    ], position: .first)
+                }
+                taskGroup.addTask {
+                    Task.detached { [weak self] in
+                        guard let strongSelf = self else { return }
+                        let mechanism = try await strongSelf.setMechanisim(handlers?.0)
+                        let transport = try await strongSelf.setTransport(handlers?.1)
+                        let store = try await strongSelf.setStore(handlers?.2)
+                        await strongSelf.handleChildChannel(childChannel.inboundStream, mechanism: mechanism, transport: transport, store: store)
+                    }
+                }
+            })
+        print(childChannel.channel.pipeline)
+        await setChildChannel(childChannel)
+      
     }
     
-    func handleChildChannel(_ stream: NIOInboundChannelStream<ByteBuffer>, mechanism: KeyBundleMechanism, transport: NeedleTailTransport, store: TransportStore) async {
-        
+    func setChildChannel(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async {
+        self.childChannel = childChannel
+      
+    }
+    
+    func handleChildChannel(_
+                            stream: NIOInboundChannelStream<ByteBuffer>,
+                            mechanism: KeyBundleMechanism,
+                            transport: NeedleTailTransport,
+                            store: TransportStore
+    ) async {
         do {
             for try await buffer in stream {
                 var buffer = buffer
@@ -92,6 +127,13 @@ extension NeedleTailClient: ClientTransportDelegate {
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
+//            .channelInitializer { channel in
+//                channel.pipeline.addHandlers([
+//                    LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
+//                    ByteToMessageHandler(LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
+//                                         maximumBufferSize: 1000)
+//                ], position: .first)
+//            }
     }
     
     func createHandlers(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws -> (KeyBundleMechanism, NeedleTailTransport, TransportStore) {
@@ -113,17 +155,14 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     @NeedleTailTransportActor
     func createTransport(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, store: TransportStore) async -> NeedleTailTransport {
-        return NeedleTailTransport(
-            cypher: self.cypher,
+        let transport = NeedleTailTransport(
+            ntkBundle: self.ntkBundle,
             channel: channel,
-            userMode: self.userMode,
             transportState: self.transportState,
-            signer: self.signer,
             clientContext: self.clientContext,
-            clientInfo: self.clientInfo,
-            store: store,
-            ctDelegate: self
+            store: store
         )
+        return transport
     }
     
     //Transport Delegate Method
@@ -133,15 +172,14 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     func shutdownClient() async {
         do {
-            guard let channel = asyncChannel?.channel else { throw NeedleTailError.channelIsNil }
+            guard let channel = childChannel?.channel else { throw NeedleTailError.channelIsNil }
             _ = try await channel.close(mode: .all).get()
             try await groupManager.shutdown()
-            await removeReferences()
             await transportState.transition(to: .clientOffline)
             //            isConnected = false
             logger.info("disconnected from server")
             await transportState.transition(to: .transportOffline)
-            //            authenticated = .unauthenticated
+            ntkBundle.messenger.authenticated = .unauthenticated
         } catch {
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
@@ -155,16 +193,16 @@ extension NeedleTailClient: ClientTransportDelegate {
         
         switch await transportState.current {
         case .transportDeregistering:
-            if self.messenger.username == nil && self.messenger.deviceId == nil {
-                guard let nick = messenger.needleTailNick else { return }
-                self.messenger.username = Username(nick.name)
-                self.messenger.deviceId = nick.deviceId
+            if self.ntkBundle.messenger.username == nil && self.ntkBundle.messenger.deviceId == nil {
+                guard let nick = ntkBundle.messenger.needleTailNick else { return }
+                self.ntkBundle.messenger.username = Username(nick.name)
+                self.ntkBundle.messenger.deviceId = nick.deviceId
             }
-            guard let username = self.messenger.username else { throw NeedleTailError.usernameNil }
-            guard let deviceId = self.messenger.deviceId else { throw NeedleTailError.deviceIdNil }
+            guard let username = self.ntkBundle.messenger.username else { throw NeedleTailError.usernameNil }
+            guard let deviceId = self.ntkBundle.messenger.deviceId else { throw NeedleTailError.deviceIdNil }
             try await self.transport?.sendQuit(username, deviceId: deviceId)
             await transportState.transition(to: .transportOffline)
-            messenger.authenticated = .unauthenticated
+            ntkBundle.messenger.authenticated = .unauthenticated
         default:
             break
         }

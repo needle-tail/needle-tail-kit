@@ -1,5 +1,3 @@
-
-import NIO
 import Foundation
 import Logging
 import NeedleTailHelpers
@@ -19,6 +17,7 @@ public final class MessageParser {
     
     
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
+        
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []

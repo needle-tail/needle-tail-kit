@@ -1,6 +1,6 @@
 //
 //  TransportState.swift
-//  
+//
 //
 //  Created by Cole M on 11/28/21.
 //
@@ -36,12 +36,10 @@ public class TransportState: StateMachine {
         case clientConnected
         case transportRegistering(
             channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
-            nick: NeedleTailNick,
-            userInfo: IRCUserInfo)
+            clientContext: ClientContext)
         case transportOnline(
             channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
-            nick: NeedleTailNick,
-            userInfo: IRCUserInfo)
+            clientContext: ClientContext)
         case transportDeregistering
         case transportOffline
         case clientDisconnected
@@ -57,10 +55,10 @@ public class TransportState: StateMachine {
             logger.info("The client is connecting")
         case .clientConnected:
             logger.info("The client has connected")
-        case .transportRegistering(channel: _, nick: let nick, userInfo: let userInfo):
-            logger.info("Now registering Nick: \(nick.name) has UserInfo: \(userInfo.description)")
-        case .transportOnline(channel: _, nick: let nick, userInfo: let userInfo):
-            logger.info("Nick: \(nick.name) with UserInfo: \(userInfo.description) is now online")
+        case .transportRegistering(channel: _, clientContext: let context):
+            logger.info("Now registering Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
+        case .transportOnline(channel: _, clientContext: let clientContext):
+            logger.info("Nick: \(clientContext.nickname.name) with UserInfo: \(clientContext.userInfo.description) is now online")
         case .transportDeregistering:
             logger.info("We are de-registering Session")
         case .transportOffline:

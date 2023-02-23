@@ -1,10 +1,10 @@
-import NIOCore
 import NeedleTailProtocol
 import NeedleTailHelpers
+import CypherMessaging
 
- public struct ClientContext {
+public struct ClientContext: Sendable {
     
-     public struct ServerClientInfo: Codable {
+     public struct ServerClientInfo: Codable, Sendable {
         
          var hostname: String
          var port: Int

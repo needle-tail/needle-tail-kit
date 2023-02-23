@@ -1,11 +1,9 @@
 //
 //  ParserSeqeuence.swift
-//  
+//
 //
 //  Created by Cole M on 3/28/22.
 //
-
-import Foundation
 
 
 public struct ParserSequence: AsyncSequence, Sendable {

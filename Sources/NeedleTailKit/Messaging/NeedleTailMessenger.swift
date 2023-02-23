@@ -5,19 +5,10 @@
 //  Created by Cole M on 9/19/21.
 //
 
-import Foundation
-import NIOCore
-import NIOPosix
 import CypherMessaging
-import CypherProtocol
-import MessagingHelpers
-import Crypto
-import BSON
-import JWTKit
 import Logging
 import NeedleTailProtocol
 import NeedleTailHelpers
-//import AsyncAlgorithms
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -26,23 +17,26 @@ import NIOTransportServices
 #endif
 
 
-public class NeedleTailMessenger: CypherServerTransportClient {
+public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendable {
     
     public var isConnected: Bool = false
     public var supportsDelayedRegistration = false
     public weak var delegate: CypherTransportClientDelegate?
+    /// A **CypherServerTransportClient** property for setting`true` when logged in, `false` on incorrect login, `nil` when no server request has been executed yet
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
     public var type: ConversationType = .privateMessage
     public private(set) var signer: TransportCreationRequest?
     private(set) var needleTailNick: NeedleTailNick?
     private let appleToken: String?
+    private var nameToVerify: String?
     private var transportState: TransportState
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     var recipientDeviceId: DeviceId?
     var cypher: CypherMessenger?
-    @MainActor var plugin: NeedleTailPlugin
+    @MainActor
+    var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
     var readReceipt: ReadReceipt?
@@ -51,11 +45,10 @@ public class NeedleTailMessenger: CypherServerTransportClient {
     var deviceId: DeviceId?
     var registrationState: RegistrationState = .full
     var addChildDevice = false
+    var client: NeedleTailClient?
 
-    
-    
-    //NEW
     weak var transportBridge: TransportBridge?
+    @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
 
     @NeedleTailTransportActor
@@ -82,7 +75,6 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         case clientRegistering, lockState
     }
     
-    
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
@@ -103,16 +95,15 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
     }
     
-
-    
     func createClient(_ nameToVerify: String? = nil) async throws {
-        var name: String?
         var deviceId: DeviceId?
         
-        if signer?.username.raw != nil {
-            name = signer?.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
+        if signer?.username.raw == nil {
+            //We are checking if we have an account
+            self.nameToVerify = nameToVerify?.replacingOccurrences(of: " ", with: "").ircLowercased()
         } else {
-            name = nameToVerify?.replacingOccurrences(of: " ", with: "").ircLowercased()
+            //We have an account
+            self.nameToVerify = signer?.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
         }
         
         if signer?.deviceId == nil {
@@ -120,8 +111,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         } else {
             deviceId = signer?.deviceId
         }
-        
-        guard let name = name else { throw NeedleTailError.nilNickName }
+        guard let name = self.nameToVerify else { throw NeedleTailError.nilNickName }
         self.needleTailNick = NeedleTailNick(name: name, deviceId: deviceId)
         guard let nick = self.needleTailNick else { throw NeedleTailError.nilNickName }
         
@@ -131,34 +121,45 @@ public class NeedleTailMessenger: CypherServerTransportClient {
         )
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
         let username = Username(name)
-
-         let client = NeedleTailClient(
-            cypher: cypher,
-            messenger: self,
+        let client = await NeedleTailClient(
+            ntkBundle: NTKClientBundle(
+                cypher: cypher,
+                messenger: self,
+                signer: signer
+            ),
             transportState: self.transportState,
-            transportDelegate: self.delegate,
-            signer: signer,
             clientContext: clientContext,
-            username: username,
-            deviceId: deviceId
+            ntkUser: NTKUser(
+                username: username,
+                deviceId: deviceId
+            )
         )
-
+        
         self.transportBridge = client
-        try await transportBridge?.startClient(appleToken ?? "")
-        self.mtDelegate = client.mtDelegate
-        await setMTDelegate()
+        try await transportBridge?.connectClient()
+        try await transportBridge?.resumeClient(type: appleToken != nil ? .siwa(appleToken!) : .plain(name), state: registrationState)
+        self.client = client
     }
     
-    @NeedleTailTransportActor
-    func setMTDelegate() async {
-        self.mtDelegate?.emitter = await plugin.emitter
-        self.mtDelegate?.plugin = await plugin
-        self.mtDelegate?.ctcDelegate = delegate
+    //MARK: Delegate setters
+    public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
+        self.delegate = delegate
+        await setTransportDelegate(delegate)
     }
     
+    @NeedleTailClientActor
+    private func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
+        await client?.setDelegates(
+            delegate,
+            mtDelegate: mtDelegate,
+            plugin: plugin,
+            emitter: plugin.emitter
+        )
+    }
+
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     public func publishKeyBundle(_ data: UserConfig) async throws {
-        try await transportBridge?.publishKeyBundle(data, appleToken: appleToken ?? "", recipientDeviceId: recipientDeviceId)
+        try await transportBridge?.publishKeyBundle(data, appleToken: appleToken ?? "", nameToVerify: nameToVerify ?? "",recipientDeviceId: recipientDeviceId)
     }
 
     
@@ -178,7 +179,7 @@ public class NeedleTailMessenger: CypherServerTransportClient {
 }
 
 public enum RegistrationType {
-    case siwa(String), plain
+    case siwa(String), plain(String)
 }
 
 public enum RegistrationState {
@@ -214,10 +215,6 @@ extension NeedleTailMessenger {
     
     public struct SetToken: Codable {
         let token: String
-    }
-    
-    public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-        self.delegate = delegate
     }
     
     @BlobActor
@@ -426,7 +423,7 @@ extension Array {
     internal init() {}
 }
 
-//@NeedleTailClientActor
+//@KeyBundleMechanismActor
 final class TransportStore {
     var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none

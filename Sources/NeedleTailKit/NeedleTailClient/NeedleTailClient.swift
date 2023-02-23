@@ -1,4 +1,3 @@
-import NIO
 import Logging
 import NeedleTailHelpers
 import CypherMessaging
@@ -7,61 +6,58 @@ import NeedleTailProtocol
 import NIOTransportServices
 #endif
 
-//@NeedleTailClientActor
-final class NeedleTailClient {
-    
-    public var clientContext: ClientContext
-    public let clientInfo: ClientContext.ServerClientInfo
-    var eventLoop: EventLoop?
+
+struct NTKClientBundle: Sendable {
     var cypher: CypherMessenger?
     var messenger: NeedleTailMessenger
-    let groupManager: EventLoopGroupManager
     let signer: TransportCreationRequest?
-    var transportState: TransportState
-    var userInfo: IRCUserInfo?
-    var userMode = IRCUserMode()
+}
+
+@NeedleTailClientActor
+final class NeedleTailClient {
+
+    let logger = Logger(label: "Client")
+    let ntkBundle: NTKClientBundle
+    let groupManager: EventLoopGroupManager
+    let transportState: TransportState
+    let clientContext: ClientContext
+    let clientInfo: ClientContext.ServerClientInfo
+    let ntkUser: NTKUser
     @NeedleTailTransportActor
     var transport: NeedleTailTransport?
-    var store: TransportStore?
     @KeyBundleMechanismActor
     var mechanism: KeyBundleMechanism?
-    let logger = Logger(label: "Client")
-    var transportDelegate: CypherTransportClientDelegate?
-    
-    //NEW
-    var username: Username
-    var deviceId: DeviceId
-    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
-    
-    
-    func handleStream(_ stream:  NIOInboundChannelStream<ByteBuffer>) {
-        Task {
-            await handleChildChannel(stream, mechanism: await self.mechanism!, transport: await self.transport!, store: self.store!)
-        }
-    }
+    var store: TransportStore?
+    var childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     var registrationState: RegistrationState = .full
-    weak var mtDelegate: MessengerTransportBridge?
+    @NeedleTailTransportActor
+    func setDelegates(_
+                      delegate: CypherTransportClientDelegate,
+                      mtDelegate: MessengerTransportBridge?,
+                      plugin: NeedleTailPlugin,
+                      emitter: NeedleTailEmitter
+    ) async {
+        var mtDelegate = mtDelegate
+        mtDelegate = transport
+        mtDelegate?.ctcDelegate = delegate
+        mtDelegate?.ctDelegate = self
+        mtDelegate?.emitter = plugin.emitter
+        mtDelegate?.plugin = plugin
+    }
     
     init(
-        cypher: CypherMessenger?,
-        messenger: NeedleTailMessenger,
+        ntkBundle: NTKClientBundle,
         transportState: TransportState,
-        transportDelegate: CypherTransportClientDelegate?,
-        signer: TransportCreationRequest?,
         clientContext: ClientContext,
-        username: Username,
-        deviceId: DeviceId
+        ntkUser: NTKUser
     ) {
-        self.cypher = cypher
-        self.messenger = messenger
+        self.ntkBundle = ntkBundle
         self.clientContext = clientContext
         self.clientInfo = clientContext.clientInfo
-        self.signer = signer
+        self.ntkUser = ntkUser
         self.transportState = transportState
-        self.transportDelegate = transportDelegate
-        self.username = username
-        self.deviceId = deviceId
-        let group: EventLoopGroup?
+
+        var group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
             group = NIOTSEventLoopGroup()
@@ -72,14 +68,8 @@ final class NeedleTailClient {
 #else
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 #endif
-        self.eventLoop = group!.next()
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
         self.groupManager = EventLoopGroupManager(provider: provider)
-    }
-    
-    func removeReferences() async {
-            eventLoop = nil
-            cypher = nil
     }
     
     deinit {}

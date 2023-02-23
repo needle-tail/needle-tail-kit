@@ -1,6 +1,6 @@
 //
 //  ConversationSequence.swift
-//  
+//
 //
 //  Created by Cole M on 4/11/22.
 //
@@ -8,7 +8,6 @@
 import CypherMessaging
 import MessagingHelpers
 import NeedleTailHelpers
-import NeedleTailProtocol
 
 public struct ConversationSequence: AsyncSequence {
     public typealias Element = SequenceResult

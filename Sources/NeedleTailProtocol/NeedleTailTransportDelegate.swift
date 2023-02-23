@@ -1,31 +1,26 @@
 import CypherMessaging
 import NeedleTailHelpers
-import NIOCore
 
-public protocol NeedleTailTransportDelegate: AnyObject {
-    
-//    @NeedleTailTransportActor
+@NeedleTailClientActor
+public protocol NeedleTailClientDelegate: AnyObject {
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
-    @NeedleTailTransportActor
+}
+@NeedleTailTransportActor
+public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
     var origin: String? { get }
-    @NeedleTailTransportActor
     var target: String { get }
-    @NeedleTailTransportActor
     var tags: [IRCTags]? { get }
     
-//    @NeedleTailClientActor
     func clientMessage(_
                        command: IRCCommand,
                        tags: [IRCTags]?
     ) async throws
     
-    @NeedleTailTransportActor
     func transportMessage(_
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
 
-    @BlobActor
     func blobMessage(_
                      command: IRCCommand,
                      tags: [IRCTags]?
@@ -35,28 +30,18 @@ public protocol NeedleTailTransportDelegate: AnyObject {
 
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
+    
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         //THIS IS ANNOYING BUT WORKS
         try await RunLoop.run(5, sleep: 1, stopRunning: {
             var canRun = true
-            if self.channel.channel.isActive  {
+            if await self.channel.channel.isActive  {
                 canRun = false
             }
             return canRun
         })
-        let encodedBuffer = await NeedleTailEncoder.encode(value: message)
-        var newBuffer = encodedBuffer
-        _ = try await withCheckedThrowingContinuation { continuation in
-            do {
-                let length = try newBuffer.writeLengthPrefixed(as: Int.self) { buffer in
-                    buffer.writeBytes(encodedBuffer.readableBytesView)
-                }
-                continuation.resume(returning: length)
-            } catch {
-                continuation.resume(throwing: error)
-            }
-        }
-        try await channel.writeAndFlush(newBuffer)
+        let buffer = await NeedleTailEncoder.encode(value: message)
+        try await channel.writeAndFlush(buffer)
     }
 }
 
@@ -70,7 +55,7 @@ extension NeedleTailTransportDelegate {
                               command: IRCCommand,
                               tags: [IRCTags]? = nil
     ) async throws {
-        let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
+        let message = IRCMessage(origin: self.origin, command: command, tags: tags)
         try await sendAndFlushMessage(message)
     }
     
@@ -88,7 +73,7 @@ extension NeedleTailTransportDelegate {
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = try await lines.asyncMap {
-                   let message = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                   let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(message)
                 }
                 
@@ -96,7 +81,7 @@ extension NeedleTailTransportDelegate {
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = try await lines.asyncMap {
-                    let message = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                    let message = IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(message)
                 }
             default:
@@ -115,7 +100,6 @@ extension NeedleTailTransportDelegate {
 }
 
 //MARK: Server Side
-@NeedleTailTransportActor
 extension NeedleTailTransportDelegate {
     
     public func sendError(

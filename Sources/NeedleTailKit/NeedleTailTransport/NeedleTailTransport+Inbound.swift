@@ -1,13 +1,11 @@
 //
 //  IRCClient+Inbound.swift
-//  
+//
 //
 //  Created by Cole M on 4/29/22.
 //
 
-import Foundation
 import CypherMessaging
-import BSON
 import NeedleTailHelpers
 import NeedleTailProtocol
 #if os(macOS)
@@ -54,10 +52,9 @@ extension NeedleTailTransport {
 #endif
     }
     
-//    @NeedleTailClientActor
     func addMasterDevicesContacts(_ contactList: [NTKContact]) async throws {
         for contact in contactList {
-            let createdContact = try await cypher?.createContact(byUsername: contact.username)
+            let createdContact = try await ntkBundle.cypher?.createContact(byUsername: contact.username)
             try await createdContact?.setNickname(to: contact.nickname)
         }
     }
@@ -94,7 +91,6 @@ extension NeedleTailTransport {
         tags: [IRCTags]?,
         onlineStatus: OnlineStatus
     ) async throws {
-        
         guard let data = Data(base64Encoded: message) else { return }
         let buffer = ByteBuffer(data: data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
@@ -111,7 +107,12 @@ extension NeedleTailTransport {
                     break
                 case .message:
                     // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
-                    try await processMessage(packet, sender: sender, recipient: recipient, messageType: .message)
+                    try await processMessage(
+                        packet,
+                        sender: sender,
+                        recipient: recipient,
+                        messageType: .message
+                    )
                 case .multiRecipientMessage:
                     break
                 case .readReceipt:
@@ -122,7 +123,7 @@ extension NeedleTailTransport {
                         try await ctcDelegate?.receiveServerEvent(
                             .messageDisplayed(
                                 by: receipt.sender,
-                                deviceId: receipt.senderDevice.device,
+                                deviceId: receipt.senderDevice.deviceId,
                                 id: receipt.messageId,
                                 receivedAt: receipt.receivedAt
                             )
@@ -131,7 +132,7 @@ extension NeedleTailTransport {
                         try await ctcDelegate?.receiveServerEvent(
                             .messageReceived(
                                 by: receipt.sender,
-                                deviceId: receipt.senderDevice.device,
+                                deviceId: receipt.senderDevice.deviceId,
                                 id: receipt.messageId,
                                 receivedAt: receipt.receivedAt
                             )
@@ -146,10 +147,10 @@ extension NeedleTailTransport {
                     
                     if store.acknowledgment == .registered("true") {
                         switch transportState.current {
-                        case .transportRegistering(channel: let channel, nick: let nick, userInfo: let user):
-                            let type = TransportMessageType.standard(.USER(user))
+                        case .transportRegistering(channel: let channel, clientContext: let clientContext):
+                            let type = TransportMessageType.standard(.USER(clientContext.userInfo))
                             try await transportMessage(type)
-                            await transportState.transition(to: .transportOnline(channel: channel, nick: nick, userInfo: user))
+                            await transportState.transition(to: .transportOnline(channel: channel, clientContext: clientContext))
                         default:
                             return
                         }
@@ -311,9 +312,9 @@ extension NeedleTailTransport {
             break
         case .clientConnected:
             break
-        case .transportRegistering(channel: _, nick: _, userInfo: _):
+        case .transportRegistering(channel: _, clientContext: _):
             break
-        case .transportOnline(channel: _, nick: _, userInfo: _):
+        case .transportOnline(channel: _, clientContext: _):
             break
         case .transportDeregistering:
             break

@@ -1,11 +1,9 @@
 //
 //  Constants.swift
-//  
+//
 //
 //  Created by Cole M on 10/15/22.
 //
-
-import Foundation
 
 
 public struct Constants {

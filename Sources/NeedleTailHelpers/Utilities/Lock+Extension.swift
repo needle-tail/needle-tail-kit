@@ -1,6 +1,6 @@
 //
 //  Lock+Extension.swift
-//  
+//
 //
 //  Created by Cole M on 7/7/22.
 //

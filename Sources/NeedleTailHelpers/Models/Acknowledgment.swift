@@ -1,12 +1,9 @@
 //
 //  Acknowledgment.swift
-//  
+//
 //
 //  Created by Cole M on 3/23/22.
 //
-
-import Foundation
-import BSON
 
 public struct Acknowledgment: Codable, Sendable {
     

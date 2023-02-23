@@ -1,11 +1,10 @@
 //
 //  Actors.swift
-//  
+//
 //
 //  Created by Cole M on 5/1/22.
 //
 
-import Foundation
 
 @globalActor public final actor ParsingActor {
     public static let shared = ParsingActor()

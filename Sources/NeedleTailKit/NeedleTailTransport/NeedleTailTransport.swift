@@ -1,24 +1,19 @@
 //
 //  NeedleTailTransportClient+IRCDispatcher.swift
-//  
+//
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import NIOCore
-import BSON
 import NeedleTailHelpers
 import NeedleTailProtocol
-import Foundation
 import Logging
 import CypherMessaging
-#if canImport(Combine)
-import Combine
-#endif
 
 @NeedleTailTransportActor
 protocol MessengerTransportBridge: AnyObject {
     var ctcDelegate: CypherTransportClientDelegate? { get set }
+    var ctDelegate: ClientTransportDelegate? { get set }
     var plugin: NeedleTailPlugin? { get set }
     var emitter: NeedleTailEmitter? { get set }
 }
@@ -31,11 +26,7 @@ protocol ClientTransportDelegate: AnyObject {
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
     
-   var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
-   var plugin: NeedleTailPlugin?
-   var emitter: NeedleTailEmitter?
-
-//    @NeedleTailTransportActor
+    var userMode = IRCUserMode()
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
@@ -49,49 +40,43 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var cypher: CypherMessenger?
-
+    var ntkBundle: NTKClientBundle
+    
     var tags: [IRCTags]?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var proceedNewDeivce = false
-    var userMode: IRCUserMode
     var alertType: AlertType = .registryRequestRejected
     var userInfo: IRCUserInfo?
     var transportState: TransportState
     var registryRequestId = ""
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     var channelBlob: String?
-    let signer: TransportCreationRequest?
     let clientContext: ClientContext
     let clientInfo: ClientContext.ServerClientInfo
     let store: TransportStore
     weak var delegate: IRCDispatcher?
+    weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
     weak var ctDelegate: ClientTransportDelegate?
+    var plugin: NeedleTailPlugin?
+    var emitter: NeedleTailEmitter?
     
     init(
-        cypher: CypherMessenger? = nil,
+        ntkBundle: NTKClientBundle,
         channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
-        userMode: IRCUserMode,
         transportState: TransportState,
-        signer: TransportCreationRequest?,
         clientContext: ClientContext,
-        clientInfo: ClientContext.ServerClientInfo,
-        store: TransportStore,
-        ctDelegate: ClientTransportDelegate
+        store: TransportStore
     ) {
+        self.ntkBundle = ntkBundle
         self.store = store
-        self.cypher = cypher
         self.channel = channel
         self.messageOfTheDay = messageOfTheDay
-        self.userMode = userMode
         self.transportState = transportState
-        self.signer = signer
         self.clientContext = clientContext
-        self.clientInfo = clientInfo
+        self.clientInfo = clientContext.clientInfo
         self.delegate = self
-        self.ctDelegate = ctDelegate
     }
     
     deinit{}
@@ -107,7 +92,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             let userId = try BSONDecoder().decode(IRCUserID.self, from: Document(buffer: buffer))
             sender = userId
         }
-
+        
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
@@ -150,8 +135,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-//        case .otherCommand("READKEYBNDL", let keyBundle):
-//            try await delegate?.doReadKeyBundle(keyBundle)
+            //        case .otherCommand("READKEYBNDL", let keyBundle):
+            //            try await delegate?.doReadKeyBundle(keyBundle)
         case .otherCommand("BLOBS", let blob):
             try await delegate?.doBlobs(blob)
         case .numeric(.replyMotDStart, let args):

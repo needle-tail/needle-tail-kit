@@ -21,6 +21,7 @@ public enum NeedleTailError: String, Error {
     case masterDeviceReject = "The Master Device rejected the request to add a new device"
     case registrationFailure
     case storeNotIntitialized = "You must initialize a store"
+    case mechanisimNotIntitialized = "You must initialize a mechanism"
     case clientInfotNotIntitialized = "You must initialize client info"
     case messageReceivedError
     case senderNil
@@ -38,4 +39,5 @@ public enum NeedleTailError: String, Error {
     case usernameNil
     case bridgeDelegateNotSet
     case cypherMessengerNotSet
+    case couldNotCreateHandlers
 }
