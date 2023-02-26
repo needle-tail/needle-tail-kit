@@ -29,7 +29,7 @@ public final class NeedleTail {
     public typealias NTPrivateChat = PrivateChat
     public var messenger: NeedleTailMessenger?
     public var cypher: CypherMessenger?
-    public var emitter: NeedleTailEmitter?
+    var needletailStore = NeedleTailStore()
     public var state = NetworkMonitor()
     public static let shared = NeedleTail()
     public var messageType: MessageType = .message {
@@ -40,7 +40,7 @@ public final class NeedleTail {
 //    @NeedleTailClientActor
     var registrationApproved = false
     var registeringNewDevice = false
-    var needleTailViewModel = NeedleTailViewModel()
+//    var needleTailViewModel = NeedleTailViewModel()
     var plugin: NeedleTailPlugin?
 //    @NeedleTailClientActor
     private var resumeQueue = NeedleTailStack<Int>()
@@ -51,9 +51,6 @@ public final class NeedleTail {
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
     
-    init() {
-        self.emitter = NeedleTailEmitter(sortChats: sortConversations)
-    }
 
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
@@ -79,16 +76,17 @@ public final class NeedleTail {
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler? = nil,
-        withChildDevice: Bool = false
+        withChildDevice: Bool = false,
+        needletailStore: NeedleTailStore
     ) async throws -> CypherMessenger? {
         self.store = store
-        guard let emitter = emitter else { return nil }
-        plugin = NeedleTailPlugin(emitter: emitter)
+        plugin = NeedleTailPlugin(store: needletailStore)
         guard let plugin = plugin else { return nil }
         
         let messenger = try await createMessenger(
             clientInfo: clientInfo,
             plugin: plugin,
+            needletailStore: needletailStore,
             nameToVerify: username
         )
         do {
@@ -125,12 +123,13 @@ public final class NeedleTail {
                 clientInfo: clientInfo,
                 p2pFactories: p2pFactories,
                 eventHandler: eventHandler,
-                addChildDevice: withChildDevice
+                addChildDevice: withChildDevice,
+                needletailStore: needletailStore
             )
-            self.cypher = cypher
-            messenger.cypher = cypher
-            NeedleTail.shared.emitter = plugin.emitter
-            NeedleTail.shared.needleTailViewModel.emitter = NeedleTail.shared.emitter
+            await MainActor.run {
+                needletailStore.emitter?.cypher = cypher
+                needletailStore.emitter?.needleTailNick = messenger.needleTailNick
+            }
             return cypher
         } catch let nterror as NeedleTailError {
             switch nterror {
@@ -145,12 +144,14 @@ public final class NeedleTail {
                         store: store,
                         clientInfo: clientInfo,
                         p2pFactories: p2pFactories,
-                        eventHandler: eventHandler
+                        eventHandler: eventHandler,
+                        needletailStore: needletailStore
                     )
                     await dismissUI(plugin)
-                    self.cypher = cypher
-                    messenger.cypher = cypher
-                    emitter.needleTailNick = messenger.needleTailNick
+                    await MainActor.run {
+                        needletailStore.emitter?.cypher = cypher
+                        needletailStore.emitter?.needleTailNick = messenger.needleTailNick
+                    }
                 } catch {
                     print("ERROR REGISTERING", error)
                 }
@@ -166,16 +167,16 @@ public final class NeedleTail {
     
     @MainActor
     private func displayScanner() {
-        emitter?.showScanner = true
+        needletailStore.emitter?.showScanner = true
     }
     
     @MainActor
     private func dismissUI(_ plugin: NeedleTailPlugin) {
-        emitter = plugin.emitter
-        needleTailViewModel.emitter = NeedleTail.shared.emitter
+//        emitter = plugin.emitter
+//        needleTailViewModel.emitter = NeedleTail.shared.emitter
 #if (os(macOS) || os(iOS))
-        emitter?.dismiss = true
-        emitter?.showProgress = false
+        needletailStore.emitter?.dismiss = true
+        needletailStore.emitter?.showProgress = false
 #endif
     }
     
@@ -188,12 +189,12 @@ public final class NeedleTail {
         clientInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler? = nil,
-        addChildDevice: Bool = false
+        addChildDevice: Bool = false,
+        needletailStore: NeedleTailStore
     ) async throws -> CypherMessenger? {
         if cypher == nil {
             //Create plugin here
-            guard let emitter = emitter else { return nil }
-            plugin = NeedleTailPlugin(emitter: emitter)
+            plugin = NeedleTailPlugin(store: needletailStore)
             guard let plugin = plugin else { return nil }
             cypher = try await CypherMessenger.registerMessenger(
                 username: Username(username),
@@ -202,6 +203,7 @@ public final class NeedleTail {
                         return try await self.createMessenger(
                             clientInfo: clientInfo,
                             plugin: plugin,
+                            needletailStore: needletailStore,
                             transportRequest: transportRequest,
                             addChildDevice: addChildDevice
                         )
@@ -218,6 +220,7 @@ public final class NeedleTail {
     private func createMessenger(
         clientInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
+        needletailStore: NeedleTailStore,
         transportRequest: TransportCreationRequest? = nil,
         nameToVerify: String = "",
         addChildDevice: Bool = false
@@ -227,6 +230,7 @@ public final class NeedleTail {
             self.messenger = try await NeedleTailMessenger.authenticate(
                 transportRequest: transportRequest,
                 clientInfo: clientInfo,
+                needletailStore: needletailStore,
                 plugin: plugin
             )
         }
@@ -260,11 +264,11 @@ public final class NeedleTail {
         store: CypherMessengerStore,
         clientInfo: ClientContext.ServerClientInfo,
         eventHandler: PluginEventHandler? = nil,
-        p2pFactories: [P2PTransportClientFactory]
+        p2pFactories: [P2PTransportClientFactory],
+        needletailStore: NeedleTailStore
     ) async throws -> CypherMessenger? {
         //Create plugin here
-        guard let emitter = emitter else { return nil }
-        plugin = NeedleTailPlugin(emitter: emitter)
+        plugin = NeedleTailPlugin(store: needletailStore)
         guard let plugin = plugin else { return nil }
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: clientInfo.password,
@@ -272,6 +276,7 @@ public final class NeedleTail {
                 return try await self.createMessenger(
                     clientInfo: clientInfo,
                     plugin: plugin,
+                    needletailStore: needletailStore,
                     transportRequest: transportRequest
                 )
             },
@@ -280,8 +285,9 @@ public final class NeedleTail {
             eventHandler: eventHandler ?? makeEventHandler(plugin)
         )
         
-        messenger?.cypher = self.cypher
-        emitter.needleTailNick = messenger?.needleTailNick
+        await MainActor.run {
+            needletailStore.emitter?.needleTailNick = messenger?.needleTailNick
+        }
         return self.cypher
     }
     
@@ -413,17 +419,41 @@ public final class NeedleTail {
     }
 }
 
-public class NeedleTailViewModel: ObservableObject {
+public class NeedleTailStore: ObservableObject {
     @Published public var emitter: NeedleTailEmitter?
-    @Published public var cypher: CypherMessenger?
     public init() {}
 }
 
 //SwiftUI Stuff
-extension NeedleTail: ObservableObject {
+extension NeedleTail {
+    
+    public struct SkeletonView: View {
+        
+        @StateObject public var emitter = NeedleTailEmitter(sortChats: sortConversations)
+        public var view: AnyView
+        
+        public init(
+            _ view: AnyView
+        ) {
+            self.view = view
+        }
+        
+        public var body: some View {
+            AsyncView(run: { () async throws -> NeedleTailEmitter in
+                let vm = NeedleTail.shared.needletailStore
+                vm.emitter = self.emitter
+                return vm.emitter!
+            }) { emitter in
+                view
+                    .environmentObject(emitter)
+            }
+        }
+    }
     
     public struct SpoolView: View {
         
+
+        @EnvironmentObject public var emitter: NeedleTailEmitter        
         @Environment(\.scenePhase) var scenePhase
         public var store: CypherMessengerStore
         public var clientInfo: ClientContext.ServerClientInfo
@@ -446,23 +476,22 @@ extension NeedleTail: ObservableObject {
         }
         
         public var body: some View {
-            AsyncView(run: { () async throws -> (CypherMessenger?, NeedleTailEmitter?) in
-                let needleTailViewModel = NeedleTail.shared.needleTailViewModel
-                if needleTailViewModel.cypher == nil && needleTailViewModel.emitter == nil {
-                    needleTailViewModel.cypher = try await NeedleTail.shared.spoolService(
+            AsyncView(run: { () async throws -> NeedleTailEmitter in
+                let needletailStore = NeedleTail.shared.needletailStore
+                needletailStore.emitter = self.emitter
+                if needletailStore.emitter?.cypher == nil {
+                    needletailStore.emitter?.cypher = try await NeedleTail.shared.spoolService(
                         appleToken: "",
                         store: store,
                         clientInfo: clientInfo,
-                        p2pFactories: makeP2PFactories()
+                        p2pFactories: makeP2PFactories(),
+                        needletailStore: needletailStore
                     )
-                    needleTailViewModel.emitter = NeedleTail.shared.emitter
                 }
-                return (needleTailViewModel.cypher,  needleTailViewModel.emitter)
-            }) { (cypher, emitter) in
+                return needletailStore.emitter!
+            }) { emitter in
                 view
-                    .environment(\._emitter, emitter)
-                    .environment(\._messenger, cypher)
-                
+//                    .environmentObject(emitter)
             }
         }
     }
@@ -526,7 +555,7 @@ extension NeedleTail: ObservableObject {
 #if os(iOS)
                 UIApplication.shared.endEditing()
 #endif
-//                showProgress = true
+                NeedleTail.shared.needletailStore.emitter?.showProgress = true
                 self.buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
@@ -545,16 +574,17 @@ extension NeedleTail: ObservableObject {
                         )
                     } else {
                         do {
-                            let needleTailViewModel = NeedleTail.shared.needleTailViewModel
+                            let needletail = NeedleTail.shared
                             guard let store = store else { throw NeedleTailError.storeNotIntitialized }
                             guard let clientInfo = clientInfo else { throw NeedleTailError.clientInfotNotIntitialized }
-                            needleTailViewModel.cypher = try await NeedleTail.shared.onBoardAccount(
+                            needletail.needletailStore.emitter?.cypher = try await NeedleTail.shared.onBoardAccount(
                                 appleToken: "",
                                 username: username.raw,
                                 store: store,
                                 clientInfo: clientInfo,
                                 p2pFactories: makeP2PFactories(),
-                                eventHandler: nil
+                                eventHandler: nil,
+                                needletailStore: NeedleTail.shared.needletailStore
                             )
                         } catch let error as NeedleTailError {
                             if error == .masterDeviceReject {
@@ -610,62 +640,12 @@ public struct AsyncView<T, V: View>: View {
                         }
                     }
             }
-        }.id(result.debugDescription)
+        }
+        .id(result.debugDescription)
     }
 }
 
-
-extension EnvironmentValues {
-    
-    private struct CypherMessengerKey: EnvironmentKey {
-        typealias Value = CypherMessenger?
-        
-        static let defaultValue: CypherMessenger? = nil
-    }
-    
-    public var _messenger: CypherMessenger? {
-        get {
-            self[CypherMessengerKey.self]
-        }
-        set {
-            self[CypherMessengerKey.self] = newValue
-        }
-    }
-    
-    public var cypher: CypherMessenger {
-        get {
-            self[CypherMessengerKey.self]!
-        }
-        set {
-            self[CypherMessengerKey.self] = newValue
-        }
-    }
-    
-    private struct EventEmitterKey2: EnvironmentKey {
-        typealias Value = NeedleTailEmitter?
-        static let defaultValue: NeedleTailEmitter? = nil
-    }
-    
-    public var _emitter: NeedleTailEmitter? {
-        get {
-            self[EventEmitterKey2.self]
-        }
-        set {
-            self[EventEmitterKey2.self] = newValue
-        }
-    }
-    
-    public var emitter: NeedleTailEmitter {
-        get {
-            self[EventEmitterKey2.self]!
-        }
-        set {
-            self[EventEmitterKey2.self] = newValue
-        }
-    }
-}
-
-@MainActor func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
+@MainActor public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
 //    let task = Task { @Sendable @MainActor in
         
 //        switch (lhs.isPinned, rhs.isPinned) {

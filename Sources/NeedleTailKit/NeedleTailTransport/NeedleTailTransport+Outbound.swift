@@ -10,7 +10,7 @@ import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
 
-
+@NeedleTailTransportActor
 extension NeedleTailTransport {
     
     /// This is where we register the transport session

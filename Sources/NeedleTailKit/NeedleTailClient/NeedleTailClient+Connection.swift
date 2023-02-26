@@ -15,7 +15,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     func attemptConnection() async throws {
         switch await transportState.current {
-        case .clientOffline:
+        case .clientOffline, .transportOffline:
             await transportState.transition(to: .clientConnecting)
             do {
                 let childChannel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
@@ -71,9 +71,9 @@ extension NeedleTailClient: ClientTransportDelegate {
                         LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
                         ByteToMessageHandler(
                             LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
-                            maximumBufferSize: 2000
+                            maximumBufferSize: 16777216
                         ),
-                    ], position: .first)
+                    ], position: .first).get()
                 }
                 taskGroup.addTask {
                     Task.detached { [weak self] in
@@ -85,7 +85,6 @@ extension NeedleTailClient: ClientTransportDelegate {
                     }
                 }
             })
-        print(childChannel.channel.pipeline)
         await setChildChannel(childChannel)
       
     }
@@ -113,7 +112,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                 
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
-                    self.logger.info("Message Parsed \(parsedMessage)")
+                    self.logger.trace("Message Parsed \(parsedMessage)")
                     try await mechanism.processKeyBundle(parsedMessage)
                     try await transport.processReceivedMessages(parsedMessage)
                 }
@@ -127,13 +126,6 @@ extension NeedleTailClient: ClientTransportDelegate {
         return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-//            .channelInitializer { channel in
-//                channel.pipeline.addHandlers([
-//                    LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
-//                    ByteToMessageHandler(LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
-//                                         maximumBufferSize: 1000)
-//                ], position: .first)
-//            }
     }
     
     func createHandlers(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws -> (KeyBundleMechanism, NeedleTailTransport, TransportStore) {
@@ -175,17 +167,16 @@ extension NeedleTailClient: ClientTransportDelegate {
             guard let channel = childChannel?.channel else { throw NeedleTailError.channelIsNil }
             _ = try await channel.close(mode: .all).get()
             try await groupManager.shutdown()
-            await transportState.transition(to: .clientOffline)
             //            isConnected = false
-            logger.info("disconnected from server")
-            await transportState.transition(to: .transportOffline)
             ntkBundle.messenger.authenticated = .unauthenticated
+            await transportState.transition(to: .clientOffline)
         } catch {
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
         }
     }
     
+    /// We send the disconnect message and wait for the ACK before shutting down the connection to the server
     func attemptDisconnect(_ isSuspending: Bool) async throws {
         if isSuspending {
             await transportState.transition(to: .transportDeregistering)

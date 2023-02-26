@@ -64,7 +64,7 @@ extension KeyBundleMechanisimDelegate {
             }
             return canRun
         })
-        var buffer = await NeedleTailEncoder.encode(value: message)
+        let buffer = await NeedleTailEncoder.encode(value: message)
         try await channel.writeAndFlush(buffer)
     }
 }

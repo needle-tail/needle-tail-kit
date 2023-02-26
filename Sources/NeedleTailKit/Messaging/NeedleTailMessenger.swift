@@ -34,7 +34,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     private var clientInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     var recipientDeviceId: DeviceId?
-    var cypher: CypherMessenger?
+    var store: NeedleTailStore?
     @MainActor
     var plugin: NeedleTailPlugin
     var logger: Logger
@@ -59,6 +59,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         appleToken: String?,
         transportState: TransportState,
         clientInfo: ClientContext.ServerClientInfo,
+        needletailStore: NeedleTailStore,
         plugin: NeedleTailPlugin
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
@@ -68,6 +69,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         self.deviceId = deviceId
         self.signer = signer
         self.appleToken = appleToken
+        store = needletailStore
         self.plugin = plugin
     }
     
@@ -79,6 +81,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
         clientInfo: ClientContext.ServerClientInfo,
+        needletailStore: NeedleTailStore,
         plugin: NeedleTailPlugin
     ) async throws -> NeedleTailMessenger {
         return try await NeedleTailMessenger(
@@ -88,9 +91,10 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             appleToken: appleToken,
             transportState: TransportState(
                 identifier: UUID(),
-                emitter: plugin.emitter
+                emitter: plugin.store.emitter!
             ),
             clientInfo: clientInfo,
+            needletailStore: needletailStore,
             plugin: plugin
         )
     }
@@ -114,7 +118,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         guard let name = self.nameToVerify else { throw NeedleTailError.nilNickName }
         self.needleTailNick = NeedleTailNick(name: name, deviceId: deviceId)
         guard let nick = self.needleTailNick else { throw NeedleTailError.nilNickName }
-        
+
         let clientContext = ClientContext(
             clientInfo: self.clientInfo,
             nickname: nick
@@ -123,7 +127,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         let username = Username(name)
         let client = await NeedleTailClient(
             ntkBundle: NTKClientBundle(
-                cypher: cypher,
+                cypher: store?.emitter?.cypher,
                 messenger: self,
                 signer: signer
             ),
@@ -137,7 +141,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         
         self.transportBridge = client
         try await transportBridge?.connectClient()
-        try await transportBridge?.resumeClient(type: appleToken != nil ? .siwa(appleToken!) : .plain(name), state: registrationState)
+        try await transportBridge?.resumeClient(type: appleToken != "" ? .siwa(appleToken!) : .plain(name), state: registrationState)
         self.client = client
     }
     
@@ -149,11 +153,12 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     
     @NeedleTailClientActor
     private func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
+        guard let emitter = await plugin.store.emitter else { return }
         await client?.setDelegates(
             delegate,
             mtDelegate: mtDelegate,
             plugin: plugin,
-            emitter: plugin.emitter
+            emitter: emitter
         )
     }
 
@@ -206,10 +211,11 @@ extension NeedleTailMessenger {
     @MainActor
     func updateEmitter(_ data: Data?) {
 #if (os(macOS) || os(iOS))
-        plugin.emitter.showScanner = true
+        guard let emitter = plugin.store.emitter else { return }
+        emitter.showScanner = true
         /// Send **User Config** data to generate a QRCode in the **Child Device**
-        plugin.emitter.requestMessageId = nil
-        plugin.emitter.qrCodeData = data
+        emitter.requestMessageId = nil
+        emitter.qrCodeData = data
 #endif
     }
     
@@ -263,7 +269,7 @@ extension NeedleTailMessenger {
         )
         
         
-        guard let cypher = cypher else { return }
+        guard let cypher = store?.emitter?.cypher else { return }
         let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
         
         //Always remove Admin, CTK will add it layer. We need it pass through though for NTK MetaData
@@ -308,8 +314,9 @@ extension NeedleTailMessenger {
     @NeedleTailTransportActor
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
 #if (os(macOS) || os(iOS))
-        _ = await plugin.emitter.fetchChats(cypher: cypher)
-        let groupChats = try await plugin.emitter.fetchGroupChats(cypher)
+        guard let emitter = await plugin.store.emitter else { return .none }
+        _ = await emitter.fetchChats(cypher: cypher)
+        let groupChats = try await emitter.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in
             let metaDoc = await chat.conversation.metadata
             let meta = try BSONDecoder().decode(GroupMetadata.self, from: metaDoc)

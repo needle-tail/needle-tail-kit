@@ -41,7 +41,7 @@ final class NeedleTailClient {
         mtDelegate = transport
         mtDelegate?.ctcDelegate = delegate
         mtDelegate?.ctDelegate = self
-        mtDelegate?.emitter = plugin.emitter
+        mtDelegate?.emitter = plugin.store.emitter
         mtDelegate?.plugin = plugin
     }
     

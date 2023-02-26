@@ -156,6 +156,7 @@ extension NeedleTailTransport {
                         }
                     } else if store.acknowledgment == .quited {
                         await ctDelegate?.shutdown()
+                        await transportState.transition(to: .transportOffline)
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif

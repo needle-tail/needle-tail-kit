@@ -173,7 +173,7 @@ extension NeedleTailClient: TransportBridge {
             try await RunLoop.run(240, sleep: 1) { @MainActor [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
-                if strongSelf.ntkBundle.messenger.plugin.emitter.qrCodeData == nil {
+                if strongSelf.ntkBundle.messenger.plugin.store.emitter?.qrCodeData == nil {
                     running = false
                 }
                 return running
@@ -213,7 +213,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     
-    func suspendClient(_ isSuspending: Bool = false) async {
+    func suspendClient(_ isSuspending: Bool = false) async throws {
         do {
             try await attemptDisconnect(isSuspending)
         } catch {
