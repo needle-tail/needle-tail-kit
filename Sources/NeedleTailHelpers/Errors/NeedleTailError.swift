@@ -40,4 +40,5 @@ public enum NeedleTailError: String, Error {
     case bridgeDelegateNotSet
     case cypherMessengerNotSet
     case couldNotCreateHandlers
+    case emitterIsNil
 }

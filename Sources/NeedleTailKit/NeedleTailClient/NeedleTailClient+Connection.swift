@@ -19,8 +19,8 @@ extension NeedleTailClient: ClientTransportDelegate {
             await transportState.transition(to: .clientConnecting)
             do {
                 let childChannel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
-                    try await addChildHandle(childChannel)
-                    await transportState.transition(to: .clientConnected)
+                try await addChildHandle(childChannel)
+                await transportState.transition(to: .clientConnected)
             } catch {
                 logger.error("Could not start client: \(error)")
                 await transportState.transition(to: .clientOffline)
@@ -65,33 +65,33 @@ extension NeedleTailClient: ClientTransportDelegate {
             }
             return try await taskGroup.next()
         }
-            await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
-                taskGroup.addTask {
-                    Task.detached { [weak self] in
-                        
-                        guard let strongSelf = self else { return }
-                        try await childChannel.channel.pipeline.addHandlers([
-                                               LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
-                                               ByteToMessageHandler(
-                                                   LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
-                                                   maximumBufferSize: 16777216
-                                               ),
-                                           ], position: .first).get()
-                        
-                        let mechanism = try await strongSelf.setMechanisim(handlers?.0)
-                        let transport = try await strongSelf.setTransport(handlers?.1)
-                        let store = try await strongSelf.setStore(handlers?.2)
-                        await strongSelf.handleChildChannel(childChannel.inboundStream, mechanism: mechanism, transport: transport, store: store)
-                    }
+        await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
+            taskGroup.addTask {
+                Task.detached { [weak self] in
+                    
+                    guard let strongSelf = self else { return }
+                    try await childChannel.channel.pipeline.addHandlers([
+                        LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
+                        ByteToMessageHandler(
+                            LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
+                            maximumBufferSize: 16777216
+                        ),
+                    ], position: .first).get()
+                    
+                    let mechanism = try await strongSelf.setMechanisim(handlers?.0)
+                    let transport = try await strongSelf.setTransport(handlers?.1)
+                    let store = try await strongSelf.setStore(handlers?.2)
+                    await strongSelf.handleChildChannel(childChannel.inboundStream, mechanism: mechanism, transport: transport, store: store)
                 }
-            })
+            }
+        })
         await setChildChannel(childChannel)
-      
+        
     }
     
     func setChildChannel(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async {
         self.childChannel = childChannel
-      
+        
     }
     
     func handleChildChannel(_

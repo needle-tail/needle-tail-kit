@@ -48,17 +48,17 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var client: NeedleTailClient? {
         didSet {
             Task {
-            if let delegate = delegate {
+                if let delegate = delegate {
                     await setTransportDelegate(delegate)
                 }
             }
         }
     }
-
+    
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
-
+    
     @NeedleTailTransportActor
     public init(
         username: Username?,
@@ -85,6 +85,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         case clientRegistering, lockState
     }
     
+#if os(macOS) || os(iOS)
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
@@ -92,6 +93,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         needletailStore: NeedleTailStore,
         plugin: NeedleTailPlugin
     ) async throws -> NeedleTailMessenger {
+        guard let emitter = plugin.store.emitter else { throw NeedleTailError.emitterIsNil }
         return try await NeedleTailMessenger(
             username: transportRequest?.username,
             deviceId: transportRequest?.deviceId,
@@ -99,13 +101,14 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             appleToken: appleToken,
             transportState: TransportState(
                 identifier: UUID(),
-                emitter: plugin.store.emitter!
+                emitter: emitter
             ),
             clientInfo: clientInfo,
             needletailStore: needletailStore,
             plugin: plugin
         )
     }
+#endif
     
     func createClient(_ nameToVerify: String? = nil) async throws {
         var deviceId: DeviceId?
@@ -126,12 +129,13 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         guard let name = self.nameToVerify else { throw NeedleTailError.nilNickName }
         self.needleTailNick = NeedleTailNick(name: name, deviceId: deviceId)
         guard let nick = self.needleTailNick else { throw NeedleTailError.nilNickName }
-
+        
         let clientContext = ClientContext(
             clientInfo: self.clientInfo,
             nickname: nick
         )
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
+#if os(macOS) || os(iOS)
         let username = Username(name)
         let client = await NeedleTailClient(
             ntkBundle: NTKClientBundle(
@@ -146,7 +150,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
                 deviceId: deviceId
             )
         )
-        
+#endif
         self.transportBridge = client
         try await transportBridge?.connectClient()
         try await transportBridge?.resumeClient(type: appleToken != "" ? .siwa(appleToken!) : .plain(name), state: registrationState)
@@ -161,6 +165,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     
     @NeedleTailClientActor
     private func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
+#if os(macOS) || os(iOS)
         guard let emitter = await plugin.store.emitter else { return }
         await client?.setDelegates(
             delegate,
@@ -168,13 +173,14 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             plugin: plugin,
             emitter: emitter
         )
+#endif
     }
-
+    
     /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
     public func publishKeyBundle(_ data: UserConfig) async throws {
         try await transportBridge?.publishKeyBundle(data, appleToken: appleToken ?? "", nameToVerify: nameToVerify ?? "",recipientDeviceId: recipientDeviceId)
     }
-
+    
     
     
     /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
@@ -276,9 +282,13 @@ extension NeedleTailMessenger {
             permissions: permissions
         )
         
-        
-        guard let cypher = store?.emitter?.cypher else { return }
+        var cypher: CypherMessenger?
+#if os(macOS) || os(iOS)
+        cypher = store?.emitter?.cypher
+#endif
         let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
+        
+        guard let cypher = cypher else { return }
         
         //Always remove Admin, CTK will add it layer. We need it pass through though for NTK MetaData
         var members = members
@@ -410,7 +420,7 @@ extension DataProtocol {
                 bytes.append(itoh(i & 0xF))
             }
         }
-       
+        
         return String(bytes: bytes, encoding: .utf8)!
     }
 }

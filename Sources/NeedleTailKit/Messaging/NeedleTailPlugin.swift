@@ -90,19 +90,23 @@ public class NeedleTailPlugin: Plugin {
     }
     
     
-        public func onConversationChange(_ viewModel: AnyConversation) {
-            store.emitter?.conversationChanged = viewModel
-//            Task.detached {
-//                let viewModel = await viewModel.resolveTarget()
-//                DispatchQueue.main.async {
-//                    emitter.conversationChanged.send(viewModel)
-//                }
-//            }
-        }
-        public func onCreateConversation(_ viewModel: AnyConversation) {
-//            emitter.conversationAdded.send(viewModel)
-            store.emitter?.conversationAdded = viewModel
-        }
+    public func onConversationChange(_ viewModel: AnyConversation) {
+#if (os(macOS) || os(iOS))
+        store.emitter?.conversationChanged = viewModel
+        //            Task.detached {
+        //                let viewModel = await viewModel.resolveTarget()
+        //                DispatchQueue.main.async {
+        //                    emitter.conversationChanged.send(viewModel)
+        //                }
+        //            }
+#endif
+    }
+    public func onCreateConversation(_ viewModel: AnyConversation) {
+#if (os(macOS) || os(iOS))
+        //            emitter.conversationAdded.send(viewModel)
+        store.emitter?.conversationAdded = viewModel
+#endif
+    }
     
     //
     //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {

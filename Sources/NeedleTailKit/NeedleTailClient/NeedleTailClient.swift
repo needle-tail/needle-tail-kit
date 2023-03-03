@@ -15,7 +15,7 @@ struct NTKClientBundle: Sendable {
 
 @NeedleTailClientActor
 final class NeedleTailClient {
-
+    
     let logger = Logger(label: "Client")
     let ntkBundle: NTKClientBundle
     let groupManager: EventLoopGroupManager
@@ -41,7 +41,9 @@ final class NeedleTailClient {
         mtDelegate = transport
         mtDelegate?.ctcDelegate = delegate
         mtDelegate?.ctDelegate = self
+#if (os(macOS) || os(iOS))
         mtDelegate?.emitter = plugin.store.emitter
+#endif
         mtDelegate?.plugin = plugin
     }
     
@@ -56,7 +58,7 @@ final class NeedleTailClient {
         self.clientInfo = clientContext.clientInfo
         self.ntkUser = ntkUser
         self.transportState = transportState
-
+        
         var group: EventLoopGroup?
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
@@ -73,7 +75,7 @@ final class NeedleTailClient {
     }
     
     deinit {
-//            print("RECLAIMING MEMORY IN CLIENT")
+        //            print("RECLAIMING MEMORY IN CLIENT")
     }
     
     
