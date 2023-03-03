@@ -150,11 +150,12 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
                 deviceId: deviceId
             )
         )
-#endif
+        
         self.transportBridge = client
         try await transportBridge?.connectClient()
         try await transportBridge?.resumeClient(type: appleToken != "" ? .siwa(appleToken!) : .plain(name), state: registrationState)
         self.client = client
+#endif
     }
     
     //MARK: Delegate setters
