@@ -426,17 +426,6 @@ public final class NeedleTail {
 }
 
 
-public class NeedleTailStore {
-#if os(iOS) || os(macOS)
-    @Published public var emitter: NeedleTailEmitter?
-#endif
-    public init() {}
-}
-
-#if os(iOS) || os(macOS)
-extension NeedleTailStore: ObservableObject {}
-#endif
-
 //SwiftUI Stuff
 extension NeedleTail {
     
@@ -695,4 +684,15 @@ public func makeP2PFactories() -> [P2PTransportClientFactory] {
     ]
 }
 
+#endif
+
+public class NeedleTailStore {
+#if os(iOS) || os(macOS)
+    @Published public var emitter: NeedleTailEmitter?
+#endif
+    public init() {}
+}
+
+#if os(iOS) || os(macOS)
+extension NeedleTailStore: ObservableObject {}
 #endif
