@@ -330,7 +330,13 @@ public final class NeedleTail {
                 totalResumeRequests = 0
                 await resumeQueue.drain()
             try await messenger.transportBridge?.suspendClient(isSuspending)
+            await removeTransport(messenger)
+            messenger.client = nil
         }
+    }
+    @NeedleTailClientActor
+    func removeTransport(_ messenger: NeedleTailMessenger) async {
+        await messenger.client?.teardownClient()
     }
     
     public func registerAPN(_ token: Data) async throws {

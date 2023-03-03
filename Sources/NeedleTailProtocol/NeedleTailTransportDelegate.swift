@@ -30,7 +30,7 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
 
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
-    
+    @NeedleTailTransportActor
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         //THIS IS ANNOYING BUT WORKS
         try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in

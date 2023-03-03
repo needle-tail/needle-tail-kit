@@ -39,13 +39,10 @@ extension KeyBundleMechanisimDelegate {
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
-                print("RECIPIENTS", recipients)
-                print("LINES", messageLines)
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = try await lines.asyncMap {
                     let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
-                    print("PUBLISH KEY BUNDLE", message)
                     try await sendAndFlushMessage(message)
                 }
             default:
@@ -119,12 +116,10 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
             }
             return canRun
         }
-        print("SENT_READ_KEY_BUNDLE REQUEST_WE FINISHED LOOPPING AND SHOULD HAVE A BUNDLE RETURNED: - BUNDLE: \(String(describing: store.keyBundle))")
     }
     
     @KeyBundleMechanismActor
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
-        print("READ_KEY_BUNDLE_REQUEST_RECEIVED_WE_SHOULD_HAVE_A_KEY_HERE_AND_NEXT_WE_SHOULD_FINISH_WITH_THE_REQUEST_METHOD: - BUNDLE: \(keyBundle)")
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }
         guard let data = Data(base64Encoded: keyBundle) else { throw KeyBundleErrors.cannotReadKeyBundle }
         let buffer = ByteBuffer(data: data)

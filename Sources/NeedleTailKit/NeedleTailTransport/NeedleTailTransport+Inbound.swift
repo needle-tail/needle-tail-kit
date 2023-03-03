@@ -88,13 +88,11 @@ extension NeedleTailTransport {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
-        tags: [IRCTags]?,
-        onlineStatus: OnlineStatus
+        tags: [IRCTags]?
     ) async throws {
         guard let data = Data(base64Encoded: message) else { return }
         let buffer = ByteBuffer(data: data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
-        
         for recipient in recipients {
             switch recipient {
             case .everything:
@@ -200,7 +198,6 @@ extension NeedleTailTransport {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
         guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
-        
         do {
             try await ctcDelegate?.receiveServerEvent(
                 .messageSent(
@@ -216,7 +213,7 @@ extension NeedleTailTransport {
             return
             //            }
         }
-        
+
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))

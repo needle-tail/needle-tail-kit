@@ -45,7 +45,15 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var deviceId: DeviceId?
     var registrationState: RegistrationState = .full
     var addChildDevice = false
-    var client: NeedleTailClient?
+    var client: NeedleTailClient? {
+        didSet {
+            Task {
+            if let delegate = delegate {
+                    await setTransportDelegate(delegate)
+                }
+            }
+        }
+    }
 
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor

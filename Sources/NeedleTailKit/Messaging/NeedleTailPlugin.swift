@@ -27,7 +27,6 @@ public class NeedleTailPlugin: Plugin {
     
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        print("MESSAGE_REMOVED____")
         store.emitter?.messageRemoved = message
 #endif
     }
@@ -89,19 +88,21 @@ public class NeedleTailPlugin: Plugin {
         //            emitter.userDevicesChanged.send()
         //        }
     }
-    //
-    //
-    //    public func onConversationChange(_ viewModel: AnyConversation) {
-    //        Task.detached {
-    //            let viewModel = await viewModel.resolveTarget()
-    //            DispatchQueue.main.async {
-    //                emitter.conversationChanged.send(viewModel)
-    //            }
-    //        }
-    //    }
-    //    public func onCreateConversation(_ viewModel: AnyConversation) {
-    //        emitter.conversationAdded.send(viewModel)
-    //    }
+    
+    
+        public func onConversationChange(_ viewModel: AnyConversation) {
+            store.emitter?.conversationChanged = viewModel
+//            Task.detached {
+//                let viewModel = await viewModel.resolveTarget()
+//                DispatchQueue.main.async {
+//                    emitter.conversationChanged.send(viewModel)
+//                }
+//            }
+        }
+        public func onCreateConversation(_ viewModel: AnyConversation) {
+//            emitter.conversationAdded.send(viewModel)
+            store.emitter?.conversationAdded = viewModel
+        }
     
     //
     //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {

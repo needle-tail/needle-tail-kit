@@ -38,8 +38,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var showProgress: Bool = false
     @Published public var state: TransportState.State = .clientOffline
     
-    
-    
+    @Published public var conversationChanged: AnyConversation?
+    @Published public var conversationAdded: AnyConversation?
     
     
     
@@ -157,6 +157,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
         _ = try await selectedChat?.sendRawMessage(
             type: .text,
             text: message,
+            destructionTimer: nil,
             preferredPushType: .message
         )
     }

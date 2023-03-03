@@ -72,7 +72,27 @@ final class NeedleTailClient {
         self.groupManager = EventLoopGroupManager(provider: provider)
     }
     
-    deinit {}
+    deinit {
+//            print("RECLAIMING MEMORY IN CLIENT")
+    }
+    
+    
+    func teardownClient() async {
+        await teardownTransport()
+        await teardownMechanism()
+        childChannel = nil
+        store = nil
+    }
+    
+    @NeedleTailTransportActor
+    func teardownTransport() {
+        transport = nil
+    }
+    
+    @KeyBundleMechanismActor
+    func teardownMechanism() {
+        mechanism = nil
+    }
 }
 
 extension NeedleTailClient: Equatable {

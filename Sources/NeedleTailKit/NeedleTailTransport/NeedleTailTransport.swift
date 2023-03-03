@@ -79,7 +79,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         self.delegate = self
     }
     
-    deinit{}
+    deinit{
+//           print("RECLAIMING MEMORY IN TRANSPORT")
+    }
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
@@ -100,8 +102,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doMessage(sender: sender,
                                           recipients: recipients,
                                           message: payload,
-                                          tags: tags,
-                                          onlineStatus: .isOnline)
+                                          tags: tags)
         case .NOTICE(let recipients, let message):
             try await delegate?.doNotice(recipients: recipients, message: message)
         case .NICK(let nickName):
