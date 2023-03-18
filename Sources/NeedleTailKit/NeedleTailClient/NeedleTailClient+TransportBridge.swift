@@ -48,6 +48,7 @@ protocol TransportBridge: AnyObject {
     func registerAPNSToken(_ token: Data) async throws
     func processApproval(_ code: String) async throws -> Bool
     func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws
+    func requestOfflineMessages() async throws
 }
 
 

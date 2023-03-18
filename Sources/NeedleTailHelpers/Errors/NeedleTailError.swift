@@ -39,6 +39,7 @@ public enum NeedleTailError: String, Error {
     case usernameNil
     case bridgeDelegateNotSet
     case cypherMessengerNotSet
-    case couldNotCreateHandlers
-    case emitterIsNil
+    case couldNotCreateHandlers = "Could Not Create Handlers"
+    case emitterIsNil = "Emitter is nil"
+    case cannotFindChat
 }

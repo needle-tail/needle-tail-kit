@@ -60,6 +60,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     weak var ctDelegate: ClientTransportDelegate?
     var plugin: NeedleTailPlugin?
     var emitter: NeedleTailEmitter?
+    var quiting = false
     
     init(
         ntkBundle: NTKClientBundle,

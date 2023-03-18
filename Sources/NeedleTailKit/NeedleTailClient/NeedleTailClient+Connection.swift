@@ -71,9 +71,9 @@ extension NeedleTailClient: ClientTransportDelegate {
                     
                     guard let strongSelf = self else { return }
                     try await childChannel.channel.pipeline.addHandlers([
-                        LengthFieldPrepender(lengthFieldBitLength: .threeBytes),
+                        LengthFieldPrepender(lengthFieldBitLength: .twoBytes),
                         ByteToMessageHandler(
-                            LengthFieldBasedFrameDecoder(lengthFieldBitLength: .threeBytes),
+                            LengthFieldBasedFrameDecoder(lengthFieldBitLength: .twoBytes),
                             maximumBufferSize: 16777216
                         ),
                     ], position: .first).get()
@@ -167,10 +167,13 @@ extension NeedleTailClient: ClientTransportDelegate {
             guard let channel = childChannel?.channel else { throw NeedleTailError.channelIsNil }
             _ = try await channel.close(mode: .all).get()
             try await groupManager.shutdown()
-            //            isConnected = false
             ntkBundle.messenger.authenticated = .unauthenticated
+            ntkBundle.messenger.isConnected = false
+            await ntkBundle.messenger.client?.teardownClient()
             await transportState.transition(to: .clientOffline)
         } catch {
+            ntkBundle.messenger.authenticated = .unauthenticated
+            ntkBundle.messenger.isConnected = false
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
             exit(0)
         }
@@ -197,6 +200,11 @@ extension NeedleTailClient: ClientTransportDelegate {
         default:
             break
         }
+    }
+    
+    
+    func requestOfflineMessages() async throws{
+        try await self.transport?.requestOfflineMessages()
     }
     
 }

@@ -33,10 +33,12 @@ extension NeedleTailTransport {
         
         try await clientMessage(.otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
+        print("TAG_PACKET", tag)
         try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
+        quiting = true
         let authObject = AuthPacket(
             ntkUser: NTKUser(
                 username: username,
@@ -46,6 +48,25 @@ extension NeedleTailTransport {
         )
         let packet = try BSONEncoder().encode(authObject).makeData()
         try await clientMessage(.QUIT(packet.base64EncodedString()))
+    }
+    
+    @BlobActor
+    func publishBlob(_ packet: String) async throws {
+        try await blobMessage(.otherCommand("BLOBS", [packet]))
+        try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
+            guard let strongSelf = self else { return false }
+            var running = true
+            if await strongSelf.channelBlob != nil {
+                running = false
+            }
+            return running
+        }
+    }
+    
+    func requestOfflineMessages() async throws {
+        if !quiting {
+            try await clientMessage(.otherCommand("OFFLINE_MESSAGES", [""]))
+        }
     }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
@@ -63,20 +84,6 @@ extension NeedleTailTransport {
             return .nick(validatedName)
         }
     }
-    
-    @BlobActor
-    func publishBlob(_ packet: String) async throws {
-        try await blobMessage(.otherCommand("BLOBS", [packet]))
-        try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
-            guard let strongSelf = self else { return false }
-            var running = true
-            if await strongSelf.channelBlob != nil {
-                running = false
-            }
-            return running
-        }
-    }
-    
     
     func createNeedleTailChannel(
         name: String,

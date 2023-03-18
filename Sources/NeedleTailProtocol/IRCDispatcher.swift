@@ -65,6 +65,7 @@ public protocol IRCDispatcher: AnyObject {
     func doNewDevice(_ info: [String]) async throws
     func doBlobs(_ blobs: [String]) async throws
     func doReadBlob(_ blob: [String]) async throws
+    func doOfflineMessages(_ nick: NeedleTailNick) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -167,6 +168,9 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doReadBlob(_ blob: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doOfflineMessages(_ nick: NeedleTailNick) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

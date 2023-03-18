@@ -172,10 +172,8 @@ public final class NeedleTail {
     
     @MainActor
     private func dismissUI(_ plugin: NeedleTailPlugin) {
-//        emitter = plugin.emitter
-//        needleTailViewModel.emitter = NeedleTail.shared.emitter
 #if (os(macOS) || os(iOS))
-        needletailStore.emitter?.dismiss = true
+        needletailStore.emitter?.dismissRegistration = true
         needletailStore.emitter?.showProgress = false
 #endif
     }
@@ -291,6 +289,15 @@ public final class NeedleTail {
         return self.cypher
     }
     
+    public func connectionAvailability() -> Bool {
+        guard let messenger = messenger else { return false }
+        if messenger.authenticated == .unauthenticated && messenger.isConnected == false {
+            return true
+        } else {
+            return false
+        }
+    }
+    
 //    @NeedleTailClientActor
     private func resumeRequest(_ request: Int) async {
         totalResumeRequests += request
@@ -330,13 +337,17 @@ public final class NeedleTail {
                 totalResumeRequests = 0
                 await resumeQueue.drain()
             try await messenger.transportBridge?.suspendClient(isSuspending)
-            await removeTransport(messenger)
             messenger.client = nil
         }
     }
     @NeedleTailClientActor
     func removeTransport(_ messenger: NeedleTailMessenger) async {
         await messenger.client?.teardownClient()
+    }
+    
+    public func requestOfflineMessages() async throws {
+        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
+        try await messenger.transportBridge?.requestOfflineMessages()
     }
     
     public func registerAPN(_ token: Data) async throws {
@@ -369,6 +380,12 @@ public final class NeedleTail {
             text: "",
             preferredPushType: .contactRequest
         )
+    }
+    
+    public func removeDevice(_ id: UUID) async throws {
+        let ids = try await store?.fetchDeviceIdentities()
+        guard let device = ids?.first(where: { $0.id == id}) else { return }
+        try await store?.removeDeviceIdentity(device)
     }
     
     //We are not using CTK for groups. All messages are sent in one-on-one conversations. This includes group chat communication, that will also be routed in private chats. What we want to do is create a group. The Organizer of the group will do this. The organizer can then do the following.
@@ -493,7 +510,6 @@ extension NeedleTail {
                 return needletailStore.emitter!
             }) { emitter in
                 view
-//                    .environmentObject(emitter)
             }
         }
     }
@@ -646,18 +662,17 @@ public struct AsyncView<T, V: View>: View {
         .id(result.debugDescription)
     }
 }
-
 @MainActor public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
 //    let task = Task { @Sendable @MainActor in
-        
-//        switch (lhs.isPinned, rhs.isPinned) {
-//        case (true, true), (false, false):
-//            ()
-//        case (true, false):
-//            return true
-//        case (false, true):
-//            return false
-//        }
+    
+        switch (lhs.isPinned, rhs.isPinned) {
+        case (true, true), (false, false):
+            ()
+        case (true, false):
+            return true
+        case (false, true):
+            return false
+        }
         
         
         switch (lhs.lastActivity, rhs.lastActivity) {
@@ -696,3 +711,77 @@ public class NeedleTailStore {
 #if os(iOS) || os(macOS)
 extension NeedleTailStore: ObservableObject {}
 #endif
+
+
+private struct ChatMetadata: Codable {
+    var isPinned: Bool?
+    var isMarkedUnread: Bool?
+}
+
+struct PinnedChatsPlugin: Plugin {
+    static let pluginIdentifier = "pinned-chats"
+    
+    func createPrivateChatMetadata(withUser otherUser: Username, messenger: CypherMessenger) async throws -> Document {
+        try BSONEncoder().encode(ChatMetadata(isPinned: false, isMarkedUnread: false))
+    }
+}
+
+extension AnyConversation {
+
+    @MainActor
+    public var isPinned: Bool {
+        (try? self.conversation.getProp(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self,
+            run: \.isPinned
+        )) ?? false
+    }
+
+    @MainActor
+    public var isMarkedUnread: Bool {
+        (try? self.conversation.getProp(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self,
+            run: \.isMarkedUnread
+        )) ?? false
+    }
+    
+    public func pin() async throws {
+        try await modifyMetadata(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self
+        ) { metadata in
+            metadata.isPinned = true
+        }
+    }
+    
+    public func unpin() async throws {
+        try await modifyMetadata(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self
+        ) { metadata in
+            metadata.isPinned = false
+        }
+    }
+    
+    @MainActor
+    public func markUnread() async throws {
+        try await modifyMetadata(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self
+        ) { metadata in
+            metadata.isMarkedUnread = true
+        }
+    }
+    
+    @MainActor
+    public func unmarkUnread() async throws {
+        try await modifyMetadata(
+            ofType: ChatMetadata.self,
+            forPlugin: PinnedChatsPlugin.self
+        ) { metadata in
+            metadata.isMarkedUnread = false
+        }
+    }
+}
+

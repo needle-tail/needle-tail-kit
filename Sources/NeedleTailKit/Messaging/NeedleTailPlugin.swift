@@ -8,6 +8,11 @@
 import MessagingHelpers
 import CypherMessaging
 import NeedleTailHelpers
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import Cocoa
+#endif
 
 //Our Store for loading receiving messages in real time(TOP LEVEL)
 public class NeedleTailPlugin: Plugin {
@@ -83,10 +88,23 @@ public class NeedleTailPlugin: Plugin {
         print(#function)
         try await messenger.addDevice(config)
     }
-    public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) async throws {
+    public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) {
         //        DispatchQueue.main.async {
         //            emitter.userDevicesChanged.send()
         //        }
+#if os(iOS)
+        Task {
+            try await cypher.renameCurrentDevice(to: UIDevice.current.name)
+        }
+#elseif os(macOS)
+        Task {
+            try await cypher.renameCurrentDevice(to: Host.current().localizedName ?? "No Device Name")
+        }
+#endif
+    }
+    
+    public func onOtherUserDeviceRegistery(username: Username, deviceId: DeviceId, messenger: CypherMessenger) {
+      
     }
     
     
@@ -107,7 +125,7 @@ public class NeedleTailPlugin: Plugin {
         store.emitter?.conversationAdded = viewModel
 #endif
     }
-    
+
     //
     //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
     //        emitter.p2pClientConnected.send(client)

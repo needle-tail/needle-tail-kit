@@ -9,6 +9,51 @@ import CypherMessaging
 import NeedleTailHelpers
 
 #if (os(macOS) || os(iOS))
+public struct ContactBundle: @unchecked Sendable, Equatable, Hashable, Identifiable {
+    public let id = UUID()
+    public var contact: Contact
+    public var privateChat: PrivateChat
+    public var groupChats: [GroupChat]
+    public var cursor: AnyChatMessageCursor
+    public var messages: [AnyChatMessage]
+    public var mostRecentMessage: MostRecentMessage<PrivateChat>?
+    
+    public static func == (lhs: ContactBundle, rhs: ContactBundle) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        id.hash(into: &hasher)
+    }
+    
+}
+
+public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
+    
+    @Published public var message: AnyChatMessage?
+    let chat: Chat
+    
+    init(chat: Chat, emitter: NeedleTailEmitter) {
+        self.chat = chat
+        
+        Task.detached {
+            let cursor = try await chat.cursor(sortedBy: .descending)
+            let message = try await cursor.getNext()
+            DispatchQueue.main.async {
+                self.message = message
+            }
+        }
+        
+        let message = emitter.savedChatMessages
+        if message?.raw.encrypted.conversationId == chat.conversation.id {
+            self.message = message
+        }
+    }
+}
+
+#endif
+
+#if (os(macOS) || os(iOS))
 extension NeedleTailEmitter: ObservableObject {}
 #endif
 
@@ -22,6 +67,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
     @Published public var messageChanged: AnyChatMessage?
+    @Published public var savedChatMessages: AnyChatMessage?
+
     @Published public var contactChanged: Contact?
     @Published public var registered = false
     @Published public var contactAdded: Contact?
@@ -34,7 +81,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var qrCodeData: Data?
     @Published public var accountExists: String = ""
     @Published public var showScanner: Bool = false
-    @Published public var dismiss: Bool = false
+    @Published public var dismissRegistration: Bool = false
     @Published public var showProgress: Bool = false
     @Published public var state: TransportState.State = .clientOffline
     
@@ -47,15 +94,15 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @NeedleTailTransportActor public let consumer = ConversationConsumer()
     @Published public var contacts: [Contact] = []
     @Published public var selectedContact: Contact?
-    @Published public var selectedChat: PrivateChat?
     @Published public var cypher: CypherMessenger?
-    @Published public var sessions = [PrivateChat]()
+    @Published public var privateChats = [PrivateChat]()
     @Published public var groupChats = [GroupChat]()
     @Published public var cursor: AnyChatMessageCursor?
     @Published public var messages: [AnyChatMessage] = []
     @Published public var allMessages: [AnyChatMessage] = []
     
-    
+    @Published public var contactBundle: ContactBundle?
+    @Published public var contactBundles: [ContactBundle] = []
     
     
     
@@ -78,7 +125,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
         )
         await consumer.feedConsumer(conversations)
     }
-
+    
     public func fetchContacts(_ cypher: CypherMessenger) async throws -> [Contact] {
         try await cypher.listContacts()
     }
@@ -97,27 +144,37 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     public func fetchChats(
         cypher: CypherMessenger,
         contact: Contact? = nil
-    ) async -> AnyChatMessageCursor? {
+    ) async -> ContactBundle? {
         do {
             try await fetchConversations(cypher)
             do {
                 for try await result in ConversationSequence(consumer: consumer) {
-                    
                     switch result {
                     case .success(let result):
                         switch result {
                         case .privateChat(let privateChat):
-                            //Append Sessions no matter what
-                            if !sessions.contains(privateChat) {
-                                sessions.append(privateChat)
-                            }
+
+                            var messsages: [AnyChatMessage] = []
+                            
                             guard let username = contact?.username else { return nil }
                             if privateChat.conversation.members.contains(username) {
-                                selectedChat = privateChat
-                                self.cursor = try await privateChat.cursor(sortedBy: .descending)
-                                messages.removeAll()
-                                try await getMessages(count: 50)
-                                return self.cursor
+                                let cursor = try await privateChat.cursor(sortedBy: .descending)
+                                
+                                let nextBatch = try await cursor.getMore(50)
+                                messsages.append(contentsOf: nextBatch)
+
+                                guard let contact = contact else { return nil }
+                                return ContactBundle(
+                                    contact: contact,
+                                    privateChat: privateChat,
+                                    groupChats: [],
+                                    cursor: cursor,
+                                    messages: messsages,
+                                    mostRecentMessage: MostRecentMessage(
+                                        chat: privateChat,
+                                        emitter: self
+                                    )
+                                )
                             }
                         case .groupChat(let groupChat):
                             if !groupChats.contains(groupChat) {
@@ -141,20 +198,9 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
         }
         return nil
     }
-    
-    @MainActor
-    public func getMessages(count: Int) async throws {
-        if let cursor = cursor {
-            let nextBatch = try await cursor.getMore(count)
-            if !messages.contains(nextBatch) {
-                messages.append(contentsOf: nextBatch)
-            }
-        }
-    }
-    
     //MARK: Outbound
     public func sendMessage(message: String) async throws {
-        _ = try await selectedChat?.sendRawMessage(
+        _ = try await contactBundle?.privateChat.sendRawMessage(
             type: .text,
             text: message,
             destructionTimer: nil,
@@ -163,22 +209,22 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     }
     
     public func sendGroupMessage(message: String) async throws {
-
+        
     }
     
     public func deleteContact(_ contact: Contact) async throws {
         try await contact.remove()
     }
 #endif
-//    public let onRekey = PassthroughSubject<Void, Never>()
-//    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
-//    public let chatMessageRemoved = PassthroughSubject<AnyChatMessage, Never>()
-//    public let conversationChanged = PassthroughSubject<TargetConversation.Resolved, Never>()
-//    public let contactChanged = PassthroughSubject<Contact, Never>()
-//    public let userDevicesChanged = PassthroughSubject<Void, Never>()
-//    public let customConfigChanged = PassthroughSubject<Void, Never>()
-//    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
-//    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
+    //    public let onRekey = PassthroughSubject<Void, Never>()
+    //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
+    //    public let chatMessageRemoved = PassthroughSubject<AnyChatMessage, Never>()
+    //    public let conversationChanged = PassthroughSubject<TargetConversation.Resolved, Never>()
+    //    public let contactChanged = PassthroughSubject<Contact, Never>()
+    //    public let userDevicesChanged = PassthroughSubject<Void, Never>()
+    //    public let customConfigChanged = PassthroughSubject<Void, Never>()
+    //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
+    //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
     
     public static func == (lhs: NeedleTailEmitter, rhs: NeedleTailEmitter) -> Bool {
         return lhs.id == rhs.id

@@ -64,7 +64,7 @@ extension NeedleTailTransport {
 #if (os(macOS) || os(iOS))
         emitter.qrCodeData = nil
         emitter.showProgress = false
-        emitter.dismiss = true
+        emitter.dismissRegistration = true
 #endif
     }
     
@@ -153,6 +153,7 @@ extension NeedleTailTransport {
                             return
                         }
                     } else if store.acknowledgment == .quited {
+                        quiting = false
                         await ctDelegate?.shutdown()
                         await transportState.transition(to: .transportOffline)
 #if os(macOS)
