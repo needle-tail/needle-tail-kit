@@ -710,8 +710,6 @@ public class NeedleTailStore {
 
 #if os(iOS) || os(macOS)
 extension NeedleTailStore: ObservableObject {}
-#endif
-
 
 private struct ChatMetadata: Codable {
     var isPinned: Bool?
@@ -784,4 +782,4 @@ extension AnyConversation {
         }
     }
 }
-
+#endif
