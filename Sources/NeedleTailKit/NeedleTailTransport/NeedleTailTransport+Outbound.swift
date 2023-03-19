@@ -33,7 +33,6 @@ extension NeedleTailTransport {
         
         try await clientMessage(.otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
-        print("TAG_PACKET", tag)
         try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
     }
     
