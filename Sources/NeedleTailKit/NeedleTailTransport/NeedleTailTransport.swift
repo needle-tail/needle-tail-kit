@@ -53,7 +53,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     var channelBlob: String?
     let clientContext: ClientContext
-    let clientInfo: ClientContext.ServerClientInfo
+    let serverInfo: ClientContext.ServerClientInfo
     let store: TransportStore
     weak var delegate: IRCDispatcher?
     weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
@@ -76,7 +76,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         self.messageOfTheDay = messageOfTheDay
         self.transportState = transportState
         self.clientContext = clientContext
-        self.clientInfo = clientContext.clientInfo
+        self.serverInfo = clientContext.serverInfo
         self.delegate = self
     }
     

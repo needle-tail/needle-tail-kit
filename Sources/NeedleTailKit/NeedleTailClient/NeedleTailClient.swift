@@ -21,7 +21,7 @@ final class NeedleTailClient {
     let groupManager: EventLoopGroupManager
     let transportState: TransportState
     let clientContext: ClientContext
-    let clientInfo: ClientContext.ServerClientInfo
+    let serverInfo: ClientContext.ServerClientInfo
     let ntkUser: NTKUser
     @NeedleTailTransportActor
     var transport: NeedleTailTransport?
@@ -55,7 +55,7 @@ final class NeedleTailClient {
     ) {
         self.ntkBundle = ntkBundle
         self.clientContext = clientContext
-        self.clientInfo = clientContext.clientInfo
+        self.serverInfo = clientContext.serverInfo
         self.ntkUser = ntkUser
         self.transportState = transportState
         

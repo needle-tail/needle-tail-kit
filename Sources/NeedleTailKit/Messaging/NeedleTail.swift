@@ -37,16 +37,12 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
-//    @NeedleTailClientActor
+
     var registrationApproved = false
     var registeringNewDevice = false
-//    var needleTailViewModel = NeedleTailViewModel()
     var plugin: NeedleTailPlugin?
-//    @NeedleTailClientActor
     private var resumeQueue = NeedleTailStack<Int>()
-//    @NeedleTailClientActor
     private var suspendQueue = NeedleTailStack<Int>()
-//    @NeedleTailClientActor
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
@@ -54,7 +50,6 @@ public final class NeedleTail {
 
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
-//    @NeedleTailClientActor
     public func waitForApproval(_ code: String) async throws {
         guard let transportBridge = messenger?.transportBridge else { throw NeedleTailError.messengerNotIntitialized }
         let approved = try await transportBridge.processApproval(code)
@@ -62,18 +57,16 @@ public final class NeedleTail {
     }
     
     // After the master scans the new device we feed it to cypher in order to add the new device locally and remotely
-//    @KeyBundleMechanismActor
     public func addNewDevice(_ config: UserDeviceConfig) async throws {
         guard let cypher = cypher else { throw NeedleTailError.cypherMessengerNotSet}
         try await messenger?.transportBridge?.addNewDevice(config, cypher: cypher)
     }
     
-//    @NeedleTailClientActor
     func onBoardAccount(
         appleToken: String,
         username: String,
         store: CypherMessengerStore,
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler? = nil,
         withChildDevice: Bool = false,
@@ -84,7 +77,7 @@ public final class NeedleTail {
         guard let plugin = plugin else { return nil }
         
         let messenger = try await createMessenger(
-            clientInfo: clientInfo,
+            serverInfo: serverInfo,
             plugin: plugin,
             needletailStore: needletailStore,
             nameToVerify: username
@@ -120,7 +113,7 @@ public final class NeedleTail {
                 appleToken: appleToken,
                 username: username,
                 store: store,
-                clientInfo: clientInfo,
+                serverInfo: serverInfo,
                 p2pFactories: p2pFactories,
                 eventHandler: eventHandler,
                 addChildDevice: withChildDevice,
@@ -142,7 +135,7 @@ public final class NeedleTail {
                         appleToken: appleToken,
                         username: username,
                         store: store,
-                        clientInfo: clientInfo,
+                        serverInfo: serverInfo,
                         p2pFactories: p2pFactories,
                         eventHandler: eventHandler,
                         needletailStore: needletailStore
@@ -184,7 +177,7 @@ public final class NeedleTail {
         appleToken: String,
         username: String,
         store: CypherMessengerStore,
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         p2pFactories: [P2PTransportClientFactory],
         eventHandler: PluginEventHandler? = nil,
         addChildDevice: Bool = false,
@@ -196,10 +189,10 @@ public final class NeedleTail {
             guard let plugin = plugin else { return nil }
             cypher = try await CypherMessenger.registerMessenger(
                 username: Username(username),
-                appPassword: clientInfo.password,
+                appPassword: serverInfo.password,
                 usingTransport: { transportRequest async throws -> NeedleTailMessenger in
                         return try await self.createMessenger(
-                            clientInfo: clientInfo,
+                            serverInfo: serverInfo,
                             plugin: plugin,
                             needletailStore: needletailStore,
                             transportRequest: transportRequest,
@@ -216,7 +209,7 @@ public final class NeedleTail {
     
 //    @NeedleTailClientActor
     private func createMessenger(
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
         needletailStore: NeedleTailStore,
         transportRequest: TransportCreationRequest? = nil,
@@ -227,7 +220,7 @@ public final class NeedleTail {
             //We also need to pass the plugin to our transport
             self.messenger = try await NeedleTailMessenger.authenticate(
                 transportRequest: transportRequest,
-                clientInfo: clientInfo,
+                serverInfo: serverInfo,
                 needletailStore: needletailStore,
                 plugin: plugin
             )
@@ -260,7 +253,7 @@ public final class NeedleTail {
     public func spoolService(
         appleToken: String,
         store: CypherMessengerStore,
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         eventHandler: PluginEventHandler? = nil,
         p2pFactories: [P2PTransportClientFactory],
         needletailStore: NeedleTailStore
@@ -269,10 +262,10 @@ public final class NeedleTail {
         plugin = NeedleTailPlugin(store: needletailStore)
         guard let plugin = plugin else { return nil }
         cypher = try await CypherMessenger.resumeMessenger(
-            appPassword: clientInfo.password,
+            appPassword: serverInfo.password,
             usingTransport: { transportRequest -> NeedleTailMessenger in
                 return try await self.createMessenger(
-                    clientInfo: clientInfo,
+                    serverInfo: serverInfo,
                     plugin: plugin,
                     needletailStore: needletailStore,
                     transportRequest: transportRequest
@@ -306,14 +299,18 @@ public final class NeedleTail {
     
     
 //    @NeedleTailClientActor
-    public func resumeService(_ nameToVerify: String = "", appleToken: String = "") async throws {
+    public func resumeService(_
+                              nameToVerify: String = "",
+                              appleToken: String = "",
+                              newHost: String = "")
+    async throws {
         guard let messenger = messenger else { return }
         await resumeRequest(1)
         if await resumeQueue.popFirst() == 1 {
             
             totalSuspendRequests = 0
             await suspendQueue.drain()
-            try await messenger.createClient(nameToVerify)
+            try await messenger.createClient(nameToVerify, newHost: newHost)
             messenger.isConnected = true
         }
     }
@@ -475,7 +472,7 @@ extension NeedleTail {
         @EnvironmentObject public var emitter: NeedleTailEmitter        
         @Environment(\.scenePhase) var scenePhase
         public var store: CypherMessengerStore
-        public var clientInfo: ClientContext.ServerClientInfo
+        public var serverInfo: ClientContext.ServerClientInfo
         public var p2pFactories: [P2PTransportClientFactory]? = []
         public var eventHandler: PluginEventHandler?
         public var view: AnyView
@@ -483,34 +480,51 @@ extension NeedleTail {
         public init(
             _ view: AnyView,
             store: CypherMessengerStore,
-            clientInfo: ClientContext.ServerClientInfo,
+            serverInfo: ClientContext.ServerClientInfo,
             p2pFactories: [P2PTransportClientFactory]? = [],
             eventHandler: PluginEventHandler? = nil
         ) {
             self.view = view
             self.store = store
-            self.clientInfo = clientInfo
+            self.serverInfo = serverInfo
             self.p2pFactories = p2pFactories
             self.eventHandler = eventHandler
         }
         
         public var body: some View {
-            AsyncView(run: { () async throws -> NeedleTailEmitter in
+            AsyncView(run: { () async throws in
                 let needletailStore = NeedleTail.shared.needletailStore
                 needletailStore.emitter = self.emitter
                 if needletailStore.emitter?.cypher == nil {
                     needletailStore.emitter?.cypher = try await NeedleTail.shared.spoolService(
                         appleToken: "",
                         store: store,
-                        clientInfo: clientInfo,
+                        serverInfo: serverInfo,
                         p2pFactories: makeP2PFactories(),
                         needletailStore: needletailStore
                     )
                 }
-                return needletailStore.emitter!
-            }) { emitter in
+            }) {
                 view
             }
+        }
+    }
+    
+    public func spoolService(
+        with serverInfo: ClientContext.ServerClientInfo,
+        emitter: NeedleTailEmitter,
+        store: CypherMessengerStore
+    ) async throws {
+        let needletailStore = NeedleTail.shared.needletailStore
+        needletailStore.emitter = emitter
+        if needletailStore.emitter?.cypher == nil {
+            needletailStore.emitter?.cypher = try await NeedleTail.shared.spoolService(
+                appleToken: "",
+                store: store,
+                serverInfo: serverInfo,
+                p2pFactories: makeP2PFactories(),
+                needletailStore: needletailStore
+            )
         }
     }
     
@@ -529,7 +543,7 @@ extension NeedleTail {
         public var permissions: IRCChannelMode?
         public var password: String = ""
         public var store: CypherMessengerStore? = nil
-        public var clientInfo: ClientContext.ServerClientInfo? = nil
+        public var serverInfo: ClientContext.ServerClientInfo? = nil
         @State var buttonTask: Task<(), Error>? = nil
         
         public init(
@@ -547,7 +561,7 @@ extension NeedleTail {
             members: Set<Username>? = nil,
             permissions: IRCChannelMode? = nil,
             store: CypherMessengerStore? = nil,
-            clientInfo: ClientContext.ServerClientInfo? = nil
+            serverInfo: ClientContext.ServerClientInfo? = nil
         ) {
             self.exists = exists
             self.createContact = createContact
@@ -563,8 +577,8 @@ extension NeedleTail {
             self.nick = nick
             self.password = password
             self.store = store
-            self.clientInfo = clientInfo
-            self.clientInfo?.password = password
+            self.serverInfo = serverInfo
+            self.serverInfo?.password = password
         }
         
         public var body: some View {
@@ -574,6 +588,7 @@ extension NeedleTail {
                 UIApplication.shared.endEditing()
 #endif
                 NeedleTail.shared.needletailStore.emitter?.showProgress = true
+                
                 self.buttonTask = Task {
                     if createContact {
                         try await NeedleTail.shared.addContact(newContact: userHandle, nick: nick)
@@ -594,12 +609,12 @@ extension NeedleTail {
                         do {
                             let needletail = NeedleTail.shared
                             guard let store = store else { throw NeedleTailError.storeNotIntitialized }
-                            guard let clientInfo = clientInfo else { throw NeedleTailError.clientInfotNotIntitialized }
+                            guard let serverInfo = serverInfo else { throw NeedleTailError.clientInfotNotIntitialized }
                             needletail.needletailStore.emitter?.cypher = try await NeedleTail.shared.onBoardAccount(
                                 appleToken: "",
                                 username: username.raw,
                                 store: store,
-                                clientInfo: clientInfo,
+                                serverInfo: serverInfo,
                                 p2pFactories: makeP2PFactories(),
                                 eventHandler: nil,
                                 needletailStore: NeedleTail.shared.needletailStore

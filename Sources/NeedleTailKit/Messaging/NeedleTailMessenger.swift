@@ -31,7 +31,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     private let appleToken: String?
     private var nameToVerify: String?
     private var transportState: TransportState
-    private var clientInfo: ClientContext.ServerClientInfo
+    private var serverInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     var recipientDeviceId: DeviceId?
     var store: NeedleTailStore?
@@ -66,13 +66,13 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         signer: TransportCreationRequest?,
         appleToken: String?,
         transportState: TransportState,
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         needletailStore: NeedleTailStore,
         plugin: NeedleTailPlugin
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
         self.transportState = transportState
-        self.clientInfo = clientInfo
+        self.serverInfo = serverInfo
         self.username = username
         self.deviceId = deviceId
         self.signer = signer
@@ -89,7 +89,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
-        clientInfo: ClientContext.ServerClientInfo,
+        serverInfo: ClientContext.ServerClientInfo,
         needletailStore: NeedleTailStore,
         plugin: NeedleTailPlugin
     ) async throws -> NeedleTailMessenger {
@@ -103,14 +103,21 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
                 identifier: UUID(),
                 emitter: emitter
             ),
-            clientInfo: clientInfo,
+            serverInfo: serverInfo,
             needletailStore: needletailStore,
             plugin: plugin
         )
     }
 #endif
     
-    func createClient(_ nameToVerify: String? = nil) async throws {
+    func createClient(_
+                      nameToVerify: String? = nil,
+                      newHost: String = "",
+                      tls: Bool = true
+    ) async throws {
+        if !newHost.isEmpty {
+        self.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
+        }
         var deviceId: DeviceId?
         
         if signer?.username.raw == nil {
@@ -131,7 +138,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         guard let nick = self.needleTailNick else { throw NeedleTailError.nilNickName }
         
         let clientContext = ClientContext(
-            clientInfo: self.clientInfo,
+            serverInfo: self.serverInfo,
             nickname: nick
         )
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }

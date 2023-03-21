@@ -18,7 +18,7 @@ extension NeedleTailClient: ClientTransportDelegate {
         case .clientOffline, .transportOffline:
             await transportState.transition(to: .clientConnecting)
             do {
-                let childChannel = try await createChannel(host: clientInfo.hostname, port: clientInfo.port)
+                let childChannel = try await createChannel(host: serverInfo.hostname, port: serverInfo.port)
                 try await addChildHandle(childChannel)
                 await transportState.transition(to: .clientConnected)
             } catch {
@@ -123,7 +123,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     private func createBootstrap() async throws -> NIOClientTCPBootstrap {
-        return try await groupManager.makeBootstrap(hostname: clientInfo.hostname, useTLS: clientInfo.tls)
+        return try await groupManager.makeBootstrap(hostname: serverInfo.hostname, useTLS: serverInfo.tls)
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
     }

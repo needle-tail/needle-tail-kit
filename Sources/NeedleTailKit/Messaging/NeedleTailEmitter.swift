@@ -33,18 +33,11 @@ public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
     @Published public var message: AnyChatMessage?
     let chat: Chat
     
-    init(chat: Chat, emitter: NeedleTailEmitter) {
+    public init(chat: Chat, emitter: NeedleTailEmitter) async throws {
         self.chat = chat
-        
-        Task.detached {
             let cursor = try await chat.cursor(sortedBy: .descending)
             let message = try await cursor.getNext()
-            DispatchQueue.main.async {
-                self.message = message
-            }
-        }
-        
-        let message = emitter.savedChatMessages
+
         if message?.raw.encrypted.conversationId == chat.conversation.id {
             self.message = message
         }
@@ -67,7 +60,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
     @Published public var messageChanged: AnyChatMessage?
-    @Published public var savedChatMessages: AnyChatMessage?
+//    @Published public var savedChatMessages: AnyChatMessage?
 
     @Published public var contactChanged: Contact?
     @Published public var registered = false
@@ -103,8 +96,6 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     
     @Published public var contactBundle: ContactBundle?
     @Published public var contactBundles: [ContactBundle] = []
-    
-    
     
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
@@ -170,7 +161,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
                                     groupChats: [],
                                     cursor: cursor,
                                     messages: messsages,
-                                    mostRecentMessage: MostRecentMessage(
+                                    mostRecentMessage: try await MostRecentMessage(
                                         chat: privateChat,
                                         emitter: self
                                     )

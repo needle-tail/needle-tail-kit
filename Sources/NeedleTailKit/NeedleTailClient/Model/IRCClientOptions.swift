@@ -26,18 +26,18 @@ public struct ClientContext: Sendable {
     
      var userInfo: IRCUserInfo
      var nickname: NeedleTailNick
-     var clientInfo: ServerClientInfo
+     var serverInfo: ServerClientInfo
     
      init(
-        clientInfo: ServerClientInfo,
+        serverInfo: ServerClientInfo,
         nickname: NeedleTailNick
     ) {
-        self.clientInfo = clientInfo
+        self.serverInfo = serverInfo
         self.nickname = nickname
         self.userInfo = IRCUserInfo(
             username: nickname.stringValue,
-            hostname: clientInfo.hostname,
-            servername: clientInfo.hostname,
+            hostname: serverInfo.hostname,
+            servername: serverInfo.hostname,
             realname: "Real name is secret")
     }
     
@@ -50,7 +50,7 @@ public struct ClientContext: Sendable {
     }
     
      func appendToDescription(_ ms: inout String) {
-        ms += " \(clientInfo.hostname):\(clientInfo.port)"
+        ms += " \(serverInfo.hostname):\(serverInfo.port)"
         ms += " \(nickname)"
         ms += " \(userInfo)"
         ms += " pwd"
