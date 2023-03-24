@@ -174,7 +174,8 @@ extension NeedleTailClient: TransportBridge {
             try await RunLoop.run(240, sleep: 1) { @MainActor [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
-                if strongSelf.ntkBundle.messenger.plugin.store.emitter?.qrCodeData == nil {
+
+                if strongSelf.ntkBundle.messenger.emitter?.qrCodeData == nil {
                     running = false
                 }
                 return running

@@ -7,6 +7,7 @@
 
 import XCTest
 @testable import NeedleTailProtocol
+@testable import NeedleTailKit
 
 class IRCServiceTests: XCTestCase, IRCDispatcher {
 
@@ -18,6 +19,15 @@ class IRCServiceTests: XCTestCase, IRCDispatcher {
 
     }
 
+    
+//    func testSorted()  {
+//        Task {
+//        let bundle = ContactsBundle()
+//            bundle.contactBundleViewModel.append(ContactsBundle.ContactBundle()
+//        await bundle.arrangeBundle()
+//    }
+//    }
+    
     func testExample() throws {
 
     }

@@ -42,7 +42,7 @@ final class NeedleTailClient {
         mtDelegate?.ctcDelegate = delegate
         mtDelegate?.ctDelegate = self
 #if (os(macOS) || os(iOS))
-        mtDelegate?.emitter = plugin.store.emitter
+        mtDelegate?.emitter = emitter
 #endif
         mtDelegate?.plugin = plugin
     }

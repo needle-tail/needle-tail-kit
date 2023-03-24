@@ -68,12 +68,10 @@ extension NeedleTailClient: ClientTransportDelegate {
         await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
             taskGroup.addTask {
                 Task.detached { [weak self] in
-                    
                     guard let strongSelf = self else { return }
                     try await childChannel.channel.pipeline.addHandlers([
-                        LengthFieldPrepender(lengthFieldBitLength: .twoBytes),
                         ByteToMessageHandler(
-                            LengthFieldBasedFrameDecoder(lengthFieldBitLength: .twoBytes),
+                            LineBasedFrameDecoder(),
                             maximumBufferSize: 16777216
                         ),
                     ], position: .first).get()

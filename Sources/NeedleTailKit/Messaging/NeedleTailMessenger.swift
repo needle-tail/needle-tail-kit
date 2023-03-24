@@ -34,7 +34,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     private var serverInfo: ClientContext.ServerClientInfo
     private var keyBundle: String = ""
     var recipientDeviceId: DeviceId?
-    var store: NeedleTailStore?
+    var emitter: NeedleTailEmitter?
     @MainActor
     var plugin: NeedleTailPlugin
     var logger: Logger
@@ -61,13 +61,13 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     
     @NeedleTailTransportActor
     public init(
-        username: Username?,
-        deviceId: DeviceId?,
-        signer: TransportCreationRequest?,
-        appleToken: String?,
+        username: Username? = nil,
+        deviceId: DeviceId? = nil,
+        signer: TransportCreationRequest? = nil,
+        appleToken: String? = nil,
         transportState: TransportState,
         serverInfo: ClientContext.ServerClientInfo,
-        needletailStore: NeedleTailStore,
+        emitter: NeedleTailEmitter,
         plugin: NeedleTailPlugin
     ) async throws {
         self.logger = Logger(label: "IRCMessenger - ")
@@ -77,7 +77,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         self.deviceId = deviceId
         self.signer = signer
         self.appleToken = appleToken
-        store = needletailStore
+        self.emitter = emitter
         self.plugin = plugin
     }
     
@@ -90,10 +90,9 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
         serverInfo: ClientContext.ServerClientInfo,
-        needletailStore: NeedleTailStore,
-        plugin: NeedleTailPlugin
+        plugin: NeedleTailPlugin,
+        emitter: NeedleTailEmitter
     ) async throws -> NeedleTailMessenger {
-        guard let emitter = plugin.store.emitter else { throw NeedleTailError.emitterIsNil }
         return try await NeedleTailMessenger(
             username: transportRequest?.username,
             deviceId: transportRequest?.deviceId,
@@ -104,7 +103,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
                 emitter: emitter
             ),
             serverInfo: serverInfo,
-            needletailStore: needletailStore,
+            emitter: emitter,
             plugin: plugin
         )
     }
@@ -146,7 +145,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         let username = Username(name)
         let client = await NeedleTailClient(
             ntkBundle: NTKClientBundle(
-                cypher: store?.emitter?.cypher,
+                cypher: emitter?.cypher,
                 messenger: self,
                 signer: signer
             ),
@@ -174,7 +173,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     @NeedleTailClientActor
     private func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
 #if os(macOS) || os(iOS)
-        guard let emitter = await plugin.store.emitter else { return }
+        guard let emitter = emitter else { return }
         await client?.setDelegates(
             delegate,
             mtDelegate: mtDelegate,
@@ -233,7 +232,7 @@ extension NeedleTailMessenger {
     @MainActor
     func updateEmitter(_ data: Data?) {
 #if (os(macOS) || os(iOS))
-        guard let emitter = plugin.store.emitter else { return }
+        guard let emitter = emitter else { return }
         emitter.showScanner = true
         /// Send **User Config** data to generate a QRCode in the **Child Device**
         emitter.requestMessageId = nil
@@ -292,7 +291,7 @@ extension NeedleTailMessenger {
         
         var cypher: CypherMessenger?
 #if os(macOS) || os(iOS)
-        cypher = store?.emitter?.cypher
+        cypher = emitter?.cypher
 #endif
         let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
         
@@ -340,7 +339,7 @@ extension NeedleTailMessenger {
     @NeedleTailTransportActor
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
 #if (os(macOS) || os(iOS))
-        guard let emitter = await plugin.store.emitter else { return .none }
+        guard let emitter = emitter else { return .none }
         _ = await emitter.fetchChats(cypher: cypher)
         let groupChats = try await emitter.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in

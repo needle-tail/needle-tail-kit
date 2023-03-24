@@ -18,56 +18,60 @@ import Cocoa
 public class NeedleTailPlugin: Plugin {
     
     public static let pluginIdentifier = "needletail"
-    var store: NeedleTailStore
+
+    var emitter: NeedleTailEmitter
     
-    public init(store: NeedleTailStore) {
-        self.store = store
+    public init(emitter: NeedleTailEmitter) {
+        self.emitter = emitter
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.messageReceived = message
+        emitter.messageReceived = message
 #endif
     }
     
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.messageRemoved = message
+        emitter.messageRemoved = message
 #endif
     }
     public func onMessageChange(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.messageChanged = message
+        emitter.messageChanged = message
 #endif
     }
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.contactAdded = contact
+        print("CONTACT CREATED")
+        emitter.contactAdded = contact
 #endif
     }
     
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.contactChanged = contact
+        print("CONTACT CHANGE")
+        emitter.contactChanged = contact
 #endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.contactRemoved = contact
+        print("CONTACT REMOVED")
+        emitter.contactRemoved = contact
 #endif
     }
     
     @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.nicksOnline = nick
+        emitter.nicksOnline = nick
 #endif
     }
     
     @MainActor public func onPartMessage(_ message: String) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.partMessage = message
+        emitter.partMessage = message
 #endif
     }
     
@@ -110,7 +114,7 @@ public class NeedleTailPlugin: Plugin {
     
     public func onConversationChange(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
-        store.emitter?.conversationChanged = viewModel
+        emitter.conversationChanged = viewModel
         //            Task.detached {
         //                let viewModel = await viewModel.resolveTarget()
         //                DispatchQueue.main.async {
@@ -121,8 +125,7 @@ public class NeedleTailPlugin: Plugin {
     }
     public func onCreateConversation(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
-        //            emitter.conversationAdded.send(viewModel)
-        store.emitter?.conversationAdded = viewModel
+        emitter.conversationAdded = viewModel
 #endif
     }
 

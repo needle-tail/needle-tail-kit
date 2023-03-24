@@ -9,40 +9,101 @@ import CypherMessaging
 import NeedleTailHelpers
 
 #if (os(macOS) || os(iOS))
-public struct ContactBundle: @unchecked Sendable, Equatable, Hashable, Identifiable {
-    public let id = UUID()
-    public var contact: Contact
-    public var privateChat: PrivateChat
-    public var groupChats: [GroupChat]
-    public var cursor: AnyChatMessageCursor
-    public var messages: [AnyChatMessage]
-    public var mostRecentMessage: MostRecentMessage<PrivateChat>?
+public final class ContactsBundle: ObservableObject {
     
-    public static func == (lhs: ContactBundle, rhs: ContactBundle) -> Bool {
-        return lhs.id == rhs.id
-    }
+    @Published public var contactBundle: ContactBundle?
+    @Published public var contactBundleViewModel = [ContactBundle]()
     
-    public func hash(into hasher: inout Hasher) {
-        id.hash(into: &hasher)
-    }
-    
-}
-
-public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
-    
-    @Published public var message: AnyChatMessage?
-    let chat: Chat
-    
-    public init(chat: Chat, emitter: NeedleTailEmitter) async throws {
-        self.chat = chat
-            let cursor = try await chat.cursor(sortedBy: .descending)
-            let message = try await cursor.getNext()
-
-        if message?.raw.encrypted.conversationId == chat.conversation.id {
-            self.message = message
+    public struct ContactBundle: @unchecked Sendable, Equatable, Hashable, Identifiable {
+        public let id = UUID()
+        public var contact: Contact
+        public var privateChat: PrivateChat
+        public var groupChats: [GroupChat]
+        public var cursor: AnyChatMessageCursor
+        public var messages: [AnyChatMessage]
+        public var mostRecentMessage: MostRecentMessage<PrivateChat>?
+        internal var sortedBy: ContactListSorted = .unPinRead
+        
+        public static func == (lhs: ContactBundle, rhs: ContactBundle) -> Bool {
+            return lhs.id == rhs.id
+        }
+        
+        public func hash(into hasher: inout Hasher) {
+            id.hash(into: &hasher)
+        }
+        
+        @MainActor
+        public func isPinned() -> Bool {
+            privateChat.isPinned
+        }
+        
+        @MainActor
+        public func isMarkedUnread() -> Bool {
+            privateChat.isMarkedUnread
         }
     }
+    
+    internal enum ContactListSorted: Comparable {
+        case unRead, pinned, unPinRead
+    }
+    
+   
+    
+    @MainActor
+    public func arrangeBundle() {
+     var storedContacts = contactBundleViewModel
+        contactBundleViewModel.removeAll()
+
+        for bundle in storedContacts {
+            var bundle = bundle
+            if bundle.isPinned() && !bundle.isMarkedUnread() {
+                bundle.sortedBy = .pinned
+            } else if bundle.isPinned() && bundle.isMarkedUnread() {
+                bundle.sortedBy = .unRead
+            } else if !bundle.isPinned() && bundle.isMarkedUnread() {
+                bundle.sortedBy = .unRead
+            } else if !bundle.isPinned() && !bundle.isMarkedUnread() {
+                bundle.sortedBy = .unPinRead
+            }
+            contactBundleViewModel.append(bundle)
+        }
+        
+        var indexOfUnread = 0
+        var lastUnread = 0
+        
+        for setBundle in contactBundleViewModel {
+            guard let index = contactBundleViewModel.firstIndex(where: { $0.contact.username == setBundle.contact.username }) else { return }
+            switch setBundle.sortedBy {
+            case .unRead:
+                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: indexOfUnread)
+                indexOfUnread += 1
+                lastUnread = indexOfUnread
+            case .pinned:
+                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset:lastUnread + 1)
+            case .unPinRead:
+                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: contactBundleViewModel.count)
+            }
+        }
+        storedContacts.removeAll()
+    }
 }
+
+    public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
+        
+        @Published public var message: AnyChatMessage?
+        let chat: Chat
+        
+        public init(chat: Chat, emitter: NeedleTailEmitter) async throws {
+            self.chat = chat
+            let cursor = try await chat.cursor(sortedBy: .descending)
+            let message = try await cursor.getNext()
+            
+            if message?.raw.encrypted.conversationId == chat.conversation.id {
+                self.message = message
+            }
+        }
+    }
+
 
 #endif
 
@@ -60,7 +121,6 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
     @Published public var messageChanged: AnyChatMessage?
-//    @Published public var savedChatMessages: AnyChatMessage?
 
     @Published public var contactChanged: Contact?
     @Published public var registered = false
@@ -84,8 +144,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     
     
     
-    @NeedleTailTransportActor public let consumer = ConversationConsumer()
-    @Published public var contacts: [Contact] = []
+    @NeedleTailTransportActor
+    public let consumer = ConversationConsumer()
     @Published public var selectedContact: Contact?
     @Published public var cypher: CypherMessenger?
     @Published public var privateChats = [PrivateChat]()
@@ -93,10 +153,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var cursor: AnyChatMessageCursor?
     @Published public var messages: [AnyChatMessage] = []
     @Published public var allMessages: [AnyChatMessage] = []
-    
-    @Published public var contactBundle: ContactBundle?
-    @Published public var contactBundles: [ContactBundle] = []
-    
+    @Published public var bundles = ContactsBundle()
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
@@ -135,7 +192,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     public func fetchChats(
         cypher: CypherMessenger,
         contact: Contact? = nil
-    ) async -> ContactBundle? {
+    ) async {
         do {
             try await fetchConversations(cypher)
             do {
@@ -147,15 +204,15 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
 
                             var messsages: [AnyChatMessage] = []
                             
-                            guard let username = contact?.username else { return nil }
+                            guard let username = contact?.username else { return }
                             if privateChat.conversation.members.contains(username) {
                                 let cursor = try await privateChat.cursor(sortedBy: .descending)
                                 
                                 let nextBatch = try await cursor.getMore(50)
                                 messsages.append(contentsOf: nextBatch)
 
-                                guard let contact = contact else { return nil }
-                                return ContactBundle(
+                                guard let contact = contact else { return }
+                                let bundle = ContactsBundle.ContactBundle(
                                     contact: contact,
                                     privateChat: privateChat,
                                     groupChats: [],
@@ -166,18 +223,26 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
                                         emitter: self
                                     )
                                 )
+                                
+                                if bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username }) {
+                                    guard let index = bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return }
+                                    bundles.contactBundleViewModel[index] = bundle
+                                } else {
+                                    bundles.contactBundleViewModel.append(bundle)
+                                }
+                                bundles.arrangeBundle()
                             }
                         case .groupChat(let groupChat):
                             if !groupChats.contains(groupChat) {
                                 groupChats.append(groupChat)
                             }
                         case .internalChat(_):
-                            return nil
+                            return
                         }
                     case .retry:
-                        return nil
+                        return
                     case .finished:
-                        return nil
+                        return
                     }
                 }
             } catch {
@@ -187,11 +252,38 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
         } catch {
             print(error)
         }
-        return nil
+        return
     }
+    
+    public func removeMessages(from contact: Contact) async throws {
+        let conversations = try await cypher?.listConversations(
+            includingInternalConversation: false,
+            increasingOrder: sortChats
+        )
+        
+        for conversation in conversations ?? [] {
+            
+            switch conversation {
+            case .privateChat(let privateChat):
+                let partnerUsername = await contact.username
+                guard let username = cypher?.username else { return }
+                let conversationPartner = await privateChat.conversation.members.contains(partnerUsername)
+                if await privateChat.conversation.members.contains(username) && conversationPartner {
+                    print("MEMEBERS____", await privateChat.conversation.members)
+                    for message in try await privateChat.allMessages(sortedBy: .descending) {
+                        try await message.remove()
+                    }
+                }
+            default:
+                break
+            }
+        }
+    }
+    
+    
     //MARK: Outbound
-    public func sendMessage(message: String) async throws {
-        _ = try await contactBundle?.privateChat.sendRawMessage(
+    public func sendMessage(privateChat: PrivateChat, message: String) async throws {
+        _ = try await privateChat.sendRawMessage(
             type: .text,
             text: message,
             destructionTimer: nil,
@@ -201,10 +293,6 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     
     public func sendGroupMessage(message: String) async throws {
         
-    }
-    
-    public func deleteContact(_ contact: Contact) async throws {
-        try await contact.remove()
     }
 #endif
     //    public let onRekey = PassthroughSubject<Void, Never>()
