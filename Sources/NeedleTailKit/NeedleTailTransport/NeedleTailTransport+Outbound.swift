@@ -159,6 +159,30 @@ extension NeedleTailTransport {
         try await transportMessage(type)
     }
     
+    func createReadReceiptMessage(
+        pushType: PushType,
+        toUser: NTKUser,
+        messageType: MessageType,
+        conversationType: ConversationType,
+        readReceipt: ReadReceipt
+    ) async throws {
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: pushType,
+            type: messageType,
+            createdAt: Date(),
+            sender: nil,
+            recipient: toUser.deviceId,
+            message: nil,
+            readReceipt: readReceipt
+        )
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        try await transportMessage(type)
+    }
+    
     func createGroupMessage(
         messageId: String,
         pushType: PushType,

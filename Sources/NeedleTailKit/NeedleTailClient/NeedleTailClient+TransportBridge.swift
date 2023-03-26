@@ -28,6 +28,12 @@ protocol TransportBridge: AnyObject {
         type: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws
+    func sendReadReceiptMessage(
+        recipient: NTKUser,
+        pushType: PushType,
+        type: ConversationType,
+        readReceipt: ReadReceipt
+    ) async throws
     func readKeyBundle(_ username: Username) async throws -> UserConfig
     func publishKeyBundle(_
                           data: UserConfig,
@@ -124,6 +130,25 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
+    func sendReadReceiptMessage(
+        recipient: NTKUser,
+        pushType: CypherMessaging.PushType,
+        type: NeedleTailHelpers.ConversationType,
+        readReceipt: NeedleTailHelpers.ReadReceipt
+    ) async throws {
+        switch type {
+        case .privateMessage:
+            try await transport?.createReadReceiptMessage(
+                pushType: .none,
+                toUser: recipient,
+                messageType: .readReceipt,
+                conversationType: .privateMessage,
+                readReceipt: readReceipt
+            )
+        default:
+            break
+        }
+    }
     
     func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {
         guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }

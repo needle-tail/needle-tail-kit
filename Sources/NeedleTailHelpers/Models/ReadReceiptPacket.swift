@@ -25,8 +25,21 @@ public struct ReadReceipt: Codable, Sendable {
     
     public let messageId: String
     public let state: State
-    public let sender: Username
-    public let senderDevice: NTKUser
+    public let sender: NTKUser
     public let recipient: NTKUser
     public let receivedAt: Date
+    
+    public init(
+        messageId: String,
+        state: State,
+        sender: NTKUser,
+        recipient: NTKUser,
+        receivedAt: Date
+    ) {
+        self.messageId = messageId
+        self.state = state
+        self.sender = sender
+        self.recipient = recipient
+        self.receivedAt = receivedAt
+    }
 }

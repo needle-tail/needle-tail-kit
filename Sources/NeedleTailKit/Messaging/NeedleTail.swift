@@ -352,7 +352,6 @@ public final class NeedleTail {
             try await contact.block()
         }
        Task { @MainActor in
-//            emitter.contactBundle?.contact = contact
         NeedleTail.shared.updateBundle(contact, emitter: emitter)
         }
     }
@@ -371,7 +370,6 @@ public final class NeedleTail {
             try await contact.unfriend()
         }
         Task { @MainActor in
- //            emitter.contactBundle?.contact = contact
          NeedleTail.shared.updateBundle(contact, emitter: emitter)
          }
     }
@@ -439,6 +437,15 @@ public final class NeedleTail {
         ])
     }
     
+    public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        try await messenger?.sendMessageReadReceipt(byRemoteId: remoteId, to: username)
+    }
+    
+    public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        try await messenger?.sendMessageReceivedReceipt(byRemoteId: remoteId, to: username)
+    }
+    
+    
     public func startVideoChat(_ username: String, data: Data) async throws {
         //        let chat = try await cypher?.createPrivateChat(with: Username(username))
         //        try await chat?.buildP2PConnections()
@@ -449,6 +456,7 @@ public final class NeedleTail {
         //        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
         
     }
+    
 }
 
 import NIOTransportServices

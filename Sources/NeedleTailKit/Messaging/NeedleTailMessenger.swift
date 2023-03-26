@@ -19,6 +19,7 @@ import NIOTransportServices
 
 public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendable {
     
+    
     public var isConnected: Bool = false
     public var supportsDelayedRegistration = false
     public weak var delegate: CypherTransportClientDelegate?
@@ -219,10 +220,6 @@ extension NeedleTailMessenger {
     
     public func disconnect() async throws {}
     
-    public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {}
-    
-    public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {}
-    
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
     /// - Parameter config: The Requesters User Device Configuration
     public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
@@ -397,6 +394,46 @@ extension NeedleTailMessenger {
             messageId: messageId,
             type: type,
             readReceipt: readReceipt
+        )
+    }
+    
+    public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        print("CALLED sendMessageReadReceipt")
+        let recipient = NTKUser(username: username, deviceId: DeviceId(remoteId))
+        guard let sender = self.username else { return }
+        guard let deviceId = self.deviceId else { return }
+        let receipt =  ReadReceipt(
+            messageId: "",
+            state: .displayed,
+            sender:  NTKUser(username: sender, deviceId: deviceId),
+            recipient: recipient,
+            receivedAt: Date()
+        )
+        try await transportBridge?.sendReadReceiptMessage(
+            recipient: recipient,
+            pushType: .none,
+            type: .privateMessage,
+            readReceipt: receipt
+        )
+    }
+    
+    public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        print("CALLED sendMessageReceivedReceipt")
+        let recipient = NTKUser(username: username, deviceId: DeviceId(remoteId))
+        guard let sender = self.username else { return }
+        guard let deviceId = self.deviceId else { return }
+        let receipt = ReadReceipt(
+            messageId: "",
+            state: .received,
+            sender:  NTKUser(username: sender, deviceId: deviceId),
+            recipient: recipient,
+            receivedAt: Date()
+        )
+        try await transportBridge?.sendReadReceiptMessage(
+            recipient: recipient,
+            pushType: .none,
+            type: .privateMessage,
+            readReceipt: receipt
         )
     }
     

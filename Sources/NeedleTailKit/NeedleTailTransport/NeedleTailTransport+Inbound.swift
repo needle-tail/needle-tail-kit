@@ -114,14 +114,13 @@ extension NeedleTailTransport {
                 case .multiRecipientMessage:
                     break
                 case .readReceipt:
-                    
                     guard let receipt = packet.readReceipt else { throw NeedleTailError.nilReadReceipt }
                     switch packet.readReceipt?.state {
                     case .displayed:
                         try await ctcDelegate?.receiveServerEvent(
                             .messageDisplayed(
-                                by: receipt.sender,
-                                deviceId: receipt.senderDevice.deviceId,
+                                by: receipt.sender.username,
+                                deviceId: receipt.sender.deviceId,
                                 id: receipt.messageId,
                                 receivedAt: receipt.receivedAt
                             )
@@ -129,8 +128,8 @@ extension NeedleTailTransport {
                     case .received:
                         try await ctcDelegate?.receiveServerEvent(
                             .messageReceived(
-                                by: receipt.sender,
-                                deviceId: receipt.senderDevice.deviceId,
+                                by: receipt.sender.username,
+                                deviceId: receipt.sender.deviceId,
                                 id: receipt.messageId,
                                 receivedAt: receipt.receivedAt
                             )

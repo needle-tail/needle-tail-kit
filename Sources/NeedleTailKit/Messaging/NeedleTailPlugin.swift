@@ -18,7 +18,7 @@ import Cocoa
 public class NeedleTailPlugin: Plugin {
     
     public static let pluginIdentifier = "needletail"
-
+    
     var emitter: NeedleTailEmitter
     
     public init(emitter: NeedleTailEmitter) {
@@ -26,6 +26,11 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
+#if os(iOS)
+        UIApplication.shared.applicationIconBadgeNumber += 1
+#elseif os(macOS)
+#endif
+        
 #if (os(macOS) || os(iOS))
         emitter.messageReceived = message
 #endif
@@ -37,6 +42,15 @@ public class NeedleTailPlugin: Plugin {
 #endif
     }
     public func onMessageChange(_ message: AnyChatMessage) {
+#if os(iOS)
+        Task { @MainActor in
+            if message.raw.deliveryState == .read {
+                UIApplication.shared.applicationIconBadgeNumber -= 1
+            }
+        }
+#elseif os(macOS)
+#endif
+        
 #if (os(macOS) || os(iOS))
         emitter.messageChanged = message
 #endif
@@ -108,7 +122,7 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onOtherUserDeviceRegistery(username: Username, deviceId: DeviceId, messenger: CypherMessenger) {
-      
+        
     }
     
     
@@ -128,7 +142,7 @@ public class NeedleTailPlugin: Plugin {
         emitter.conversationAdded = viewModel
 #endif
     }
-
+    
     //
     //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
     //        emitter.p2pClientConnected.send(client)
