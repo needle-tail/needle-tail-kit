@@ -5,8 +5,6 @@
 //  Created by Cole M on 12/11/21.
 //
 
-import Foundation
-
 public struct IRCTags: Hashable, Codable, Sendable {
     
     public typealias StringLiteralType = String

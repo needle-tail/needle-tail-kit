@@ -1,13 +1,13 @@
 //
 //  Lock+Extension.swift
-//  
+//
 //
 //  Created by Cole M on 7/7/22.
 //
 
 import NIOConcurrencyHelpers
 
-extension Lock: @unchecked Sendable {
+extension NIOLock: @unchecked Sendable {
     @inlinable
     public func withSendableLock<T: Sendable>(_ body: () throws -> T) rethrows -> T {
         self.lock()

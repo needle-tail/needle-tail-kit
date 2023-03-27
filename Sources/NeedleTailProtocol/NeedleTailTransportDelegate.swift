@@ -1,99 +1,154 @@
 import CypherMessaging
 import NeedleTailHelpers
-import NIOCore
 
-
-public protocol NeedleTailTransportDelegate: AnyObject {
-    @NeedleTailClientActor
-    var userConfig: UserConfig? { get set }
-    @NeedleTailTransportActor
-    var acknowledgment: Acknowledgment.AckType  { get set }
-    @NeedleTailTransportActor
+@NeedleTailClientActor
+public protocol NeedleTailClientDelegate: AnyObject {
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
+}
+@NeedleTailTransportActor
+public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
     var origin: String? { get }
-    @NeedleTailTransportActor
     var target: String { get }
-    @NeedleTailTransportActor
     var tags: [IRCTags]? { get }
     
-    @NeedleTailClientActor
     func clientMessage(_
-                       channel: Channel,
                        command: IRCCommand,
                        tags: [IRCTags]?
     ) async throws
     
-    @NeedleTailTransportActor
     func transportMessage(_
-                          channel: Channel,
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
 
-    @BlobActor
     func blobMessage(_
-                     channel: Channel,
                      command: IRCCommand,
                      tags: [IRCTags]?
     ) async throws
     
 }
 
+//MARK: Server/Client
+extension NeedleTailTransportDelegate {
+    @NeedleTailTransportActor
+    public func sendAndFlushMessage(_ message: IRCMessage) async throws {
+        //THIS IS ANNOYING BUT WORKS
+        try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in
+            guard let self else { return false }
+            var canRun = true
+            if await self.channel.channel.isActive  {
+                canRun = false
+            }
+            return canRun
+        })
+        let buffer = await NeedleTailEncoder.encode(value: message)
+        try await channel.writeAndFlush(buffer)
+    }
+}
+
+//MARK: Client Side
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
-    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
+//    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 
+    @NeedleTailTransportActor
     public func clientMessage(_
-                              channel: Channel,
                               command: IRCCommand,
                               tags: [IRCTags]? = nil
     ) async throws {
-        let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
-        try await sendAndFlushMessage(channel, message: message)
+        let message = IRCMessage(origin: self.origin, command: command, tags: tags)
+        try await sendAndFlushMessage(message)
     }
-
+    
+    @NeedleTailTransportActor
     public func transportMessage(_
-                                 channel: Channel,
                                  type: TransportMessageType,
                                  tags: [IRCTags]? = nil
     ) async throws {
-        var irc: IRCMessage?
         switch type {
         case .standard(let command):
-            irc = IRCMessage(command: command, tags: tags)
+            let message = IRCMessage(command: command, tags: tags)
+            try await sendAndFlushMessage(message)
         case .private(let command), .notice(let command):
             switch command {
-            case .PRIVMSG(let recipients, let message):
-                let lines = message.components(separatedBy: "\n")
-                    .map { $0.replacingOccurrences(of: "\r", with: "") }
-                _ = await lines.asyncMap {
-                    irc = await IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+            case .PRIVMSG(let recipients, let messageLines):
+                let lines = messageLines.components(separatedBy: Constants.cLF)
+                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                _ = try await lines.asyncMap {
+                   let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(message)
                 }
-            case .NOTICE(let recipients, let message):
-                let lines = message.components(separatedBy: "\n")
-                    .map { $0.replacingOccurrences(of: "\r", with: "") }
-                _ = await lines.asyncMap {
-                    irc = await IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                
+            case .NOTICE(let recipients, let messageLines):
+                let lines = messageLines.components(separatedBy: Constants.cLF)
+                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                _ = try await lines.asyncMap {
+                    let message = IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(message)
                 }
             default:
                 break
             }
         }
-        guard let irc = irc else { return }
-        try await sendAndFlushMessage(channel, message: irc)
     }
 
+    @NeedleTailTransportActor
     public func blobMessage(_
-                            channel: Channel,
                             command: IRCCommand,
                             tags: [IRCTags]? = nil
     ) async throws {
         let message = IRCMessage(command: command, tags: tags)
-        try await sendAndFlushMessage(channel, message: message)
+        try await sendAndFlushMessage(message)
+    }
+}
+
+//MARK: Server Side
+extension NeedleTailTransportDelegate {
+    
+    @NeedleTailTransportActor
+    public func sendError(
+        _ code: IRCCommandCode,
+        message: String? = nil,
+        _ args: String...
+    ) async throws {
+        let enrichedArgs = args + [ message ?? code.errorMessage ]
+        let message = IRCMessage(origin: origin,
+                                 target: target,
+                                 command: .numeric(code, enrichedArgs),
+                                 tags: nil)
+        try await sendAndFlushMessage(message)
     }
     
-    public func sendAndFlushMessage(_ channel: Channel, message: IRCMessage) async throws {
-        try await channel.writeAndFlush(message)
+    @NeedleTailTransportActor
+    public func sendReply(
+        _ code: IRCCommandCode,
+        _ args: String...
+    ) async throws {
+        let message = IRCMessage(origin: origin,
+                                 target: target,
+                                 command: .numeric(code, args),
+                                 tags: nil)
+        try await sendAndFlushMessage(message)
+    }
+    
+    @NeedleTailTransportActor
+    public func sendMotD(_ message: String) async throws {
+        guard !message.isEmpty else { return }
+        let origin = self.origin ?? "??"
+        try await sendReply(.replyMotDStart, "\(origin) - Message of the Day -")
+        
+        let lines = message.components(separatedBy: Constants.cLF)
+            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+            .map { Constants.minus + Constants.space + $0 }
+        
+        _ = try await lines.asyncMap {
+            let message = IRCMessage(origin: origin,
+                                     command: .numeric(.replyMotD, [ target, $0 ]),
+                                     tags: nil)
+            try await sendAndFlushMessage(message)
+        }
+        try await sendReply(.replyEndOfMotD, "End of /MOTD command.")
     }
 }
 
@@ -102,3 +157,4 @@ public enum TransportMessageType: Sendable {
     case `private`(IRCCommand)
     case notice(IRCCommand)
 }
+

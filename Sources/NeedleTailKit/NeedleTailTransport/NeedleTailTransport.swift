@@ -1,25 +1,33 @@
 //
 //  NeedleTailTransportClient+IRCDispatcher.swift
-//  
+//
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import NIOCore
-import BSON
 import NeedleTailHelpers
 import NeedleTailProtocol
-import Foundation
 import Logging
 import CypherMessaging
 
 @NeedleTailTransportActor
-final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
+protocol MessengerTransportBridge: AnyObject {
+    var ctcDelegate: CypherTransportClientDelegate? { get set }
+    var ctDelegate: ClientTransportDelegate? { get set }
+    var plugin: NeedleTailPlugin? { get set }
+    var emitter: NeedleTailEmitter? { get set }
+}
+
+protocol ClientTransportDelegate: AnyObject {
+    func shutdown() async
+}
+
+
+@NeedleTailTransportActor
+final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
     
-    @NeedleTailClientActor var channel: Channel?
-    @NeedleTailClientActor var userConfig: UserConfig?
-    @NeedleTailClientActor var updateKeyBundle = false
-    
+    var userMode = IRCUserMode()
+    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -32,54 +40,54 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var cypher: CypherMessenger?
-    var messenger: NeedleTailMessenger
-    var acknowledgment: Acknowledgment.AckType = .none
+    var ntkBundle: NTKClientBundle
+    
     var tags: [IRCTags]?
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var proceedNewDeivce = false
-    var userMode: IRCUserMode
     var alertType: AlertType = .registryRequestRejected
     var userInfo: IRCUserInfo?
     var transportState: TransportState
     var registryRequestId = ""
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     var channelBlob: String?
-    let signer: TransportCreationRequest?
     let clientContext: ClientContext
-    let clientInfo: ClientContext.ServerClientInfo
-    var delegate: IRCDispatcher?
-    
+    let serverInfo: ClientContext.ServerClientInfo
+    let store: TransportStore
+    weak var delegate: IRCDispatcher?
+    weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
+    weak var ctDelegate: ClientTransportDelegate?
+    var plugin: NeedleTailPlugin?
+    var emitter: NeedleTailEmitter?
+    var quiting = false
     
     init(
-        cypher: CypherMessenger? = nil,
-        messenger: NeedleTailMessenger,
-        channel: Channel? = nil,
+        ntkBundle: NTKClientBundle,
+        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
-        userMode: IRCUserMode,
         transportState: TransportState,
-        signer: TransportCreationRequest?,
         clientContext: ClientContext,
-        clientInfo: ClientContext.ServerClientInfo
+        store: TransportStore
     ) {
-        self.cypher = cypher
-        self.messenger = messenger
+        self.ntkBundle = ntkBundle
+        self.store = store
         self.channel = channel
         self.messageOfTheDay = messageOfTheDay
-        self.userMode = userMode
         self.transportState = transportState
-        self.signer = signer
         self.clientContext = clientContext
-        self.clientInfo = clientInfo
+        self.serverInfo = clientContext.serverInfo
         self.delegate = self
+    }
+    
+    deinit{
+        //           print("RECLAIMING MEMORY IN TRANSPORT")
     }
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
     func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
-        
         var sender: IRCUserID?
         if let origin = message.origin {
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
@@ -87,7 +95,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             let userId = try BSONDecoder().decode(IRCUserID.self, from: Document(buffer: buffer))
             sender = userId
         }
-
+        
         switch message.command {
         case .PING(let server, let server2):
             try await delegate?.doPing(server, server2: server2)
@@ -95,8 +103,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             try await delegate?.doMessage(sender: sender,
                                           recipients: recipients,
                                           message: payload,
-                                          tags: tags,
-                                          onlineStatus: .isOnline)
+                                          tags: tags)
         case .NOTICE(let recipients, let message):
             try await delegate?.doNotice(recipients: recipients, message: message)
         case .NICK(let nickName):
@@ -130,8 +137,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-        case .otherCommand("READKEYBNDL", let keyBundle):
-            try await delegate?.doReadKeyBundle(keyBundle)
+            //        case .otherCommand("READKEYBNDL", let keyBundle):
+            //            try await delegate?.doReadKeyBundle(keyBundle)
         case .otherCommand("BLOBS", let blob):
             try await delegate?.doBlobs(blob)
         case .numeric(.replyMotDStart, let args):
@@ -140,31 +147,31 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher {
             messageOfTheDay += (args.last ?? "") + "\n"
         case .numeric(.replyEndOfMotD, _):
             if !messageOfTheDay.isEmpty {
-                handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
+                await handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
             }
             messageOfTheDay = ""
         case .numeric(.replyNameReply, let args):
-            handleServerMessages(args, type: .replyNameReply)
+            await handleServerMessages(args, type: .replyNameReply)
         case .numeric(.replyEndOfNames, let args):
-            handleServerMessages(args, type: .replyEndOfNames)
+            await handleServerMessages(args, type: .replyEndOfNames)
         case .numeric(.replyInfo, let info):
-            handleInfo(info)
+            await handleInfo(info)
         case .numeric(.replyMyInfo, let info):
-            handleServerMessages(info, type: .replyMyInfo)
+            await handleServerMessages(info, type: .replyMyInfo)
         case .numeric(.replyWelcome, let args):
-            handleServerMessages(args, type: .replyWelcome)
+            await handleServerMessages(args, type: .replyWelcome)
         case .numeric(.replyTopic, let args):
             // :localhost 332 Guest31 #NIO :Welcome to #nio!
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
-                return print("ERROR: topic args incomplete:", message)
+                return logger.error("ERROR: topic args incomplete: \(message)")
             }
             handleTopic(args[2], on: channel)
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
-            handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
+            await handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
         default:
-            handleInfo(message.command.arguments)
+            await handleInfo(message.command.arguments)
         }
     }
 }

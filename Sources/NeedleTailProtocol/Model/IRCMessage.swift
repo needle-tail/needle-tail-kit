@@ -29,17 +29,17 @@ import Foundation
  *
  * This is a server name or a nickname w/ user@host parts.
  */
-public struct IRCMessage: Sendable {
+public struct IRCMessage: Codable, Sendable {
 
-    let id = UUID()
+    public var id = UUID()
     public var origin: String?
     public var target: String?
     ///The IRC command and its arguments (max 15).
     public var command: IRCCommand
+    public var arguments: [String]?
     public var tags: [IRCTags]?
-    public var description: String {
+    public var description: String? {
         var ms = "<IRCMsg:"
-        
         if let tags = tags {
             for tag in tags {
                 ms += "@\(tag.key)=\(tag.value);"
@@ -67,33 +67,42 @@ public struct IRCMessage: Sendable {
     
     
     
-    public enum CodingKeys: String, CodingKey {
-        case origin, target, command, arguments, tags
+    public enum CodingKeys: String, Sendable, CodingKey {
+        case origin, target, arguments, command, tags
     }
-    
-  
-    // MARK: - Codable
+
+//    // MARK: - Codable
     public init(from decoder: Decoder) async throws {
-        let c       = try decoder.container(keyedBy: CodingKeys.self)
-        let cmd     = try c.decode(String.self,              forKey: .command)
-        let args    = try c.decodeIfPresent([ String ].self, forKey: .arguments)
-        let command = try IRCCommand(cmd, arguments: args ?? [])
-        let tags = try c.decodeIfPresent([IRCTags].self, forKey: .tags)
-        
-        self.init(origin: try c.decodeIfPresent(String.self, forKey: .origin),
-                  target: try c.decodeIfPresent(String.self, forKey: .target),
-                  command: command,
-                  tags: tags
-        )
+        let containter = try decoder.container(keyedBy: CodingKeys.self)
+        self.origin = try containter.decodeIfPresent(String.self, forKey: .origin)
+        do {
+            self.command = try containter.decode(IRCCommand.self, forKey: .command)
+            self.arguments = try containter.decodeIfPresent([String].self, forKey: .arguments)
+        } catch {
+            let cmd = try containter.decode(String.self, forKey: .command)
+            let arguments = try containter.decodeIfPresent([String].self, forKey: .arguments)
+            self.command = try IRCCommand(cmd, arguments: arguments ?? [])
+        }
+        self.tags = try containter.decodeIfPresent([IRCTags].self, forKey: .tags)
+//        let cmd = try c.decode(String.self, forKey: .command)
+//        let arguments = try c.decodeIfPresent([ String ].self, forKey: .arguments)
+//        let command = try IRCCommand(cmd, arguments: arguments ?? [])
+//        let tags = try c.decodeIfPresent([IRCTags].self, forKey: .tags)
+//        self.init(origin: try c.decodeIfPresent(String.self, forKey: .origin),
+//                  target: try c.decodeIfPresent(String.self, forKey: .target),
+//                  command: command,
+//                  tags: tags
+//        )
     }
-    
+
     public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeIfPresent(origin,         forKey: .origin)
-        try c.encodeIfPresent(target,         forKey: .target)
-        try c.encode(command.commandAsString, forKey: .command)
-        try c.encode(command.arguments,       forKey: .arguments)
-        try c.encodeIfPresent(tags, forKey: .tags)
+        var containter = encoder.container(keyedBy: CodingKeys.self)
+        try containter.encodeIfPresent(origin, forKey: .origin)
+        try containter.encodeIfPresent(target, forKey: .target)
+        try containter.encode(command, forKey: .command)
+//        try containter.encode(command.commandAsString, forKey: .command)
+//        try containter.encode(command.arguments, forKey: .arguments)
+        try containter.encodeIfPresent(tags, forKey: .tags)
     }
 }
 

@@ -6,7 +6,6 @@
 //
 
 #if canImport(Network) && canImport(Combine)
-import Foundation
 import Network
 import Combine
 

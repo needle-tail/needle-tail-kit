@@ -15,7 +15,7 @@
 import CypherProtocol
 import NeedleTailHelpers
 
-public enum IRCMessageRecipient: Codable, Hashable, @unchecked Sendable {
+public enum IRCMessageRecipient: Codable, Hashable, Sendable {
   
   case channel (IRCChannelName)
   case nick(NeedleTailNick)
@@ -48,11 +48,11 @@ public extension IRCMessageRecipient {
   
   init?(_ s: String) {
       var nick: NeedleTailNick?
-      if s.contains(":") {
-          let split = s.components(separatedBy: ":")
+      if s.contains(Constants.colon) {
+          let split = s.components(separatedBy: Constants.colon)
           nick = NeedleTailNick(name: split[0], deviceId: DeviceId(split[1]))
       }
-    if s == "*" {
+    if s == Constants.star {
         self = .everything
     } else if let channel = IRCChannelName(s) {
         self = .channel(channel)
@@ -65,9 +65,12 @@ public extension IRCMessageRecipient {
   
   var stringValue : String {
     switch self {
-      case .channel (let name) : return name.stringValue
-    case .nick(let name) : return name.stringValue
-      case .everything         : return "*"
+      case .channel (let name):
+        return name.stringValue
+    case .nick(let name):
+        return name.stringValue
+      case .everything:
+        return Constants.star
     }
   }
 }
@@ -78,7 +81,7 @@ extension IRCMessageRecipient : CustomStringConvertible {
     switch self {
       case .channel (let name) : return name.description
       case .nick(let name) : return name.description
-      case .everything         : return "<IRCRecipient: *>"
+      case .everything         : return "<IRCRecipient: \(Constants.star)>"
     }
   }
 }

@@ -1,12 +1,9 @@
 //
 //  Acknowledgment.swift
-//  
+//
 //
 //  Created by Cole M on 3/23/22.
 //
-
-import Foundation
-import BSON
 
 public struct Acknowledgment: Codable, Sendable {
     
@@ -21,6 +18,8 @@ public struct Acknowledgment: Codable, Sendable {
         case messageSent
         case blocked
         case unblocked
+        case quited
+        case publishedKeyBundle(String)
     }
 
     public var acknowledgment: AckType

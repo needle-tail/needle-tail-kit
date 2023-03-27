@@ -1,7 +1,6 @@
 import NIO
 import NIOSSL
 import NeedleTailHelpers
-import _AtomicsShims
 #if canImport(Network)
 import Network
 import NIOTransportServices
@@ -22,7 +21,6 @@ import NIOTransportServices
 /// components. That raises the question of how to choose a bootstrap and a matching TLS implementation without even
 /// knowing the concrete `EventLoopGroup` type (it may be `SelectableEventLoop` which is an internal `NIO` types).
 /// `EventLoopGroupManager` should support all those use cases with a simple API.
-@NeedleTailClientActor
 public class EventLoopGroupManager {
     private var group: Optional<EventLoopGroup>
     private let provider: Provider

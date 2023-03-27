@@ -1,28 +1,31 @@
 //
 //  MessageModel.swift
-//  
+//
 //
 //  Created by Cole M on 3/4/22.
 //
 
-import Foundation
-@preconcurrency import CypherMessaging
-import JWTKit
+//
+import CypherMessaging
 
 public enum MessageType: Codable, Sendable {
-    case publishKeyBundle(String)
-    case registerAPN(String)
+    case publishKeyBundle(Data)
+    case registerAPN(Data)
     case message
     case multiRecipientMessage
     case readReceipt
-    case ack(String)
+    case ack(Data)
     case blockUnblock
     case newDevice(NewDeviceState)
     case requestRegistry
-    case acceptedRegistry(String)
-    case isOffline(String)
+    case acceptedRegistry(Data)
+    case isOffline(Data)
     case temporarilyRegisterSession
-    case rejectedRegistry(String)
+    case rejectedRegistry(Data)
+}
+
+public enum AddDeviceType: Codable, Sendable {
+    case master, child
 }
 
 public struct MessagePacket: Codable, Sendable {
@@ -33,9 +36,12 @@ public struct MessagePacket: Codable, Sendable {
     public let sender: DeviceId?
     public let recipient: DeviceId?
     public let message: RatchetedCypherMessage?
-    public let readReceipt: ReadReceiptPacket?
+    public let readReceipt: ReadReceipt?
     public let channelName: String?
     public let addKeyBundle: Bool?
+    public let contacts: [NTKContact]?
+    public let addDeviceType: AddDeviceType?
+    public let childDeviceConfig: UserDeviceConfig?
     
     public init(
         id: String,
@@ -45,9 +51,12 @@ public struct MessagePacket: Codable, Sendable {
         sender: DeviceId?,
         recipient: DeviceId?,
         message: RatchetedCypherMessage?,
-        readReceipt: ReadReceiptPacket?,
+        readReceipt: ReadReceipt?,
         channelName: String? = nil,
-        addKeyBundle: Bool? = nil
+        addKeyBundle: Bool? = nil,
+        contacts: [NTKContact]? = nil,
+        addDeviceType: AddDeviceType? = nil,
+        childDeviceConfig: UserDeviceConfig? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -59,6 +68,19 @@ public struct MessagePacket: Codable, Sendable {
         self.readReceipt = readReceipt
         self.channelName = channelName
         self.addKeyBundle = addKeyBundle
+        self.contacts = contacts
+        self.addDeviceType = addDeviceType
+        self.childDeviceConfig = childDeviceConfig
+    }
+}
+
+public struct NTKContact: Codable, Sendable {
+    public var username: Username
+    public var nickname: String
+    
+    public init(username: Username, nickname: String) {
+        self.username = username
+        self.nickname = nickname
     }
 }
 

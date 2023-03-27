@@ -1,6 +1,6 @@
 //
 //  NotificationName+Extension.swift
-//  
+//
 //
 //  Created by Cole M on 4/21/22.
 //

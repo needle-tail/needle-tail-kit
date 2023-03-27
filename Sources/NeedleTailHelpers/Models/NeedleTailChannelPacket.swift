@@ -1,11 +1,11 @@
 //
 //  NeedleTailChannelPacket.swift
-//  
+//
 //
 //  Created by Cole M on 6/18/22.
 //
 
-import Foundation
+
 import CypherMessaging
 
 public struct NeedleTailChannelPacket: Codable, Sendable {

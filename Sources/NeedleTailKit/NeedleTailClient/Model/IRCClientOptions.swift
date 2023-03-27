@@ -1,21 +1,21 @@
-import NIOCore
 import NeedleTailProtocol
 import NeedleTailHelpers
+import CypherMessaging
 
- public struct ClientContext {
+public struct ClientContext: Sendable {
     
-     public struct ServerClientInfo: Codable {
+     public struct ServerClientInfo: Codable, Sendable {
         
          var hostname: String
          var port: Int
          var password: String
-         var tls: Bool = true
+         var tls: Bool
         
          public init(
             hostname: String = "localhost",
             port: Int = 6667,
             password: String = "",
-            tls: Bool = true
+            tls: Bool
         ) {
             self.hostname = hostname
             self.port = port
@@ -26,18 +26,18 @@ import NeedleTailHelpers
     
      var userInfo: IRCUserInfo
      var nickname: NeedleTailNick
-     var clientInfo: ServerClientInfo
+     var serverInfo: ServerClientInfo
     
      init(
-        clientInfo: ServerClientInfo,
+        serverInfo: ServerClientInfo,
         nickname: NeedleTailNick
     ) {
-        self.clientInfo = clientInfo
+        self.serverInfo = serverInfo
         self.nickname = nickname
         self.userInfo = IRCUserInfo(
             username: nickname.stringValue,
-            hostname: clientInfo.hostname,
-            servername: clientInfo.hostname,
+            hostname: serverInfo.hostname,
+            servername: serverInfo.hostname,
             realname: "Real name is secret")
     }
     
@@ -50,7 +50,7 @@ import NeedleTailHelpers
     }
     
      func appendToDescription(_ ms: inout String) {
-        ms += " \(clientInfo.hostname):\(clientInfo.port)"
+        ms += " \(serverInfo.hostname):\(serverInfo.port)"
         ms += " \(nickname)"
         ms += " \(userInfo)"
         ms += " pwd"

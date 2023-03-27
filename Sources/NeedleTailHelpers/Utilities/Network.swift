@@ -1,11 +1,9 @@
 //
 //  Network.swift
-//  
+//
 //
 //  Created by Cole M on 11/7/21.
 //
-
-import Foundation
 
 
 public enum Network: String {

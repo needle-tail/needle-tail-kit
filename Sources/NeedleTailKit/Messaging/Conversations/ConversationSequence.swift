@@ -1,6 +1,6 @@
 //
 //  ConversationSequence.swift
-//  
+//
 //
 //  Created by Cole M on 4/11/22.
 //
@@ -8,7 +8,6 @@
 import CypherMessaging
 import MessagingHelpers
 import NeedleTailHelpers
-import NeedleTailProtocol
 
 public struct ConversationSequence: AsyncSequence {
     public typealias Element = SequenceResult
@@ -75,14 +74,14 @@ public final class ConversationConsumer {
     public init() {}
     
     public func feedConsumer(_ conversation: [TargetConversation.Resolved]) async {
-        stack.enqueue(elements: conversation)
+        await stack.enqueue(elements: conversation)
     }
     
     func next() async -> NextResult {
         switch dequeuedConsumedState {
         case .consumed:
             consumedState = .waiting
-            guard let message = stack.dequeue() else { return .finished }
+            guard let message = await stack.dequeue() else { return .finished }
             return .ready(message)
         case .waiting:
             return .preparing

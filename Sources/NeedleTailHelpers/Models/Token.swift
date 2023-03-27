@@ -1,19 +1,18 @@
 //
 //  Token.swift
-//  
+//
 //
 //  Created by Cole M on 6/18/22.
 //
 
-import Foundation
-@preconcurrency import JWTKit
+import JWTKit
 
-public struct Token: JWTPayload, Sendable {
-    public let device: UserDeviceId
+public struct Token: JWTPayload, @unchecked Sendable {
+    public let device: NTKUser
     public let exp: ExpirationClaim
     
     public init(
-        device: UserDeviceId,
+        device: NTKUser,
         exp: ExpirationClaim
     ) {
         self.device = device

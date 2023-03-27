@@ -27,11 +27,9 @@
  *       default implementation by calling `irc_defaultMsgSend`. Which contains
  *       the actual dispatcher implementation.
  */
-import Foundation
-import CypherMessaging
+
 import NeedleTailHelpers
 
-@NeedleTailTransportActor
 public protocol IRCDispatcher: AnyObject {
     
     // MARK: - Implementations
@@ -55,8 +53,7 @@ public protocol IRCDispatcher: AnyObject {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
-        tags: [IRCTags]?,
-        onlineStatus: OnlineStatus
+        tags: [IRCTags]?
     ) async throws
     func doIsOnline (_ nicks: [ NeedleTailNick ]) async throws
     func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
@@ -68,6 +65,7 @@ public protocol IRCDispatcher: AnyObject {
     func doNewDevice(_ info: [String]) async throws
     func doBlobs(_ blobs: [String]) async throws
     func doReadBlob(_ blob: [String]) async throws
+    func doOfflineMessages(_ nick: NeedleTailNick) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -138,8 +136,7 @@ public extension IRCDispatcher {
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
-        tags: [IRCTags]?,
-        onlineStatus: OnlineStatus
+        tags: [IRCTags]?
     ) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
@@ -171,6 +168,9 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doReadBlob(_ blob: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doOfflineMessages(_ nick: NeedleTailNick) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

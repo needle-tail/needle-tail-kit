@@ -1,6 +1,6 @@
 //
 //  UIApplication+Extension.swift
-//  
+//
 //
 //  Created by Cole M on 4/27/22.
 //
