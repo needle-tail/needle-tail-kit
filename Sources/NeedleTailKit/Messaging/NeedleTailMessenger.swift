@@ -55,7 +55,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             }
         }
     }
-    
+var lastOtherDeviceId: DeviceId?
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
@@ -377,6 +377,7 @@ extension NeedleTailMessenger {
         config.blob.metadata = meta
     }
     
+    
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
     @NeedleTailTransportActor
     public func sendMessage(_
@@ -386,6 +387,7 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
+        lastOtherDeviceId = deviceId
         try await transportBridge?.sendMessage(
             message: message,
             toUser: username,
@@ -399,42 +401,48 @@ extension NeedleTailMessenger {
     
     public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
         print("CALLED sendMessageReadReceipt")
-        let recipient = NTKUser(username: username, deviceId: DeviceId(remoteId))
-        guard let sender = self.username else { return }
-        guard let deviceId = self.deviceId else { return }
-        let receipt =  ReadReceipt(
-            messageId: "",
-            state: .displayed,
-            sender:  NTKUser(username: sender, deviceId: deviceId),
-            recipient: recipient,
-            receivedAt: Date()
-        )
-        try await transportBridge?.sendReadReceiptMessage(
-            recipient: recipient,
-            pushType: .none,
-            type: .privateMessage,
-            readReceipt: receipt
-        )
+        let bundle = try await readKeyBundle(forUsername: username)
+        for validatedBundle in try bundle.readAndValidateDevices() {
+            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+            guard let sender = self.username else { return }
+            guard let deviceId = self.deviceId else { return }
+            let receipt = ReadReceipt(
+                messageId: remoteId,
+                state: .displayed,
+                sender:  NTKUser(username: sender, deviceId: deviceId),
+                recipient: recipient,
+                receivedAt: Date()
+            )
+            try await transportBridge?.sendReadReceiptMessage(
+                recipient: recipient,
+                pushType: .none,
+                type: .privateMessage,
+                readReceipt: receipt
+            )
+        }
     }
     
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        print("CALLED sendMessageReceivedReceipt")
-        let recipient = NTKUser(username: username, deviceId: DeviceId(remoteId))
-        guard let sender = self.username else { return }
-        guard let deviceId = self.deviceId else { return }
-        let receipt = ReadReceipt(
-            messageId: "",
-            state: .received,
-            sender:  NTKUser(username: sender, deviceId: deviceId),
-            recipient: recipient,
-            receivedAt: Date()
-        )
-        try await transportBridge?.sendReadReceiptMessage(
-            recipient: recipient,
-            pushType: .none,
-            type: .privateMessage,
-            readReceipt: receipt
-        )
+        let bundle = try await readKeyBundle(forUsername: username)
+        for validatedBundle in try bundle.readAndValidateDevices() {
+            
+            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+            guard let sender = self.username else { return }
+            guard let deviceId = self.deviceId else { return }
+            let receipt = ReadReceipt(
+                messageId: remoteId,
+                state: .received,
+                sender:  NTKUser(username: sender, deviceId: deviceId),
+                recipient: recipient,
+                receivedAt: Date()
+            )
+            try await transportBridge?.sendReadReceiptMessage(
+                recipient: recipient,
+                pushType: .none,
+                type: .privateMessage,
+                readReceipt: receipt
+            )
+        }
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {

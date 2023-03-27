@@ -171,7 +171,7 @@ extension NeedleTailTransport {
             pushType: pushType,
             type: messageType,
             createdAt: Date(),
-            sender: nil,
+            sender: readReceipt.sender.deviceId,
             recipient: toUser.deviceId,
             message: nil,
             readReceipt: readReceipt
