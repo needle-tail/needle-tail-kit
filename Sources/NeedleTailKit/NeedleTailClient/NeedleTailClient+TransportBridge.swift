@@ -33,7 +33,7 @@ protocol TransportBridge: AnyObject {
         pushType: PushType,
         type: ConversationType,
         readReceipt: ReadReceipt
-    ) async throws
+    ) async throws -> (Bool, ReadReceipt.State)
     func readKeyBundle(_ username: Username) async throws -> UserConfig
     func publishKeyBundle(_
                           data: UserConfig,
@@ -135,7 +135,7 @@ extension NeedleTailClient: TransportBridge {
         pushType: CypherMessaging.PushType,
         type: NeedleTailHelpers.ConversationType,
         readReceipt: NeedleTailHelpers.ReadReceipt
-    ) async throws {
+    ) async throws -> (Bool, ReadReceipt.State) {
         switch type {
         case .privateMessage:
             try await transport?.createReadReceiptMessage(
@@ -148,6 +148,19 @@ extension NeedleTailClient: TransportBridge {
         default:
             break
         }
+        
+        //ACK
+        try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
+            guard let strongSelf = self else { return false }
+            var running = true
+            if await strongSelf.store?.acknowledgment == .readReceipt {
+                print("STORE SET ACK___")
+                running = false
+            }
+            return running
+        })
+        
+        return (store?.acknowledgment == .readReceipt ? true : false, readReceipt.state)
     }
     
     func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {

@@ -55,7 +55,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             }
         }
     }
-var lastOtherDeviceId: DeviceId?
+
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
@@ -216,9 +216,13 @@ public enum RegistrationState {
 
 extension NeedleTailMessenger {
     
-    public func reconnect() async throws {}
+    public func reconnect() async throws {
+        print("RECONNECTED")
+    }
     
-    public func disconnect() async throws {}
+    public func disconnect() async throws {
+        print("DISCONNECTED")
+    }
     
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
     /// - Parameter config: The Requesters User Device Configuration
@@ -387,7 +391,7 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        lastOtherDeviceId = deviceId
+
         try await transportBridge?.sendMessage(
             message: message,
             toUser: username,
@@ -399,8 +403,9 @@ extension NeedleTailMessenger {
         )
     }
     
+    //Should be done by Recipient
     public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        print("CALLED sendMessageReadReceipt")
+        print("sendMessageReadReceipt")
         let bundle = try await readKeyBundle(forUsername: username)
         for validatedBundle in try bundle.readAndValidateDevices() {
             let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
@@ -413,16 +418,19 @@ extension NeedleTailMessenger {
                 recipient: recipient,
                 receivedAt: Date()
             )
-            try await transportBridge?.sendReadReceiptMessage(
+            _ = try await transportBridge?.sendReadReceiptMessage(
                 recipient: recipient,
                 pushType: .none,
                 type: .privateMessage,
                 readReceipt: receipt
             )
+            
         }
     }
     
+    //Should be done by Recipient
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        print("sendMessageReceivedReceipt")
         let bundle = try await readKeyBundle(forUsername: username)
         for validatedBundle in try bundle.readAndValidateDevices() {
             
@@ -436,12 +444,16 @@ extension NeedleTailMessenger {
                 recipient: recipient,
                 receivedAt: Date()
             )
-            try await transportBridge?.sendReadReceiptMessage(
+            let result = try await transportBridge?.sendReadReceiptMessage(
                 recipient: recipient,
                 pushType: .none,
                 type: .privateMessage,
                 readReceipt: receipt
             )
+            if result?.0 == true && result?.1 == .received {
+                //Send to the message sender sender,
+//                try await sendMessageReadReceipt(byRemoteId: remoteId, to: username)
+            }
         }
     }
     

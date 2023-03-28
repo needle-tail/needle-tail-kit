@@ -26,8 +26,11 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
+        Task {
+            print("Message Received", await message.raw.deliveryState)
+        }
 #if os(iOS)
-        UIApplication.shared.applicationIconBadgeNumber += 1
+//        UIApplication.shared.applicationIconBadgeNumber += 1
 #elseif os(macOS)
 #endif
         
@@ -43,11 +46,11 @@ public class NeedleTailPlugin: Plugin {
     }
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
-        Task { @MainActor in
-            if message.raw.deliveryState == .read {
-                UIApplication.shared.applicationIconBadgeNumber -= 1
-            }
-        }
+//        Task { @MainActor in
+//            if message.raw.deliveryState == .read {
+//                UIApplication.shared.applicationIconBadgeNumber -= 1
+//            }
+//        }
 #elseif os(macOS)
 #endif
         
@@ -58,21 +61,18 @@ public class NeedleTailPlugin: Plugin {
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT CREATED")
         emitter.contactAdded = contact
 #endif
     }
     
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT CHANGE")
         emitter.contactChanged = contact
 #endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT REMOVED")
         emitter.contactRemoved = contact
 #endif
     }
