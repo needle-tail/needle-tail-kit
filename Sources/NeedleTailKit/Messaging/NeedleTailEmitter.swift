@@ -141,9 +141,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     
     @Published public var conversationChanged: AnyConversation?
     @Published public var conversationAdded: AnyConversation?
-    
-    
-    
+    @Published public var contactToDelete: Contact?
+    @Published public var deleteContactAlert: Bool = false
     
     @NeedleTailTransportActor
     public let consumer = ConversationConsumer()

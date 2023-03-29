@@ -437,15 +437,6 @@ public final class NeedleTail {
         ])
     }
     
-    public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        try await messenger?.sendMessageReadReceipt(byRemoteId: remoteId, to: username)
-    }
-    
-    public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        try await messenger?.sendMessageReceivedReceipt(byRemoteId: remoteId, to: username)
-    }
-    
-    
     public func startVideoChat(_ username: String, data: Data) async throws {
         //        let chat = try await cypher?.createPrivateChat(with: Username(username))
         //        try await chat?.buildP2PConnections()

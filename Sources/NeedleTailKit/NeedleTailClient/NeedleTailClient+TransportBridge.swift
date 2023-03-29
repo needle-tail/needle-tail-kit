@@ -154,7 +154,6 @@ extension NeedleTailClient: TransportBridge {
             guard let strongSelf = self else { return false }
             var running = true
             if await strongSelf.store?.acknowledgment == .readReceipt {
-                print("STORE SET ACK___")
                 running = false
             }
             return running

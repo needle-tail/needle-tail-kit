@@ -405,7 +405,6 @@ extension NeedleTailMessenger {
     
     //Should be done by Recipient
     public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        print("sendMessageReadReceipt")
         let bundle = try await readKeyBundle(forUsername: username)
         for validatedBundle in try bundle.readAndValidateDevices() {
             let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
@@ -430,7 +429,6 @@ extension NeedleTailMessenger {
     
     //Should be done by Recipient
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        print("sendMessageReceivedReceipt")
         let bundle = try await readKeyBundle(forUsername: username)
         for validatedBundle in try bundle.readAndValidateDevices() {
             
@@ -452,7 +450,7 @@ extension NeedleTailMessenger {
             )
             if result?.0 == true && result?.1 == .received {
                 //Send to the message sender sender,
-//                try await sendMessageReadReceipt(byRemoteId: remoteId, to: username)
+                try await sendMessageReadReceipt(byRemoteId: remoteId, to: username)
             }
         }
     }

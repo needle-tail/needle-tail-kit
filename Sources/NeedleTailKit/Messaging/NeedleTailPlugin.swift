@@ -26,9 +26,6 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
-        Task {
-            print("Message Received", await message.raw.deliveryState)
-        }
 #if os(iOS)
 //        UIApplication.shared.applicationIconBadgeNumber += 1
 #elseif os(macOS)
