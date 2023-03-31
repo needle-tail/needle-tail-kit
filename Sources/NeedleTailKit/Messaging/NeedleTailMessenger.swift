@@ -9,6 +9,7 @@ import CypherMessaging
 import Logging
 import NeedleTailProtocol
 import NeedleTailHelpers
+import DequeModule
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -55,10 +56,18 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             }
         }
     }
-
+    
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
+    
+    struct MessageToRead: Sendable {
+        var remoteId: String
+        var username: Username
+        var deliveryResult: (Bool, ReadReceipt.State)
+    }
+    var messagesToRead = Deque<MessageToRead>()
+    var readMessagesConsumer = NeedleTailAsyncConsumer<MessageToRead>()
     
     @NeedleTailTransportActor
     public init(
@@ -116,7 +125,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
                       tls: Bool = true
     ) async throws {
         if !newHost.isEmpty {
-        self.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
+            self.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
         }
         var deviceId: DeviceId?
         
@@ -391,7 +400,7 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-
+        
         try await transportBridge?.sendMessage(
             message: message,
             toUser: username,
@@ -408,6 +417,7 @@ extension NeedleTailMessenger {
         let bundle = try await readKeyBundle(forUsername: username)
         for validatedBundle in try bundle.readAndValidateDevices() {
             let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+            print("READ RECIPIENT", recipient)
             guard let sender = self.username else { return }
             guard let deviceId = self.deviceId else { return }
             let receipt = ReadReceipt(
@@ -433,6 +443,7 @@ extension NeedleTailMessenger {
         for validatedBundle in try bundle.readAndValidateDevices() {
             
             let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+            print("RECEIVE RECIPIENT", recipient)
             guard let sender = self.username else { return }
             guard let deviceId = self.deviceId else { return }
             let receipt = ReadReceipt(
@@ -442,15 +453,40 @@ extension NeedleTailMessenger {
                 recipient: recipient,
                 receivedAt: Date()
             )
+            
             let result = try await transportBridge?.sendReadReceiptMessage(
                 recipient: recipient,
                 pushType: .none,
                 type: .privateMessage,
                 readReceipt: receipt
             )
-            if result?.0 == true && result?.1 == .received {
-                //Send to the message sender sender,
-                try await sendMessageReadReceipt(byRemoteId: remoteId, to: username)
+            
+            if let result = result {
+                await self.readMessagesConsumer.feedConsumer([
+                    MessageToRead(remoteId:
+                                    remoteId,
+                                  username: username,
+                                  deliveryResult: result
+                                 )
+                ])
+            }
+        }
+    }
+    
+    internal func sendMessageReadReceipt() async throws {
+        
+        for try await result in NeedleTailAsyncSequence<MessageToRead>(consumer: readMessagesConsumer) {
+            switch result {
+            case .success(let message):
+                //Only read if the message is in view
+                if emitter?.readReceipts == true {
+                    if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
+                        //Send to the message sender sender,
+                        try await sendMessageReadReceipt(byRemoteId: message.remoteId, to: message.username)
+                    }
+                }
+            default:
+                return
             }
         }
     }

@@ -55,6 +55,7 @@ protocol TransportBridge: AnyObject {
     func processApproval(_ code: String) async throws -> Bool
     func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws
     func requestOfflineMessages() async throws
+    func deleteOfflineMessages(from contact: String) async throws
 }
 
 

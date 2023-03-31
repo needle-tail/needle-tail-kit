@@ -340,6 +340,11 @@ public final class NeedleTail {
         try await messenger.transportBridge?.requestOfflineMessages()
     }
     
+    internal func deleteOfflineMessages(from contact: String) async throws {
+        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
+        try await messenger.transportBridge?.deleteOfflineMessages(from: contact)
+    }
+    
     public func registerAPN(_ token: Data) async throws {
         try await messenger?.transportBridge?.registerAPNSToken(token)
     }
@@ -446,6 +451,10 @@ public final class NeedleTail {
         //        let string = data.base64EncodedString()
         //        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
         
+    }
+    
+    public func sendMessageReadReceipt() async throws {
+        try await messenger?.sendMessageReadReceipt()
     }
     
 }

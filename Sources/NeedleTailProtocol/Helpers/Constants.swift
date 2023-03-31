@@ -35,6 +35,8 @@ public struct Constants {
     public static var registryResponse = "REGISTRYRESPONSE"
     public static var newDevice = "NEWDEVICE"
     public static var readKeyBundle = "READKEYBNDL"
+    public static var offlineMessages = "OFFLINEMESSAGES"
+    public static var deleteOfflineMessage = "DELETEOFFLINEMESSAGE"
     public static var pass = "PASS"
     public static var blobs = "BLOBS"
     public static var quit = "QUIT"

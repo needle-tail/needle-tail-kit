@@ -64,7 +64,7 @@ extension NeedleTailTransport {
     
     func requestOfflineMessages() async throws {
         if !quiting {
-            try await clientMessage(.otherCommand("OFFLINE_MESSAGES", [""]))
+            try await clientMessage(.otherCommand("OFFLINEMESSAGES", [""]))
         }
     }
     
@@ -269,6 +269,11 @@ extension NeedleTailTransport {
     /// - Parameter nick: A Nick
     func changeNick(_ nick: NeedleTailNick) async throws {
         let type = TransportMessageType.standard(.NICK(nick))
+        try await transportMessage(type)
+    }
+    
+    func deleteOfflineMessages(from contact: String) async throws {
+        let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
         try await transportMessage(type)
     }
 }

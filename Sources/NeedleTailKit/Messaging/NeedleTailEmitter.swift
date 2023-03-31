@@ -149,6 +149,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var cypher: CypherMessenger?
     @Published public var groupChats = [GroupChat]()
     @Published public var bundles = ContactsBundle()
+    @Published public var readReceipts = false
+//    @Published public var readMessage = false
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     

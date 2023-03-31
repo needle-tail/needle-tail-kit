@@ -191,7 +191,8 @@ public final class MessageParser {
                         commandKey.hasPrefix(Constants.readKeyBundle) ||
                         commandKey.hasPrefix(Constants.pass) ||
                         commandKey.hasPrefix(Constants.blobs) ||
-                        commandKey.hasPrefix(Constants.quit) {
+                        commandKey.hasPrefix(Constants.offlineMessages) ||
+                        commandKey.hasPrefix(Constants.deleteOfflineMessage) {
                 var stripedMessage = stripedMessage
                 if stripedMessage.first == Character(Constants.colon) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))

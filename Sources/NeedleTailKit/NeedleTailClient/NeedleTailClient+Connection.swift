@@ -202,5 +202,9 @@ extension NeedleTailClient: ClientTransportDelegate {
 
     func requestOfflineMessages() async throws{
         try await self.transport?.requestOfflineMessages()
-    }    
+    }
+    
+    func deleteOfflineMessages(from contact: String) async throws {
+        try await self.transport?.deleteOfflineMessages(from: contact)
+    }
 }
