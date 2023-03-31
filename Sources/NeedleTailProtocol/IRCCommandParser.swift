@@ -69,8 +69,8 @@ public extension IRCCommand {
         }
         
         switch command.uppercased() {
-        case Constants.quit: try expect(max:  1); self = .QUIT(arguments.first)
-            
+        case Constants.quit:
+            try expect(max:  1); self = .QUIT(arguments.first)
         case Constants.ping:
             try expect(min: 1, max: 2)
             self = .PING(server: arguments[0],
