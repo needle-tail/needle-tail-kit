@@ -479,12 +479,16 @@ extension NeedleTailMessenger {
             switch result {
             case .success(let message):
                 //Only read if the message is in view
+#if (os(macOS) || os(iOS))
                 if emitter?.readReceipts == true {
                     if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
                         //Send to the message sender sender,
                         try await sendMessageReadReceipt(byRemoteId: message.remoteId, to: message.username)
                     }
                 }
+#else
+                return
+#endif
             default:
                 return
             }

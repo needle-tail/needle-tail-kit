@@ -71,7 +71,6 @@ public class NeedleTailPlugin: Plugin {
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        print("removed contact", contact.username)
         deleteOfflineMessage(contact, removedContact: true)
         emitter.contactRemoved = contact
 #endif
@@ -79,6 +78,7 @@ public class NeedleTailPlugin: Plugin {
     
     //If a user is not friends, we blocked them, or we deleted them as a contact we will delete all the stored messages that maybe online. Since we no long want to communicate with them.
     func deleteOfflineMessage(_ contact: Contact, removedContact: Bool = false) {
+#if (os(macOS) || os(iOS))
         Task.detached {
             let blocked = await contact.ourFriendshipState == .blocked
             let notFriend = await contact.ourFriendshipState == .notFriend
@@ -88,6 +88,7 @@ public class NeedleTailPlugin: Plugin {
                 try await NeedleTail.shared.deleteOfflineMessages(from: contact.username.raw)
             }
         }
+#endif
     }
     
     @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
