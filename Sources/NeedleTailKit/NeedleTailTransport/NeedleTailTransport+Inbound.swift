@@ -175,9 +175,13 @@ extension NeedleTailTransport {
                     guard let contacts = packet.contacts else { return }
                     try await receivedNewDevice(state, contacts: contacts)
                 case .notifyContactRemoval:
+#if os(iOS) || os(macOS)
                     guard let contact = packet.contacts?.first else { return }
                     let foundContact = try await emitter?.cypher?.getContact(byUsername: contact.username)
                     try await foundContact?.remove()
+#else
+                    return
+#endif
                 default:
                     return
                 }
