@@ -56,10 +56,13 @@ protocol TransportBridge: AnyObject {
     func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws
     func requestOfflineMessages() async throws
     func deleteOfflineMessages(from contact: String) async throws
+    func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
 }
 
 
 extension NeedleTailClient: TransportBridge {
+    
+    
     
     @KeyBundleMechanismActor
     func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws {

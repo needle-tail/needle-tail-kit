@@ -22,7 +22,7 @@ extension NeedleTailTransport {
                     clientContext: clientContext
                 )
         )
-
+        
         guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
         guard temp == false else {
@@ -262,8 +262,8 @@ extension NeedleTailTransport {
         try await transportMessage(type)
     }
     
-
-
+    
+    
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
@@ -274,6 +274,33 @@ extension NeedleTailTransport {
     
     func deleteOfflineMessages(from contact: String) async throws {
         let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
+        try await transportMessage(type)
+    }
+    
+    
+    /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
+    func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws {
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .custom("contact-removed"),
+            type: .notifyContactRemoval,
+            createdAt: Date(),
+            sender: ntkUser.deviceId,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none,
+            contacts: [
+                NTKContact(
+                    username: contact,
+                    nickname: contact.raw
+                )
+            ]
+        )
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let ircUser = ntkUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+        // The recipient is ourself
+        let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         try await transportMessage(type)
     }
 }

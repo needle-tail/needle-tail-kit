@@ -22,6 +22,7 @@ public enum MessageType: Codable, Sendable {
     case isOffline(Data)
     case temporarilyRegisterSession
     case rejectedRegistry(Data)
+    case notifyContactRemoval
 }
 
 public enum AddDeviceType: Codable, Sendable {

@@ -345,6 +345,13 @@ public final class NeedleTail {
         try await messenger.transportBridge?.deleteOfflineMessages(from: contact)
     }
     
+    internal func notifyContactRemoved(_ contact: Username) async throws {
+        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
+        guard let username = messenger.username else { throw NeedleTailError.usernameNil }
+        guard let deviceId = messenger.deviceId else { throw NeedleTailError.deviceIdNil }
+        try await messenger.transportBridge?.notifyContactRemoved(NTKUser(username: username, deviceId: deviceId), removed: contact)
+    }
+    
     public func registerAPN(_ token: Data) async throws {
         try await messenger?.transportBridge?.registerAPNSToken(token)
     }
