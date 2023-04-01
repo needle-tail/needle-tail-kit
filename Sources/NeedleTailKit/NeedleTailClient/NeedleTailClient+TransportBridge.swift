@@ -159,7 +159,6 @@ extension NeedleTailClient: TransportBridge {
             }
             return running
         })
-        
         return (store?.acknowledgment == .readReceipt ? true : false, readReceipt.state)
     }
     
