@@ -76,6 +76,8 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
         print("REMOVED CONTACT")
         deleteOfflineMessage(contact, removedContact: true)
+        //Tell other devieces we want to delete the contact
+        notifyContactRemoved(contact)
         emitter.contactRemoved = contact
 #endif
     }
@@ -91,6 +93,16 @@ public class NeedleTailPlugin: Plugin {
             } else if removedContact {
                 try await NeedleTail.shared.deleteOfflineMessages(from: contact.username.raw)
             }
+        }
+#endif
+    }
+    
+    func notifyContactRemoved(_ contact: Contact) {
+#if (os(macOS) || os(iOS))
+        Task.detached {
+            try await NeedleTail.shared.notifyContactRemoved(contact.username)
+//            let contacts = try await emitter.cypher?.getContact(byUsername: username)
+//            contacts?.remove()
         }
 #endif
     }

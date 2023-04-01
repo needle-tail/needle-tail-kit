@@ -174,6 +174,10 @@ extension NeedleTailTransport {
                 case .newDevice(let state):
                     guard let contacts = packet.contacts else { return }
                     try await receivedNewDevice(state, contacts: contacts)
+                case .notifyContactRemoval:
+                    guard let contact = packet.contacts?.first else { return }
+                    let foundContact = try await emitter?.cypher?.getContact(byUsername: contact.username)
+                    try await foundContact?.remove()
                 default:
                     return
                 }
