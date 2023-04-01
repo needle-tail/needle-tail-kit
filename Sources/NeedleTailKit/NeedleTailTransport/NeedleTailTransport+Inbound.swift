@@ -117,7 +117,6 @@ extension NeedleTailTransport {
                     guard let receipt = packet.readReceipt else { throw NeedleTailError.nilReadReceipt }
                     switch packet.readReceipt?.state {
                     case .displayed:
-                        print("DISPLAYED RECEIVED")
                         try await ctcDelegate?.receiveServerEvent(
                             .messageDisplayed(
                                 by: receipt.sender.username,
@@ -127,7 +126,6 @@ extension NeedleTailTransport {
                             )
                         )
                     case .received:
-                        print("RECEIVED RECEIVED")
                         try await ctcDelegate?.receiveServerEvent(
                             .messageReceived(
                                 by: receipt.sender.username,

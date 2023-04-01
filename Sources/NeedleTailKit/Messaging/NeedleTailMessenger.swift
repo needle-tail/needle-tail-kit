@@ -56,14 +56,13 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
             }
         }
     }
-    
     weak var transportBridge: TransportBridge?
     @NeedleTailTransportActor
     weak var mtDelegate: MessengerTransportBridge?
     
     struct MessageToRead: Sendable {
         var remoteId: String
-        var username: Username
+        var ntkUser: NTKUser
         var deliveryResult: (Bool, ReadReceipt.State)
     }
     var messagesToRead = Deque<MessageToRead>()
@@ -415,45 +414,47 @@ extension NeedleTailMessenger {
     //Should be done by Recipient
     public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
         let bundle = try await readKeyBundle(forUsername: username)
-        for validatedBundle in try bundle.readAndValidateDevices() {
-            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
-            print("READ RECIPIENT", recipient)
-            guard let sender = self.username else { return }
-            guard let deviceId = self.deviceId else { return }
-            let receipt = ReadReceipt(
-                messageId: remoteId,
-                state: .displayed,
-                sender:  NTKUser(username: sender, deviceId: deviceId),
-                recipient: recipient,
-                receivedAt: Date()
-            )
-            _ = try await transportBridge?.sendReadReceiptMessage(
-                recipient: recipient,
-                pushType: .none,
-                type: .privateMessage,
-                readReceipt: receipt
-            )
-            
+            for validatedBundle in try bundle.readAndValidateDevices() {
+                let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+                guard let sender = self.username else { return }
+                guard let deviceId = self.deviceId else { return }
+                let receipt = ReadReceipt(
+                    messageId: remoteId,
+                    state: .displayed,
+                    sender:  NTKUser(username: sender, deviceId: deviceId),
+                    recipient: recipient,
+                    receivedAt: Date()
+                )
+                _ = try await transportBridge?.sendReadReceiptMessage(
+                    recipient: recipient,
+                    pushType: .none,
+                    type: .privateMessage,
+                    readReceipt: receipt
+                )
+            }
         }
-    }
+
     
-    //Should be done by Recipient
+    // When a message is received CTK calls this method. We then want to inform the sender we read the message at the correct time.
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
         let bundle = try await readKeyBundle(forUsername: username)
+        // Get all of the original sender's devices
         for validatedBundle in try bundle.readAndValidateDevices() {
             
+            //At this point the recipient(s) are the Sender and it's children devices
             let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
-            print("RECEIVE RECIPIENT", recipient)
+            //At this point the client that this class belongs to becomes the sender
             guard let sender = self.username else { return }
             guard let deviceId = self.deviceId else { return }
             let receipt = ReadReceipt(
                 messageId: remoteId,
                 state: .received,
-                sender:  NTKUser(username: sender, deviceId: deviceId),
+                sender: NTKUser(username: sender, deviceId: deviceId),
                 recipient: recipient,
                 receivedAt: Date()
             )
             
+            //Send to the other users devices(Original Senders) the fact that we have received the message, but have not read it yet
             let result = try await transportBridge?.sendReadReceiptMessage(
                 recipient: recipient,
                 pushType: .none,
@@ -461,11 +462,12 @@ extension NeedleTailMessenger {
                 readReceipt: receipt
             )
             
+            //Result contains a tuple, a bool value indicating if we received the ACK back and the readReceipt.state(Check if the readReceipt state is set to received; if it is we then can mark it as read). We then add the item to an array of read receipts that need to be marked as displayed. We later use this array of receipts to notify conversation partner that we have read the message if the receiver of the message has readReceipts turned on.
             if let result = result {
                 await self.readMessagesConsumer.feedConsumer([
                     MessageToRead(remoteId:
                                     remoteId,
-                                  username: username,
+                                  ntkUser: recipient,
                                   deliveryResult: result
                                  )
                 ])
@@ -474,7 +476,6 @@ extension NeedleTailMessenger {
     }
     
     internal func sendMessageReadReceipt() async throws {
-        
         for try await result in NeedleTailAsyncSequence<MessageToRead>(consumer: readMessagesConsumer) {
             switch result {
             case .success(let message):
@@ -483,7 +484,22 @@ extension NeedleTailMessenger {
                 if emitter?.readReceipts == true {
                     if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
                         //Send to the message sender sender,
-                        try await sendMessageReadReceipt(byRemoteId: message.remoteId, to: message.username)
+                        let recipient = NTKUser(username: message.ntkUser.username, deviceId: message.ntkUser.deviceId)
+                        guard let sender = self.username else { return }
+                        guard let deviceId = self.deviceId else { return }
+                        let receipt = ReadReceipt(
+                            messageId: message.remoteId,
+                            state: .displayed,
+                            sender:  NTKUser(username: sender, deviceId: deviceId),
+                            recipient: recipient,
+                            receivedAt: Date()
+                        )
+                        _ = try await transportBridge?.sendReadReceiptMessage(
+                            recipient: recipient,
+                            pushType: .none,
+                            type: .privateMessage,
+                            readReceipt: receipt
+                        )
                     }
                 }
 #else

@@ -38,6 +38,7 @@ public class NeedleTailPlugin: Plugin {
     
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
+        print("REMOVED MESSAGE")
         emitter.messageRemoved = message
 #endif
     }
@@ -58,12 +59,14 @@ public class NeedleTailPlugin: Plugin {
     
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
+        print("CREATED CONTACT")
         emitter.contactAdded = contact
 #endif
     }
     
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
+        print("CONTACT CHANGED")
         deleteOfflineMessage(contact)
         emitter.contactChanged = contact
 #endif
@@ -71,6 +74,7 @@ public class NeedleTailPlugin: Plugin {
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
+        print("REMOVED CONTACT")
         deleteOfflineMessage(contact, removedContact: true)
         emitter.contactRemoved = contact
 #endif
@@ -142,7 +146,13 @@ public class NeedleTailPlugin: Plugin {
     
     public func onConversationChange(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
-        emitter.conversationChanged = viewModel
+        Task { @MainActor in
+           let resolved = Task.detached {
+                return await viewModel.resolveTarget()
+            }
+            emitter.conversationChanged = await resolved.value
+        }
+       
         //            Task.detached {
         //                let viewModel = await viewModel.resolveTarget()
         //                DispatchQueue.main.async {
