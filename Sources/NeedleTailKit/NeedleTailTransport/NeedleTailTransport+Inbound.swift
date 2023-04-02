@@ -177,8 +177,9 @@ extension NeedleTailTransport {
                 case .notifyContactRemoval:
 #if os(iOS) || os(macOS)
                     guard let contact = packet.contacts?.first else { return }
-                    let foundContact = try await emitter?.cypher?.getContact(byUsername: contact.username)
-                    try await foundContact?.remove()
+                    guard let foundContact = try await emitter?.cypher?.getContact(byUsername: contact.username) else { return }
+                    try await emitter?.removeMessages(from: foundContact)
+                    try await foundContact.remove()
 #else
                     return
 #endif
@@ -216,10 +217,8 @@ extension NeedleTailTransport {
                 )
             )
         } catch {
-            //            if error == "CypherSDKError.cannotFindDeviceConfig" {
             print("CAUGHT_RECEIVE_SERVER_EVENT_ERROR \(error.localizedDescription)")
             return
-            //            }
         }
 
         let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)

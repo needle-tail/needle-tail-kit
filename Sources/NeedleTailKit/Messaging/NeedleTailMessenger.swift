@@ -390,7 +390,7 @@ extension NeedleTailMessenger {
     }
     
     
-    /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
+    /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`. This method will also send the message to all parties involved the target destination and all user devices from the sender.
     @NeedleTailTransportActor
     public func sendMessage(_
                             message: RatchetedCypherMessage,
@@ -399,7 +399,6 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        
         try await transportBridge?.sendMessage(
             message: message,
             toUser: username,
