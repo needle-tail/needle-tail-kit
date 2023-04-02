@@ -445,6 +445,7 @@ public final class NeedleTail {
             }()),
             UserProfilePlugin(),
             ChatActivityPlugin(),
+            ModifyMessagePlugin(),
             plugin
         ])
     }
@@ -769,6 +770,50 @@ extension AnyConversation {
         ) { metadata in
             metadata.isMarkedUnread = false
         }
+    }
+}
+public struct ModifyMessagePlugin: Plugin {
+    public static let pluginIdentifier = "@/messaging/mutate-history"
+    
+    @MainActor public func onReceiveMessage(_ message: ReceivedMessageContext) async throws -> ProcessMessageAction? {
+        guard
+            message.message.messageType == .magic,
+            var subType = message.message.messageSubtype,
+            subType.hasPrefix("@/messaging/mutate-history/")
+        else {
+            return nil
+        }
+        
+        subType.removeFirst("@/messaging/mutate-history/".count)
+        let remoteId = message.message.text
+        let sender = message.sender.username
+        
+        switch subType {
+        case "revoke":
+            let message = try await message.conversation.message(byRemoteId: remoteId)
+            if message.sender == sender {
+                // Message was sent by this user, so the action is permitted
+                try await message.remove()
+            }
+            
+            return .ignore
+        default:
+            return .ignore
+        }
+    }
+    
+    @CryptoActor public func onSendMessage(
+        _ message: SentMessageContext
+    ) async throws -> SendMessageAction? {
+        guard
+            message.message.messageType == .magic,
+            let subType = message.message.messageSubtype,
+            subType.hasPrefix("@/messaging/mutate-history/")
+        else {
+            return nil
+        }
+        
+        return .send
     }
 }
 #endif
