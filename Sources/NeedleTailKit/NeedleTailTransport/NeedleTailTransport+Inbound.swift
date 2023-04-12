@@ -303,8 +303,9 @@ extension NeedleTailTransport {
     }
     
     
-    func doPing(_ server: String, server2: String? = nil) async throws {
-        let message = IRCMessage(origin: origin, command: .PONG(server: server, server2: server))
+    //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
+    func doPing(_ origin: String, origin2: String? = nil) async throws {
+        let message = IRCMessage(origin: origin, command: .PONG(server: origin, server2: origin2))
         try await sendAndFlushMessage(message)
     }
     

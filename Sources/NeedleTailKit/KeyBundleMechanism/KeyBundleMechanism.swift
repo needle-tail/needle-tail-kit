@@ -17,7 +17,9 @@ import CypherMessaging
 
 //@KeyBundleMechanismActor
 public protocol KeyBundleMechanisimDelegate: AnyObject {
+    @KeyBundleMechanismActor
     var origin: String? { get }
+    @KeyBundleMechanismActor
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
     func keyBundleMessage(_
                           type: TransportMessageType,
@@ -56,7 +58,7 @@ extension KeyBundleMechanisimDelegate {
         //THIS IS ANNOYING BUT WORKS
         try await RunLoop.run(5, sleep: 1, stopRunning: {
             var canRun = true
-            if self.channel.channel.isActive  {
+            if await self.channel.channel.isActive  {
                 canRun = false
             }
             return canRun
@@ -70,9 +72,11 @@ extension KeyBundleMechanisimDelegate {
 @KeyBundleMechanismActor
 internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
+    @KeyBundleMechanismActor
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
+    @KeyBundleMechanismActor
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var updateKeyBundle = false
     let store: TransportStore

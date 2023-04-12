@@ -14,22 +14,22 @@ import NIOExtras
 extension NeedleTailClient: ClientTransportDelegate {
     
     func attemptConnection() async throws {
-        switch await transportState.current {
-        case .clientOffline, .transportOffline:
-            await transportState.transition(to: .clientConnecting)
-            do {
-                let childChannel = try await createChannel(host: serverInfo.hostname, port: serverInfo.port)
-                try await addChildHandle(childChannel)
-                await transportState.transition(to: .clientConnected)
-            } catch {
-                logger.error("Could not start client: \(error)")
-                await transportState.transition(to: .clientOffline)
-                try await attemptDisconnect(true)
-                ntkBundle.messenger.authenticated  = .unauthenticated
+            switch await transportState.current {
+            case .clientOffline, .transportOffline:
+                await transportState.transition(to: .clientConnecting)
+                do {
+                    let childChannel = try await createChannel(host: serverInfo.hostname, port: serverInfo.port)
+                    try await addChildHandle(childChannel)
+                    await transportState.transition(to: .clientConnected)
+                } catch {
+                    logger.error("Could not start client: \(error)")
+                    await transportState.transition(to: .clientOffline)
+                    try await attemptDisconnect(true)
+                    ntkBundle.messenger.authenticated  = .unauthenticated
+                }
+            default:
+                break
             }
-        default:
-            break
-        }
     }
     
     func createChannel(host: String, port: Int) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
@@ -172,8 +172,10 @@ extension NeedleTailClient: ClientTransportDelegate {
         } catch {
             ntkBundle.messenger.authenticated = .unauthenticated
             ntkBundle.messenger.isConnected = false
-            logger.error("Could not gracefully shutdown, Forcing the exit (\(error))")
-            exit(0)
+            logger.error("Could not gracefully shutdown, Forcing the exit (\(error.localizedDescription))")
+            if error.localizedDescription != "alreadyClosed" {
+                exit(0)
+            }
         }
     }
     
