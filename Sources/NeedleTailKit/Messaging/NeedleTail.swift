@@ -90,7 +90,7 @@ public final class NeedleTail {
             }
             
             //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
-            await displayScanner()
+            await displayScanner(emitter)
             
             try await RunLoop.run(240, sleep: 1, stopRunning: { [weak self] in
                 guard let strongSelf = self else { return false }
@@ -119,7 +119,7 @@ public final class NeedleTail {
                 addChildDevice: withChildDevice,
                 emitter: emitter
             )
-            await MainActor.run {
+            Task { @MainActor in
                emitter.cypher = cypher
                emitter.needleTailNick = messenger.needleTailNick
             }
@@ -140,10 +140,10 @@ public final class NeedleTail {
                         eventHandler: eventHandler,
                         emitter: emitter
                     )
-                    await dismissUI(plugin)
-                    await MainActor.run {
+                    Task { @MainActor in
                         emitter.cypher = cypher
                         emitter.needleTailNick = messenger.needleTailNick
+                        dismissUI(emitter)
                     }
                 } catch {
                     print("ERROR REGISTERING", error)
@@ -159,15 +159,16 @@ public final class NeedleTail {
     }
     
     @MainActor
-    private func displayScanner() {
-        emitter?.showScanner = true
+    private func displayScanner(_ emitter: NeedleTailEmitter) {
+        emitter.showScanner = true
     }
     
     @MainActor
-    private func dismissUI(_ plugin: NeedleTailPlugin) {
+    private func dismissUI(_ emitter: NeedleTailEmitter) {
 #if (os(macOS) || os(iOS))
-          emitter?.dismissRegistration = true
-          emitter?.showProgress = false
+          emitter.dismissRegistration = true
+          emitter.showProgress = false
+        emitter.bundles.contactBundle = nil
 #endif
     }
     
@@ -370,8 +371,8 @@ public final class NeedleTail {
     
     @MainActor
     public func updateBundle(_ contact: Contact, emitter: NeedleTailEmitter) {
-        guard let index = emitter.bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == contact.username }) else { return }
-        emitter.bundles.contactBundleViewModel[index].contact = contact
+        guard var bundle = emitter.bundles.contactBundleViewModel.first(where: { $0.contact.username == contact.username }) else { return }
+        bundle.contact = contact
     }
     
     public func beFriend(_ contact: Contact, emitter: NeedleTailEmitter) async throws {
@@ -661,8 +662,6 @@ public struct AsyncView<T, V: View>: View {
     }
 }
 @MainActor public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
-//    let task = Task { @Sendable @MainActor in
-    
         switch (lhs.isPinned, rhs.isPinned) {
         case (true, true), (false, false):
             ()
@@ -683,8 +682,6 @@ public struct AsyncView<T, V: View>: View {
         case (.none, .none):
             return true
         }
-//    }
-//    return await task.value
 }
 
 extension TargetConversation.Resolved: Sendable {}

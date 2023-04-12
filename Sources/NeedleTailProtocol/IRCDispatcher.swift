@@ -33,7 +33,7 @@ import NeedleTailHelpers
 public protocol IRCDispatcher: AnyObject {
     
     // MARK: - Implementations
-    func doPing(_ server: String, server2: String?) async throws
+    func doPing(_ origin: String, origin2: String?) async throws
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
     func doNick(_ sender: IRCUserID?, nick: NeedleTailNick, tags: [IRCTags]?) async throws
@@ -88,7 +88,7 @@ fileprivate enum InternalDispatchError : Swift.Error {
 
 public extension IRCDispatcher {
     
-    func doPing(_ server: String, server2: String?) async throws {
+    func doPing(_ origin: String, origin2: String? = nil) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {

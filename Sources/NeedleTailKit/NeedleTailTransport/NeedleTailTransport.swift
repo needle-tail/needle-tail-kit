@@ -97,8 +97,12 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         }
         
         switch message.command {
-        case .PING(let server, let server2):
-            try await delegate?.doPing(server, server2: server2)
+        case .PING(let origin, let origin2):
+//            break
+            try await delegate?.doPing(origin, origin2: origin2)
+        case .PONG(_, _):
+            break
+//            try await delegate?.doPing(origin, origin2: origin2)
         case .PRIVMSG(let recipients, let payload):
             try await delegate?.doMessage(sender: sender,
                                           recipients: recipients,

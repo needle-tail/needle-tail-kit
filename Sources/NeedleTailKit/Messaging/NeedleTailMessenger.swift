@@ -225,11 +225,27 @@ public enum RegistrationState {
 extension NeedleTailMessenger {
     
     public func reconnect() async throws {
-        print("RECONNECTED")
+        let newStatus = await NeedleTail.shared.state.receiver.statusArray
+        for status in newStatus {
+            switch status {
+            case .satisfied:
+                try await NeedleTail.shared.resumeService()
+            default:
+                return
+            }
+        }
     }
     
     public func disconnect() async throws {
-        print("DISCONNECTED")
+        let newStatus = await NeedleTail.shared.state.receiver.statusArray
+        for status in newStatus {
+            switch status {
+            case .satisfied:
+                try await NeedleTail.shared.serviceInterupted(true)
+            default:
+                return
+            }
+        }
     }
     
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
@@ -433,7 +449,6 @@ extension NeedleTailMessenger {
             }
         }
 
-    
     // When a message is received CTK calls this method. We then want to inform the sender we read the message at the correct time.
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
         let bundle = try await readKeyBundle(forUsername: username)
@@ -464,8 +479,8 @@ extension NeedleTailMessenger {
             //Result contains a tuple, a bool value indicating if we received the ACK back and the readReceipt.state(Check if the readReceipt state is set to received; if it is we then can mark it as read). We then add the item to an array of read receipts that need to be marked as displayed. We later use this array of receipts to notify conversation partner that we have read the message if the receiver of the message has readReceipts turned on.
             if let result = result {
                 await self.readMessagesConsumer.feedConsumer([
-                    MessageToRead(remoteId:
-                                    remoteId,
+                    MessageToRead(
+                                remoteId: remoteId,
                                   ntkUser: recipient,
                                   deliveryResult: result
                                  )

@@ -169,8 +169,7 @@ public final class AsyncMessageChannelHandler: ChannelDuplexHandler {
         data: NIOAny,
         promise: EventLoopPromise<Void>?
     ) {
-        
-        let channel = context.channel
+
         let message = self.unwrapOutboundIn(data)
         let buffer: EventLoopFuture<ByteBuffer> = context.eventLoop.executeAsync {
             return await self.encode(value: message)

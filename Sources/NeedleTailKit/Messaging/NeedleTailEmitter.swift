@@ -11,6 +11,7 @@ import NeedleTailHelpers
 #if (os(macOS) || os(iOS))
 public final class ContactsBundle: ObservableObject {
     
+    @Published public var contactListBundle: ContactBundle?
     @Published public var contactBundle: ContactBundle?
     @Published public var contactBundleViewModel = [ContactBundle]()
     @Published public var scrollToBottom: UUID?
@@ -142,7 +143,9 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var conversationChanged: AnyConversation?
     @Published public var conversationAdded: AnyConversation?
     @Published public var contactToDelete: Contact?
+    @Published public var contactToUpdate: Contact?
     @Published public var deleteContactAlert: Bool = false
+    @Published public var clearChatAlert: Bool = false
     
     @NeedleTailTransportActor
     public let consumer = ConversationConsumer()
@@ -150,6 +153,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var groupChats = [GroupChat]()
     @Published public var bundles = ContactsBundle()
     @Published public var readReceipts = false
+    @Published public var salt = ""
 //    @Published public var readMessage = false
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
@@ -218,7 +222,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
                                     emitter: self
                                 )
                             )
-                            
+
                             if bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username }) {
                                 guard let index = bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return }
                                 bundles.contactBundleViewModel[index] = bundle
@@ -268,6 +272,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
                 break
             }
         }
+        await fetchChats(cypher: cypher!, contact: contact)
     }
     
     
