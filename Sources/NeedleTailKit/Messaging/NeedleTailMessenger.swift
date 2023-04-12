@@ -225,6 +225,7 @@ public enum RegistrationState {
 extension NeedleTailMessenger {
     
     public func reconnect() async throws {
+#if os(macOS) || os(iOS)
         let newStatus = await NeedleTail.shared.state.receiver.statusArray
         for status in newStatus {
             switch status {
@@ -234,9 +235,11 @@ extension NeedleTailMessenger {
                 return
             }
         }
+#endif
     }
     
     public func disconnect() async throws {
+#if os(macOS) || os(iOS)
         let newStatus = await NeedleTail.shared.state.receiver.statusArray
         for status in newStatus {
             switch status {
@@ -246,6 +249,7 @@ extension NeedleTailMessenger {
                 return
             }
         }
+#endif
     }
     
     /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
