@@ -70,7 +70,7 @@ extension IRCCommand: CustomStringConvertible {
         case .QUIT:
             return Constants.quit
         case .PING:
-            return Constants.isOn
+            return Constants.ping
         case .PONG:
             return Constants.pong
         case .JOIN, .JOIN0:
