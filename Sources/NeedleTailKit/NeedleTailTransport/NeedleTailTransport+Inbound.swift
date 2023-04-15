@@ -247,16 +247,7 @@ extension NeedleTailTransport {
     }
     
     
-    func doNick(_ newNick: NeedleTailNick) async throws {
-//        switch transportState.current {
-//        case .transportRegistering(let channel, let nick, let info):
-//            guard nick != newNick else { return }
-//            transportState.transition(to: .transportOnline(channel: channel, nick: newNick, userInfo: info))
-//        default:
-//            return
-//        }
-//        await respondToTransportState()
-    }
+    func doNick(_ newNick: NeedleTailNick) async throws {}
     
     
     func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
@@ -304,11 +295,11 @@ extension NeedleTailTransport {
     
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
+    @PingPongActor
     func doPing(_ origin: String, origin2: String? = nil) async throws {
-        let message = IRCMessage(origin: origin, command: .PONG(server: origin, server2: origin2))
-        try await sendAndFlushMessage(message)
+        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+        try await pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
     }
-    
     
     private func respondToTransportState() async {
         switch transportState.current {

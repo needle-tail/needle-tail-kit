@@ -106,8 +106,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                 let messages = message.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                     .filter { !$0.isEmpty }
-                
-                
+
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
                     self.logger.trace("Message Parsed \(parsedMessage)")

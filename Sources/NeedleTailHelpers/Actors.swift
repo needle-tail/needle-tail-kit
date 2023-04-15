@@ -11,19 +11,29 @@
     private init() {}
 }
 
-@globalActor public actor NeedleTailTransportActor {
+@globalActor public final actor NeedleTailTransportActor {
     public static let shared = NeedleTailTransportActor()
 }
 
-@globalActor public actor NeedleTailClientActor {
+@globalActor public final actor NeedleTailClientActor {
     public static let shared = NeedleTailClientActor()
 }
 
-@globalActor public actor BlobActor {
+@globalActor public final actor BlobActor {
     public static let shared = BlobActor()
 }
 
 @globalActor public final actor KeyBundleActor {
     public static let shared = KeyBundleActor()
+    private init() {}
+}
+
+@globalActor public final actor PingPongActor {
+    public static let shared = PingPongActor()
+    private init() {}
+}
+
+@globalActor public final actor OfflineMessageActor {
+    public static let shared = OfflineMessageActor()
     private init() {}
 }

@@ -37,12 +37,13 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     var nick: NeedleTailNick? {
         return clientContext.nickname
     }
+    @NeedleTailTransportActor
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var ntkBundle: NTKClientBundle
-    
+    @NeedleTailTransportActor
     var tags: [IRCTags]?
+    var ntkBundle: NTKClientBundle
     var messageOfTheDay = ""
     var subscribedChannels = Set<IRCChannelName>()
     var proceedNewDeivce = false
@@ -86,9 +87,10 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
-    func processReceivedMessages(_ message: IRCMessage) async throws {
+    nonisolated func processReceivedMessages(_ message: IRCMessage) async throws {
         let tags = message.tags
         var sender: IRCUserID?
+        
         if let origin = message.origin {
             guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
             let buffer = ByteBuffer(data: data)
@@ -98,11 +100,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         
         switch message.command {
         case .PING(let origin, let origin2):
-//            break
             try await delegate?.doPing(origin, origin2: origin2)
         case .PONG(_, _):
             break
-//            try await delegate?.doPing(origin, origin2: origin2)
         case .PRIVMSG(let recipients, let payload):
             try await delegate?.doMessage(sender: sender,
                                           recipients: recipients,
@@ -141,19 +141,26 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-            //        case .otherCommand("READKEYBNDL", let keyBundle):
-            //            try await delegate?.doReadKeyBundle(keyBundle)
         case .otherCommand("BLOBS", let blob):
             try await delegate?.doBlobs(blob)
         case .numeric(.replyMotDStart, let args):
-            messageOfTheDay = (args.last ?? "") + "\n"
-        case .numeric(.replyMotD, let args):
-            messageOfTheDay += (args.last ?? "") + "\n"
-        case .numeric(.replyEndOfMotD, _):
-            if !messageOfTheDay.isEmpty {
-                await handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
+            Task { @NeedleTailTransportActor [weak self] in
+                guard let self else { return }
+                self.messageOfTheDay = (args.last ?? "") + "\n"
             }
-            messageOfTheDay = ""
+        case .numeric(.replyMotD, let args):
+            Task { @NeedleTailTransportActor [weak self] in
+                guard let self else { return }
+                self.messageOfTheDay += (args.last ?? "") + "\n"
+            }
+        case .numeric(.replyEndOfMotD, _):
+            Task { @NeedleTailTransportActor [weak self] in
+                guard let self else { return }
+                if !self.messageOfTheDay.isEmpty {
+                    await self.handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
+                }
+                self.messageOfTheDay = ""
+            }
         case .numeric(.replyNameReply, let args):
             await handleServerMessages(args, type: .replyNameReply)
         case .numeric(.replyEndOfNames, let args):
@@ -169,7 +176,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             guard args.count > 2, let channel = IRCChannelName(args[3]) else {
                 return logger.error("ERROR: topic args incomplete: \(message)")
             }
-            handleTopic(args[2], on: channel)
+            await handleTopic(args[2], on: channel)
         case .otherNumeric(let code, let args):
             logger.trace("otherNumeric Code: - \(code)")
             logger.trace("otherNumeric Args: - \(args)")
