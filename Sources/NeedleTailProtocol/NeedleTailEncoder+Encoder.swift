@@ -53,16 +53,17 @@ public final class NeedleTailEncoder {
         case .PING(server: let server, server2: let server2),
                 .PONG(server: let server, server2: let server2):
             if let server2 = server2 {
-                newString = base + Constants.space + server + Constants.space + Constants.colon + server2
+                //TODO: This is probably wrong
+                newString = base + argumentsWithLast([server]) + Constants.space + Constants.colon + argumentsWithLast([server2])
             } else {
-                newString = "\(base)\(Constants.space)\(Constants.colon)\(server)"
+                newString = base + argumentsWithLast([server])
             }
             
         case .JOIN(channels: let channels, keys: let keys):
             newString = base + Constants.space
             newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
             if let keys = keys {
-                newString +=  commaSeperatedValues(keys)
+                newString += commaSeperatedValues(keys)
             }
             
         case .JOIN0:

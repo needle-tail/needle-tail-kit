@@ -25,6 +25,7 @@ public final class MessageParser {
         var commandKey: IRCCommandKey = .string("")
         self.logger.trace("Parsing Message....")
         
+        
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
         ///We are seperating our tags from our message string before we process the rest of our message
@@ -77,7 +78,7 @@ public final class MessageParser {
             stripedMessage: stripedMessage,
             parameter: parameter
         )
-
+        
         var tags: [IRCTags]?
         if seperatedTags != [] {
             tags = try parseTags(
@@ -100,15 +101,24 @@ public final class MessageParser {
                     origin = unwrappedOrigin.replacingOccurrences(of: Constants.colon, with: Constants.none)
                 }
             }
+            let command = try IRCCommand(commandKey, arguments: arguments)
             
             ircMessage = IRCMessage(origin: origin,
-                                    command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
+                                    command: command,
+                                    arguments: arguments,
+                                    tags: tags
+            )
+            
         case .int(let commandKey):
             if origin?.hasPrefix(Constants.colon) != nil {
                 origin = origin?.replacingOccurrences(of: Constants.colon, with: Constants.none)
             }
+            let command = try IRCCommand(commandKey, arguments: arguments)
             ircMessage = IRCMessage(origin: origin,
-                                    command: try IRCCommand(commandKey, arguments: arguments), tags: tags)
+                                    command: command,
+                                    arguments: arguments,
+                                    tags: tags
+            )
             
         }
         self.logger.trace("Parsed Message")
@@ -171,6 +181,13 @@ public final class MessageParser {
                 commandKey.hasPrefix(Constants.join) ||
                 commandKey.hasPrefix(Constants.part) {
                 args.append(parameter)
+            }  else if commandKey.hasPrefix(Constants.ping) ||
+                        commandKey.hasPrefix(Constants.pong) {
+                if parameter.hasPrefix(Constants.colon) {
+                    args.append(String(parameter.dropFirst()))
+                } else {
+                    args.append(parameter)
+                }
             } else if commandKey.hasPrefix(Constants.user) {
                 let initialBreak = commandMessage.components(separatedBy: Constants.space + Constants.colon)
                 var spreadArgs = initialBreak[0].components(separatedBy: Constants.space)
@@ -204,7 +221,7 @@ public final class MessageParser {
         }
         return args
     }
-
+    
     // https://ircv3.net/specs/extensions/message-tags.html#format
     func parseTags(
         tags: String = ""

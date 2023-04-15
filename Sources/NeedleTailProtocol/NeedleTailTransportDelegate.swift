@@ -5,23 +5,34 @@ import NeedleTailHelpers
 public protocol NeedleTailClientDelegate: AnyObject {
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
 }
-@NeedleTailTransportActor
+
 public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
+    @NeedleTailTransportActor
     var origin: String? { get }
+    @NeedleTailTransportActor
     var target: String { get }
     var tags: [IRCTags]? { get }
     
+    @NeedleTailClientActor
     func clientMessage(_
                        command: IRCCommand,
                        tags: [IRCTags]?
     ) async throws
     
+    @NeedleTailTransportActor
     func transportMessage(_
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
 
+    @BlobActor
     func blobMessage(_
+                     command: IRCCommand,
+                     tags: [IRCTags]?
+    ) async throws
+    
+    @PingPongActor
+    func pingPongMessage(_
                      command: IRCCommand,
                      tags: [IRCTags]?
     ) async throws
@@ -30,7 +41,7 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
 
 //MARK: Server/Client
 extension NeedleTailTransportDelegate {
-    @NeedleTailTransportActor
+    
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         //THIS IS ANNOYING BUT WORKS
         try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in
@@ -41,6 +52,7 @@ extension NeedleTailTransportDelegate {
             }
             return canRun
         })
+
         let buffer = await NeedleTailEncoder.encode(value: message)
         try await channel.writeAndFlush(buffer)
     }
@@ -50,14 +62,13 @@ extension NeedleTailTransportDelegate {
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
-//    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
 
-    @NeedleTailTransportActor
+    @NeedleTailClientActor
     public func clientMessage(_
                               command: IRCCommand,
                               tags: [IRCTags]? = nil
     ) async throws {
-        let message = IRCMessage(origin: self.origin, command: command, tags: tags)
+        let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
         try await sendAndFlushMessage(message)
     }
     
@@ -93,10 +104,19 @@ extension NeedleTailTransportDelegate {
         }
     }
 
-    @NeedleTailTransportActor
+    @BlobActor
     public func blobMessage(_
                             command: IRCCommand,
                             tags: [IRCTags]? = nil
+    ) async throws {
+        let message = IRCMessage(command: command, tags: tags)
+        try await sendAndFlushMessage(message)
+    }
+    
+    @PingPongActor
+    public func pingPongMessage(_
+                     command: IRCCommand,
+                     tags: [IRCTags]?
     ) async throws {
         let message = IRCMessage(command: command, tags: tags)
         try await sendAndFlushMessage(message)

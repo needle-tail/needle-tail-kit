@@ -96,7 +96,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     deinit {}
     
     
-    func processKeyBundle(
+    nonisolated func processKeyBundle(
         _ message: IRCMessage
     ) async throws {
         switch message.command {
