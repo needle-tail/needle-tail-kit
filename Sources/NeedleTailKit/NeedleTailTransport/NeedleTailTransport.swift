@@ -37,11 +37,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     var nick: NeedleTailNick? {
         return clientContext.nickname
     }
-    @NeedleTailTransportActor
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    @NeedleTailTransportActor
     var tags: [IRCTags]?
     var ntkBundle: NTKClientBundle
     var messageOfTheDay = ""

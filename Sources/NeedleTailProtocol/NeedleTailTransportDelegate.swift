@@ -11,6 +11,7 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
     var origin: String? { get }
     @NeedleTailTransportActor
     var target: String { get }
+    @NeedleTailTransportActor
     var tags: [IRCTags]? { get }
     
     @NeedleTailClientActor
