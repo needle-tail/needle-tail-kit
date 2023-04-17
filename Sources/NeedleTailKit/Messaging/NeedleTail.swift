@@ -466,6 +466,10 @@ public final class NeedleTail {
         try await messenger?.sendMessageReadReceipt()
     }
     
+    public func sendReadMessages(count: Int) async throws {
+        try await messenger?.sendReadMessages(count: count)
+    }
+    
 }
 
 import NIOTransportServices

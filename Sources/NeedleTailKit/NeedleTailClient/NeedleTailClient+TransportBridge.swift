@@ -57,6 +57,7 @@ protocol TransportBridge: AnyObject {
     func requestOfflineMessages() async throws
     func deleteOfflineMessages(from contact: String) async throws
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
+    func sendReadMessages(count: Int) async throws
 }
 
 
@@ -214,7 +215,7 @@ extension NeedleTailClient: TransportBridge {
             try await RunLoop.run(240, sleep: 1) { @MainActor [weak self] in
                 guard let strongSelf = self else { return false }
                 var running = true
-
+                
                 if strongSelf.ntkBundle.messenger.emitter?.qrCodeData == nil {
                     running = false
                 }
@@ -242,13 +243,13 @@ extension NeedleTailClient: TransportBridge {
     
     
     func resumeClient(
-                      type: RegistrationType,
-                      state: RegistrationState? = .full
+        type: RegistrationType,
+        state: RegistrationState? = .full
     ) async throws {
         try await startSession(type: type, state: state)
     }
     
-
+    
     func connectClient() async throws {
         try await attemptConnection()
         ntkBundle.messenger.authenticated = .authenticated
@@ -288,8 +289,8 @@ extension NeedleTailClient: TransportBridge {
     
     
     func startSession(
-                      type: RegistrationType,
-                      state: RegistrationState? = .full
+        type: RegistrationType,
+        state: RegistrationState? = .full
     ) async throws {
         switch type {
         case .siwa(let apple):
@@ -492,7 +493,7 @@ extension NeedleTailClient: TransportBridge {
             tempRegister: tempRegister
         )
     }
-
+    
     private func apnRequest(_
                             jwt: String,
                             apnToken: String,
@@ -545,5 +546,10 @@ extension NeedleTailClient: TransportBridge {
     func clearUserConfig() async throws {
         guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         store.keyBundle = nil
+    }
+    
+    func sendReadMessages(count: Int) async throws {
+        let type = TransportMessageType.standard(.otherCommand("BADGEUPDATE", ["\(count)"]))
+        try await transport?.transportMessage(type)
     }
 }

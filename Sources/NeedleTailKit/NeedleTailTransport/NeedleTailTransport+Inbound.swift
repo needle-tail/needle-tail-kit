@@ -289,6 +289,12 @@ extension NeedleTailTransport {
         await plugin?.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
     }
     
+    func doIsOnline(_ nicks: [NeedleTailNick]) async throws {
+        for nick in nicks {
+            print("IS ONLINE", nick)
+        }
+    }
+    
     func doModeGet(nick: NeedleTailNick) async throws {
         await respondToTransportState()
     }
@@ -297,8 +303,8 @@ extension NeedleTailTransport {
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
     @PingPongActor
     func doPing(_ origin: String, origin2: String? = nil) async throws {
-        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-        try await pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
+            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+            try await self.pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
     }
     
     private func respondToTransportState() async {

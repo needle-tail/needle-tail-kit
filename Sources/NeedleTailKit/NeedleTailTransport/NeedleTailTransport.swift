@@ -27,6 +27,7 @@ protocol ClientTransportDelegate: AnyObject {
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
     
     var userMode = IRCUserMode()
+    @NeedleTailClientActor
     var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
@@ -37,9 +38,11 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     var nick: NeedleTailNick? {
         return clientContext.nickname
     }
+    @NeedleTailTransportActor
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
+    @NeedleTailTransportActor
     var tags: [IRCTags]?
     var ntkBundle: NTKClientBundle
     var messageOfTheDay = ""
@@ -98,7 +101,10 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         
         switch message.command {
         case .PING(let origin, let origin2):
-            try await delegate?.doPing(origin, origin2: origin2)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try await self.delegate?.doPing(origin, origin2: origin2)
+            }
         case .PONG(_, _):
             break
         case .PRIVMSG(let recipients, let payload):
