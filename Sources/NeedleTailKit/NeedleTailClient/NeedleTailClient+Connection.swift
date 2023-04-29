@@ -124,7 +124,7 @@ extension NeedleTailClient: ClientTransportDelegate {
             .connectTimeout(.minutes(1))
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
     }
-    
+
     func createHandlers(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws -> (KeyBundleMechanism, NeedleTailTransport, TransportStore) {
         let store = await createStore()
         let mechanism = try await createMechanism(channel, store: store)

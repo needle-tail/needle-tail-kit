@@ -46,9 +46,11 @@ public final actor NetworkMonitor {
     
     @MainActor
     public func getStatus() async {
+        if networkPublisher.currentStatus == .satisfied {
             for await status in networkPublisher.$currentStatus.values {
                 receiver.updateStatus = status
             }
+        }
     }
 }
 

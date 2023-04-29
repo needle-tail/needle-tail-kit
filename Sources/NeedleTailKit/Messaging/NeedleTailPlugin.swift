@@ -53,9 +53,6 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
-        Task {
-            print(await message.raw.deliveryState)
-        }
         emitter.messageChanged = message
 #endif
     }

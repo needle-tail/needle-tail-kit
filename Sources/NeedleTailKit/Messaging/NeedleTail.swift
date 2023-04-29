@@ -285,9 +285,9 @@ public final class NeedleTail {
     public func connectionAvailability() -> Bool {
         guard let messenger = messenger else { return false }
         if messenger.authenticated == .unauthenticated && messenger.isConnected == false {
-            return true
-        } else {
             return false
+        } else {
+            return true
         }
     }
     

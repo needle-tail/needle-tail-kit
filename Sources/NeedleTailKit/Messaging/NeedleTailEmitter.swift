@@ -155,7 +155,6 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var bundles = ContactsBundle()
     @Published public var readReceipts = false
     @Published public var salt = ""
-//    @Published public var messageIds = [String]()
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     

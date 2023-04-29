@@ -82,7 +82,6 @@ extension NeedleTailTransportDelegate {
         switch type {
         case .standard(let command):
             let message = IRCMessage(command: command, tags: tags)
-            print("STANDARD___", message)
             try await sendAndFlushMessage(message)
         case .private(let command), .notice(let command):
             switch command {

@@ -452,9 +452,10 @@ extension NeedleTailMessenger {
                 )
             }
         }
-
+    
     // When a message is received CTK calls this method. We then want to inform the sender we read the message at the correct time.
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
+        //If we have the chat view open and we try to process receive messages it doesnt work
         let bundle = try await readKeyBundle(forUsername: username)
         // Get all of the original sender's devices
         for validatedBundle in try bundle.readAndValidateDevices() {
