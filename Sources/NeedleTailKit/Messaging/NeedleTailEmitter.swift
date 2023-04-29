@@ -115,10 +115,10 @@ extension NeedleTailEmitter: ObservableObject {}
 
 //Our Bottom level Store for emitting events between CTK/NTK and Client
 public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
-    public static let shared = NeedleTailEmitter(sortChats: sortConversations)
-    
     public var id = UUID()
+    
 #if (os(macOS) || os(iOS))
+    public static let shared = NeedleTailEmitter(sortChats: sortConversations)
     
     
     @Published public var messageReceived: AnyChatMessage?
