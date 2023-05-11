@@ -8,6 +8,7 @@
 import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
+@_spi(AsyncChannel) import NIOCore
 
 @globalActor actor KeyBundleMechanismActor {
     static let shared = KeyBundleMechanismActor()
@@ -20,7 +21,8 @@ public protocol KeyBundleMechanisimDelegate: AnyObject {
     @KeyBundleMechanismActor
     var origin: String? { get }
     @KeyBundleMechanismActor
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
+    @_spi(AsyncChannel)
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
     func keyBundleMessage(_
                           type: TransportMessageType,
                           tags: [IRCTags]?
@@ -58,13 +60,13 @@ extension KeyBundleMechanisimDelegate {
         //THIS IS ANNOYING BUT WORKS
         try await RunLoop.run(5, sleep: 1, stopRunning: {
             var canRun = true
-            if await self.channel.channel.isActive  {
+            if await self.asyncChannel.channel.isActive  {
                 canRun = false
             }
             return canRun
         })
         let buffer = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(buffer)
+        try await asyncChannel.channel.writeAndFlush(buffer)
     }
 }
 
@@ -77,17 +79,17 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
     @KeyBundleMechanismActor
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var updateKeyBundle = false
     let store: TransportStore
     let clientContext: ClientContext
     
     internal init(
-        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
+        asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         store: TransportStore,
         clientContext: ClientContext
     ) {
-        self.channel = channel
+        self.asyncChannel = asyncChannel
         self.store = store
         self.clientContext = clientContext
     }

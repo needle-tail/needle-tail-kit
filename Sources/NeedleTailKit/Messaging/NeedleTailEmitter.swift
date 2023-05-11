@@ -110,6 +110,32 @@ public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
 #endif
 
 #if (os(macOS) || os(iOS))
+
+public struct DestructionMetadata: Identifiable {
+    
+    public let id = UUID()
+    public var title: DestructiveMessageTimes
+    public var timeInterval: Int
+    
+    public init(title: DestructiveMessageTimes, timeInterval: Int) {
+        self.title = title
+        self.timeInterval = timeInterval
+    }
+}
+
+public enum DestructiveMessageTimes: String {
+    case off = "Off"
+    case custom = "Custom"
+    case thirtyseconds = "30 Seconds"
+    case fiveMinutes = "5 Minutes"
+    case oneHour = "1 Hours"
+    case eightHours = "8 Hours"
+    case oneDay = "1 Day"
+    case oneWeek = "1 Week"
+    case fourWeeks = "4 Weeks"
+}
+
+
 extension NeedleTailEmitter: ObservableObject {}
 #endif
 
@@ -155,6 +181,9 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var bundles = ContactsBundle()
     @Published public var readReceipts = false
     @Published public var salt = ""
+    @Published public var destructionTime: DestructionMetadata?
+//    = UserDefaults.standard.integer(forKey: "destructionTime")
+    
     
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     

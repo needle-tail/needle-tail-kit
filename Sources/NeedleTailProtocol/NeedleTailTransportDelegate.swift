@@ -1,10 +1,10 @@
 import CypherMessaging
 import NeedleTailHelpers
+@_spi(AsyncChannel) import NIOCore
 
 @NeedleTailClientActor
 public protocol NeedleTailClientDelegate: AnyObject {
-    @NeedleTailClientActor
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
+    var channel: Channel { get set }
 }
 
 public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
@@ -49,7 +49,7 @@ extension NeedleTailTransportDelegate {
         try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in
             guard let self else { return false }
             var canRun = true
-            if await self.channel.channel.isActive  {
+            if await self.channel.isActive  {
                 canRun = false
             }
             return canRun

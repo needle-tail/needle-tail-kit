@@ -19,6 +19,7 @@ public final actor NetworkMonitor {
     private let monitorPath = NWPathMonitor()
     private var statusCancellable: Cancellable?
     fileprivate let networkPublisher = NetworkPublisher()
+    @MainActor private var isSet = false
     
     public init() {
         statusCancellable = networkPublisher.publisher(for: \.currentStatus) as? Cancellable
@@ -42,11 +43,11 @@ public final actor NetworkMonitor {
         monitorPath.cancel()
         statusCancellable = nil
     }
-    
-    
+
     @MainActor
     public func getStatus() async {
-        if networkPublisher.currentStatus == .satisfied {
+        if networkPublisher.currentStatus == .satisfied && !isSet {
+            isSet = true
             for await status in networkPublisher.$currentStatus.values {
                 receiver.updateStatus = status
             }

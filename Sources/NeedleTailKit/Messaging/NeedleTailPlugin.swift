@@ -38,7 +38,6 @@ public class NeedleTailPlugin: Plugin {
     
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        print("REMOVED MESSAGE")
         emitter.messageRemoved = message
 #endif
     }

@@ -9,6 +9,7 @@ import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
 import NIOExtras
+@_spi(AsyncChannel) import NIOCore
 
 @NeedleTailClientActor
 extension NeedleTailClient: ClientTransportDelegate {
@@ -93,7 +94,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     func handleChildChannel(_
-                            stream: NIOInboundChannelStream<ByteBuffer>,
+                            stream: NIOAsyncChannelInboundStream<ByteBuffer>,
                             mechanism: KeyBundleMechanism,
                             transport: NeedleTailTransport,
                             store: TransportStore
@@ -139,14 +140,14 @@ extension NeedleTailClient: ClientTransportDelegate {
     @KeyBundleMechanismActor
     func createMechanism(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, store: TransportStore) async throws -> KeyBundleMechanism {
         let context = self.clientContext
-        return KeyBundleMechanism(channel: channel, store: store, clientContext: context)
+        return KeyBundleMechanism(asyncChannel: channel, store: store, clientContext: context)
     }
     
     @NeedleTailTransportActor
-    func createTransport(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, store: TransportStore) async -> NeedleTailTransport {
+    func createTransport(_ asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, store: TransportStore) async -> NeedleTailTransport {
         let transport = NeedleTailTransport(
             ntkBundle: self.ntkBundle,
-            channel: channel,
+            asyncChannel: asyncChannel,
             transportState: self.transportState,
             clientContext: self.clientContext,
             store: store

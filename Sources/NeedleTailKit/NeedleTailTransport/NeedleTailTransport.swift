@@ -9,6 +9,7 @@ import NeedleTailHelpers
 import NeedleTailProtocol
 import Logging
 import CypherMessaging
+@_spi(AsyncChannel) import NIOCore
 
 @NeedleTailTransportActor
 protocol MessengerTransportBridge: AnyObject {
@@ -28,7 +29,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     
     var userMode = IRCUserMode()
     @NeedleTailClientActor
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    var channel: Channel
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -66,7 +67,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     
     init(
         ntkBundle: NTKClientBundle,
-        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
+        asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         messageOfTheDay: String = "",
         transportState: TransportState,
         clientContext: ClientContext,
@@ -74,7 +75,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     ) {
         self.ntkBundle = ntkBundle
         self.store = store
-        self.channel = channel
+        self.channel = asyncChannel.channel
         self.messageOfTheDay = messageOfTheDay
         self.transportState = transportState
         self.clientContext = clientContext

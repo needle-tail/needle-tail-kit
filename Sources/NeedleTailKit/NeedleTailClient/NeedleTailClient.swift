@@ -2,6 +2,7 @@ import Logging
 import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
+@_spi(AsyncChannel) import NIOCore
 #if canImport(Network)
 import NIOTransportServices
 #endif
