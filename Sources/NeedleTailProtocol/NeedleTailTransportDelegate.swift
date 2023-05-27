@@ -45,16 +45,6 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
 extension NeedleTailTransportDelegate {
     
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        //THIS IS ANNOYING BUT WORKS
-        try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in
-            guard let self else { return false }
-            var canRun = true
-            if await self.channel.isActive  {
-                canRun = false
-            }
-            return canRun
-        })
-
         let buffer = await NeedleTailEncoder.encode(value: message)
         try await channel.writeAndFlush(buffer)
     }

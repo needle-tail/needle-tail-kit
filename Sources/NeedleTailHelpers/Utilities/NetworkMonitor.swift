@@ -19,7 +19,7 @@ public final actor NetworkMonitor {
     private let monitorPath = NWPathMonitor()
     private var statusCancellable: Cancellable?
     fileprivate let networkPublisher = NetworkPublisher()
-    @MainActor private var isSet = false
+    private var isSet = false
     
     public init() {
         statusCancellable = networkPublisher.publisher(for: \.currentStatus) as? Cancellable
@@ -27,9 +27,11 @@ public final actor NetworkMonitor {
 
 
     public func startMonitor() async {
-        let queue = DispatchQueue(label: "NetworkMonitor")
-        monitorPath.start(queue: queue)
-        await monitor()
+        if !isSet {
+            let queue = DispatchQueue(label: "network-monitor")
+            monitorPath.start(queue: queue)
+            await monitor()
+        }
     }
     
     public func monitor() async {
@@ -44,7 +46,6 @@ public final actor NetworkMonitor {
         statusCancellable = nil
     }
 
-    @MainActor
     public func getStatus() async {
         if networkPublisher.currentStatus == .satisfied && !isSet {
             isSet = true
@@ -64,7 +65,7 @@ public class MonitorReceiver: ObservableObject {
     @Published
     public var updateStatus: NWPath.Status = .requiresConnection {
         didSet {
-             Task {
+             Task { @MainActor in
                 await updateStatus()
             }
         }

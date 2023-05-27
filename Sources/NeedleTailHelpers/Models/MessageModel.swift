@@ -29,6 +29,18 @@ public enum AddDeviceType: Codable, Sendable {
     case master, child
 }
 
+public struct MultipartMessagePacket: Codable, Sendable {
+    public var id: String
+    public var partNumber: Int
+    public var totalParts: Int
+    
+    public init(id: String, partNumber: Int, totalParts: Int) {
+        self.id = id
+        self.partNumber = partNumber
+        self.totalParts = totalParts
+    }
+}
+
 public struct MessagePacket: Codable, Sendable {
     public let id: String
     public let pushType: PushType
@@ -43,6 +55,7 @@ public struct MessagePacket: Codable, Sendable {
     public let contacts: [NTKContact]?
     public let addDeviceType: AddDeviceType?
     public let childDeviceConfig: UserDeviceConfig?
+    public let multipartMessage: MultipartMessagePacket?
     
     public init(
         id: String,
@@ -57,7 +70,8 @@ public struct MessagePacket: Codable, Sendable {
         addKeyBundle: Bool? = nil,
         contacts: [NTKContact]? = nil,
         addDeviceType: AddDeviceType? = nil,
-        childDeviceConfig: UserDeviceConfig? = nil
+        childDeviceConfig: UserDeviceConfig? = nil,
+        multipartMessage: MultipartMessagePacket? = nil
     ) {
         self.id = id
         self.pushType = pushType
@@ -72,6 +86,7 @@ public struct MessagePacket: Codable, Sendable {
         self.contacts = contacts
         self.addDeviceType = addDeviceType
         self.childDeviceConfig = childDeviceConfig
+        self.multipartMessage = multipartMessage
     }
 }
 

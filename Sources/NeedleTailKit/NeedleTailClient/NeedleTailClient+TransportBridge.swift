@@ -26,7 +26,8 @@ protocol TransportBridge: AnyObject {
         pushType: PushType,
         messageId: String,
         type: ConversationType,
-        readReceipt: ReadReceipt?
+        readReceipt: ReadReceipt?,
+        multipartMessage: MultipartMessagePacket?
     ) async throws
     func sendReadReceiptMessage(
         recipient: NTKUser,
@@ -58,6 +59,7 @@ protocol TransportBridge: AnyObject {
     func deleteOfflineMessages(from contact: String) async throws
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
+    func downloadMedia(_ id: String) async throws
 }
 
 
@@ -99,7 +101,8 @@ extension NeedleTailClient: TransportBridge {
         pushType: CypherMessaging.PushType,
         messageId: String,
         type: ConversationType,
-        readReceipt: ReadReceipt?
+        readReceipt: ReadReceipt?,
+        multipartMessage: MultipartMessagePacket?
     ) async throws {
         guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         switch type {
@@ -130,7 +133,8 @@ extension NeedleTailClient: TransportBridge {
                 fromUser: self.ntkUser,
                 messageType: .message,
                 conversationType: type,
-                readReceipt: readReceipt
+                readReceipt: readReceipt,
+                multipartMessage: multipartMessage
             )
         }
     }
@@ -549,7 +553,12 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func sendReadMessages(count: Int) async throws {
-        let type = TransportMessageType.standard(.otherCommand("BADGEUPDATE", ["\(count)"]))
+        let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate, ["\(count)"]))
+        try await transport?.transportMessage(type)
+    }
+    
+    func downloadMedia(_ id: String) async throws {
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, [id]))
         try await transport?.transportMessage(type)
     }
 }

@@ -140,7 +140,8 @@ extension NeedleTailTransport {
         fromUser: NTKUser,
         messageType: MessageType,
         conversationType: ConversationType,
-        readReceipt: ReadReceipt?
+        readReceipt: ReadReceipt?,
+        multipartMessage: MultipartMessagePacket?
     ) async throws {
         let packet = MessagePacket(
             id: messageId,
@@ -150,7 +151,8 @@ extension NeedleTailTransport {
             sender: fromUser.deviceId,
             recipient: toUser.deviceId,
             message: message,
-            readReceipt: readReceipt
+            readReceipt: readReceipt,
+            multipartMessage: multipartMessage
         )
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()

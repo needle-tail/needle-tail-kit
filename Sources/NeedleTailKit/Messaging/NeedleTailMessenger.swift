@@ -41,6 +41,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
+    var multipartObject: MultipartMessagePacket?
     var readReceipt: ReadReceipt?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
     var username: Username?
@@ -426,7 +427,8 @@ extension NeedleTailMessenger {
             pushType: pushType,
             messageId: messageId,
             type: type,
-            readReceipt: readReceipt
+            readReceipt: readReceipt,
+            multipartMessage: multipartObject
         )
     }
     
@@ -532,6 +534,10 @@ extension NeedleTailMessenger {
     
     public func sendReadMessages(count: Int) async throws {
         try await transportBridge?.sendReadMessages(count: count)
+    }
+    
+    public func downloadMedia(_ id: String) async throws {
+        try await transportBridge?.downloadMedia(id)
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {

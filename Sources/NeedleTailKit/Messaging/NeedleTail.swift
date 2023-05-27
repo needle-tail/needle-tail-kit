@@ -38,6 +38,12 @@ public final class NeedleTail {
         }
     }
     
+    public var multipartObject: MultipartMessagePacket? {
+        didSet {
+            messenger?.multipartObject = multipartObject
+        }
+    }
+    
     var registrationApproved = false
     var registeringNewDevice = false
     var plugin: NeedleTailPlugin?
@@ -470,28 +476,30 @@ public final class NeedleTail {
         try await messenger?.sendReadMessages(count: count)
     }
     
+    public func downloadMedia(_ id: String) async throws {
+        try await messenger?.downloadMedia(id)
+    }
+    
 }
 
 import NIOTransportServices
 //SwiftUI Stuff
 extension NeedleTail {
     
-    public struct SkeletonView: View {
+    public struct SkeletonView<Content>: View where Content: View {
         
         @StateObject public var emitter = NeedleTailEmitter(sortChats: sortConversations)
-        public var view: AnyView
+        let content: Content
         
-        public init(
-            _ view: AnyView
-        ) {
-            self.view = view
+        public init(content: Content) {
+            self.content = content
         }
         
         public var body: some View {
             AsyncView(run: { () async throws -> NeedleTailEmitter in
                 return emitter
             }) { emitter in
-                view
+                content
                     .environmentObject(emitter)
             }
         }

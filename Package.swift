@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -22,7 +22,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/needle-tail/swift-nio-transport-services.git", branch: "main"),
-//        .package(url: "https://github.com/apple/swift-nio.git", from: "2.45.0"),
         .package(url: "https://github.com/Cartisim/swift-nio.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.24.0"),

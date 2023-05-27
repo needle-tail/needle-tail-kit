@@ -57,14 +57,6 @@ extension KeyBundleMechanisimDelegate {
     
     @KeyBundleMechanismActor
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        //THIS IS ANNOYING BUT WORKS
-        try await RunLoop.run(5, sleep: 1, stopRunning: {
-            var canRun = true
-            if await self.asyncChannel.channel.isActive  {
-                canRun = false
-            }
-            return canRun
-        })
         let buffer = await NeedleTailEncoder.encode(value: message)
         try await asyncChannel.channel.writeAndFlush(buffer)
     }

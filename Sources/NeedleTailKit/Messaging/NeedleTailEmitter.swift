@@ -16,7 +16,7 @@ public final class ContactsBundle: ObservableObject {
     @Published public var contactBundleViewModel = [ContactBundle]()
     @Published public var scrollToBottom: UUID?
     
-    public struct ContactBundle: @unchecked Sendable, Equatable, Hashable, Identifiable {
+    public struct ContactBundle: Equatable, Hashable, Identifiable {
         public let id = UUID()
         public var contact: Contact
         public var privateChat: PrivateChat
@@ -25,6 +25,22 @@ public final class ContactsBundle: ObservableObject {
         public var messages: [AnyChatMessage]
         public var mostRecentMessage: MostRecentMessage<PrivateChat>?
         internal var sortedBy: ContactListSorted = .unPinRead
+        
+        public init(
+            contact: Contact,
+            privateChat: PrivateChat,
+            groupChats: [GroupChat],
+            cursor: AnyChatMessageCursor,
+            messages: [AnyChatMessage],
+            mostRecentMessage: MostRecentMessage<PrivateChat>? = nil
+        ) {
+            self.contact = contact
+            self.privateChat = privateChat
+            self.groupChats = groupChats
+            self.cursor = cursor
+            self.messages = messages
+            self.mostRecentMessage = mostRecentMessage
+        }
         
         public static func == (lhs: ContactBundle, rhs: ContactBundle) -> Bool {
             return lhs.id == rhs.id
@@ -173,9 +189,6 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var contactToUpdate: Contact?
     @Published public var deleteContactAlert: Bool = false
     @Published public var clearChatAlert: Bool = false
-    
-    @NeedleTailTransportActor
-    public let consumer = ConversationConsumer()
     @Published public var cypher: CypherMessenger?
     @Published public var groupChats = [GroupChat]()
     @Published public var bundles = ContactsBundle()
@@ -183,8 +196,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var salt = ""
     @Published public var destructionTime: DestructionMetadata?
 //    = UserDefaults.standard.integer(forKey: "destructionTime")
-    
-    
+    let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     public init(sortChats: @escaping @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
@@ -224,7 +236,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     ) async {
         do {
             try await fetchConversations(cypher)
-            for try await result in ConversationSequence(consumer: consumer) {
+            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
                 switch result {
                 case .success(let result):
                     switch result {
@@ -251,7 +263,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
                                     emitter: self
                                 )
                             )
-
+                            
                             if bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username }) {
                                 guard let index = bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return }
                                 bundles.contactBundleViewModel[index] = bundle

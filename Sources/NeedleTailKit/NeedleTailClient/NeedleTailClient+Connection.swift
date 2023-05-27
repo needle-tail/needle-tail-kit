@@ -9,6 +9,7 @@ import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
 import NIOExtras
+import NIOTransportServices
 @_spi(AsyncChannel) import NIOCore
 
 @NeedleTailClientActor
@@ -20,6 +21,14 @@ extension NeedleTailClient: ClientTransportDelegate {
                 await transportState.transition(to: .clientConnecting)
                 do {
                     let childChannel = try await createChannel(host: serverInfo.hostname, port: serverInfo.port)
+                        try await RunLoop.run(10, sleep: 1, stopRunning: {
+                            var canRun = true
+                            if childChannel.channel.isActive  {
+                                canRun = false
+                            }
+                            return canRun
+                        })
+                    
                     try await addChildHandle(childChannel)
                     await transportState.transition(to: .clientConnected)
                 } catch {
@@ -32,7 +41,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                 break
             }
     }
-    
+
     func createChannel(host: String, port: Int) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
         return try await createBootstrap().connectAsync(host: host, port:port)
     }
