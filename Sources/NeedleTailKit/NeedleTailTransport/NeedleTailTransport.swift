@@ -146,8 +146,14 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
-        case .otherCommand("BLOBS", let blob):
+        case .otherCommand(Constants.blobs, let blob):
             try await delegate?.doBlobs(blob)
+        case.otherCommand(Constants.multipartMedia, let media):
+            guard let media = media.first else { return }
+            try await doMultipartMedia(
+                media,
+                sender: sender
+            )
         case .numeric(.replyMotDStart, let args):
             Task { @NeedleTailTransportActor [weak self] in
                 guard let self else { return }

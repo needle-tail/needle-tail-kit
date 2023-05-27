@@ -39,7 +39,7 @@ extension NeedleTailTransport {
             self.registryRequestId = ""
             return true
         }
-      return false
+        return false
     }
     
     /// This method is called on the Dispatcher, After the master device adds the new Device locally and then sends it to the server to be saved
@@ -109,7 +109,8 @@ extension NeedleTailTransport {
                         packet,
                         sender: sender,
                         recipient: recipient,
-                        messageType: .message
+                        messageType: .message,
+                        ackType: .messageSent
                     )
                 case .multiRecipientMessage:
                     break
@@ -190,7 +191,7 @@ extension NeedleTailTransport {
                 switch packet.type {
                 case .message:
                     // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
-                    try await processMessage(packet, sender: sender, recipient: recipient, messageType: .message)
+                    try await processMessage(packet, sender: sender, recipient: recipient, messageType: .message, ackType: .messageSent)
                 default:
                     return
                 }
@@ -202,7 +203,8 @@ extension NeedleTailTransport {
                                 packet: MessagePacket,
                                 sender: IRCUserID?,
                                 recipient: IRCMessageRecipient,
-                                messageType: MessageType
+                                messageType: MessageType,
+                                ackType: Acknowledgment.AckType
     ) async throws {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
@@ -220,11 +222,11 @@ extension NeedleTailTransport {
             print("CAUGHT_RECEIVE_SERVER_EVENT_ERROR \(error.localizedDescription)")
             return
         }
-
-        let acknowledgement = try await createAcknowledgment(.messageSent, id: packet.id)
+        
+        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id)
         let ackMessage = acknowledgement.base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-        try await transportMessage(type)
+            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+            try await transportMessage(type)
     }
     
     private func createAcknowledgment(_ ackType: Acknowledgment.AckType, id: String? = nil) async throws -> Data {
@@ -303,8 +305,8 @@ extension NeedleTailTransport {
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
     @PingPongActor
     func doPing(_ origin: String, origin2: String? = nil) async throws {
-            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-            try await self.pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
+        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+        try await self.pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
     }
     
     private func respondToTransportState() async {
@@ -361,4 +363,23 @@ extension NeedleTailTransport {
             .filter{ !$0.isEmpty}
         logger.info("Server Message: \(message.joined()), type: \(type)")
     }
+    
+    func doMultipartMedia(_
+                          media: String,
+                          sender: IRCUserID?
+    ) async throws {
+        guard let data = Data(base64Encoded: media) else { return }
+        let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
+        guard let multipartId = packet.multipartMessage?.id else { return }
+        guard let nick = self.nick else { return }
+        
+        try await processMessage(
+            packet,
+            sender: sender,
+            recipient: .nick(nick),
+            messageType: .message,
+            ackType: .multipartReceived(multipartId)
+        )
+    }
 }
+
