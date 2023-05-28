@@ -25,6 +25,8 @@ public class NeedleTailPlugin: Plugin {
         self.emitter = emitter
     }
     
+    var multipartData: Data?
+    
     public func onCreateChatMessage(_ message: AnyChatMessage) {
 #if os(iOS)
 //        UIApplication.shared.applicationIconBadgeNumber += 1
@@ -32,7 +34,34 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
-        emitter.messageReceived = message
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            print("MESSAGE_TTPE", message.messageSubtype)
+            if message.messageSubtype == "multipart/*" {
+                multipartData = Data()
+                let multipartBinary = message.metadata["multipartChunk"] as? Binary
+                let partNumberBinary = message.metadata["partNumber"] as? Binary
+                let totalPartsBinary = message.metadata["totalParts"] as? Binary
+                
+                guard let multipartDataChunk = multipartBinary?.data else { return }
+                multipartData?.append(multipartDataChunk)
+                
+                
+                guard let partNumberData = partNumberBinary?.data else { return }
+                guard let totalPartsData = totalPartsBinary?.data else { return }
+                guard let partString = String(data: partNumberData, encoding: .utf8) else { return }
+                guard let totalString = String(data: totalPartsData, encoding: .utf8) else { return }
+                let partNumber = Int(partString)
+                let totalParts = Int(totalString)
+                
+                if  partNumber == totalParts {
+                    emitter.multipartReceived = multipartData
+                    multipartData = nil
+                }
+            } else {
+                emitter.messageReceived = message
+            }
+        }
 #endif
     }
     

@@ -21,7 +21,7 @@ public struct Acknowledgment: Codable, Sendable {
         case quited
         case publishedKeyBundle(String)
         case readReceipt
-        case multipartReceived(String)
+        case multipartReceived
     }
 
     public var acknowledgment: AckType

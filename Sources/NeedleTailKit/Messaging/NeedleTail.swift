@@ -476,8 +476,8 @@ public final class NeedleTail {
         try await messenger?.sendReadMessages(count: count)
     }
     
-    public func downloadMedia(_ id: String) async throws {
-        try await messenger?.downloadMedia(id)
+    public func downloadMedia(_ metadata: [String]) async throws {
+        try await messenger?.downloadMedia(metadata)
     }
     
 }

@@ -204,7 +204,8 @@ extension NeedleTailTransport {
                                 sender: IRCUserID?,
                                 recipient: IRCMessageRecipient,
                                 messageType: MessageType,
-                                ackType: Acknowledgment.AckType
+                                ackType: Acknowledgment.AckType,
+                                messagePacket: MultipartMessagePacket? = nil
     ) async throws {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
@@ -223,13 +224,17 @@ extension NeedleTailTransport {
             return
         }
         
-        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id)
+        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
         let ackMessage = acknowledgement.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
             try await transportMessage(type)
     }
     
-    private func createAcknowledgment(_ ackType: Acknowledgment.AckType, id: String? = nil) async throws -> Data {
+    private func createAcknowledgment(_
+                                      ackType: Acknowledgment.AckType,
+                                      id: String? = nil,
+                                      messagePacket: MultipartMessagePacket? = nil
+    ) async throws -> Data {
         //Send message ack
         let received = Acknowledgment(acknowledgment: ackType)
         let ack = try BSONEncoder().encode(received).makeData()
@@ -242,7 +247,8 @@ extension NeedleTailTransport {
             sender: nil,
             recipient: nil,
             message: nil,
-            readReceipt: .none
+            readReceipt: .none,
+            multipartMessage: messagePacket
         )
         
         return try BSONEncoder().encode(packet).makeData()
@@ -370,7 +376,7 @@ extension NeedleTailTransport {
     ) async throws {
         guard let data = Data(base64Encoded: media) else { return }
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
-        guard let multipartId = packet.multipartMessage?.id else { return }
+        guard let messagePacket = packet.multipartMessage else { return }
         guard let nick = self.nick else { return }
         
         try await processMessage(
@@ -378,7 +384,8 @@ extension NeedleTailTransport {
             sender: sender,
             recipient: .nick(nick),
             messageType: .message,
-            ackType: .multipartReceived(multipartId)
+            ackType: .multipartReceived,
+            messagePacket: messagePacket
         )
     }
 }

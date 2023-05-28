@@ -42,4 +42,6 @@ public enum NeedleTailError: String, Error {
     case couldNotCreateHandlers = "Could Not Create Handlers"
     case emitterIsNil = "Emitter is nil"
     case cannotFindChat
+    case mediaIdNil
+    case totalPartsNil
 }

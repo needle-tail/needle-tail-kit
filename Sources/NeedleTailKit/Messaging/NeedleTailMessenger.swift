@@ -536,8 +536,8 @@ extension NeedleTailMessenger {
         try await transportBridge?.sendReadMessages(count: count)
     }
     
-    public func downloadMedia(_ id: String) async throws {
-        try await transportBridge?.downloadMedia(id)
+    public func downloadMedia(_ metadata: [String]) async throws {
+        try await transportBridge?.downloadMedia(metadata)
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {

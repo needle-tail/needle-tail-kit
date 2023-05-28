@@ -59,7 +59,7 @@ protocol TransportBridge: AnyObject {
     func deleteOfflineMessages(from contact: String) async throws
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
-    func downloadMedia(_ id: String) async throws
+    func downloadMedia(_ metadata: [String]) async throws
 }
 
 
@@ -557,8 +557,10 @@ extension NeedleTailClient: TransportBridge {
         try await transport?.transportMessage(type)
     }
     
-    func downloadMedia(_ id: String) async throws {
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, [id]))
+    func downloadMedia(_ metadata: [String]) async throws {
+        guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
+        guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, [metadata[0], metadata[1]]))
         try await transport?.transportMessage(type)
     }
 }
