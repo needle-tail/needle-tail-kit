@@ -159,6 +159,8 @@ extension NeedleTailTransport {
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
+                    } else if store.acknowledgment == .multipartUploadComplete {
+                        emitter?.multipartUploadComplete = true
                     }
                 case .requestRegistry:
                     switch packet.addDeviceType {
