@@ -214,11 +214,23 @@ public final class MessageParser {
                         commandKey.hasPrefix(Constants.badgeUpdate) ||
                         commandKey.hasPrefix(Constants.multipartMedia) {
                 var stripedMessage = stripedMessage
+                
+                if stripedMessage.contains(commandKey) {
+                    let seperatedCommand = stripedMessage.components(separatedBy: commandKey)
+                    let joined = seperatedCommand.joined(separator: " ")
+                    stripedMessage = joined
+                }
+                
+                if stripedMessage.first == Character(Constants.space) {
+                    stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+                
                 if stripedMessage.first == Character(Constants.colon) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 let seperatedArguments = stripedMessage.components(separatedBy: Constants.colon)
                 for argument in seperatedArguments {
+                    guard !argument.isEmpty else { break }
                     args.append(argument.trimmingCharacters(in: .whitespaces))
                 }
             }
