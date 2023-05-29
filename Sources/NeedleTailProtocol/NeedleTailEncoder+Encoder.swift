@@ -2,6 +2,7 @@ import NIOCore
     
 public final class NeedleTailEncoder {
     
+//    [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
     public class func encode(
         value: IRCMessage
     ) async -> ByteBuffer {
@@ -127,7 +128,7 @@ public final class NeedleTailEncoder {
         case .numeric(_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):
-            newString = base + argumentsWithLast(args)
+                newString = base + argumentsWithLast(args)
         case .CAP(let subCommand, let capabilityIds):
             newString = base + Constants.space + subCommand.commandAsString + Constants.space + Constants.colon
             newString += capabilityIds.joined(separator: Constants.space)
@@ -144,16 +145,15 @@ public final class NeedleTailEncoder {
         return newString
     }
     
+    //This method is used to recreate the last arguement in order for it to start with a colon. This is according to IRC syntax design.
     private class func argumentsWithLast(_ args: [String] = [""]) -> String {
         guard !args.isEmpty else { return "" }
         var newString = ""
-        for arg in args.dropLast() {
-            newString += Constants.space + arg
-        }
-        
+            for arg in args.dropLast() {
+                newString += Constants.space + arg
+            }
         let lastIdx = args.index(args.startIndex, offsetBy: args.count - 1)
-        newString += Constants.space + Constants.colon + args[lastIdx]
-        return newString
+        return newString + Constants.space + Constants.colon + args[lastIdx]
     }
     
     private class func commaSeperatedValues(_ args: [String] = [""]) -> String {

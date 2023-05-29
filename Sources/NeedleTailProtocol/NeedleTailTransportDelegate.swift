@@ -46,7 +46,6 @@ extension NeedleTailTransportDelegate {
     
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         let buffer = await NeedleTailEncoder.encode(value: message)
-        let data = Data(buffer: buffer)
         try await channel.writeAndFlush(buffer)
     }
 }

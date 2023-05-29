@@ -217,8 +217,10 @@ public final class MessageParser {
                 if stripedMessage.first == Character(Constants.colon) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
-                let seperated = stripedMessage.components(separatedBy: Constants.colon)
-                args.append(seperated[1].trimmingCharacters(in: .whitespaces))
+                let seperatedArguments = stripedMessage.components(separatedBy: Constants.colon)
+                for argument in seperatedArguments {
+                    args.append(argument.trimmingCharacters(in: .whitespaces))
+                }
             }
         }
         return args

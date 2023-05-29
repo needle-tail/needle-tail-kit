@@ -560,7 +560,10 @@ extension NeedleTailClient: TransportBridge {
     func downloadMedia(_ metadata: [String]) async throws {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, [metadata[0], metadata[1]]))
+//        let data = try BSONEncoder().encode(metadata).makeData()
+        //TODO: NEEDS TO BE FIXED IN THE ENCODER/PARSER
+//        data.base64EncodedString()
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, metadata))
         try await transport?.transportMessage(type)
     }
 }

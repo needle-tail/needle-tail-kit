@@ -11,11 +11,14 @@ import Logging
 import CypherMessaging
 @_spi(AsyncChannel) import NIOCore
 
-@NeedleTailTransportActor
 protocol MessengerTransportBridge: AnyObject {
+    @NeedleTailTransportActor
     var ctcDelegate: CypherTransportClientDelegate? { get set }
+    @NeedleTailTransportActor
     var ctDelegate: ClientTransportDelegate? { get set }
+    @NeedleTailTransportActor
     var plugin: NeedleTailPlugin? { get set }
+    @MainActor
     var emitter: NeedleTailEmitter? { get set }
 }
 
@@ -62,6 +65,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
     weak var ctDelegate: ClientTransportDelegate?
     var plugin: NeedleTailPlugin?
+    @MainActor
     var emitter: NeedleTailEmitter?
     var quiting = false
     

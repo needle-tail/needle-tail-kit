@@ -40,12 +40,18 @@ final class NeedleTailClient {
     ) async {
         var mtDelegate = mtDelegate
         mtDelegate = transport
-        mtDelegate?.ctcDelegate = delegate
-        mtDelegate?.ctDelegate = self
+        guard let mtDelegate = mtDelegate else { return }
+        mtDelegate.ctcDelegate = delegate
+        mtDelegate.ctDelegate = self
 #if (os(macOS) || os(iOS))
-        mtDelegate?.emitter = emitter
+          await setEmitter(mtDelegate, emitter: emitter)
 #endif
-        mtDelegate?.plugin = plugin
+        mtDelegate.plugin = plugin
+    }
+    
+    @MainActor
+    func setEmitter(_ mtDelegate: MessengerTransportBridge, emitter: NeedleTailEmitter) {
+        mtDelegate.emitter = emitter
     }
     
     init(

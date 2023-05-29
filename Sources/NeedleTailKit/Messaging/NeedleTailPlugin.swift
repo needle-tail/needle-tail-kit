@@ -36,7 +36,6 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
         Task { @MainActor [weak self] in
             guard let self else { return }
-            print("MESSAGE_TTPE", message.messageSubtype)
             if message.messageSubtype == "multipart/*" {
                 multipartData = Data()
                 let multipartBinary = message.metadata["multipartChunk"] as? Binary
