@@ -31,6 +31,8 @@ public struct Constants {
     public static var user = "USER"
     public static var privMsg = "PRIVMSG"
     public static var mode = "MODE"
+    public static var kill = "KILL"
+    public static var kick = "KICK"
     public static var registryRequest = "REGISTRYREQUEST"
     public static var registryResponse = "REGISTRYRESPONSE"
     public static var newDevice = "NEWDEVICE"

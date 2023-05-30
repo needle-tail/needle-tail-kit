@@ -103,7 +103,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             let userId = try BSONDecoder().decode(IRCUserID.self, from: Document(buffer: buffer))
             sender = userId
         }
-        
         switch message.command {
         case .PING(let origin, let origin2):
             Task.detached { [weak self] in
@@ -150,6 +149,14 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
             try await doList(channels, target)
+        case .KICK(let channels, let users, let comments):
+            logger.info("The following users \(users) were Kicked from the channels \(channels) for these reasons \(comments)")
+            //TODO: Handle
+            break
+        case .KILL(let nick, let comment):
+            logger.info("The following nick \(nick.description) was Killed because it already exists. This is what the server has to say: \(comment)")
+            //TODO: Handle
+            break
         case .otherCommand(Constants.blobs, let blob):
             try await delegate?.doBlobs(blob)
         case.otherCommand(Constants.multipartMedia, let media):
@@ -158,15 +165,17 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
                 media,
                 sender: sender
             )
-        case .numeric(.replyMotDStart, let args):
+        case .numeric(.replyMotDStart, _):
             Task { @NeedleTailTransportActor [weak self] in
                 guard let self else { return }
-                self.messageOfTheDay = (args.last ?? "") + "\n"
+                guard let arguments = message.arguments else { return }
+                self.messageOfTheDay = "\(arguments.last!)\n"
             }
-        case .numeric(.replyMotD, let args):
+        case .numeric(.replyMotD, _):
             Task { @NeedleTailTransportActor [weak self] in
                 guard let self else { return }
-                self.messageOfTheDay += (args.last ?? "") + "\n"
+                guard let arguments = message.arguments else { return }
+                self.messageOfTheDay += "\(arguments.last!)\n"
             }
         case .numeric(.replyEndOfMotD, _):
             Task { @NeedleTailTransportActor [weak self] in

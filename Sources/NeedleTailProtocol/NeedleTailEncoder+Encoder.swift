@@ -125,6 +125,13 @@ public final class NeedleTailEncoder {
                     newString += Constants.space + Constants.oString
                 }
             }
+        case .KICK(let channels, let users, let comments):
+            newString = base + Constants.space
+            newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+            newString += commaSeperatedValues(users.lazy.map({ $0.stringValue }))
+            newString += commaSeperatedValues(comments.lazy.map({ $0 }))
+        case .KILL(let nick, let comment):
+            newString = base + Constants.space + nick.stringValue + comment
         case .numeric(_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):

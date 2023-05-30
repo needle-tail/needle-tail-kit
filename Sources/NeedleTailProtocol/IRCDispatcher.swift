@@ -66,6 +66,12 @@ public protocol IRCDispatcher: AnyObject {
     func doBlobs(_ blobs: [String]) async throws
     func doReadBlob(_ blob: [String]) async throws
     func doOfflineMessages(_ nick: NeedleTailNick) async throws
+    func doKick(_
+                channels: [IRCChannelName],
+                users: [NeedleTailNick],
+                comments: [String]?
+    ) async throws
+    func doKill(_ nick: NeedleTailNick, comment: String) async throws
 }
 
 public enum IRCDispatcherError : Swift.Error {
@@ -173,4 +179,15 @@ public extension IRCDispatcher {
     func doOfflineMessages(_ nick: NeedleTailNick) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
+    func doKick(_
+                channels: [IRCChannelName],
+                users: [NeedleTailNick],
+                comments: [String]?
+    ) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    
+    func doKill(_ nick: NeedleTailNick, comment: String) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+}
 }

@@ -231,7 +231,7 @@ extension NeedleTailTransport {
                 )
             )
         } catch {
-            print("CAUGHT_RECEIVE_SERVER_EVENT_ERROR \(error.localizedDescription)")
+            logger.error("\(error.localizedDescription)")
             return
         }
 
@@ -349,17 +349,7 @@ extension NeedleTailTransport {
     
     
     func handleInfo(_ info: [String]) async {
-        var newArray = [String]()
-        if info.first?.contains(Constants.colon) != nil {
-            newArray.append(contentsOf: info.dropFirst())
-        }
-        let filtered = newArray
-            .filter{ !$0.isEmpty}
-            .joined(separator: Constants.space)
-        let infoMessage = filtered.components(separatedBy: Constants.cLF)
-            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-            .filter{ !$0.isEmpty}
-        logger.info("Server information: \(infoMessage.joined())")
+        logger.info("Server information: \(info.joined())")
     }
     
     
@@ -368,17 +358,7 @@ extension NeedleTailTransport {
     }
     
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) async {
-        var newArray = [String]()
-        if messages.first?.contains(Constants.colon) != nil {
-            newArray.append(contentsOf: messages.dropFirst())
-        }
-        let filtered = newArray
-            .filter{ !$0.isEmpty}
-            .joined(separator: Constants.space)
-        let message = filtered.components(separatedBy: Constants.cLF)
-            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-            .filter{ !$0.isEmpty}
-        logger.info("Server Message: \(message.joined()), type: \(type)")
+        logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
     
     func doMultipartMedia(_

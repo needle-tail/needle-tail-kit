@@ -148,7 +148,7 @@ extension NeedleTailTransportDelegate {
     public func sendMotD(_ message: String) async throws {
         guard !message.isEmpty else { return }
         let origin = self.origin ?? "??"
-        try await sendReply(.replyMotDStart, "\(origin) - Message of the Day -")
+        try await sendReply(.replyMotDStart, "- Message of the Day -")
         
         let lines = message.components(separatedBy: Constants.cLF)
             .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }

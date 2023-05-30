@@ -39,6 +39,8 @@ public enum IRCCommand: Codable, Sendable {
     case CHANNELMODE_GET_BANMASK(IRCChannelName)
     case WHOIS(server: String?, usermasks: [ String ])
     case WHO(usermask: String?, onlyOperators: Bool)
+    case KICK([IRCChannelName], [NeedleTailNick], [String])
+    case KILL(NeedleTailNick, String)
     
     case numeric(IRCCommandCode, [ String ])
     case otherCommand(String, [ String ])
@@ -95,7 +97,10 @@ extension IRCCommand: CustomStringConvertible {
             return Constants.mode
         case .CHANNELMODE_GET, .CHANNELMODE_GET_BANMASK:
             return Constants.mode
-
+        case .KICK:
+            return Constants.kick
+        case .KILL:
+            return Constants.kill
         case .otherCommand(let cmd, _):
             return cmd
         case .otherNumeric(let cmd, _):
@@ -192,7 +197,24 @@ extension IRCCommand: CustomStringConvertible {
             return [ usermask ]
         case .WHO(.some(let usermask), true):
             return [ usermask, Constants.oString ]
-
+        case .KICK(let channelNames, let users, let comments):
+            if channelNames.count == users.count {
+            return [
+                channelNames.map { $0.stringValue }.joined(separator: Constants.comma),
+                users.map { $0.stringValue }.joined(separator: Constants.comma),
+                comments.map { $0 }.joined(separator: Constants.comma)
+            ]
+        } else {
+            guard let firstChannel = channelNames.first else { return [] }
+            guard let firstUser = users.first else { return [] }
+            return [
+                firstChannel.stringValue,
+                firstUser.stringValue,
+                comments.map { $0 }.joined(separator: Constants.comma)
+            ]
+        }
+        case .KILL(let nick, let comment):
+            return [nick.stringValue, comment]
         case .numeric     (_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):
@@ -278,6 +300,13 @@ extension IRCCommand: CustomStringConvertible {
         case .WHO(.some(let mask), let opOnly):
             let opertorOnly = opOnly ? Constants.space + Constants.oString : Constants.none
             return Constants.who + Constants.space + mask + opertorOnly;
+        case .KICK(let channels, let users, let comments):
+            let channels = channels.map { $0.stringValue}
+            let users = users.map { $0.stringValue}
+            let comments = comments.map { $0}
+            return Constants.kick + Constants.space + channels.joined(separator: Constants.comma) + Constants.space + users.joined(separator: Constants.comma) + Constants.space + comments.joined(separator: Constants.comma)
+        case .KILL(let nick, let comment):
+            return Constants.kill + Constants.space + "\(nick)" + Constants.space + "\(comment)"
         case .otherCommand(let cmd, let args):
             return "<IRCCmd: \(cmd) args=\(args.joined(separator: Constants.comma))>"
         case .otherNumeric(let cmd, let args):

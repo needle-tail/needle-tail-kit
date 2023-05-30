@@ -50,7 +50,7 @@ public extension IRCCommand {
             }
         }
         
-        func splitChannelsString(_ s: String) throws -> [ IRCChannelName ] {
+        func splitChannelsString() throws -> [ IRCChannelName ] {
             return try arguments[0].split(separator: Character(Constants.comma)).map {
             guard let n =  IRCChannelName(String($0)) else {
               throw Error.invalidChannelName(String($0))
@@ -59,13 +59,41 @@ public extension IRCCommand {
           }
         }
 
-        func splitRecipientString(_ s: String) throws -> [ IRCMessageRecipient ] {
+        func splitRecipientString() throws -> [ IRCMessageRecipient ] {
           return try arguments[0].split(separator: Character(Constants.comma)).map {
               guard let n = IRCMessageRecipient(String($0)) else {
               throw Error.invalidMessageTarget(String($0))
             }
             return n
           }
+        }
+
+        func splitKillNick() throws -> NeedleTailNick {
+            let split = arguments[0].components(separatedBy: Constants.colon)
+            let name = split[0]
+            let deviceId = split[1]
+            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { throw NeedleTailError.nilNickName }
+            return nick
+        }
+        
+        func splitKickNicks() throws -> [NeedleTailNick] {
+            var nicks = [NeedleTailNick]()
+            _ = try arguments[1].split(separator: Character(Constants.comma)).map {
+                let split = $0.components(separatedBy: Constants.colon)
+                let name = split[0]
+                let deviceId = split[1]
+                guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { throw NeedleTailError.nilNickName }
+                nicks.append(nick)
+            }
+            return nicks
+        }
+        
+        func splitComments() -> [String] {
+            var comments = [String]()
+            _ = arguments[2].split(separator: Character(Constants.comma)).map {
+                comments.append(String($0))
+            }
+            return comments
         }
         
         switch command.uppercased() {
@@ -82,7 +110,7 @@ public extension IRCCommand {
             
         case Constants.nick:
             try expect(argc: 1)
-                let splitNick = arguments[0].components(separatedBy: ":")
+            let splitNick = arguments[0].components(separatedBy: Constants.comma)
                 let deviceId = DeviceId(splitNick[1])
                 guard let nick = NeedleTailNick(name: splitNick[0], deviceId: deviceId) else {
                     throw Error.invalidNickName(arguments[0])
@@ -173,7 +201,7 @@ public extension IRCCommand {
             if arguments[0] == "0" {
                 self = .JOIN0
             } else {
-                let channels = try splitChannelsString(arguments[0])
+                let channels = try splitChannelsString()
                 let keys = arguments.count > 1
                 ? arguments[1].split(separator: Character(Constants.comma)).map(String.init)
                 : nil
@@ -182,14 +210,14 @@ public extension IRCCommand {
             
         case Constants.part:
             try expect(min: 1, max: 2)
-            let channels = try splitChannelsString(arguments[0])
+            let channels = try splitChannelsString()
             self = .PART(channels: channels)
             
         case Constants.list:
             try expect(max: 2)
             
             let channels = arguments.count > 0
-            ? try splitChannelsString(arguments[0]) : nil
+            ? try splitChannelsString() : nil
             let target   = arguments.count > 1 ? arguments[1] : nil
             self = .LIST(channels: channels, target: target)
             
@@ -208,12 +236,12 @@ public extension IRCCommand {
             
         case Constants.privMsg:
             try expect(argc: 2)
-            let targets = try splitRecipientString(arguments[0])
+            let targets = try splitRecipientString()
             self = .PRIVMSG(targets, arguments[1])
             
         case Constants.notice:
             try expect(argc: 2)
-            let targets = try splitRecipientString(arguments[0])
+            let targets = try splitRecipientString()
             self = .NOTICE(targets, arguments[1])
             
         case Constants.cap:
@@ -243,6 +271,16 @@ public extension IRCCommand {
             default: fatalError("unexpected argument count \(arguments.count)")
             }
             //Other Command, can be something like PASS, KEYBUNDLE
+        case Constants.kill:
+            try expect(argc: 2)
+            let nick = try splitKillNick()
+            self = .KILL(nick, arguments[1])
+        case Constants.kick:
+            try expect(argc: 3)
+            let channels = try splitChannelsString()
+            let users = try splitKickNicks()
+            let comments = splitComments()
+            self = .KICK(channels, users, comments)
         default:
             self = .otherCommand(command.uppercased(), arguments)
         }

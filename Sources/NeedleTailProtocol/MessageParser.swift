@@ -76,7 +76,8 @@ public final class MessageParser {
             message: message,
             commandMessage: String(commandMessage),
             stripedMessage: stripedMessage,
-            parameter: parameter
+            parameter: parameter,
+            origin: origin
         )
         
         var tags: [IRCTags]?
@@ -102,7 +103,6 @@ public final class MessageParser {
                 }
             }
             let command = try IRCCommand(commandKey, arguments: arguments)
-            
             ircMessage = IRCMessage(origin: origin,
                                     command: command,
                                     arguments: arguments,
@@ -152,7 +152,8 @@ public final class MessageParser {
         message: String,
         commandMessage: String,
         stripedMessage: String,
-        parameter: String
+        parameter: String,
+        origin: String?
     ) -> [String] {
         
         var args = [String]()
@@ -168,14 +169,10 @@ public final class MessageParser {
             let joinedString = rightArray.joined(separator: Constants.space)
             let newArray = spread + [joinedString]
             
-            //If we replyKeyBundle or replyInfo we need to do a bit more parsing
-            if int == 270 || int == 371 {
-                let chunk = newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
-                let components = chunk.components(separatedBy: Constants.cCR + Constants.cLF)
-                args.append(components[0])
-            } else {
-                args.append(contentsOf: newArray)
-            }
+            args.append(
+                createArgFromIntCommand(newArray, command: int)
+            )
+            
         case .string(let commandKey):
             if commandKey.hasPrefix(Constants.nick) ||
                 commandKey.hasPrefix(Constants.join) ||
@@ -202,6 +199,14 @@ public final class MessageParser {
             } else if commandKey.hasPrefix(Constants.mode) {
                 let seperated = commandMessage.components(separatedBy: Constants.space)
                 args.append(seperated[1])
+            } else if commandKey.hasPrefix(Constants.kill) {
+                let seperatedCommand = stripedMessage.components(separatedBy: commandKey)
+                let spread = seperatedCommand[1].components(separatedBy: Constants.space).filter({ !$0.isEmpty })
+                args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: " ")])
+            } else if commandKey.hasPrefix(Constants.kick) {
+                //TODO: 
+                //               print(stripedMessage)
+                break
             } else if commandKey.hasPrefix(Constants.registryRequest) ||
                         commandKey.hasPrefix(Constants.registryResponse) ||
                         commandKey.hasPrefix(Constants.newDevice) ||
@@ -228,14 +233,50 @@ public final class MessageParser {
                 if stripedMessage.first == Character(Constants.colon) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
+                
                 let seperatedArguments = stripedMessage.components(separatedBy: Constants.colon)
-                for argument in seperatedArguments {
-                    guard !argument.isEmpty else { break }
-                    args.append(argument.trimmingCharacters(in: .whitespaces))
+                
+                let origin = origin ?? ""
+                if seperatedArguments.first?.trimmingCharacters(in: .whitespacesAndNewlines) == String(origin.dropFirst()) {
+                    for argument in seperatedArguments.dropFirst() {
+                        guard !argument.isEmpty else { break }
+                        args.append(argument.trimmingCharacters(in: .whitespaces))
+                    }
+                } else {
+                    for argument in seperatedArguments {
+                        guard !argument.isEmpty else { break }
+                        args.append(argument.trimmingCharacters(in: .whitespaces))
+                    }
                 }
             }
         }
         return args
+    }
+    
+    private func createArgFromIntCommand(_ newArray: [String], command: Int) -> String {
+        //If we replyKeyBundle or replyInfo we need to do a bit more parsing
+        if command == 270 || command == 371 {
+            let chunk = newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
+            let components = chunk.components(separatedBy: Constants.cCR + Constants.cLF)
+            return components[0]
+        } else {
+            return dropColon(from: newArray, command: command)
+        }
+    }
+    
+    private func dropColon(from newArray: [String], command: Int) -> String {
+        if newArray[3].isInt, newArray[4].first == Character(Constants.colon) {
+            return newArray[3] + Constants.space + String(newArray[4].dropFirst())
+        } else if newArray[3].first == Character(Constants.colon) {
+            return String(newArray[3].dropFirst()) + Constants.space + String(newArray[4])
+        } else {
+            if newArray[4].contains(Constants.colon) {
+                let split = newArray[4].components(separatedBy: Constants.colon)
+                return newArray[3] + Constants.space + String(split.joined())
+            } else {
+                return newArray[3] + Constants.space + String(newArray[4])
+            }
+        }
     }
     
     // https://ircv3.net/specs/extensions/message-tags.html#format
@@ -284,4 +325,10 @@ public enum MessageParserError: Error, Sendable {
     case syntaxError
     case notImplemented
     case jobFailedToParse
+}
+
+extension String {
+    var isInt: Bool {
+        return Int(self) != nil
+    }
 }
