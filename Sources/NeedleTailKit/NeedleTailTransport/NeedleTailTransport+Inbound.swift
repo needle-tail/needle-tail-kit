@@ -149,7 +149,9 @@ extension NeedleTailTransport {
                     let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                     store.setAck(ack.acknowledgment)
                     
-                    if store.acknowledgment == .registered("true") {
+                    switch store.acknowledgment {
+                    case .registered(let bool):
+                        guard bool == "true" else { return }
                         switch transportState.current {
                         case .transportRegistering(channel: let channel, clientContext: let clientContext):
                             let type = TransportMessageType.standard(.USER(clientContext.userInfo))
@@ -158,19 +160,27 @@ extension NeedleTailTransport {
                         default:
                             return
                         }
-                    } else if store.acknowledgment == .quited {
+                    case .quited:
                         quiting = false
                         await ctDelegate?.shutdown()
                         await transportState.transition(to: .transportOffline)
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
-                    } else if store.acknowledgment == .multipartUploadComplete {
+                    case .multipartUploadComplete:
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
                         }
+                    case .multipartDownloadFailed(let error):
+                        Task { @MainActor [weak self] in
+                            guard let self else { return }
+                            self.emitter?.multipartDownloadFailed = (true, error)
+                        }
+                    default:
+                        break
                     }
+                    
                 case .requestRegistry:
                     switch packet.addDeviceType {
                     case .master:

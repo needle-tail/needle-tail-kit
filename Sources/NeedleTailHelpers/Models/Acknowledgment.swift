@@ -23,6 +23,7 @@ public struct Acknowledgment: Codable, Sendable {
         case readReceipt
         case multipartReceived
         case multipartUploadComplete
+        case multipartDownloadFailed(String)
     }
 
     public var acknowledgment: AckType

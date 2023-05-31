@@ -168,6 +168,8 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var messageChanged: AnyChatMessage?
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
+    @Published public var multipartDownloadFailed: (Bool, String)?
+    @Published public var shouldSentMultipart = false
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

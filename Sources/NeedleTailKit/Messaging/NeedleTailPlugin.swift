@@ -36,6 +36,13 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
         Task { @MainActor [weak self] in
             guard let self else { return }
+            let isWrittenByMe = message.raw.senderUser == emitter.cypher?.username
+            
+            //If we just sent a videoThumbnail image, we should now send multipart data
+            if message.messageSubtype == "videoThumbnail/*" && isWrittenByMe {
+                emitter.shouldSentMultipart = true
+            }
+            
             if message.messageSubtype == "multipart/*" {
                 multipartData = Data()
                 let multipartBinary = message.metadata["multipartChunk"] as? Binary
