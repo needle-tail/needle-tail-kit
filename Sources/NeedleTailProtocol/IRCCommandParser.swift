@@ -110,7 +110,7 @@ public extension IRCCommand {
             
         case Constants.nick:
             try expect(argc: 1)
-            let splitNick = arguments[0].components(separatedBy: Constants.comma)
+            let splitNick = arguments[0].components(separatedBy: Constants.colon)
                 let deviceId = DeviceId(splitNick[1])
                 guard let nick = NeedleTailNick(name: splitNick[0], deviceId: deviceId) else {
                     throw Error.invalidNickName(arguments[0])
