@@ -175,7 +175,7 @@ extension NeedleTailTransport {
                     case .multipartDownloadFailed(let error):
                         Task { @MainActor [weak self] in
                             guard let self else { return }
-                            self.emitter?.multipartDownloadFailed = (true, error)
+                            self.emitter?.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
                         }
                     default:
                         break
@@ -371,18 +371,18 @@ extension NeedleTailTransport {
         logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
     
-    func doMultipartMedia(_
+    func doMultipartMediaDownload(_
                           media: String,
                           sender: IRCUserID?
     ) async throws {
         guard let data = Data(base64Encoded: media) else { return }
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
         guard let messagePacket = packet.multipartMessage else { return }
-        guard let nick = self.nick else { return }
-        
+        guard let nick = packet.multipartMessage?.sender else { return }
+
         try await processMessage(
             packet,
-            sender: sender,
+            sender: IRCUserID(nick: nick),
             recipient: .nick(nick),
             messageType: .message,
             ackType: .multipartReceived,

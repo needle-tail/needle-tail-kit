@@ -420,16 +420,22 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        try await transportBridge?.sendMessage(
-            message: message,
-            toUser: username,
-            otherUserDeviceId: deviceId,
-            pushType: pushType,
-            messageId: messageId,
-            type: type,
-            readReceipt: readReceipt,
-            multipartMessage: multipartObject
-        )
+        
+        if var multipartObject = multipartObject {
+            multipartObject.message = message
+            multipartObject.recipient = NeedleTailNick(name: username.raw, deviceId: deviceId)
+            try await transportBridge?.sendMultipartToS3(multipartObject)
+        } else {
+            try await transportBridge?.sendMessage(
+                message: message,
+                toUser: username,
+                otherUserDeviceId: deviceId,
+                pushType: pushType,
+                messageId: messageId,
+                type: type,
+                readReceipt: readReceipt
+            )
+        }
     }
     
     //Should be done by Recipient
@@ -595,7 +601,6 @@ extension Array {
     internal init() {}
 }
 
-//@KeyBundleMechanismActor
 final class TransportStore {
     var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none

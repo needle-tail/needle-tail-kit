@@ -159,9 +159,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             break
         case .otherCommand(Constants.blobs, let blob):
             try await delegate?.doBlobs(blob)
-        case.otherCommand(Constants.multipartMedia, let media):
+        case.otherCommand(Constants.multipartMediaDownload, let media):
             guard let media = media.first else { return }
-            try await doMultipartMedia(
+            try await doMultipartMediaDownload(
                 media,
                 sender: sender
             )

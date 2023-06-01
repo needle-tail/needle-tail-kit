@@ -204,7 +204,7 @@ public final class MessageParser {
                 let spread = seperatedCommand[1].components(separatedBy: Constants.space).filter({ !$0.isEmpty })
                 args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: " ")])
             } else if commandKey.hasPrefix(Constants.kick) {
-                //TODO: 
+                //TODO:
                 //               print(stripedMessage)
                 break
             } else if commandKey.hasPrefix(Constants.registryRequest) ||
@@ -217,7 +217,8 @@ public final class MessageParser {
                         commandKey.hasPrefix(Constants.deleteOfflineMessage) ||
                         commandKey.hasPrefix(Constants.quit) ||
                         commandKey.hasPrefix(Constants.badgeUpdate) ||
-                        commandKey.hasPrefix(Constants.multipartMedia) {
+                        commandKey.hasPrefix(Constants.multipartMediaDownload) ||
+                        commandKey.hasPrefix(Constants.multipartMediaUpload) {
                 var stripedMessage = stripedMessage
                 
                 if stripedMessage.contains(commandKey) {

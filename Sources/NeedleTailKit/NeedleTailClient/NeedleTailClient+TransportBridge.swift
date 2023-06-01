@@ -26,8 +26,7 @@ protocol TransportBridge: AnyObject {
         pushType: PushType,
         messageId: String,
         type: ConversationType,
-        readReceipt: ReadReceipt?,
-        multipartMessage: MultipartMessagePacket?
+        readReceipt: ReadReceipt?
     ) async throws
     func sendReadReceiptMessage(
         recipient: NTKUser,
@@ -60,6 +59,7 @@ protocol TransportBridge: AnyObject {
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
     func downloadMedia(_ metadata: [String]) async throws
+    func sendMultipartToS3(_ packet: MultipartMessagePacket) async throws
 }
 
 
@@ -101,8 +101,7 @@ extension NeedleTailClient: TransportBridge {
         pushType: CypherMessaging.PushType,
         messageId: String,
         type: ConversationType,
-        readReceipt: ReadReceipt?,
-        multipartMessage: MultipartMessagePacket?
+        readReceipt: ReadReceipt?
     ) async throws {
         guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         switch type {
@@ -133,8 +132,7 @@ extension NeedleTailClient: TransportBridge {
                 fromUser: self.ntkUser,
                 messageType: .message,
                 conversationType: type,
-                readReceipt: readReceipt,
-                multipartMessage: multipartMessage
+                readReceipt: readReceipt
             )
         }
     }
@@ -561,7 +559,25 @@ extension NeedleTailClient: TransportBridge {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
         let data = try BSONEncoder().encode(metadata).makeData()
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMedia, [data.base64EncodedString()]))
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]))
+        try await transport?.transportMessage(type)
+    }
+    
+    func sendMultipartToS3(_ packet: MultipartMessagePacket) async throws {
+        let messagePacket = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .message,
+            type: .multiRecipientMessage,
+            createdAt: Date(),
+            sender: packet.sender.deviceId,
+            recipient: packet.recipient?.deviceId,
+            message: packet.message,
+            readReceipt: .none,
+            multipartMessage: packet
+        )
+        
+        let data = try BSONEncoder().encode(messagePacket).makeData()
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]))
         try await transport?.transportMessage(type)
     }
 }

@@ -51,5 +51,6 @@ public struct Constants {
     public static var whoIs = "WHOIS"
     public static var who = "WHO"
     public static var badgeUpdate = "BADGEUPDATE"
-    public static var multipartMedia = "MULTIPARTMEDIA"
+    public static var multipartMediaDownload = "MULTIPARTMEDIADOWNLOAD"
+    public static var multipartMediaUpload = "MULTIPARTMEDIAUPLOAD"
 }

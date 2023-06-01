@@ -27,6 +27,39 @@ public class NeedleTailPlugin: Plugin {
     
     var multipartData: Data?
     
+    public func onReceiveMessage(_ message: ReceivedMessageContext) async throws -> ProcessMessageAction? {
+        print("ON_RECEIVE", message.message.messageSubtype)
+        if message.message.messageSubtype == "multipart/*" && message.message.messageType == .magic {
+            print("Processing multipart data....")
+            multipartData = Data()
+            let multipartBinary = message.message.metadata["multipartChunk"] as? Binary
+            let partNumberBinary = message.message.metadata["partNumber"] as? Binary
+            let totalPartsBinary = message.message.metadata["totalParts"] as? Binary
+            
+            guard let multipartDataChunk = multipartBinary?.data else { return nil }
+            multipartData?.append(multipartDataChunk)
+            
+            
+            guard let partNumberData = partNumberBinary?.data else { return nil }
+            guard let totalPartsData = totalPartsBinary?.data else { return nil }
+            guard let partString = String(data: partNumberData, encoding: .utf8) else { return nil }
+            guard let totalString = String(data: totalPartsData, encoding: .utf8) else { return  nil }
+            let partNumber = Int(partString)
+            let totalParts = Int(totalString)
+            
+            if  partNumber == totalParts {
+                emitter.multipartReceived = multipartData
+                multipartData = nil
+            }
+            return .ignore
+        } else if message.message.messageType == .media, message.message.messageType == .text {
+            return .save
+        } else {
+            //We were magic but didn't specify a type
+            return .none
+        }
+    }
+    
     public func onCreateChatMessage(_ message: AnyChatMessage) {
 #if os(iOS)
 //        UIApplication.shared.applicationIconBadgeNumber += 1
@@ -40,33 +73,9 @@ public class NeedleTailPlugin: Plugin {
             
             //If we just sent a videoThumbnail image, we should now send multipart data
             if message.messageSubtype == "videoThumbnail/*" && isWrittenByMe {
-                emitter.shouldSentMultipart = true
+                emitter.shouldSendMultipart = true
             }
-            
-            if message.messageSubtype == "multipart/*" {
-                multipartData = Data()
-                let multipartBinary = message.metadata["multipartChunk"] as? Binary
-                let partNumberBinary = message.metadata["partNumber"] as? Binary
-                let totalPartsBinary = message.metadata["totalParts"] as? Binary
-                
-                guard let multipartDataChunk = multipartBinary?.data else { return }
-                multipartData?.append(multipartDataChunk)
-                
-                
-                guard let partNumberData = partNumberBinary?.data else { return }
-                guard let totalPartsData = totalPartsBinary?.data else { return }
-                guard let partString = String(data: partNumberData, encoding: .utf8) else { return }
-                guard let totalString = String(data: totalPartsData, encoding: .utf8) else { return }
-                let partNumber = Int(partString)
-                let totalParts = Int(totalString)
-                
-                if  partNumber == totalParts {
-                    emitter.multipartReceived = multipartData
-                    multipartData = nil
-                }
-            } else {
                 emitter.messageReceived = message
-            }
         }
 #endif
     }

@@ -90,7 +90,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     deinit {}
     
     
-    nonisolated func processKeyBundle(
+    func processKeyBundle(
         _ message: IRCMessage
     ) async throws {
         switch message.command {
@@ -103,7 +103,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    func readKeyBundle(_ packet: String) async throws {
+    nonisolated func readKeyBundle(_ packet: String) async throws {
         let type = TransportMessageType.standard(.otherCommand("READKEYBNDL", [packet]))
         try await keyBundleMessage(type)
         try await RunLoop.run(30, sleep: 1) { [weak self] in

@@ -153,6 +153,17 @@ public enum DestructiveMessageTimes: String {
 
 
 extension NeedleTailEmitter: ObservableObject {}
+
+public struct MultipartDownloadFailed {
+    public var status: Bool
+    public var error: String
+    
+    public init(status: Bool, error: String) {
+        self.status = status
+        self.error = error
+    }
+}
+
 #endif
 
 //Our Bottom level Store for emitting events between CTK/NTK and Client
@@ -162,14 +173,13 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
 #if (os(macOS) || os(iOS))
     public static let shared = NeedleTailEmitter(sortChats: sortConversations)
     
-    
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
     @Published public var messageChanged: AnyChatMessage?
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
-    @Published public var multipartDownloadFailed: (Bool, String)?
-    @Published public var shouldSentMultipart = false
+    @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
+    @Published public var shouldSendMultipart = false
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false
@@ -322,14 +332,25 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     
     
     //MARK: Outbound
-    public func sendMessage(privateChat: PrivateChat, message: String) async throws {
-        _ = try await privateChat.sendRawMessage(
-            type: .text,
-            text: message,
-            destructionTimer: nil,
-            preferredPushType: .message
+    public func sendMessage<Chat: AnyConversation>(
+        chat: Chat,
+        type: CypherMessageType,
+        messageSubtype: String? = nil,
+        text: String = "",
+        metadata: Document = [:],
+        destructionTimer: TimeInterval? = nil,
+        pushType: PushType = .message
+    ) async throws {
+        _ = try await chat.sendRawMessage(
+            type: type,
+            messageSubtype: messageSubtype,
+            text: text,
+            metadata: metadata,
+            destructionTimer: destructionTimer,
+            preferredPushType: pushType
         )
     }
+    
     
     public func sendGroupMessage(message: String) async throws {
         
