@@ -71,6 +71,10 @@ public actor NeedleTailAsyncConsumer<T> {
     
     public var deque = Deque<T>()
     
+    public init(deque: Deque<T> = Deque<T>()) {
+        self.deque = deque
+    }
+    
     public func feedConsumer(_ items: [T]) async {
         deque.append(contentsOf: items)
     }
