@@ -377,7 +377,6 @@ extension NeedleTailTransport {
                           sender: IRCUserID?
     ) async throws {
         guard let data = Data(base64Encoded: media) else { return }
-        print(data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
         guard let messagePacket = packet.multipartMessage else { return }
         guard let nick = packet.multipartMessage?.sender else { return }
@@ -404,7 +403,7 @@ extension NeedleTailTransport {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
         guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
-        print("Message_PACKET____", messagePacket)
+
         do {
             try await ctcDelegate?.receiveServerEvent(
                 .messageSent(

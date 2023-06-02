@@ -46,7 +46,7 @@ public protocol IRCDispatcher: AnyObject {
     
     func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
     func doPart(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
-    func doPartAll()async throws
+    func doPartAll() async throws
     func doGetBanMask(_ channel  : IRCChannelName) async throws
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
     func doMessage(
