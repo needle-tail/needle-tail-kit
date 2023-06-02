@@ -59,7 +59,7 @@ protocol TransportBridge: AnyObject {
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
     func downloadMedia(_ metadata: [String]) async throws
-    func sendMultipartToS3(_ packet: MultipartMessagePacket) async throws
+    func sendMultipartToS3(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
 }
 
 
@@ -563,7 +563,8 @@ extension NeedleTailClient: TransportBridge {
         try await transport?.transportMessage(type)
     }
     
-    func sendMultipartToS3(_ packet: MultipartMessagePacket) async throws {
+    @MultipartActor
+    func sendMultipartToS3(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
         let messagePacket = MessagePacket(
             id: UUID().uuidString,
             pushType: .message,
@@ -571,13 +572,12 @@ extension NeedleTailClient: TransportBridge {
             createdAt: Date(),
             sender: packet.sender.deviceId,
             recipient: packet.recipient?.deviceId,
-            message: packet.message,
+            message: message,
             readReceipt: .none,
             multipartMessage: packet
         )
-        
+
         let data = try BSONEncoder().encode(messagePacket).makeData()
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]))
-        try await transport?.transportMessage(type)
+        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]), tags: nil)
     }
 }

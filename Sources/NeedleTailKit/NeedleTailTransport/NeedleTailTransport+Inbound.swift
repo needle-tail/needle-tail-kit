@@ -371,16 +371,18 @@ extension NeedleTailTransport {
         logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
     
+    @MultipartActor
     func doMultipartMediaDownload(_
                           media: String,
                           sender: IRCUserID?
     ) async throws {
         guard let data = Data(base64Encoded: media) else { return }
+        print(data)
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
         guard let messagePacket = packet.multipartMessage else { return }
         guard let nick = packet.multipartMessage?.sender else { return }
 
-        try await processMessage(
+        try await processMultipartMediaMessage(
             packet,
             sender: IRCUserID(nick: nick),
             recipient: .nick(nick),
@@ -388,6 +390,39 @@ extension NeedleTailTransport {
             ackType: .multipartReceived,
             messagePacket: messagePacket
         )
+    }
+    
+    @MultipartActor
+    private func processMultipartMediaMessage(_
+                                packet: MessagePacket,
+                                sender: IRCUserID?,
+                                recipient: IRCMessageRecipient,
+                                messageType: MessageType,
+                                ackType: Acknowledgment.AckType,
+                                messagePacket: MultipartMessagePacket? = nil
+    ) async throws {
+        guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
+        guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
+        guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
+        print("Message_PACKET____", messagePacket)
+        do {
+            try await ctcDelegate?.receiveServerEvent(
+                .messageSent(
+                    message,
+                    id: packet.id,
+                    byUser: Username(sender),
+                    deviceId: deviceId
+                )
+            )
+        } catch {
+            logger.error("\(error.localizedDescription)")
+            return
+        }
+
+        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
+        let ackMessage = acknowledgement.base64EncodedString()
+            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+            try await transportMessage(type)
     }
 }
 

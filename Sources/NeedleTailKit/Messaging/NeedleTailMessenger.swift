@@ -42,6 +42,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var logger: Logger
     var messageType = MessageType.message
     var multipartObject: MultipartMessagePacket?
+    var lastMultipartObject: MultipartMessagePacket?
     var readReceipt: ReadReceipt?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
     var username: Username?
@@ -285,8 +286,6 @@ extension NeedleTailMessenger {
         fatalError()
     }
     
-    
-    
     /// This method has 2 purposes.
     /// - **1 create new channel locally and the send the metadata to the server in order to join the channel**
     /// - **2. If a locally channel already exists, there is no need to create it again so we just join the channel.**
@@ -410,9 +409,7 @@ extension NeedleTailMessenger {
         config.blob.metadata = meta
     }
     
-    
     /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`. This method will also send the message to all parties involved the target destination and all user devices from the sender.
-    @NeedleTailTransportActor
     public func sendMessage(_
                             message: RatchetedCypherMessage,
                             toUser username: Username,
@@ -422,9 +419,13 @@ extension NeedleTailMessenger {
     ) async throws {
         
         if var multipartObject = multipartObject {
-            multipartObject.message = message
+            guard multipartObject.fileName != lastMultipartObject?.fileName else { return }
             multipartObject.recipient = NeedleTailNick(name: username.raw, deviceId: deviceId)
-            try await transportBridge?.sendMultipartToS3(multipartObject)
+            try await transportBridge?.sendMultipartToS3(multipartObject, message: message)
+            lastMultipartObject = multipartObject
+            if multipartObject.partNumber == multipartObject.totalParts {
+                lastMultipartObject = nil
+            }
         } else {
             try await transportBridge?.sendMessage(
                 message: message,

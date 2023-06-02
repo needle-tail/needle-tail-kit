@@ -37,3 +37,8 @@
     public static let shared = OfflineMessageActor()
     private init() {}
 }
+
+@globalActor public actor MultipartActor {
+    public static let shared = MultipartActor()
+    private init() {}
+}

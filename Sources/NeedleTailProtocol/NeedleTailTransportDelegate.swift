@@ -26,7 +26,7 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
-
+    
     @BlobActor
     func blobMessage(_
                      command: IRCCommand,
@@ -35,8 +35,8 @@ public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate
     
     @PingPongActor
     func pingPongMessage(_
-                     command: IRCCommand,
-                     tags: [IRCTags]?
+                         command: IRCCommand,
+                         tags: [IRCTags]?
     ) async throws
     
 }
@@ -54,7 +54,7 @@ extension NeedleTailTransportDelegate {
 extension NeedleTailTransportDelegate {
     public var target: String { get { return "" } set{} }
     public var userConfig: UserConfig? { get { return nil } set{} }
-
+    
     @NeedleTailClientActor
     public func clientMessage(_
                               command: IRCCommand,
@@ -63,7 +63,7 @@ extension NeedleTailTransportDelegate {
         let message = await IRCMessage(origin: self.origin, command: command, tags: tags)
         try await sendAndFlushMessage(message)
     }
-
+    
     @NeedleTailTransportActor
     public func transportMessage(_
                                  type: TransportMessageType,
@@ -79,7 +79,7 @@ extension NeedleTailTransportDelegate {
                 let lines = messageLines.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                 _ = try await lines.asyncMap {
-                   let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                    let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(message)
                 }
                 
@@ -95,7 +95,7 @@ extension NeedleTailTransportDelegate {
             }
         }
     }
-
+    
     @BlobActor
     public func blobMessage(_
                             command: IRCCommand,
@@ -107,8 +107,17 @@ extension NeedleTailTransportDelegate {
     
     @PingPongActor
     public func pingPongMessage(_
-                     command: IRCCommand,
-                     tags: [IRCTags]?
+                                command: IRCCommand,
+                                tags: [IRCTags]?
+    ) async throws {
+        let message = IRCMessage(command: command, tags: tags)
+        try await sendAndFlushMessage(message)
+    }
+    
+    @MultipartActor
+    public func multipartMessage(_
+                                 command: IRCCommand,
+                                 tags: [IRCTags]?
     ) async throws {
         let message = IRCMessage(command: command, tags: tags)
         try await sendAndFlushMessage(message)

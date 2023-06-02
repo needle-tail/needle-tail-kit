@@ -29,11 +29,11 @@ public enum AddDeviceType: Codable, Sendable {
     case master, child
 }
 
-public struct MultipartMessagePacket: Codable, Sendable {
+public struct MultipartMessagePacket: Codable, Sendable, Equatable {
     public var id: String
     public var sender: NeedleTailNick
     public var recipient: NeedleTailNick?
-    public var message: RatchetedCypherMessage?
+    public var fileName: String
     public var partNumber: Int
     public var totalParts: Int
     
@@ -41,14 +41,14 @@ public struct MultipartMessagePacket: Codable, Sendable {
         id: String,
         sender: NeedleTailNick,
         recipient: NeedleTailNick? = nil,
-        message: RatchetedCypherMessage? = nil,
+        fileName: String,
         partNumber: Int,
         totalParts: Int
     ) {
         self.id = id
         self.sender = sender
         self.recipient = recipient
-        self.message = message
+        self.fileName = fileName
         self.partNumber = partNumber
         self.totalParts = totalParts
     }
