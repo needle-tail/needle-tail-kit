@@ -154,6 +154,37 @@ public enum DestructiveMessageTimes: String {
 
 extension NeedleTailEmitter: ObservableObject {}
 
+protocol ChatDelegate {
+    
+}
+
+public struct MultipartObject {
+    public typealias Chat = AnyConversation
+    
+    public var chat: Chat
+    public var data: Data
+    public var mediaIdData: Data
+    public var totalPartsData: Data
+    public var mediaId: String
+    public var totalParts: Int
+    
+    public init(
+        chat: Chat,
+        data: Data,
+        mediaIdData: Data,
+        totalPartsData: Data,
+        mediaId: String,
+        totalParts: Int
+    ) {
+        self.chat = chat
+        self.data = data
+        self.mediaIdData = mediaIdData
+        self.totalPartsData = totalPartsData
+        self.mediaId = mediaId
+        self.totalParts = totalParts
+    }
+}
+
 public struct MultipartDownloadFailed {
     public var status: Bool
     public var error: String
@@ -165,6 +196,15 @@ public struct MultipartDownloadFailed {
 }
 
 #endif
+
+public struct S3List: Sendable, Equatable {
+    public var fileName: String
+    
+    public init(fileName: String) {
+        self.fileName = fileName
+    }
+}
+
 
 //Our Bottom level Store for emitting events between CTK/NTK and Client
 public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
@@ -179,7 +219,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
-    @Published public var shouldSendMultipart = false
+    @Published public var listedS3Objects = [S3List]()
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

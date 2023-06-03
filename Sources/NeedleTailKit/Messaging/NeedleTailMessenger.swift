@@ -41,8 +41,8 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
-    var multipartObject: MultipartMessagePacket?
-    var lastMultipartObject: MultipartMessagePacket?
+    var multipartMessagePacket: MultipartMessagePacket?
+    var lastMultipartMessagePacket: MultipartMessagePacket?
     var readReceipt: ReadReceipt?
     var needleTailChannelMetaData: NeedleTailChannelPacket?
     var username: Username?
@@ -418,13 +418,13 @@ extension NeedleTailMessenger {
                             messageId: String
     ) async throws {
         
-        if var multipartObject = multipartObject {
-            guard multipartObject.fileName != lastMultipartObject?.fileName else { return }
-            multipartObject.recipient = NeedleTailNick(name: username.raw, deviceId: deviceId)
-            try await transportBridge?.sendMultipartToS3(multipartObject, message: message)
-            lastMultipartObject = multipartObject
-            if multipartObject.partNumber == multipartObject.totalParts {
-                lastMultipartObject = nil
+        if var multipartMessagePacket = multipartMessagePacket {
+            guard multipartMessagePacket.fileName != lastMultipartMessagePacket?.fileName else { return }
+            multipartMessagePacket.recipient = NeedleTailNick(name: username.raw, deviceId: deviceId)
+            try await transportBridge?.sendMultipartToS3(multipartMessagePacket, message: message)
+            lastMultipartMessagePacket = multipartMessagePacket
+            if multipartMessagePacket.partNumber == multipartMessagePacket.totalParts {
+                lastMultipartMessagePacket = nil
             }
         } else {
             try await transportBridge?.sendMessage(
@@ -545,6 +545,10 @@ extension NeedleTailMessenger {
     
     public func downloadMedia(_ metadata: [String]) async throws {
         try await transportBridge?.downloadMedia(metadata)
+    }
+    
+    public func listS3Objects(_ metadata: [String]) async throws {
+        try await transportBridge?.listS3Objects(metadata)
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {

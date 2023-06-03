@@ -148,7 +148,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             }
             try await delegate?.doPart(channels, tags: tags)
         case .LIST(let channels, let target):
-            try await doList(channels, target)
+            try await delegate?.doList(channels, target)
         case .KICK(let channels, let users, let comments):
             logger.info("The following users \(users) were Kicked from the channels \(channels) for these reasons \(comments)")
             //TODO: Handle
@@ -160,11 +160,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         case .otherCommand(Constants.blobs, let blob):
             try await delegate?.doBlobs(blob)
         case.otherCommand(Constants.multipartMediaDownload, let media):
-            guard let media = media.first else { return }
-            try await doMultipartMediaDownload(
-                media,
-                sender: sender
-            )
+            try await delegate?.doMultipartMessageDownload(media)
+        case.otherCommand(Constants.listS3Objects, let packet):
+            try await delegate?.doListS3Objects(packet)
         case .numeric(.replyMotDStart, _):
             Task { @NeedleTailTransportActor [weak self] in
                 guard let self else { return }

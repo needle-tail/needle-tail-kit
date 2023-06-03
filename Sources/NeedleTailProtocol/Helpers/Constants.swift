@@ -53,4 +53,5 @@ public struct Constants {
     public static var badgeUpdate = "BADGEUPDATE"
     public static var multipartMediaDownload = "MULTIPARTMEDIADOWNLOAD"
     public static var multipartMediaUpload = "MULTIPARTMEDIAUPLOAD"
+    public static var listS3Objects = "LISTS3OBJECT"
 }

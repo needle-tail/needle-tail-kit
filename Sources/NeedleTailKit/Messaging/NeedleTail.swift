@@ -14,7 +14,7 @@ import NeedleTailHelpers
 #if os(macOS)
 import Cocoa
 #endif
-
+import DequeModule
 
 extension PublicSigningKey: Equatable {
     public static func == (lhs: CypherProtocol.PublicSigningKey, rhs: CypherProtocol.PublicSigningKey) -> Bool {
@@ -38,9 +38,9 @@ public final class NeedleTail {
         }
     }
     
-    public var multipartObject: MultipartMessagePacket? {
+    public var multipartMessagePacket: MultipartMessagePacket? {
         didSet {
-            messenger?.multipartObject = multipartObject
+            messenger?.multipartMessagePacket = multipartMessagePacket
         }
     }
     
@@ -52,6 +52,7 @@ public final class NeedleTail {
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
+    public var multipartObject = Deque<MultipartObject>()
     
     
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
@@ -478,6 +479,10 @@ public final class NeedleTail {
     
     public func downloadMedia(_ metadata: [String]) async throws {
         try await messenger?.downloadMedia(metadata)
+    }
+    
+    public func listS3Objects(_ metadata: [String]) async throws {
+        try await messenger?.listS3Objects(metadata)
     }
     
 }

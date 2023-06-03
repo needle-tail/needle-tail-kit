@@ -372,13 +372,11 @@ extension NeedleTailTransport {
     }
     
     @MultipartActor
-    func doMultipartMediaDownload(_
-                          media: String,
-                          sender: IRCUserID?
-    ) async throws {
+    func doMultipartMessageDownload(_ packet: [String]) async throws {
+        guard let media = packet.first else { return }
         guard let data = Data(base64Encoded: media) else { return }
         let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
-        guard let messagePacket = packet.multipartMessage else { return }
+        guard let multipartPacket = packet.multipartMessage else { return }
         guard let nick = packet.multipartMessage?.sender else { return }
 
         try await processMultipartMediaMessage(
@@ -387,7 +385,7 @@ extension NeedleTailTransport {
             recipient: .nick(nick),
             messageType: .message,
             ackType: .multipartReceived,
-            messagePacket: messagePacket
+            multipartPacket: multipartPacket
         )
     }
     
@@ -398,7 +396,7 @@ extension NeedleTailTransport {
                                 recipient: IRCMessageRecipient,
                                 messageType: MessageType,
                                 ackType: Acknowledgment.AckType,
-                                messagePacket: MultipartMessagePacket? = nil
+                                multipartPacket: MultipartMessagePacket? = nil
     ) async throws {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
@@ -418,10 +416,14 @@ extension NeedleTailTransport {
             return
         }
 
-        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
+        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: multipartPacket)
         let ackMessage = acknowledgement.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
             try await transportMessage(type)
+    }
+    
+    func doListS3Objects(_ packet: [String]) async throws {
+        await emitter?.listedS3Objects.append(S3List(fileName: <#T##String#>))
     }
 }
 

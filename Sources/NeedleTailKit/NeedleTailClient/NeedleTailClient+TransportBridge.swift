@@ -60,6 +60,7 @@ protocol TransportBridge: AnyObject {
     func sendReadMessages(count: Int) async throws
     func downloadMedia(_ metadata: [String]) async throws
     func sendMultipartToS3(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
+    func listS3Objects(_ metadata: [String]) async throws
 }
 
 
@@ -559,8 +560,7 @@ extension NeedleTailClient: TransportBridge {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
         let data = try BSONEncoder().encode(metadata).makeData()
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]))
-        try await transport?.transportMessage(type)
+        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]), tags: nil)
     }
     
     @MultipartActor
@@ -579,5 +579,13 @@ extension NeedleTailClient: TransportBridge {
 
         let data = try BSONEncoder().encode(messagePacket).makeData()
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]), tags: nil)
+    }
+    
+    
+    func listS3Objects(_ metadata: [String]) async throws {
+        guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
+        guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
+        let data = try BSONEncoder().encode(metadata).makeData()
+        try await transport?.multipartMessage(.otherCommand(Constants.listS3Objects, [data.base64EncodedString()]), tags: nil)
     }
 }
