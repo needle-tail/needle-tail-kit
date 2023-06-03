@@ -197,7 +197,7 @@ public struct MultipartDownloadFailed {
 
 #endif
 
-public struct S3List: Sendable, Equatable {
+public struct S3List: Codable, Sendable, Equatable, Hashable {
     public var fileName: String
     
     public init(fileName: String) {
@@ -219,7 +219,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
-    @Published public var listedS3Objects = [S3List]()
+    @Published public var listedS3Objects = Set<S3List>()
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

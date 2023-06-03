@@ -423,7 +423,10 @@ extension NeedleTailTransport {
     }
     
     func doListS3Objects(_ packet: [String]) async throws {
-        await emitter?.listedS3Objects.append(S3List(fileName: <#T##String#>))
+        guard let packet = packet.first else { return }
+        guard let data = Data(base64Encoded: packet) else { return }
+        let objects = try BSONDecoder().decode([S3List].self, from: Document(data: data))
+        await emitter?.listedS3Objects.formUnion(objects)
     }
 }
 
