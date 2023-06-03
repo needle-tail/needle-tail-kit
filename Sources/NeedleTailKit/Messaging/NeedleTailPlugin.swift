@@ -29,7 +29,6 @@ public class NeedleTailPlugin: Plugin {
     var multipartData: Data?
     
     public func onReceiveMessage(_ message: ReceivedMessageContext) async throws -> ProcessMessageAction? {
-        print("ON_RECEIVE", message.message.messageSubtype)
         if message.message.messageSubtype == "multipart/*" && message.message.messageType == .magic {
             print("Processing multipart data....")
             multipartData = Data()

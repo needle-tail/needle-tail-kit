@@ -54,7 +54,8 @@ public struct MultipartMessagePacket: Codable, Sendable, Equatable {
     }
 }
 
-public struct MessagePacket: Codable, Sendable {
+public struct MessagePacket: Codable, Sendable, Equatable {
+    
     public let id: String
     public let pushType: PushType
     public var type: MessageType
@@ -100,6 +101,10 @@ public struct MessagePacket: Codable, Sendable {
         self.addDeviceType = addDeviceType
         self.childDeviceConfig = childDeviceConfig
         self.multipartMessage = multipartMessage
+    }
+    
+    public static func == (lhs: MessagePacket, rhs: MessagePacket) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 
