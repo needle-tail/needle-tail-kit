@@ -219,7 +219,7 @@ public final class MessageParser {
                         commandKey.hasPrefix(Constants.badgeUpdate) ||
                         commandKey.hasPrefix(Constants.multipartMediaDownload) ||
                         commandKey.hasPrefix(Constants.multipartMediaUpload) ||
-                        commandKey.hasPrefix(Constants.listS3Objects) {
+                        commandKey.hasPrefix(Constants.listFilenames) {
                 var stripedMessage = stripedMessage
                 
                 if stripedMessage.contains(commandKey) {

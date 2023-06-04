@@ -161,8 +161,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
             try await delegate?.doBlobs(blob)
         case.otherCommand(Constants.multipartMediaDownload, let media):
             try await delegate?.doMultipartMessageDownload(media)
-        case.otherCommand(Constants.listS3Objects, let packet):
-            try await delegate?.doListS3Objects(packet)
+        case.otherCommand(Constants.listFilenames, let packet):
+            try await delegate?.doListFilenames(packet)
         case .numeric(.replyMotDStart, _):
             Task { @NeedleTailTransportActor [weak self] in
                 guard let self else { return }

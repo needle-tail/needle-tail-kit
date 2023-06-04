@@ -58,9 +58,9 @@ protocol TransportBridge: AnyObject {
     func deleteOfflineMessages(from contact: String) async throws
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
-    func downloadMedia(_ metadata: [String]) async throws
-    func sendMultipartToS3(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
-    func listS3Objects(_ metadata: [String]) async throws
+    func downloadMultipart(_ metadata: [String]) async throws
+    func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
+    func listFilenames(_ metadata: [String]) async throws
 }
 
 
@@ -556,15 +556,17 @@ extension NeedleTailClient: TransportBridge {
         try await transport?.transportMessage(type)
     }
     
-    func downloadMedia(_ metadata: [String]) async throws {
+    @MultipartActor
+    func downloadMultipart(_ metadata: [String]) async throws {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
+        guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]), tags: nil)
     }
     
     @MultipartActor
-    func sendMultipartToS3(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
+    func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
         let messagePacket = MessagePacket(
             id: UUID().uuidString,
             pushType: .message,
@@ -576,16 +578,16 @@ extension NeedleTailClient: TransportBridge {
             readReceipt: .none,
             multipartMessage: packet
         )
-
         let data = try BSONEncoder().encode(messagePacket).makeData()
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]), tags: nil)
     }
     
-    
-    func listS3Objects(_ metadata: [String]) async throws {
+    @MultipartActor
+    func listFilenames(_ metadata: [String]) async throws {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
+        guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.listS3Objects, [data.base64EncodedString()]), tags: nil)
+        try await transport?.multipartMessage(.otherCommand(Constants.listFilenames, [data.base64EncodedString()]), tags: nil)
     }
 }

@@ -37,7 +37,6 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
-    
     public var multipartMessagePacket: MultipartMessagePacket? {
         didSet {
             messenger?.multipartMessagePacket = multipartMessagePacket
@@ -478,11 +477,14 @@ public final class NeedleTail {
     }
     
     public func downloadMedia(_ metadata: [String]) async throws {
+        guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
+        var metadata = metadata
+        metadata.append(deviceId.description)
         try await messenger?.downloadMedia(metadata)
     }
     
-    public func listS3Objects(_ metadata: [String]) async throws {
-        try await messenger?.listS3Objects(metadata)
+    public func listFilenames(_ metadata: [String]) async throws {
+        try await messenger?.listFilenames(metadata)
     }
     
 }

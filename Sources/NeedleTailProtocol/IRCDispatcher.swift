@@ -75,7 +75,7 @@ public protocol IRCDispatcher: AnyObject {
     func doKill(_ nick: NeedleTailNick, comment: String) async throws
     func doMultipartMessageDownload(_ packet: [String]) async throws
     func doMultipartMessageUpload(_ packet: [String]) async throws
-    func doListS3Objects(_ packet: [String]) async throws
+    func doListFilenames(_ packet: [String]) async throws
     func badgeCountUpdate(_ count: Int) async throws
 }
 
@@ -186,7 +186,7 @@ public extension IRCDispatcher {
     func doMultipartMessageUpload(_ packet: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
-    func doListS3Objects(_ packet: [String]) async throws {
+    func doListFilenames(_ packet: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func badgeCountUpdate(_ count: Int) async throws {

@@ -197,11 +197,29 @@ public struct MultipartDownloadFailed {
 
 #endif
 
-public struct S3List: Codable, Sendable, Equatable, Hashable {
-    public var fileName: String
+public struct Filename: Codable, Sendable, Equatable, Hashable, CustomStringConvertible {
     
-    public init(fileName: String) {
-        self.fileName = fileName
+    public var description: String { raw }
+    public let raw: String
+    
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+    
+    public init(_ description: String) {
+        self.raw = description.lowercased()
+    }
+    
+    public static func ==(lhs: Filename, rhs: Filename) -> Bool {
+        lhs.raw == rhs.raw
+    }
+    
+    public static func <(lhs: Filename, rhs: Filename) -> Bool {
+        lhs.raw < rhs.raw
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        try raw.encode(to: encoder)
     }
 }
 
@@ -219,7 +237,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
-    @Published public var listedS3Objects = Set<S3List>()
+    @Published public var listedS3Objects = Set<Filename>()
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

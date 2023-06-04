@@ -61,54 +61,59 @@ public class NeedleTailPlugin: Plugin {
     }
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
-      
+        
 #if os(iOS)
-//        UIApplication.shared.applicationIconBadgeNumber += 1
+        //        UIApplication.shared.applicationIconBadgeNumber += 1
 #elseif os(macOS)
 #endif
         
 #if (os(macOS) || os(iOS))
         
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            let isWrittenByMe = message.raw.senderUser == emitter.cypher?.username
-            
+        let result = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            return message.raw.senderUser == emitter.cypher?.username
+        }
+        
+        Task.detached(priority: .background) { [weak self] in
+            let isWrittenByMe = await result.value
             //If we just sent a videoThumbnail image, we should now send multipart data
-            if message.messageSubtype == "videoThumbnail/*" && isWrittenByMe {
-                Task.detached { [weak self] in
-                    guard let self else { return }
-                    guard let multipartObject = NeedleTail.shared.multipartObject.popLast() else { return }
-                    let packets = multipartObject.data.async.chunks(ofCount: 10777216, into: Data.self)
-                    guard let sender = self.emitter.needleTailNick else { return }
-                    var partNumber = 0
-                    
-                    for await packet in packets {
-                        
-                        let (newPartNumber, partNumberData) = await self.generatePacketDetails(
-                            partNumber: partNumber,
-                            totalParts: multipartObject.totalParts,
-                            mediaId: multipartObject.mediaId,
-                            sender: sender
-                        )
-                        guard let partNumberData = partNumberData else { return }
-                        partNumber = newPartNumber
-                        
-                        try await self.emitter.sendMessage(
-                            chat: multipartObject.chat,
-                            type: .magic,
-                            messageSubtype: "multipart/*",
-                            metadata: [
-                                "multipartChunk": packet,
-                                "partNumber": partNumberData,
-                                "totalParts": multipartObject.totalPartsData,
-                                "mediaId": multipartObject.mediaIdData
-                            ],
-                            pushType: .none
-                        )
-                    }
+            if await message.messageSubtype == "videoThumbnail/*" && isWrittenByMe {
+                
+                guard let self else { return }
+                guard let multipartObject = NeedleTail.shared.multipartObject.popLast() else { return }
+                let packets = multipartObject.data.async.chunks(ofCount: 10777216, into: Data.self)
+                guard let sender = self.emitter.needleTailNick else { return }
+                var partNumber = 0
+                
+                for await packet in packets {
+                    let (newPartNumber, partNumberData) = await self.generatePacketDetails(
+                        partNumber: partNumber,
+                        totalParts: multipartObject.totalParts,
+                        mediaId: multipartObject.mediaId,
+                        sender: sender
+                    )
+                    guard let partNumberData = partNumberData else { return }
+                    partNumber = newPartNumber
+
+                    try await self.emitter.sendMessage(
+                        chat: multipartObject.chat,
+                        type: .magic,
+                        messageSubtype: "multipart/*",
+                        metadata: [
+                            "multipartChunk": packet,
+                            "partNumber": partNumberData,
+                            "totalParts": multipartObject.totalPartsData,
+                            "mediaId": multipartObject.mediaIdData
+                        ],
+                        pushType: .none
+                    )
                 }
             }
-                emitter.messageReceived = message
+        }
+        
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.emitter.messageReceived = message
         }
 #endif
     }
@@ -135,11 +140,11 @@ public class NeedleTailPlugin: Plugin {
     }
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
-//        Task { @MainActor in
-//            if message.raw.deliveryState == .read {
-//                UIApplication.shared.applicationIconBadgeNumber -= 1
-//            }
-//        }
+        //        Task { @MainActor in
+        //            if message.raw.deliveryState == .read {
+        //                UIApplication.shared.applicationIconBadgeNumber -= 1
+        //            }
+        //        }
 #elseif os(macOS)
 #endif
         
@@ -192,8 +197,8 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
         Task.detached {
             try await NeedleTail.shared.notifyContactRemoved(contact.username)
-//            let contacts = try await emitter.cypher?.getContact(byUsername: username)
-//            contacts?.remove()
+            //            let contacts = try await emitter.cypher?.getContact(byUsername: username)
+            //            contacts?.remove()
         }
 #endif
     }
@@ -250,12 +255,12 @@ public class NeedleTailPlugin: Plugin {
     public func onConversationChange(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
         Task { @MainActor in
-           let resolved = Task.detached {
+            let resolved = Task.detached {
                 return await viewModel.resolveTarget()
             }
             emitter.conversationChanged = await resolved.value
         }
-       
+        
         //            Task.detached {
         //                let viewModel = await viewModel.resolveTarget()
         //                DispatchQueue.main.async {
