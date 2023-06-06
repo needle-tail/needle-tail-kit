@@ -255,7 +255,7 @@ extension NeedleTailClient: TransportBridge {
     
     func connectClient() async throws {
         try await attemptConnection()
-        ntkBundle.messenger.authenticated = .authenticated
+//        ntkBundle.messenger.authenticated = .authenticated
     }
     
     

@@ -225,11 +225,15 @@ public struct Filename: Codable, Sendable, Equatable, Hashable, CustomStringConv
 
 
 //Our Bottom level Store for emitting events between CTK/NTK and Client
-public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
+public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
     public var id = UUID()
     
 #if (os(macOS) || os(iOS))
     public static let shared = NeedleTailEmitter(sortChats: sortConversations)
+    
+    
+    @Published public var channelIsActive = false
+    @Published public var clientIsRegistered = false
     
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
@@ -237,7 +241,7 @@ public final class NeedleTailEmitter: Equatable, @unchecked Sendable {
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
-    @Published public var listedS3Objects = Set<Filename>()
+    @Published public var listedFilenames = Set<Filename>()
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

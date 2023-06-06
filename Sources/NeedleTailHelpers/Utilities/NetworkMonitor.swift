@@ -36,25 +36,8 @@ public final actor NetworkMonitor {
     
     public func monitor() async {
         monitorPath.pathUpdateHandler = { [weak self] path in
-            guard let strongSelf = self else { return }
-//            path.use(nw_protocol_metadata(nw_protocol_copy_ip_definition(.ipv4)))
-//
-//            path.necp_verdict { verdict in
-//                switch verdict {
-//                case .needRules:
-//                    nw_path_necp_start_transaction(path.necp_handle)
-//                    nw_path_necp_use_as_policy_result(path.necp_handle)
-//                    let status = nw_path_necp_check_for_updates(path.necp_handle) // Check for updates
-//                    if status < 0 {
-//                        print("Failed to update policy rules: \(status)")
-//                    }
-//                default: break
-//                }
-//            }
-//
-            
-            
-            strongSelf.networkPublisher.currentStatus = path.status
+            guard let self else { return }
+            self.networkPublisher.currentStatus = path.status
         }
     }
     

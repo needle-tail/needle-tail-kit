@@ -171,8 +171,11 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
         )
         
         self.transportBridge = client
-        try await transportBridge?.connectClient()
-        try await transportBridge?.resumeClient(type: appleToken != "" ? .siwa(appleToken!) : .plain(name), state: registrationState)
+        try await self.transportBridge?.connectClient()
+        try await self.transportBridge?.resumeClient(
+            type: self.appleToken != "" ? .siwa(self.appleToken!) : .plain(name),
+            state: self.registrationState
+        )
         self.client = client
 #endif
     }
@@ -411,22 +414,19 @@ extension NeedleTailMessenger {
         config.blob.metadata = meta
     }
     
-    func configureMultipartMessagePacket(_ multipartMessagePacket: MultipartMessagePacket, username: String, deviceId: DeviceId) async -> MultipartMessagePacket {
+    func configureMultipartMessagePacket(_
+                                         multipartMessagePacket: MultipartMessagePacket,
+                                         username: String,
+                                         deviceId: DeviceId
+    ) async -> MultipartMessagePacket {
         var multipartMessagePacket = multipartMessagePacket
-        lastMultipartMessagePacket = multipartMessagePacket
         multipartMessagePacket.recipient = NeedleTailNick(name: username, deviceId: deviceId)
-        multipartMessagePacket.id = multipartMessagePacket.id + "\(deviceId.description)"
         multipartMessagePacket.fileName = multipartMessagePacket.fileName + "_\(deviceId.description)"
-        print("SEND_MESSAGE_DOING_PART__", multipartMessagePacket.fileName)
-        if multipartMessagePacket.partNumber == multipartMessagePacket.totalParts {
-            print("CLEARING MMP___")
-            self.multipartMessagePacket = nil
-        }
         return multipartMessagePacket
-
+        
     }
     
-   fileprivate struct MultipartQueuedPacket: Sendable {
+    fileprivate struct MultipartQueuedPacket: Sendable {
         var packet: MultipartMessagePacket
         var message: RatchetedCypherMessage
         var deviceId: DeviceId
@@ -443,8 +443,7 @@ extension NeedleTailMessenger {
     ) async throws {
         
         if let multipartMessagePacket = multipartMessagePacket {
-            //Queue MultipartPacket sending incase multiple packets are being tried to send
-
+            //Queue MultipartPacket sending in case multiple packets are being tried to send
             await multipartMessagesConsumer.feedConsumer([
                 MultipartQueuedPacket(
                     packet: multipartMessagePacket,
@@ -463,7 +462,7 @@ extension NeedleTailMessenger {
                         username: queuedPacket.username,
                         deviceId: queuedPacket.deviceId
                     )
-                //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
+                    //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
                     try await self.transportBridge?.uploadMultipart(packet, message: queuedPacket.message)
                 default:
                     return
@@ -485,25 +484,25 @@ extension NeedleTailMessenger {
     //Should be done by Recipient
     public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
         let bundle = try await readKeyBundle(forUsername: username)
-            for validatedBundle in try bundle.readAndValidateDevices() {
-                let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
-                guard let sender = self.username else { return }
-                guard let deviceId = self.deviceId else { return }
-                let receipt = ReadReceipt(
-                    messageId: remoteId,
-                    state: .displayed,
-                    sender:  NTKUser(username: sender, deviceId: deviceId),
-                    recipient: recipient,
-                    receivedAt: Date()
-                )
-                _ = try await transportBridge?.sendReadReceiptMessage(
-                    recipient: recipient,
-                    pushType: .none,
-                    type: .privateMessage,
-                    readReceipt: receipt
-                )
-            }
+        for validatedBundle in try bundle.readAndValidateDevices() {
+            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
+            guard let sender = self.username else { return }
+            guard let deviceId = self.deviceId else { return }
+            let receipt = ReadReceipt(
+                messageId: remoteId,
+                state: .displayed,
+                sender:  NTKUser(username: sender, deviceId: deviceId),
+                recipient: recipient,
+                receivedAt: Date()
+            )
+            _ = try await transportBridge?.sendReadReceiptMessage(
+                recipient: recipient,
+                pushType: .none,
+                type: .privateMessage,
+                readReceipt: receipt
+            )
         }
+    }
     
     // When a message is received CTK calls this method. We then want to inform the sender we read the message at the correct time.
     public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
@@ -537,10 +536,10 @@ extension NeedleTailMessenger {
             if let result = result {
                 await self.readMessagesConsumer.feedConsumer([
                     MessageToRead(
-                                remoteId: remoteId,
-                                  ntkUser: recipient,
-                                  deliveryResult: result
-                                 )
+                        remoteId: remoteId,
+                        ntkUser: recipient,
+                        deliveryResult: result
+                    )
                 ])
             }
         }
@@ -587,7 +586,7 @@ extension NeedleTailMessenger {
     }
     
     @MultipartActor
-    public func downloadMedia(_ metadata: [String]) async throws {
+    public func downloadMultipart(_ metadata: [String]) async throws {
         try await transportBridge?.downloadMultipart(metadata)
     }
     

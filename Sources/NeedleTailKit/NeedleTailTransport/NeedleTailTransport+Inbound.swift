@@ -153,7 +153,7 @@ extension NeedleTailTransport {
                     case .registered(let bool):
                         guard bool == "true" else { return }
                         switch transportState.current {
-                        case .transportRegistering(channel: let channel, clientContext: let clientContext):
+                        case .transportRegistered(channel: let channel, clientContext: let clientContext):
                             let type = TransportMessageType.standard(.USER(clientContext.userInfo))
                             try await transportMessage(type)
                             await transportState.transition(to: .transportOnline(channel: channel, clientContext: clientContext))
@@ -171,6 +171,7 @@ extension NeedleTailTransport {
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
+                            NeedleTail.shared.multipartMessagePacket = nil
                         }
                     case .multipartDownloadFailed(let error):
                         Task { @MainActor [weak self] in
@@ -354,6 +355,8 @@ extension NeedleTailTransport {
             break
         case .clientDisconnected:
             break
+        case .transportRegistered:
+            break
         }
     }
     
@@ -428,7 +431,7 @@ extension NeedleTailTransport {
         let objects = try BSONDecoder().decode([Filename].self, from: Document(data: data))
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.emitter?.listedS3Objects.formUnion(objects)
+            self.emitter?.listedFilenames.formUnion(objects)
         }
     }
 }

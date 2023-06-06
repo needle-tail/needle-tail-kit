@@ -82,6 +82,7 @@ public class NeedleTailPlugin: Plugin {
                 guard let self else { return }
                 guard let multipartObject = NeedleTail.shared.multipartObject.popLast() else { return }
                 let packets = multipartObject.data.async.chunks(ofCount: 10777216, into: Data.self)
+//                let packets = multipartObject.data.async.chunks(ofCount: 5388608, into: Data.self)
                 guard let sender = self.emitter.needleTailNick else { return }
                 var partNumber = 0
                 

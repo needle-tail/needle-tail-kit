@@ -5,12 +5,13 @@
 //  Created by Cole M on 3/4/22.
 //
 
-import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
 import NIOExtras
 import NIOTransportServices
+import Logging
 @_spi(AsyncChannel) import NIOCore
+@_spi(AsyncChannel) import NeedleTailProtocol
 
 @NeedleTailClientActor
 extension NeedleTailClient: ClientTransportDelegate {
@@ -19,16 +20,20 @@ extension NeedleTailClient: ClientTransportDelegate {
             switch await transportState.current {
             case .clientOffline, .transportOffline:
                 await transportState.transition(to: .clientConnecting)
+                
                 do {
-                    let childChannel = try await createChannel(host: serverInfo.hostname, port: serverInfo.port)
-                        try await RunLoop.run(10, sleep: 1, stopRunning: {
-                            var canRun = true
-                            if childChannel.channel.isActive  {
-                                canRun = false
-                            }
-                            return canRun
-                        })
-                    
+                    let childChannel = try await createChannel(
+                        host: serverInfo.hostname,
+                        port: serverInfo.port,
+                        enableTLS: serverInfo.tls
+                    )
+                    try await RunLoop.run(10, sleep: 1, stopRunning: {
+                        var canRun = true
+                        if childChannel.channel.isActive  {
+                            canRun = false
+                        }
+                        return canRun
+                    })
                     try await addChildHandle(childChannel)
                     await transportState.transition(to: .clientConnected)
                 } catch {
@@ -42,9 +47,6 @@ extension NeedleTailClient: ClientTransportDelegate {
             }
     }
 
-    func createChannel(host: String, port: Int) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
-        return try await createBootstrap().connectAsync(host: host, port:port)
-    }
     
     func setStore(_ store: TransportStore?) async throws -> TransportStore {
         self.store = store
@@ -67,29 +69,21 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     func addChildHandle(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws {
-        let handlers: (KeyBundleMechanism, NeedleTailTransport, TransportStore)? = try await withThrowingTaskGroup(of: (KeyBundleMechanism, NeedleTailTransport, TransportStore).self) { taskGroup in
-            taskGroup.addTask { [weak self] in
-                guard let strongSelf = self else { throw NeedleTailError.couldNotCreateHandlers }
-                let handlers = try await strongSelf.createHandlers(childChannel)
-                return handlers
-            }
-            return try await taskGroup.next()
-        }
+        let handlers = try await createHandlers(childChannel)
         await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
             taskGroup.addTask {
                 Task.detached { [weak self] in
-                    guard let strongSelf = self else { return }
-                    try await childChannel.channel.pipeline.addHandlers([
-                        ByteToMessageHandler(
-                            LineBasedFrameDecoder(),
-                            maximumBufferSize: 16777216
-                        ),
-                    ], position: .first).get()
-                    
-                    let mechanism = try await strongSelf.setMechanisim(handlers?.0)
-                    let transport = try await strongSelf.setTransport(handlers?.1)
-                    let store = try await strongSelf.setStore(handlers?.2)
-                    await strongSelf.handleChildChannel(childChannel.inboundStream, mechanism: mechanism, transport: transport, store: store)
+                guard let self else { return }
+                let mechanism = try await self.setMechanisim(handlers.0)
+                let transport = try await self.setTransport(handlers.1)
+                let store = try await self.setStore(handlers.2)
+                
+                await NeedleTailClient.handleChildChannel(
+                        childChannel.inboundStream,
+                        mechanism: mechanism,
+                        transport: transport,
+                        store: store
+                      )
                 }
             }
         })
@@ -99,10 +93,10 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     func setChildChannel(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async {
         self.childChannel = childChannel
-        
+        await transport?.emitter?.channelIsActive = childChannel.channel.isActive
     }
     
-    func handleChildChannel(_
+    static func handleChildChannel(_
                             stream: NIOAsyncChannelInboundStream<ByteBuffer>,
                             mechanism: KeyBundleMechanism,
                             transport: NeedleTailTransport,
@@ -118,20 +112,27 @@ extension NeedleTailClient: ClientTransportDelegate {
                     .filter { !$0.isEmpty }
                 for message in messages {
                     let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
-                    self.logger.trace("Message Parsed \(parsedMessage)")
+                    Logger(label: "Child Channel Processor").trace("Message Parsed \(parsedMessage)")
                     try await mechanism.processKeyBundle(parsedMessage)
                     try await transport.processReceivedMessages(parsedMessage)
                 }
             }
         } catch {
-            logger.error("Hit error: \(error)")
+            Logger(label: "Child Channel Processor").error("Hit error: \(error)")
         }
     }
     
-    private func createBootstrap() async throws -> NIOClientTCPBootstrap {
-        return try await groupManager.makeBootstrap(hostname: serverInfo.hostname, useTLS: serverInfo.tls)
-            .connectTimeout(.minutes(1))
-            .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
+    @_spi(AsyncChannel)
+    public func createChannel(
+        host: String,
+        port: Int,
+        enableTLS: Bool
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+        return try await groupManager.makeAsyncChannel(
+            host: host,
+            port: port,
+            enableTLS: enableTLS
+        )
     }
 
     func createHandlers(_ channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws -> (KeyBundleMechanism, NeedleTailTransport, TransportStore) {
@@ -173,13 +174,10 @@ extension NeedleTailClient: ClientTransportDelegate {
             guard let channel = childChannel?.channel else { throw NeedleTailError.channelIsNil }
             _ = try await channel.close(mode: .all).get()
             try await groupManager.shutdown()
-            ntkBundle.messenger.authenticated = .unauthenticated
-            ntkBundle.messenger.isConnected = false
             await ntkBundle.messenger.client?.teardownClient()
             await transportState.transition(to: .clientOffline)
         } catch {
-            ntkBundle.messenger.authenticated = .unauthenticated
-            ntkBundle.messenger.isConnected = false
+            await transportState.transition(to: .clientOffline)
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error.localizedDescription))")
             if error.localizedDescription != "alreadyClosed" {
                 exit(0)

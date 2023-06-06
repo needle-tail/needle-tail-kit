@@ -1,9 +1,11 @@
-import NIO
 import NIOSSL
+import NIOExtras
 import NeedleTailHelpers
+@_spi(AsyncChannel) import NIOCore
+@_spi(AsyncChannel) import NIOPosix
 #if canImport(Network)
 import Network
-import NIOTransportServices
+@_spi(AsyncChannel) import NIOTransportServices
 #endif
 
 /// `EventLoopGroupManager` can be used to manage an `EventLoopGroup`, either by creating or by sharing an existing one.
@@ -46,29 +48,13 @@ public class EventLoopGroupManager {
     }
     
     deinit {
-//        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
+        //        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
     }
 }
 
 // - MARK: Public API
 extension EventLoopGroupManager {
     /// Create a "universal bootstrap" for the given host.
-    ///
-    /// - parameters:
-    ///     - hostname: The hostname to connect to (for SNI).
-    ///     - useTLS: Whether to use TLS or not.
-    public func makeBootstrap(hostname: String, useTLS: Bool = true) async throws -> NIOClientTCPBootstrap {
-        let bootstrap: (NIOClientTCPBootstrap, EventLoopGroup)
-
-        bootstrap = try await makeUniversalBootstrap(serverHostname: hostname)
-
-        if useTLS {
-            return bootstrap.0.enableTLS()
-        } else {
-            return bootstrap.0
-        }
-    }
-
     /// Shutdown the `EventLoopGroupManager`.
     ///
     /// This will release all resources associated with the `EventLoopGroupManager` such as the threads that the
@@ -101,33 +87,80 @@ enum ELGMErrors: Swift.Error {
 
 // - MARK: Internal functions
 extension EventLoopGroupManager {
-      func makeUniversalBootstrap(serverHostname: String) async throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
-
-          guard let group = self.group else { throw ELGMErrors.nilEventLoopGroup }
-          
-          func useNIOOnSockets() async throws -> (NIOClientTCPBootstrap, EventLoopGroup) {
-              let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
-              let bootstrap = try NIOClientTCPBootstrap(ClientBootstrap(group: group),
-                                                        tls: NIOSSLClientTLSProvider(context: sslContext,
-                                                                                     serverHostname: serverHostname))
-              return (bootstrap, group)
-          }
-  
-          #if canImport(Network)
-          if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
-              // We run on a new-enough Darwin so we can use Network.framework
-              let bootstrap = NIOClientTCPBootstrap(NIOTSConnectionBootstrap(group: group),
-                                                    tls: NIOTSClientTLSProvider())
-              return (bootstrap, group)
-          } else {
-              // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
-              return try await useNIOOnSockets()
-          }
-          #else
-          // We are on a non-Darwin platform, so we'll use BSD sockets.
-          return try await useNIOOnSockets()
-          #endif
-      }
-
+    
+    @_spi(AsyncChannel)
+    public func makeAsyncChannel(
+        host: String,
+        port: Int,
+        enableTLS:  Bool = true
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+        
+        guard let group = self.group else { throw ELGMErrors.nilEventLoopGroup }
+        
+        func socketChannelCreator() async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+            let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
+            let client = ClientBootstrap(group: group)
+            let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await client
+                .channelInitializer { channel in
+                    createHandlers(channel)
+                }
+                .connectTimeout(.seconds(10))
+                .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
+                .connect(host: host, port: port)
+            
+            let bootstrap = try NIOClientTCPBootstrap(
+                client,
+                tls: NIOSSLClientTLSProvider(
+                    context: sslContext,
+                    serverHostname: host
+                )
+            )
+            if enableTLS {
+                bootstrap.enableTLS()
+            }
+            return channel
+        }
+        
+        
+#if canImport(Network)
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
+//             We run on a new-enough Darwin so we can use Network.framework
+            let connection = NIOTSConnectionBootstrap(group: group)
+            
+            let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
+                .channelInitializer { channel in
+                    createHandlers(channel)
+                }
+                .connectTimeout(.seconds(10))
+                .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
+                .connectAsync(host: host, port: port, backpressureStrategy: nil)
+            
+            let bootstrap = NIOClientTCPBootstrap(connection,
+                                                  tls: NIOTSClientTLSProvider())
+            if enableTLS {
+                bootstrap.enableTLS()
+            }
+            return channel
+        } else {
+            // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
+            return try await socketChannelCreator()
+        }
+#else
+        // We are on a non-Darwin platform, so we'll use BSD sockets.
+        return try await socketChannelCreator()
+#endif
+        
+        @Sendable func createHandlers(_ channel: Channel) -> EventLoopFuture<Void> {
+            channel.eventLoop.makeCompletedFuture {
+                try channel.pipeline.syncOperations.addHandlers([
+                    ByteToMessageHandler(
+                        LineBasedFrameDecoder(),
+                        maximumBufferSize: 16777216
+                    )
+                ])
+            }
+        }
+    }
+    
 }
 

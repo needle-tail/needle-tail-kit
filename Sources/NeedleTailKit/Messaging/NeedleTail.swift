@@ -237,13 +237,6 @@ public final class NeedleTail {
         }
         //We need to make sure we have internet before we try this
         for status in await NeedleTail.shared.state.receiver.statusArray {
-            try await RunLoop.run(3, sleep: 1) {
-                var running = true
-                if status == .satisfied {
-                    running = false
-                }
-                return running
-            }
             if status == .satisfied {
                 if messenger.isConnected == false {
                     try await resumeService(nameToVerify)
@@ -307,14 +300,23 @@ public final class NeedleTail {
                               appleToken: String = "",
                               newHost: String = "")
     async throws {
-        guard let messenger = messenger else { return }
+        guard let messenger = messenger else { throw NeedleTailError.messengerNotIntitialized }
         await resumeRequest(1)
         if await resumeQueue.popFirst() == 1 {
             
             totalSuspendRequests = 0
             await suspendQueue.drain()
             try await messenger.createClient(nameToVerify, newHost: newHost)
-            messenger.isConnected = true
+            await monitorClientConnection()
+        }
+    }
+    
+    func monitorClientConnection() async {
+            for await status in NeedleTailEmitter.shared.$clientIsRegistered.values {
+                self.messenger?.isConnected = status
+                self.messenger?.authenticated = status ? .authenticated : .unauthenticated
+                if self.messenger?.isConnected == true { return }
+//                if self.messenger?.isConnected == false { return }
         }
     }
     
@@ -476,14 +478,17 @@ public final class NeedleTail {
         try await messenger?.sendReadMessages(count: count)
     }
     
-    public func downloadMedia(_ metadata: [String]) async throws {
+    public func downloadMultipart(_ metadata: [String]) async throws {
         guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
         var metadata = metadata
         metadata.append(deviceId.description)
-        try await messenger?.downloadMedia(metadata)
+        try await messenger?.downloadMultipart(metadata)
     }
     
     public func listFilenames(_ metadata: [String]) async throws {
+        guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
+        var metadata = metadata
+        metadata.append(deviceId.description)
         try await messenger?.listFilenames(metadata)
     }
     
@@ -495,7 +500,7 @@ extension NeedleTail {
     
     public struct SkeletonView<Content>: View where Content: View {
         
-        @StateObject public var emitter = NeedleTailEmitter(sortChats: sortConversations)
+        @StateObject var emitter = NeedleTailEmitter.shared
         let content: Content
         
         public init(content: Content) {
