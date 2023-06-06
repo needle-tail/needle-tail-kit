@@ -84,7 +84,7 @@ public class NeedleTailPlugin: Plugin {
                 guard let self else { return }
                 guard let multipartObject = NeedleTail.shared.multipartObject.popLast() else { return }
                 let packets = multipartObject.data.async.chunks(ofCount: 10777216, into: Data.self)
-//                let packets = multipartObject.data.async.chunks(ofCount: 5388608, into: Data.self)
+                //                let packets = multipartObject.data.async.chunks(ofCount: 5388608, into: Data.self)
                 guard let sender = self.emitter.needleTailNick else { return }
                 var partNumber = 0
                 
@@ -97,7 +97,7 @@ public class NeedleTailPlugin: Plugin {
                     )
                     guard let partNumberData = partNumberData else { return }
                     partNumber = newPartNumber
-
+                    
                     try await self.emitter.sendMessage(
                         chat: multipartObject.chat,
                         type: .magic,
@@ -125,6 +125,7 @@ public class NeedleTailPlugin: Plugin {
     func generatePacketDetails(partNumber: Int, totalParts: Int, mediaId: String, sender: NeedleTailNick) async -> (Int, Data?) {
         var partNumber = partNumber
         partNumber += 1
+#if (os(macOS) || os(iOS))
         NeedleTail.shared.multipartMessagePacket = MultipartMessagePacket(
             id: mediaId,
             sender: sender,
@@ -132,7 +133,7 @@ public class NeedleTailPlugin: Plugin {
             partNumber: partNumber,
             totalParts: totalParts
         )
-        
+#endif
         return (partNumber, "\(partNumber)".data(using: .utf8))
     }
     
