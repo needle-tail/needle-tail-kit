@@ -62,9 +62,11 @@ public class TransportState: StateMachine {
             logger.info("Now registering Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
         case .transportRegistered(channel: _, clientContext: let context):
             logger.info("Registered Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
+#if (os(macOS) || os(iOS))
             Task { @MainActor in
                 emitter.clientIsRegistered = true
             }
+#endif
         case .transportOnline(channel: let channel, clientContext: let clientContext):
             logger.info("Transport Channel is Active? - \(channel.isActive)")
             logger.info("Nick: \(clientContext.nickname.name) with UserInfo: \(clientContext.userInfo.description) is now online")
@@ -72,9 +74,11 @@ public class TransportState: StateMachine {
             logger.info("We are de-registering Session")
         case .transportOffline:
             logger.info("Successfully de-registerd Session")
+#if (os(macOS) || os(iOS))
             Task { @MainActor in
                 emitter.clientIsRegistered = false
             }
+#endif
         case .clientDisconnected:
             logger.info("Client has disconnected")
         }

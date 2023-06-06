@@ -48,7 +48,9 @@ public class NeedleTailPlugin: Plugin {
             let totalParts = Int(totalString)
             
             if  partNumber == totalParts {
+#if (os(macOS) || os(iOS))
                 emitter.multipartReceived = multipartData
+#endif
                 multipartData = nil
             }
             return .ignore

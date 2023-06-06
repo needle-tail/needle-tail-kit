@@ -168,16 +168,24 @@ extension NeedleTailTransport {
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
                     case .multipartUploadComplete:
+#if (os(macOS) || os(iOS))
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
                             NeedleTail.shared.multipartMessagePacket = nil
                         }
+#else
+                        break
+#endif
                     case .multipartDownloadFailed(let error):
+#if (os(macOS) || os(iOS))
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
                         }
+#else
+                        break
+#endif
                     default:
                         break
                     }
@@ -429,10 +437,12 @@ extension NeedleTailTransport {
         guard let packet = packet.first else { return }
         guard let data = Data(base64Encoded: packet) else { return }
         let objects = try BSONDecoder().decode([Filename].self, from: Document(data: data))
+#if (os(macOS) || os(iOS))
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.emitter?.listedFilenames.formUnion(objects)
         }
+#endif
     }
 }
 

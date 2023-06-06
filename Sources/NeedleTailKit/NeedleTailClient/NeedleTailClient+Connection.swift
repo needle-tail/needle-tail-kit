@@ -93,7 +93,9 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     func setChildChannel(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async {
         self.childChannel = childChannel
+#if (os(macOS) || os(iOS))
         await transport?.emitter?.channelIsActive = childChannel.channel.isActive
+#endif
     }
     
     static func handleChildChannel(_
