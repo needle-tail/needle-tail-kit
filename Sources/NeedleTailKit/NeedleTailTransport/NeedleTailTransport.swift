@@ -9,7 +9,9 @@ import NeedleTailHelpers
 import NeedleTailProtocol
 import Logging
 import CypherMessaging
+#if canImport(Combine)
 import Combine
+#endif
 @_spi(AsyncChannel) import NIOCore
 
 protocol MessengerTransportBridge: AnyObject {
@@ -69,7 +71,9 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     @MainActor
     var emitter: NeedleTailEmitter?
     var quiting = false
+#if canImport(Combine)
     private var statusCancellable: Cancellable?
+#endif
     
     init(
         ntkBundle: NTKClientBundle,
@@ -89,12 +93,16 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         self.delegate = self
         
         guard let emitter = emitter else { return }
+#if canImport(Combine)
         statusCancellable = emitter.publisher(for: \.clientIsRegistered) as? Cancellable
+#endif
     }
     
     deinit{
+#if canImport(Combine)
         statusCancellable?.cancel()
         statusCancellable = nil
+#endif
         //           print("RECLAIMING MEMORY IN TRANSPORT")
     }
     
