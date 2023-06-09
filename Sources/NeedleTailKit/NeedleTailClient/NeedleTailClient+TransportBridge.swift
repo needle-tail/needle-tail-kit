@@ -255,7 +255,6 @@ extension NeedleTailClient: TransportBridge {
     
     func connectClient() async throws {
         try await attemptConnection()
-//        ntkBundle.messenger.authenticated = .authenticated
     }
     
     
@@ -565,6 +564,7 @@ extension NeedleTailClient: TransportBridge {
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]), tags: nil)
     }
     
+    //TODO: I think that because we sent these messages so fast CTK Never had an opportunity to send messages in between. So CTK QUEUES these messages to send after All of the multipart is done.
     @MultipartActor
     func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
         let messagePacket = MessagePacket(

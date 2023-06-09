@@ -92,12 +92,16 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
     func processKeyBundle(
         _ message: IRCMessage
-    ) async throws {
-        switch message.command {
-        case .otherCommand("READKEYBNDL", let keyBundle):
-            try await doReadKeyBundle(keyBundle)
-        default:
-            return
+    ) async {
+        do {
+            switch message.command {
+            case .otherCommand("READKEYBNDL", let keyBundle):
+                try await doReadKeyBundle(keyBundle)
+            default:
+                return
+            }
+        } catch {
+            print(error)
         }
     }
     

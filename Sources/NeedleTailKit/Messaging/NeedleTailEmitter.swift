@@ -355,8 +355,7 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
                     case .internalChat(_):
                         return
                     }
-                case .retry:
-                    return
+                    break
                 case .finished:
                     return
                 }

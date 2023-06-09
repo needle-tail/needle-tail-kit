@@ -61,7 +61,7 @@ public enum IRCCommand: Codable, Sendable {
 
 extension IRCCommand: CustomStringConvertible {
 
-    public var commandAsString : String {
+    public var commandAsString: String {
         switch self {
         case .NICK:
             return Constants.nick

@@ -441,43 +441,51 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        
-        if let multipartMessagePacket = multipartMessagePacket {
-            //Queue MultipartPacket sending in case multiple packets are being tried to send
-            await multipartMessagesConsumer.feedConsumer([
-                MultipartQueuedPacket(
-                    packet: multipartMessagePacket,
-                    message: message,
-                    deviceId: deviceId,
-                    username: username.raw
-                )
-            ])
+        await withThrowingTaskGroup(of: Void.self) { group in
             
-            
-            for try await result in NeedleTailAsyncSequence(consumer: multipartMessagesConsumer) {
-                switch result {
-                case .success(let queuedPacket):
-                    let packet = await self.configureMultipartMessagePacket(
-                        queuedPacket.packet,
-                        username: queuedPacket.username,
-                        deviceId: queuedPacket.deviceId
+            if let multipartMessagePacket = multipartMessagePacket {
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    //Queue MultipartPacket sending in case multiple packets are being tried to send
+                    await self.multipartMessagesConsumer.feedConsumer([
+                        MultipartQueuedPacket(
+                            packet: multipartMessagePacket,
+                            message: message,
+                            deviceId: deviceId,
+                            username: username.raw
+                        )
+                    ])
+                    
+                    
+                    for try await result in NeedleTailAsyncSequence(consumer: self.multipartMessagesConsumer) {
+                        switch result {
+                        case .success(let queuedPacket):
+                            let packet = await self.configureMultipartMessagePacket(
+                                queuedPacket.packet,
+                                username: queuedPacket.username,
+                                deviceId: queuedPacket.deviceId
+                            )
+                            //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
+                            try await self.transportBridge?.uploadMultipart(packet, message: queuedPacket.message)
+                        default:
+                            return
+                        }
+                    }
+                }
+            } else {
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    try await self.transportBridge?.sendMessage(
+                        message: message,
+                        toUser: username,
+                        otherUserDeviceId: deviceId,
+                        pushType: pushType,
+                        messageId: messageId,
+                        type: self.type,
+                        readReceipt: self.readReceipt
                     )
-                    //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
-                    try await self.transportBridge?.uploadMultipart(packet, message: queuedPacket.message)
-                default:
-                    return
                 }
             }
-        } else {
-            try await transportBridge?.sendMessage(
-                message: message,
-                toUser: username,
-                otherUserDeviceId: deviceId,
-                pushType: pushType,
-                messageId: messageId,
-                type: type,
-                readReceipt: readReceipt
-            )
         }
     }
     

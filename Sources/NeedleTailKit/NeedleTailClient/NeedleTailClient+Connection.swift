@@ -27,7 +27,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                         port: serverInfo.port,
                         enableTLS: serverInfo.tls
                     )
-                    try await RunLoop.run(10, sleep: 1, stopRunning: {
+                    try await RunLoop.run(30, sleep: 1, stopRunning: {
                         var canRun = true
                         if childChannel.channel.isActive  {
                             canRun = false
@@ -107,16 +107,17 @@ extension NeedleTailClient: ClientTransportDelegate {
         do {
             for try await buffer in stream {
                 var buffer = buffer
-                guard let message = buffer.readString(length: buffer.readableBytes) else { return }
+                guard let message = buffer.readString(length: buffer.readableBytes) else { break }
                 guard !message.isEmpty else { return }
                 let messages = message.components(separatedBy: Constants.cLF)
                     .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
                     .filter { !$0.isEmpty }
-                for message in messages {
-                    let parsedMessage = try await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser())
+                
+                for await message in messages.async {
+                    guard let parsedMessage = await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
                     Logger(label: "Child Channel Processor").trace("Message Parsed \(parsedMessage)")
-                    try await mechanism.processKeyBundle(parsedMessage)
-                    try await transport.processReceivedMessages(parsedMessage)
+                    await mechanism.processKeyBundle(parsedMessage)
+                    await transport.processReceivedMessages(parsedMessage)
                 }
             }
         } catch {

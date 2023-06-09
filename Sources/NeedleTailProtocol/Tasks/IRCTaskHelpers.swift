@@ -5,7 +5,12 @@ public enum AsyncMessageTask: Sendable {
     public static func parseMessageTask(
         task: String,
         messageParser: MessageParser
-    ) async throws -> IRCMessage {
-        return try await messageParser.parseMessage(task)
+    ) async -> IRCMessage? {
+        do {
+            return try await messageParser.parseMessage(task)
+        } catch {
+            print(error)
+            return nil
+        }
     }
 }

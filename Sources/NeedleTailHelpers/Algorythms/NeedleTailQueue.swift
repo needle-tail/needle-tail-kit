@@ -81,6 +81,10 @@ public actor NeedleTailStack<T: Sendable>: NeedleTailQueue, Sendable  {
     }
 }
 
+public enum ConsumptionState: Sendable {
+    case consuming, enquing, dequing, draining, ready, empty
+}
+public var consumptionState = ConsumptionState.empty
 
 public protocol SyncQueue: Sendable {
     associatedtype Element

@@ -7,7 +7,7 @@
 
 import NIOConcurrencyHelpers
 
-extension NIOLock: @unchecked Sendable {
+extension NIOLock: Sendable {
     @inlinable
     public func withSendableLock<T: Sendable>(_ body: () throws -> T) rethrows -> T {
         self.lock()

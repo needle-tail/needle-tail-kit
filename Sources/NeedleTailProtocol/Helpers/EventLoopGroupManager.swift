@@ -125,8 +125,10 @@ extension EventLoopGroupManager {
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
 //             We run on a new-enough Darwin so we can use Network.framework
-            let connection = NIOTSConnectionBootstrap(group: group)
-            
+            var connection = NIOTSConnectionBootstrap(group: group)
+            if enableTLS {
+                connection = connection.tlsOptions(NWProtocolTLS.Options())
+            }
             let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
                 .channelInitializer { channel in
                     createHandlers(channel)
@@ -134,12 +136,6 @@ extension EventLoopGroupManager {
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connectAsync(host: host, port: port, backpressureStrategy: nil)
-            
-            let bootstrap = NIOClientTCPBootstrap(connection,
-                                                  tls: NIOTSClientTLSProvider())
-            if enableTLS {
-                bootstrap.enableTLS()
-            }
             return channel
         } else {
             // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
@@ -157,10 +153,9 @@ extension EventLoopGroupManager {
                         LineBasedFrameDecoder(),
                         maximumBufferSize: 16777216
                     )
-                ])
+                ], position: .first)
             }
         }
     }
     
 }
-

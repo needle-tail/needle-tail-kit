@@ -29,6 +29,7 @@ let package = Package(
         .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "3385cd67bb52cfbe9c68d0a3ca4c2e419ac10bdf"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3"),
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0")
     ],
     targets: [
         .target(
@@ -46,6 +47,7 @@ let package = Package(
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
             .product(name: "Crypto", package: "swift-crypto"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "Atomics", package: "swift-atomics"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol")
         ]),

@@ -17,7 +17,6 @@ public final class MessageParser {
     
     
     internal func parseMessage(_ message: String) async throws -> IRCMessage {
-        
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []
@@ -35,10 +34,10 @@ public final class MessageParser {
         } else {
             stripedMessage = message
         }
+            guard let firstSpaceIndex = stripedMessage.firstIndex(of: Character(Constants.space)) else {
+                throw MessageParserError.messageWithWhiteSpaceNil
+            }
         
-        guard let firstSpaceIndex = stripedMessage.firstIndex(of: Character(Constants.space)) else {
-            throw MessageParserError.messageWithWhiteSpaceNil
-        }
         var command = ""
         var parameter = ""
         ///This strippedMessage represents our irc message portion without tags. If we have the source then we will get the source here
