@@ -1,40 +1,45 @@
 import Foundation
 import Logging
 import NeedleTailHelpers
+import NIOConcurrencyHelpers
 
-@ParsingActor
-public final class MessageParser {
+//@ParsingActor
+public final class MessageParser: @unchecked Sendable {
     
     enum IRCCommandKey {
         case int   (Int)
         case string(String)
     }
-    var logger: Logger
+    let logger: Logger
+    let lock = NIOLock()
     
     public init() {
+        lock.lock()
         self.logger = Logger(label: "MessageParser")
+        lock.unlock()
     }
     
     
-    internal func parseMessage(_ message: String) async throws -> IRCMessage {
+    internal func parseMessage(_ message: String) throws -> IRCMessage {
         var ircMessage: IRCMessage
         var origin: String?
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
+        lock.lock()
         self.logger.trace("Parsing Message....")
-        
+        lock.unlock()
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
         ///We are seperating our tags from our message string before we process the rest of our message
-        if message.contains(Constants.atString) && message.contains(Constants.semiColonSpace) {
-            seperatedTags.append(contentsOf: message.components(separatedBy: Constants.semiColonSpace))
+        if message.contains(Constants.atString.rawValue) && message.contains(Constants.semiColonSpace.rawValue) {
+            seperatedTags.append(contentsOf: message.components(separatedBy: Constants.semiColonSpace.rawValue))
             stripedMessage = seperatedTags[1]
         } else {
             stripedMessage = message
         }
-            guard let firstSpaceIndex = stripedMessage.firstIndex(of: Character(Constants.space)) else {
+        guard let firstSpaceIndex = stripedMessage.firstIndex(of: Character(Constants.space.rawValue)) else {
                 throw MessageParserError.messageWithWhiteSpaceNil
             }
         
@@ -43,14 +48,14 @@ public final class MessageParser {
         ///This strippedMessage represents our irc message portion without tags. If we have the source then we will get the source here
         
         /// Always our origin
-        if stripedMessage.hasPrefix(Constants.colon) {
+        if stripedMessage.hasPrefix(Constants.colon.rawValue) {
             let source = stripedMessage[..<firstSpaceIndex]
             origin = String(source)
         }
-        let spreadStriped = stripedMessage.components(separatedBy: Constants.space)
+        let spreadStriped = stripedMessage.components(separatedBy: Constants.space.rawValue)
         
         ///If we get an origin back from the server it will be preceeded with a :. So we are using it to determine the command type.
-        if stripedMessage.hasPrefix(Constants.colon) {
+        if stripedMessage.hasPrefix(Constants.colon.rawValue) {
             command = spreadStriped[1]
             parameter = spreadStriped[2]
         } else {
@@ -93,12 +98,12 @@ public final class MessageParser {
             /// :needletail!needletail@localhost JOIN #NIO
             /// :someBase64EncodedString JOIN #NIO
             if let unwrappedOrigin = origin {
-                if unwrappedOrigin.hasPrefix(Constants.colon),
-                   unwrappedOrigin.contains(Constants.atString) && unwrappedOrigin.contains(Constants.exclamation) {
-                    let seperatedJoin = unwrappedOrigin.components(separatedBy: Constants.exclamation)
-                    origin = seperatedJoin[0].replacingOccurrences(of: Constants.colon, with: Constants.none)
-                } else if unwrappedOrigin.hasPrefix(Constants.colon) {
-                    origin = unwrappedOrigin.replacingOccurrences(of: Constants.colon, with: Constants.none)
+                if unwrappedOrigin.hasPrefix(Constants.colon.rawValue),
+                   unwrappedOrigin.contains(Constants.atString.rawValue) && unwrappedOrigin.contains(Constants.exclamation.rawValue) {
+                    let seperatedJoin = unwrappedOrigin.components(separatedBy: Constants.exclamation.rawValue)
+                    origin = seperatedJoin[0].replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
+                } else if unwrappedOrigin.hasPrefix(Constants.colon.rawValue) {
+                    origin = unwrappedOrigin.replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
                 }
             }
             let command = try IRCCommand(commandKey, arguments: arguments)
@@ -109,8 +114,8 @@ public final class MessageParser {
             )
             
         case .int(let commandKey):
-            if origin?.hasPrefix(Constants.colon) != nil {
-                origin = origin?.replacingOccurrences(of: Constants.colon, with: Constants.none)
+            if origin?.hasPrefix(Constants.colon.rawValue) != nil {
+                origin = origin?.replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
             }
             let command = try IRCCommand(commandKey, arguments: arguments)
             ircMessage = IRCMessage(origin: origin,
@@ -120,7 +125,9 @@ public final class MessageParser {
             )
             
         }
+        lock.lock()
         self.logger.trace("Parsed Message")
+        lock.unlock()
         return ircMessage
     }
     
@@ -142,7 +149,9 @@ public final class MessageParser {
                 }
             }
         }
+        lock.lock()
         self.logger.trace("Parsing CommandKey")
+        lock.unlock()
         return commandKey
     }
     
@@ -159,13 +168,13 @@ public final class MessageParser {
         switch commandKey {
         case .int(let int):
             //            :localhost 332 Guest31 #NIO :Welcome to #nio!
-            var spread = message.components(separatedBy: Constants.space)
+            var spread = message.components(separatedBy: Constants.space.rawValue)
             guard spread.count >= 4 else { return [] }
             let right = spread[4...]
             let left = spread[0...3]
             spread = Array(left)
             let rightArray = Array(right)
-            let joinedString = rightArray.joined(separator: Constants.space)
+            let joinedString = rightArray.joined(separator: Constants.space.rawValue)
             let newArray = spread + [joinedString]
             
             args.append(
@@ -173,52 +182,52 @@ public final class MessageParser {
             )
             
         case .string(let commandKey):
-            if commandKey.hasPrefix(Constants.nick) ||
-                commandKey.hasPrefix(Constants.join) ||
-                commandKey.hasPrefix(Constants.part) {
+            if commandKey.hasPrefix(Constants.nick.rawValue) ||
+                commandKey.hasPrefix(Constants.join.rawValue) ||
+                commandKey.hasPrefix(Constants.part.rawValue) {
                 args.append(parameter)
-            }  else if commandKey.hasPrefix(Constants.ping) ||
-                        commandKey.hasPrefix(Constants.pong) {
-                if parameter.hasPrefix(Constants.colon) {
+            }  else if commandKey.hasPrefix(Constants.ping.rawValue) ||
+                        commandKey.hasPrefix(Constants.pong.rawValue) {
+                if parameter.hasPrefix(Constants.colon.rawValue) {
                     args.append(String(parameter.dropFirst()))
                 } else {
                     args.append(parameter)
                 }
-            } else if commandKey.hasPrefix(Constants.user) {
-                let initialBreak = commandMessage.components(separatedBy: Constants.space + Constants.colon)
-                var spreadArgs = initialBreak[0].components(separatedBy: Constants.space)
+            } else if commandKey.hasPrefix(Constants.user.rawValue) {
+                let initialBreak = commandMessage.components(separatedBy: Constants.space.rawValue + Constants.colon.rawValue)
+                var spreadArgs = initialBreak[0].components(separatedBy: Constants.space.rawValue)
                 spreadArgs.append(initialBreak[1])
                 args = spreadArgs
-            } else if commandKey.hasPrefix(Constants.privMsg) {
-                let initialBreak = stripedMessage.components(separatedBy: Constants.space)
+            } else if commandKey.hasPrefix(Constants.privMsg.rawValue) {
+                let initialBreak = stripedMessage.components(separatedBy: Constants.space.rawValue)
                 var newArgArray: [String] = []
                 newArgArray.append(initialBreak[initialBreak.count <= 3 ? 1 : 2])
                 newArgArray.append(String("\(initialBreak[initialBreak.count <= 3 ? 2 : 3])".dropFirst()))
                 args = newArgArray
-            } else if commandKey.hasPrefix(Constants.mode) {
-                let seperated = commandMessage.components(separatedBy: Constants.space)
+            } else if commandKey.hasPrefix(Constants.mode.rawValue) {
+                let seperated = commandMessage.components(separatedBy: Constants.space.rawValue)
                 args.append(seperated[1])
-            } else if commandKey.hasPrefix(Constants.kill) {
+            } else if commandKey.hasPrefix(Constants.kill.rawValue) {
                 let seperatedCommand = stripedMessage.components(separatedBy: commandKey)
-                let spread = seperatedCommand[1].components(separatedBy: Constants.space).filter({ !$0.isEmpty })
+                let spread = seperatedCommand[1].components(separatedBy: Constants.space.rawValue).filter({ !$0.isEmpty })
                 args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: " ")])
-            } else if commandKey.hasPrefix(Constants.kick) {
+            } else if commandKey.hasPrefix(Constants.kick.rawValue) {
                 //TODO:
                 //               print(stripedMessage)
                 break
-            } else if commandKey.hasPrefix(Constants.registryRequest) ||
-                        commandKey.hasPrefix(Constants.registryResponse) ||
-                        commandKey.hasPrefix(Constants.newDevice) ||
-                        commandKey.hasPrefix(Constants.readKeyBundle) ||
-                        commandKey.hasPrefix(Constants.pass) ||
-                        commandKey.hasPrefix(Constants.blobs) ||
-                        commandKey.hasPrefix(Constants.offlineMessages) ||
-                        commandKey.hasPrefix(Constants.deleteOfflineMessage) ||
-                        commandKey.hasPrefix(Constants.quit) ||
-                        commandKey.hasPrefix(Constants.badgeUpdate) ||
-                        commandKey.hasPrefix(Constants.multipartMediaDownload) ||
-                        commandKey.hasPrefix(Constants.multipartMediaUpload) ||
-                        commandKey.hasPrefix(Constants.listFilenames) {
+            } else if commandKey.hasPrefix(Constants.registryRequest.rawValue) ||
+                        commandKey.hasPrefix(Constants.registryResponse.rawValue) ||
+                        commandKey.hasPrefix(Constants.newDevice.rawValue) ||
+                        commandKey.hasPrefix(Constants.readKeyBundle.rawValue) ||
+                        commandKey.hasPrefix(Constants.pass.rawValue) ||
+                        commandKey.hasPrefix(Constants.blobs.rawValue) ||
+                        commandKey.hasPrefix(Constants.offlineMessages.rawValue) ||
+                        commandKey.hasPrefix(Constants.deleteOfflineMessage.rawValue) ||
+                        commandKey.hasPrefix(Constants.quit.rawValue) ||
+                        commandKey.hasPrefix(Constants.badgeUpdate.rawValue) ||
+                        commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue) ||
+                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) ||
+                        commandKey.hasPrefix(Constants.listFilenames.rawValue) {
                 var stripedMessage = stripedMessage
                 
                 if stripedMessage.contains(commandKey) {
@@ -227,15 +236,15 @@ public final class MessageParser {
                     stripedMessage = joined
                 }
                 
-                if stripedMessage.first == Character(Constants.space) {
+                if stripedMessage.first == Character(Constants.space.rawValue) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 
-                if stripedMessage.first == Character(Constants.colon) {
+                if stripedMessage.first == Character(Constants.colon.rawValue) {
                     stripedMessage = String(stripedMessage.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 
-                let seperatedArguments = stripedMessage.components(separatedBy: Constants.colon)
+                let seperatedArguments = stripedMessage.components(separatedBy: Constants.colon.rawValue)
                 
                 let origin = origin ?? ""
                 if seperatedArguments.first?.trimmingCharacters(in: .whitespacesAndNewlines) == String(origin.dropFirst()) {
@@ -258,7 +267,7 @@ public final class MessageParser {
         //If we replyKeyBundle or replyInfo we need to do a bit more parsing
         if command == 270 || command == 371 {
             let chunk = newArray[3].dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
-            let components = chunk.components(separatedBy: Constants.cCR + Constants.cLF)
+            let components = chunk.components(separatedBy: Constants.cCR.rawValue + Constants.cLF.rawValue)
             return components[0]
         } else {
             return dropColon(from: newArray, command: command)
@@ -266,16 +275,16 @@ public final class MessageParser {
     }
     
     private func dropColon(from newArray: [String], command: Int) -> String {
-        if newArray[3].isInt, newArray[4].first == Character(Constants.colon) {
-            return newArray[3] + Constants.space + String(newArray[4].dropFirst())
-        } else if newArray[3].first == Character(Constants.colon) {
-            return String(newArray[3].dropFirst()) + Constants.space + String(newArray[4])
+        if newArray[3].isInt, newArray[4].first == Character(Constants.colon.rawValue) {
+            return newArray[3] + Constants.space.rawValue + String(newArray[4].dropFirst())
+        } else if newArray[3].first == Character(Constants.colon.rawValue) {
+            return String(newArray[3].dropFirst()) + Constants.space.rawValue + String(newArray[4])
         } else {
-            if newArray[4].contains(Constants.colon) {
-                let split = newArray[4].components(separatedBy: Constants.colon)
-                return newArray[3] + Constants.space + String(split.joined())
+            if newArray[4].contains(Constants.colon.rawValue) {
+                let split = newArray[4].components(separatedBy: Constants.colon.rawValue)
+                return newArray[3] + Constants.space.rawValue + String(split.joined())
             } else {
-                return newArray[3] + Constants.space + String(newArray[4])
+                return newArray[3] + Constants.space.rawValue + String(newArray[4])
             }
         }
     }
@@ -284,18 +293,20 @@ public final class MessageParser {
     func parseTags(
         tags: String = ""
     ) throws -> [IRCTags]? {
-        if tags.hasPrefix(Constants.atString) {
+        if tags.hasPrefix(Constants.atString.rawValue) {
             var tagArray: [IRCTags] = []
-            let seperatedTags = tags.components(separatedBy: Constants.semiColon + Constants.atString)
+            let seperatedTags = tags.components(separatedBy: Constants.semiColon.rawValue + Constants.atString.rawValue)
             for tag in seperatedTags {
                 var tag = tag
-                tag.removeAll(where: { $0 == Character(Constants.atString) })
-                let kvpArray = tag.split(separator: Character(Constants.equalsString), maxSplits: 1)
+                tag.removeAll(where: { $0 == Character(Constants.atString.rawValue) })
+                let kvpArray = tag.split(separator: Character(Constants.equalsString.rawValue), maxSplits: 1)
                 tagArray.append(
                     IRCTags(key: String(kvpArray[0]), value: String(kvpArray[1]))
                 )
             }
+            lock.lock()
             self.logger.trace("Parsing Tags")
+            lock.unlock()
             return tagArray
         }
         return nil
@@ -328,7 +339,8 @@ public enum MessageParserError: Error, Sendable {
     case jobFailedToParse
 }
 
-extension String {
+extension String: Sendable
+{
     var isInt: Bool {
         return Int(self) != nil
     }

@@ -48,11 +48,11 @@ public extension IRCMessageRecipient {
   
   init?(_ s: String) {
       var nick: NeedleTailNick?
-      if s.contains(Constants.colon) {
-          let split = s.components(separatedBy: Constants.colon)
+      if s.contains(Constants.colon.rawValue) {
+          let split = s.components(separatedBy: Constants.colon.rawValue)
           nick = NeedleTailNick(name: split[0], deviceId: DeviceId(split[1]))
       }
-    if s == Constants.star {
+      if s == Constants.star.rawValue {
         self = .everything
     } else if let channel = IRCChannelName(s) {
         self = .channel(channel)
@@ -70,7 +70,7 @@ public extension IRCMessageRecipient {
     case .nick(let name):
         return name.stringValue
       case .everything:
-        return Constants.star
+        return Constants.star.rawValue
     }
   }
 }

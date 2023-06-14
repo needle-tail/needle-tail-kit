@@ -43,8 +43,8 @@ extension KeyBundleMechanisimDelegate {
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                 _ = try await lines.asyncMap {
                     let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(message)

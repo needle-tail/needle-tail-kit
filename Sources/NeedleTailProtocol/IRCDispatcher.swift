@@ -30,7 +30,7 @@
 
 import NeedleTailHelpers
 
-public protocol IRCDispatcher: AnyObject {
+public protocol IRCDispatcher: AnyObject, Sendable {
     
     // MARK: - Implementations
     func doPing(_ origin: String, origin2: String?) async throws

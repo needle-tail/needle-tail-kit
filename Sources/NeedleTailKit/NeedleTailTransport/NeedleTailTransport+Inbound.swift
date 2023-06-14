@@ -172,7 +172,6 @@ extension NeedleTailTransport {
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
-                            NeedleTail.shared.multipartMessagePacket = nil
                         }
 #else
                         break

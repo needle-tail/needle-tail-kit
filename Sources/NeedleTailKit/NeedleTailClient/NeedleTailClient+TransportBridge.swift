@@ -551,7 +551,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func sendReadMessages(count: Int) async throws {
-        let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate, ["\(count)"]))
+        let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
         try await transport?.transportMessage(type)
     }
     
@@ -561,10 +561,10 @@ extension NeedleTailClient: TransportBridge {
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
         guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload, [data.base64EncodedString()]), tags: nil)
+        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]), tags: nil)
     }
     
-    //TODO: I think that because we sent these messages so fast CTK Never had an opportunity to send messages in between. So CTK QUEUES these messages to send after All of the multipart is done.
+    //TODO: I think that because we sent these messages so fast CTK Never had an opportunity to send messages in between. So CTK QUEUES these messages to send after All of the multipart is done. We need to send messages based on some type of priority so theses one will suspend when other messages are sent during an upload.
     @MultipartActor
     func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
         let messagePacket = MessagePacket(
@@ -579,7 +579,8 @@ extension NeedleTailClient: TransportBridge {
             multipartMessage: packet
         )
         let data = try BSONEncoder().encode(messagePacket).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload, [data.base64EncodedString()]), tags: nil)
+
+        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload.rawValue, [data.base64EncodedString()]), tags: nil)
     }
     
     @MultipartActor
@@ -588,6 +589,6 @@ extension NeedleTailClient: TransportBridge {
         guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
         guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.listFilenames, [data.base64EncodedString()]), tags: nil)
+        try await transport?.multipartMessage(.otherCommand(Constants.listFilenames.rawValue, [data.base64EncodedString()]), tags: nil)
     }
 }

@@ -32,27 +32,15 @@ public class NeedleTailPlugin: Plugin {
         if message.message.messageSubtype == "multipart/*" && message.message.messageType == .magic {
             print("Processing multipart data....")
             multipartData = Data()
-            let multipartBinary = message.message.metadata["multipartChunk"] as? Binary
-            let partNumberBinary = message.message.metadata["partNumber"] as? Binary
-            let totalPartsBinary = message.message.metadata["totalParts"] as? Binary
-            
-            guard let multipartDataChunk = multipartBinary?.data else { return nil }
-            multipartData?.append(multipartDataChunk)
-            
-            
-            guard let partNumberData = partNumberBinary?.data else { return nil }
-            guard let totalPartsData = totalPartsBinary?.data else { return nil }
-            guard let partString = String(data: partNumberData, encoding: .utf8) else { return nil }
-            guard let totalString = String(data: totalPartsData, encoding: .utf8) else { return  nil }
-            let partNumber = Int(partString)
-            let totalParts = Int(totalString)
-            
-            if  partNumber == totalParts {
+            let multipartBinary = message.message.metadata["multipartBlob"] as? Binary
+            guard let multipartBlob = multipartBinary?.data else { return nil }
 #if (os(macOS) || os(iOS))
-                emitter.multipartReceived = multipartData
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.emitter.multipartReceived = multipartBlob
+                }
 #endif
                 multipartData = nil
-            }
             return .ignore
         } else if message.message.messageType == .media, message.message.messageType == .text {
             return .save
@@ -62,6 +50,7 @@ public class NeedleTailPlugin: Plugin {
         }
     }
     
+    
     public func onCreateChatMessage(_ message: AnyChatMessage) {
         
 #if os(iOS)
@@ -70,71 +59,11 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
-        
-        let result = Task { @MainActor [weak self] () -> Bool in
-            guard let self else { return false }
-            return message.raw.senderUser == emitter.cypher?.username
-        }
-        
-        Task.detached(priority: .background) { [weak self] in
-            let isWrittenByMe = await result.value
-            //If we just sent a videoThumbnail image, we should now send multipart data
-            if await message.messageSubtype == "videoThumbnail/*" && isWrittenByMe {
-                
-                guard let self else { return }
-                guard let multipartObject = NeedleTail.shared.multipartObject.popLast() else { return }
-                let packets = multipartObject.data.async.chunks(ofCount: 10777216, into: Data.self)
-                //                let packets = multipartObject.data.async.chunks(ofCount: 5388608, into: Data.self)
-                guard let sender = self.emitter.needleTailNick else { return }
-                var partNumber = 0
-                
-                for await packet in packets {
-                    let (newPartNumber, partNumberData) = await self.generatePacketDetails(
-                        partNumber: partNumber,
-                        totalParts: multipartObject.totalParts,
-                        mediaId: multipartObject.mediaId,
-                        sender: sender
-                    )
-                    guard let partNumberData = partNumberData else { return }
-                    partNumber = newPartNumber
-                    
-                    try await self.emitter.sendMessage(
-                        chat: multipartObject.chat,
-                        type: .magic,
-                        messageSubtype: "multipart/*",
-                        metadata: [
-                            "multipartChunk": packet,
-                            "partNumber": partNumberData,
-                            "totalParts": multipartObject.totalPartsData,
-                            "mediaId": multipartObject.mediaIdData
-                        ],
-                        pushType: .none
-                    )
-                }
-            }
-        }
-        
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.emitter.messageReceived = message
         }
 #endif
-    }
-    
-    @MainActor
-    func generatePacketDetails(partNumber: Int, totalParts: Int, mediaId: String, sender: NeedleTailNick) async -> (Int, Data?) {
-        var partNumber = partNumber
-        partNumber += 1
-#if (os(macOS) || os(iOS))
-        NeedleTail.shared.multipartMessagePacket = MultipartMessagePacket(
-            id: mediaId,
-            sender: sender,
-            fileName: "\(mediaId)_\(partNumber)_\(totalParts)",
-            partNumber: partNumber,
-            totalParts: totalParts
-        )
-#endif
-        return (partNumber, "\(partNumber)".data(using: .utf8))
     }
     
     public func onRemoveChatMessage(_ message: AnyChatMessage) {

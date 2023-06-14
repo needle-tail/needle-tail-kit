@@ -34,23 +34,20 @@ public struct MultipartMessagePacket: Codable, Sendable, Equatable {
     public var sender: NeedleTailNick
     public var recipient: NeedleTailNick?
     public var fileName: String
-    public var partNumber: Int
-    public var totalParts: Int
+    public var dataCount: Int
     
     public init(
         id: String,
         sender: NeedleTailNick,
         recipient: NeedleTailNick? = nil,
         fileName: String,
-        partNumber: Int,
-        totalParts: Int
+        dataCount: Int
     ) {
         self.id = id
         self.sender = sender
         self.recipient = recipient
         self.fileName = fileName
-        self.partNumber = partNumber
-        self.totalParts = totalParts
+        self.dataCount = dataCount
     }
 }
 
@@ -69,7 +66,7 @@ public struct MessagePacket: Codable, Sendable, Equatable {
     public let contacts: [NTKContact]?
     public let addDeviceType: AddDeviceType?
     public let childDeviceConfig: UserDeviceConfig?
-    public let multipartMessage: MultipartMessagePacket?
+    public var multipartMessage: MultipartMessagePacket?
     
     public init(
         id: String,

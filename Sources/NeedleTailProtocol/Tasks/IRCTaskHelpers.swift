@@ -1,13 +1,13 @@
 import NeedleTailHelpers
 
 public enum AsyncMessageTask: Sendable {
-    @ParsingActor
+//    @ParsingActor
     public static func parseMessageTask(
         task: String,
         messageParser: MessageParser
-    ) async -> IRCMessage? {
+    ) -> IRCMessage? {
         do {
-            return try await messageParser.parseMessage(task)
+            return try messageParser.parseMessage(task)
         } catch {
             print(error)
             return nil

@@ -37,12 +37,8 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
-    public var multipartMessagePacket: MultipartMessagePacket? {
-        didSet {
-            messenger?.multipartMessagePacket = multipartMessagePacket
-        }
-    }
-    
+    public var multipartMessageConsumer = NeedleTailAsyncConsumer<MultipartMessagePacket>()
+    public var multipartMessage: MultipartMessagePacket?
     var registrationApproved = false
     var registeringNewDevice = false
     var plugin: NeedleTailPlugin?

@@ -83,26 +83,26 @@ public final class NTASequenceStateMachine: Sendable {
     
     public init() {}
     
-    public enum NTAConsumedState: Int, CustomStringConvertible {
+    public enum NTAConsumedState: Int, Sendable, CustomStringConvertible {
         case consumed, waiting
-
+        
         public var description: String {
-            switch self.rawValue {
-            case 0:
-                return "consumed"
-            case 1:
-                return "waiting"
-            default:
-                return ""
+                switch self.rawValue {
+                case 0:
+                    return "consumed"
+                case 1:
+                    return "waiting"
+                default:
+                    return ""
+                }
             }
         }
-    }
     
-    public enum NTASequenceResult<T> {
+    public enum NTASequenceResult<T: Sendable>: Sendable {
         case success(T), finished
     }
 
-    public enum NextNTAResult<T> {
+    public enum NextNTAResult<T: Sendable>: Sendable {
         case ready(T), finished
     }
     

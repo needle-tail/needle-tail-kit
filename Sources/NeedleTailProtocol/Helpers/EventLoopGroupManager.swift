@@ -150,8 +150,8 @@ extension EventLoopGroupManager {
             channel.eventLoop.makeCompletedFuture {
                 try channel.pipeline.syncOperations.addHandlers([
                     ByteToMessageHandler(
-                        LineBasedFrameDecoder(),
-                        maximumBufferSize: 16777216
+                        LineBasedFrameDecoder()
+//                        maximumBufferSize: 16777216
                     )
                 ], position: .first)
             }

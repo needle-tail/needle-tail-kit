@@ -118,7 +118,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
                 let tags = message.tags
                 switch message.command {
                 case .PING(let origin, let origin2):
-                    group.addTask(priority: .background) { [weak self] in
+                    group.addTask(priority: .utility) { [weak self] in
                         guard let self else { return }
                         try await self.delegate?.doPing(origin, origin2: origin2)
                     }
@@ -228,17 +228,17 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
                     }
                     //TODO: Handle
                     break
-                case .otherCommand(Constants.blobs, let blob):
+                case .otherCommand(Constants.blobs.rawValue, let blob):
                     group.addTask { [weak self] in
                         guard let self else { return }
                         try await self.delegate?.doBlobs(blob)
                     }
-                case.otherCommand(Constants.multipartMediaDownload, let media):
+                case.otherCommand(Constants.multipartMediaDownload.rawValue, let media):
                     group.addTask(priority: .background) { [weak self] in
                         guard let self else { return }
                         try await self.delegate?.doMultipartMessageDownload(media)
                     }
-                case.otherCommand(Constants.listFilenames, let packet):
+                case.otherCommand(Constants.listFilenames.rawValue, let packet):
                     group.addTask(priority: .background) { [weak self] in
                         guard let self else { return }
                         try await self.delegate?.doListFilenames(packet)

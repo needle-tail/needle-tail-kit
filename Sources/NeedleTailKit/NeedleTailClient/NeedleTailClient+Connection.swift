@@ -109,12 +109,12 @@ extension NeedleTailClient: ClientTransportDelegate {
                 var buffer = buffer
                 guard let message = buffer.readString(length: buffer.readableBytes) else { break }
                 guard !message.isEmpty else { return }
-                let messages = message.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                let messages = message.components(separatedBy: Constants.cLF.rawValue)
+                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                     .filter { !$0.isEmpty }
                 
                 for await message in messages.async {
-                    guard let parsedMessage = await AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
+                    guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
                     Logger(label: "Child Channel Processor").trace("Message Parsed \(parsedMessage)")
                     await mechanism.processKeyBundle(parsedMessage)
                     await transport.processReceivedMessages(parsedMessage)

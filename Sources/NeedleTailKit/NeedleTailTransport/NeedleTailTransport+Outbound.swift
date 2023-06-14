@@ -144,6 +144,16 @@ extension NeedleTailTransport {
         conversationType: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws {
+        
+        var configuredMultipartMessage: MultipartMessagePacket?
+        if let storedMultipartMessage = NeedleTail.shared.multipartMessage {
+            configuredMultipartMessage = await configureMultipartMessagePacket(
+                storedMultipartMessage,
+                username: toUser.username.raw,
+                deviceId: toUser.deviceId
+            )
+        }
+        
         let packet = MessagePacket(
             id: messageId,
             pushType: pushType,
@@ -152,14 +162,44 @@ extension NeedleTailTransport {
             sender: fromUser.deviceId,
             recipient: toUser.deviceId,
             message: message,
-            readReceipt: readReceipt
+            readReceipt: readReceipt,
+            multipartMessage: configuredMultipartMessage
         )
+        
         let encodedData = try BSONEncoder().encode(packet).makeData()
-        let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
-        let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        
+        await withThrowingTaskGroup(of: Void.self) { group in
+            //Make the decesion to send as multipart
+            guard let storedMultipartMessage = NeedleTail.shared.multipartMessage else { return }
+            if storedMultipartMessage.dataCount > 10777216 {
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    try await multipartMessage(.otherCommand(Constants.multipartMediaUpload.rawValue, [encodedData.base64EncodedString()]), tags: nil)
+                }
+            } else {
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
+                    let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
+                    let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+                    try await transportMessage(type)
+                }
+            }
+        }
     }
+    
+    func configureMultipartMessagePacket(_
+                                         multipartMessagePacket: MultipartMessagePacket,
+                                         username: String,
+                                         deviceId: DeviceId
+    ) async -> MultipartMessagePacket {
+        var multipartMessagePacket = multipartMessagePacket
+        multipartMessagePacket.recipient = NeedleTailNick(name: username, deviceId: deviceId)
+        multipartMessagePacket.fileName = multipartMessagePacket.fileName + "_\(deviceId.description)"
+        return multipartMessagePacket
+        
+    }
+    
     
     func createReadReceiptMessage(
         pushType: PushType,

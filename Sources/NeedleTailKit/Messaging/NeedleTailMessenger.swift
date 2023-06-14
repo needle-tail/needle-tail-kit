@@ -41,8 +41,8 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     var plugin: NeedleTailPlugin
     var logger: Logger
     var messageType = MessageType.message
-    var multipartMessagePacket: MultipartMessagePacket?
-    var lastMultipartMessagePacket: MultipartMessagePacket?
+    //    var multipartMessagePacket: MultipartMessagePacket?
+    //    var lastMultipartMessagePacket: MultipartMessagePacket?
     fileprivate var multipartMessagesConsumer = NeedleTailAsyncConsumer<MultipartQueuedPacket>()
     
     var readReceipt: ReadReceipt?
@@ -441,40 +441,42 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        await withThrowingTaskGroup(of: Void.self) { group in
-            
-            if let multipartMessagePacket = multipartMessagePacket {
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    //Queue MultipartPacket sending in case multiple packets are being tried to send
-                    await self.multipartMessagesConsumer.feedConsumer([
-                        MultipartQueuedPacket(
-                            packet: multipartMessagePacket,
-                            message: message,
-                            deviceId: deviceId,
-                            username: username.raw
-                        )
-                    ])
-                    
-                    
-                    for try await result in NeedleTailAsyncSequence(consumer: self.multipartMessagesConsumer) {
-                        switch result {
-                        case .success(let queuedPacket):
-                            let packet = await self.configureMultipartMessagePacket(
-                                queuedPacket.packet,
-                                username: queuedPacket.username,
-                                deviceId: queuedPacket.deviceId
-                            )
-                            //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
-                            try await self.transportBridge?.uploadMultipart(packet, message: queuedPacket.message)
-                        default:
-                            return
-                        }
-                    }
-                }
-            } else {
-                group.addTask { [weak self] in
-                    guard let self else { return }
+        
+//        let d = try BSONEncoder().encode(message).makeData()
+//        print("D__", d.count)
+        
+        //TODO: I think that because we sent these messages so fast CTK Never had an opportunity to send messages in between. So CTK QUEUES these messages to send after All of the multipart is done. We need to send messages based on some type of priority so theses one will suspend when other messages are sent during an upload.
+//        try await withThrowingTaskGroup(of: Void.self) { group in
+//            try Task.checkCancellation()
+    
+//            if await !NeedleTail.shared.multipartMessageConsumer.deque.isEmpty  {
+//                group.addTask(priority: .background) { [weak self] in
+//                    guard let self else { return }
+//                    //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
+//                    for try await result in NeedleTailAsyncSequence(consumer: NeedleTail.shared.multipartMessageConsumer) {
+//                        switch result {
+//                        case .success(let packet):
+//                            let queuedPacket = MultipartQueuedPacket(
+//                                packet: packet,
+//                                message: message,
+//                                deviceId: deviceId,
+//                                username: username.raw
+//                            )
+//
+//                            let configuredPacket = await self.configureMultipartMessagePacket(
+//                                queuedPacket.packet,
+//                                username: queuedPacket.username,
+//                                deviceId: queuedPacket.deviceId
+//                            )
+//                            try await self.transportBridge?.uploadMultipart(configuredPacket, message: queuedPacket.message)
+//                        case .finished:
+//                            return
+//                        }
+//                    }
+//                }
+//            } else {
+//                group.addTask { [weak self] in
+//                    guard let self else { return }
                     try await self.transportBridge?.sendMessage(
                         message: message,
                         toUser: username,
@@ -484,9 +486,11 @@ extension NeedleTailMessenger {
                         type: self.type,
                         readReceipt: self.readReceipt
                     )
-                }
-            }
-        }
+//                }
+//            }
+//            try await group.next()
+//            group.cancelAll()
+//        }
     }
     
     //Should be done by Recipient
