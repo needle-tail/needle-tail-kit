@@ -149,7 +149,7 @@ extension NeedleTailTransport {
         conversationType: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws {
-        
+#if (os(macOS) || os(iOS))
         try await withThrowingTaskGroup(of: Void.self) { group in
             
             //Multipart is about to happen we need to create transport messages for each device
@@ -183,7 +183,7 @@ extension NeedleTailTransport {
                 
                 _ = try await group.next()
             }
-                
+            
             
             let dataCount = try BSONEncoder().encode(message).makeData().count
             // Need to make sure we are no sending if we are not actually multipart, if the job deque contains an item ready to be used it could be multipart
@@ -244,9 +244,11 @@ extension NeedleTailTransport {
                 }
             }
         }
+#endif
     }
     
     private func processMultipartDumbnail(with message: String, from job: ChatPacketJob) async throws {
+#if (os(macOS) || os(iOS))
         // We check for the expected chat multipart job and do the followinf
         //1. Add the multipartMessage to the transport job
         //2. Send the message with the correct chat from the job queue
@@ -254,7 +256,7 @@ extension NeedleTailTransport {
         
         let new = await !transportJobQueue.newDeque.contains(where: { $0.fileName == job.multipartMessage.fileName })
         if await !transportJobQueue.jobDeque.contains(where: { $0.fileName == job.multipartMessage.fileName }) && new
-           {
+        {
             await transportJobQueue.addJob(job.multipartMessage)
             
             if job.messageSubType != "video/*", job.messageSubType != "videoThumbnail/*" {
@@ -281,6 +283,7 @@ extension NeedleTailTransport {
                 )
             }
         }
+#endif
     }
     
     
