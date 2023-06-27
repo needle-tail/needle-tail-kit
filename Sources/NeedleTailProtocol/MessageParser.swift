@@ -226,8 +226,7 @@ public final class MessageParser: @unchecked Sendable {
                         commandKey.hasPrefix(Constants.quit.rawValue) ||
                         commandKey.hasPrefix(Constants.badgeUpdate.rawValue) ||
                         commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue) ||
-                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) ||
-                        commandKey.hasPrefix(Constants.listFilenames.rawValue) {
+                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
                 var stripedMessage = stripedMessage
                 
                 if stripedMessage.contains(commandKey) {

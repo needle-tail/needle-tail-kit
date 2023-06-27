@@ -242,11 +242,6 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
                         guard let self else { return }
                         try await self.delegate?.doMultipartMessageDownload(media)
                     }
-                case.otherCommand(Constants.listFilenames.rawValue, let packet):
-                    group.addTask(priority: .background) { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doListFilenames(packet)
-                    }
                 case .numeric(.replyMotDStart, _):
                     group.addTask { [weak self] in
                         guard let self else { return }

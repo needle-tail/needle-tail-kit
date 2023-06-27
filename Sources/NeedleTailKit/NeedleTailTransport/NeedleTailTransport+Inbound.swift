@@ -435,17 +435,5 @@ extension NeedleTailTransport {
             let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
             try await transportMessage(type)
     }
-    
-    func doListFilenames(_ packet: [String]) async throws {
-        guard let packet = packet.first else { return }
-        guard let data = Data(base64Encoded: packet) else { return }
-        let objects = try BSONDecoder().decode([Filename].self, from: Document(data: data))
-#if (os(macOS) || os(iOS))
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.emitter?.listedFilenames.formUnion(objects)
-        }
-#endif
-    }
 }
 

@@ -561,11 +561,6 @@ extension NeedleTailMessenger {
         try await transportBridge?.downloadMultipart(metadata)
     }
     
-    @MultipartActor
-    public func listFilenames(_ metadata: [String]) async throws {
-        try await transportBridge?.listFilenames(metadata)
-    }
-    
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
         fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
     }

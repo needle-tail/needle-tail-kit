@@ -480,14 +480,6 @@ public final class NeedleTail {
         print("METADATA____", metadata)
         try await messenger?.downloadMultipart(metadata)
     }
-    
-    public func listFilenames(_ metadata: [String]) async throws {
-        guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
-        var metadata = metadata
-        metadata.append(deviceId.description)
-        try await messenger?.listFilenames(metadata)
-    }
-    
 }
 
 import NIOTransportServices

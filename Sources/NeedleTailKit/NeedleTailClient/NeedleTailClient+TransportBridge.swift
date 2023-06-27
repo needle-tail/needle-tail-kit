@@ -60,7 +60,6 @@ protocol TransportBridge: AnyObject {
     func sendReadMessages(count: Int) async throws
     func downloadMultipart(_ metadata: [String]) async throws
     func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
-    func listFilenames(_ metadata: [String]) async throws
 }
 
 
@@ -581,13 +580,5 @@ extension NeedleTailClient: TransportBridge {
         let data = try BSONEncoder().encode(messagePacket).makeData()
 
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload.rawValue, [data.base64EncodedString()]), tags: nil)
-    }
-    
-    @MultipartActor
-    func listFilenames(_ metadata: [String]) async throws {
-        guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
-        guard !metadata[1].isEmpty else { throw NeedleTailError.deviceIdNil }
-        let data = try BSONEncoder().encode(metadata).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.listFilenames.rawValue, [data.base64EncodedString()]), tags: nil)
     }
 }

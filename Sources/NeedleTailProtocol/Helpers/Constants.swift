@@ -52,5 +52,4 @@ public enum Constants: String, Sendable {
     case badgeUpdate = "BADGEUPDATE"
     case multipartMediaDownload = "MULTIPARTMEDIADOWNLOAD"
     case multipartMediaUpload = "MULTIPARTMEDIAUPLOAD"
-    case listFilenames = "LISTFILENAMES"
 }
