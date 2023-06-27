@@ -27,7 +27,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     /// A **CypherServerTransportClient** property for setting`true` when logged in, `false` on incorrect login, `nil` when no server request has been executed yet
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
-    public var type: ConversationType = .privateMessage
+    public var conversationType: ConversationType = .privateMessage
     public private(set) var signer: TransportCreationRequest?
     private(set) var needleTailNick: NeedleTailNick?
     private let appleToken: String?
@@ -441,56 +441,15 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-        
-//        let d = try BSONEncoder().encode(message).makeData()
-//        print("D__", d.count)
-        
-        //TODO: I think that because we sent these messages so fast CTK Never had an opportunity to send messages in between. So CTK QUEUES these messages to send after All of the multipart is done. We need to send messages based on some type of priority so theses one will suspend when other messages are sent during an upload.
-//        try await withThrowingTaskGroup(of: Void.self) { group in
-//            try Task.checkCancellation()
-    
-//            if await !NeedleTail.shared.multipartMessageConsumer.deque.isEmpty  {
-//                group.addTask(priority: .background) { [weak self] in
-//                    guard let self else { return }
-//                    //We only want to send this to one user, if we have multiple device it will send it that many times to the server because CTK is handling multiple user support. This is probably why I am failing to decrypt the packets also, because it may being using the wrong keys per device. Ideally we want to send this information once to prevent overhead, but we also want to send both the signing info for the packet. I dont think this can be done correctly. we do need to sign each packet accordingly, which means we would need to store 1 packet per device since 1 packet is encrypted per device keys. This could use a lot of space of Mongo if users are never downloading the image so we can delete it on mongo. Typically user do download though. In order to do what we want we need to name the packets differently(i.e. mediaId_1_8_deviceId)
-//                    for try await result in NeedleTailAsyncSequence(consumer: NeedleTail.shared.multipartMessageConsumer) {
-//                        switch result {
-//                        case .success(let packet):
-//                            let queuedPacket = MultipartQueuedPacket(
-//                                packet: packet,
-//                                message: message,
-//                                deviceId: deviceId,
-//                                username: username.raw
-//                            )
-//
-//                            let configuredPacket = await self.configureMultipartMessagePacket(
-//                                queuedPacket.packet,
-//                                username: queuedPacket.username,
-//                                deviceId: queuedPacket.deviceId
-//                            )
-//                            try await self.transportBridge?.uploadMultipart(configuredPacket, message: queuedPacket.message)
-//                        case .finished:
-//                            return
-//                        }
-//                    }
-//                }
-//            } else {
-//                group.addTask { [weak self] in
-//                    guard let self else { return }
                     try await self.transportBridge?.sendMessage(
                         message: message,
                         toUser: username,
                         otherUserDeviceId: deviceId,
                         pushType: pushType,
                         messageId: messageId,
-                        type: self.type,
+                        type: self.conversationType,
                         readReceipt: self.readReceipt
                     )
-//                }
-//            }
-//            try await group.next()
-//            group.cancelAll()
-//        }
     }
     
     //Should be done by Recipient

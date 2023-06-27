@@ -43,5 +43,5 @@ public enum NeedleTailError: String, Error {
     case emitterIsNil = "Emitter is nil"
     case cannotFindChat
     case mediaIdNil
-    case totalPartsNil
+    case payloadTooLarge
 }

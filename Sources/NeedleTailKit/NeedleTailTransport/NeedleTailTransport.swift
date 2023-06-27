@@ -33,9 +33,11 @@ protocol ClientTransportDelegate: AnyObject {
 @NeedleTailTransportActor
 final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
     
+    
+    @_spi(AsyncChannel)
+    public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var userMode = IRCUserMode()
     @NeedleTailClientActor
-    var channel: Channel
     let logger = Logger(label: "Transport")
     //    var usermask: String? {
     //        guard case .registered(_, let nick, let info) = transportState.current else { return nil }
@@ -72,6 +74,8 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     private var statusCancellable: Cancellable?
 #endif
     let motdBuilder = MOTDBuilder()
+    let transportJobQueue = JobQueue<MultipartMessagePacket>()
+    var hasStarted = false
     
     init(
         ntkBundle: NTKClientBundle,
@@ -82,7 +86,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     ) {
         self.ntkBundle = ntkBundle
         self.store = store
-        self.channel = asyncChannel.channel
+        self.asyncChannel = asyncChannel
         self.transportState = transportState
         self.clientContext = clientContext
         self.serverInfo = clientContext.serverInfo

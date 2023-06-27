@@ -8,6 +8,10 @@
 //
 import CypherMessaging
 
+public enum MessageSubType: String, Sendable {
+    case text, audio, image, doc, videoThumbnail, video, group, none
+}
+
 public enum MessageType: Codable, Sendable {
     case publishKeyBundle(Data)
     case registerAPN(Data)
@@ -48,6 +52,43 @@ public struct MultipartMessagePacket: Codable, Sendable, Equatable {
         self.recipient = recipient
         self.fileName = fileName
         self.dataCount = dataCount
+    }
+}
+
+extension CypherMessageType: @unchecked Sendable {}
+
+public struct ChatPacketJob: Sendable {
+    
+    public var chat: AnyConversation
+    public var type: CypherMessageType
+    public var messageSubType: String
+    public var text: String
+    public var metadata: Document
+    public var destructionTimer: TimeInterval
+    public var preferredPushType: PushType
+    public var conversationType: ConversationType
+    public var multipartMessage: MultipartMessagePacket
+    
+    public init(
+        chat: AnyConversation,
+        type: CypherMessageType,
+        messageSubType: String,
+        text: String,
+        metadata: Document,
+        destructionTimer: TimeInterval,
+        preferredPushType: PushType,
+        conversationType: ConversationType,
+        multipartMessage: MultipartMessagePacket
+    ) {
+        self.chat = chat
+        self.type = type
+        self.messageSubType = messageSubType
+        self.text = text
+        self.metadata = metadata
+        self.destructionTimer = destructionTimer
+        self.preferredPushType = preferredPushType
+        self.conversationType = conversationType
+        self.multipartMessage = multipartMessage
     }
 }
 

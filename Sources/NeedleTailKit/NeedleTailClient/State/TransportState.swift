@@ -6,10 +6,10 @@
 //
 
 import Foundation
-import NIOCore
 import Logging
 import NeedleTailHelpers
 import NeedleTailProtocol
+@_spi(AsyncChannel) import NIOCore
 
 @NeedleTailTransportActor
 public class TransportState: StateMachine {
@@ -28,20 +28,19 @@ public class TransportState: StateMachine {
         self.logger = Logger(label: "TransportState:")
     }
 
-    
     public enum State {
         
         case clientOffline
         case clientConnecting
         case clientConnected
         case transportRegistering(
-            channel: Channel,
+            isActive: Bool,
             clientContext: ClientContext)
         case transportRegistered(
-            channel: Channel,
+            isActive: Bool,
             clientContext: ClientContext)
         case transportOnline(
-            channel: Channel,
+            isActive: Bool,
             clientContext: ClientContext)
         case transportDeregistering
         case transportOffline
@@ -58,17 +57,17 @@ public class TransportState: StateMachine {
             logger.info("The client is connecting")
         case .clientConnected:
             logger.info("The client has connected")
-        case .transportRegistering(channel: _, clientContext: let context):
+        case .transportRegistering(isActive: _, clientContext: let context):
             logger.info("Now registering Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
-        case .transportRegistered(channel: _, clientContext: let context):
+        case .transportRegistered(isActive: _, clientContext: let context):
             logger.info("Registered Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
 #if (os(macOS) || os(iOS))
             Task { @MainActor in
                 emitter.clientIsRegistered = true
             }
 #endif
-        case .transportOnline(channel: let channel, clientContext: let clientContext):
-            logger.info("Transport Channel is Active? - \(channel.isActive)")
+        case .transportOnline(isActive: let isActive, clientContext: let clientContext):
+            logger.info("Transport Channel is Active? - \(isActive)")
             logger.info("Nick: \(clientContext.nickname.name) with UserInfo: \(clientContext.userInfo.description) is now online")
         case .transportDeregistering:
             logger.info("We are de-registering Session")

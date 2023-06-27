@@ -37,7 +37,7 @@ public final class NeedleTail {
             messenger?.messageType = messageType
         }
     }
-    public var multipartMessageConsumer = NeedleTailAsyncConsumer<MultipartMessagePacket>()
+
     public var multipartMessage: MultipartMessagePacket?
     var registrationApproved = false
     var registeringNewDevice = false
@@ -47,8 +47,7 @@ public final class NeedleTail {
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
     private var store: CypherMessengerStore?
-    public var multipartObject = Deque<MultipartObject>()
-    
+    public var chatJobQueue = JobQueue<ChatPacketJob>()
     
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
@@ -478,6 +477,7 @@ public final class NeedleTail {
         guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
         var metadata = metadata
         metadata.append(deviceId.description)
+        print("METADATA____", metadata)
         try await messenger?.downloadMultipart(metadata)
     }
     

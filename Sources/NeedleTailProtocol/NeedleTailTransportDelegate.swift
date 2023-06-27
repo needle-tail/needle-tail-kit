@@ -4,7 +4,8 @@ import NeedleTailHelpers
 
 @NeedleTailClientActor
 public protocol NeedleTailClientDelegate: AnyObject {
-    var channel: Channel { get set }
+    @_spi(AsyncChannel)
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
 }
 
 public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
@@ -46,7 +47,7 @@ extension NeedleTailTransportDelegate {
     
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
         let buffer = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(buffer)
+        try await asyncChannel.outboundWriter.write(buffer)
     }
 }
 
@@ -119,7 +120,6 @@ extension NeedleTailTransportDelegate {
                                  command: IRCCommand,
                                  tags: [IRCTags]?
     ) async throws {
-        print("MULTIPART___")
         let message = IRCMessage(command: command, tags: tags)
         try await sendAndFlushMessage(message)
     }

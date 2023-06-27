@@ -153,10 +153,10 @@ extension NeedleTailTransport {
                     case .registered(let bool):
                         guard bool == "true" else { return }
                         switch transportState.current {
-                        case .transportRegistered(channel: let channel, clientContext: let clientContext):
+                        case .transportRegistered(isActive: let isActive, clientContext: let clientContext):
                             let type = TransportMessageType.standard(.USER(clientContext.userInfo))
                             try await transportMessage(type)
-                            await transportState.transition(to: .transportOnline(channel: channel, clientContext: clientContext))
+                            await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
                         default:
                             return
                         }
@@ -172,6 +172,10 @@ extension NeedleTailTransport {
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
+                        }
+                        Task { @NeedleTailTransportActor [weak self] in
+                            guard let self else { return }
+                            hasStarted = false
                         }
 #else
                         break
@@ -343,8 +347,8 @@ extension NeedleTailTransport {
         try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
         try await self.pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
     }
-    
-    private func respondToTransportState() async {
+
+    public func respondToTransportState() async {
         switch transportState.current {
         case .clientOffline:
             break
@@ -352,9 +356,9 @@ extension NeedleTailTransport {
             break
         case .clientConnected:
             break
-        case .transportRegistering(channel: _, clientContext: _):
+        case .transportRegistering(isActive: _, clientContext: _):
             break
-        case .transportOnline(channel: _, clientContext: _):
+        case .transportOnline(isActive: _, clientContext: _):
             break
         case .transportDeregistering:
             break

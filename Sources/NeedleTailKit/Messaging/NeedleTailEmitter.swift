@@ -6,7 +6,7 @@
 //
 
 import CypherMessaging
-import NeedleTailHelpers
+@_spi(AsyncChannel) import NeedleTailHelpers
 
 #if (os(macOS) || os(iOS))
 public final class ContactsBundle: ObservableObject {
@@ -154,37 +154,6 @@ public enum DestructiveMessageTimes: String {
 
 extension NeedleTailEmitter: ObservableObject {}
 
-protocol ChatDelegate {
-    
-}
-
-public struct MultipartObject {
-    public typealias Chat = AnyConversation
-    
-    public var chat: Chat
-    public var data: Data
-    public var mediaIdData: Data
-    public var totalPartsData: Data
-    public var mediaId: String
-    public var totalParts: Int
-    
-    public init(
-        chat: Chat,
-        data: Data,
-        mediaIdData: Data,
-        totalPartsData: Data,
-        mediaId: String,
-        totalParts: Int
-    ) {
-        self.chat = chat
-        self.data = data
-        self.mediaIdData = mediaIdData
-        self.totalPartsData = totalPartsData
-        self.mediaId = mediaId
-        self.totalParts = totalParts
-    }
-}
-
 public struct MultipartDownloadFailed {
     public var status: Bool
     public var error: String
@@ -271,7 +240,7 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
     @Published public var readReceipts = false
     @Published public var salt = ""
     @Published public var destructionTime: DestructionMetadata?
-//    = UserDefaults.standard.integer(forKey: "destructionTime")
+    //    = UserDefaults.standard.integer(forKey: "destructionTime")
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
     let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
@@ -400,8 +369,26 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
         text: String = "",
         metadata: Document = [:],
         destructionTimer: TimeInterval? = nil,
-        pushType: PushType = .message
+        pushType: PushType = .message,
+        conversationType: ConversationType,
+        mediaId: String = "",
+        sender: NeedleTailNick,
+        dataCount: Int = 0
     ) async throws {
+       try await self.generatePacketDetails(
+            mediaId: "\(messageSubtype ?? "none/*")_\(mediaId)",
+            sender: sender,
+            dataCount: dataCount,
+            chat: chat,
+            type: type,
+            messageSubType: messageSubtype ?? "none/*",
+            text: text,
+            metadata: metadata,
+            destructionTimer: destructionTimer ?? 0.0,
+            pushType: pushType,
+            conversationType: conversationType
+        )
+        
         _ = try await chat.sendRawMessage(
             type: type,
             messageSubtype: messageSubtype,
@@ -412,6 +399,46 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
         )
     }
     
+    func generatePacketDetails(
+        mediaId: String,
+        sender: NeedleTailNick,
+        dataCount: Int,
+        chat: AnyConversation,
+        type: CypherMessageType,
+        messageSubType: String,
+        text: String,
+        metadata: Document,
+        destructionTimer: TimeInterval,
+        pushType: PushType,
+        conversationType: ConversationType
+    ) async throws {
+#if (os(macOS) || os(iOS))
+        let pc = chat as? PrivateChat
+        guard let recipientsDevices = try await NeedleTail.shared.messenger?.readKeyBundle(forUsername: pc!.conversationPartner) else { return }
+        if dataCount > 10777216 {
+            for device in try recipientsDevices.readAndValidateDevices() {
+                await NeedleTail.shared.chatJobQueue.addJob(
+                    ChatPacketJob(
+                        chat: chat,
+                        type: type,
+                        messageSubType: messageSubType,
+                        text: text,
+                        metadata: metadata,
+                        destructionTimer: destructionTimer,
+                        preferredPushType: pushType,
+                        conversationType: conversationType,
+                        multipartMessage: MultipartMessagePacket(
+                            id: mediaId,
+                            sender: sender,
+                            fileName: "\(mediaId)_\(device.deviceId.raw)",
+                            dataCount: dataCount
+                        )
+                    )
+                )
+            }
+        }
+#endif
+    }
     
     public func sendGroupMessage(message: String) async throws {
         

@@ -59,6 +59,26 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
+        
+        Task {
+            try await withThrowingTaskGroup(of: Bool?.self, body: { group in
+                
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return false }
+                    return message.raw.senderUser == emitter.cypher?.username
+                }
+                
+                guard let isWrittenByMe = try await group.next() else { return }
+                
+                group.addTask(priority: .background) { [weak self] in
+                    guard let self else { return false }
+                    if await message.messageSubtype == "videoThumbnail/*" && isWrittenByMe == true {}
+                    return true
+                }
+            })
+}
+        
+        
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.emitter.messageReceived = message

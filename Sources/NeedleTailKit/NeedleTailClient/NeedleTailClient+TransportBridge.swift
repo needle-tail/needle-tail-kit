@@ -319,7 +319,8 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
+    @_spi(AsyncChannel)
+    public func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
         guard let mechanism = await mechanism else { throw NeedleTailError.transportNotIntitialized }
         guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         
@@ -356,7 +357,7 @@ extension NeedleTailClient: TransportBridge {
                 running = false
             }
             switch await strongSelf.transportState.current {
-            case .transportOnline(channel: _, clientContext: _):
+            case .transportOnline(isActive: _, clientContext: _):
                 running = false
             default:
                 running = true
@@ -558,8 +559,7 @@ extension NeedleTailClient: TransportBridge {
     @MultipartActor
     func downloadMultipart(_ metadata: [String]) async throws {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
-        guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
-        guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
+        guard !metadata[1].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
         try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]), tags: nil)
     }
@@ -586,8 +586,7 @@ extension NeedleTailClient: TransportBridge {
     @MultipartActor
     func listFilenames(_ metadata: [String]) async throws {
         guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
-        guard !metadata[1].isEmpty else { throw NeedleTailError.totalPartsNil }
-        guard !metadata[2].isEmpty else { throw NeedleTailError.deviceIdNil }
+        guard !metadata[1].isEmpty else { throw NeedleTailError.deviceIdNil }
         let data = try BSONEncoder().encode(metadata).makeData()
         try await transport?.multipartMessage(.otherCommand(Constants.listFilenames.rawValue, [data.base64EncodedString()]), tags: nil)
     }
