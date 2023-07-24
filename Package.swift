@@ -21,15 +21,17 @@ let package = Package(
             targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/needle-tail/swift-nio-transport-services.git", branch: "main"),
-        .package(url: "https://github.com/apple/swift-nio.git", branch: "main"),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.24.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "3385cd67bb52cfbe9c68d0a3ca4c2e419ac10bdf"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0"),
-        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3"),
-        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0")
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.56.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", .upToNextMajor(from: "1.12.1")),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMajor(from: "2.24.0")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.1.3")),
+//        .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "3385cd67bb52cfbe9c68d0a3ca4c2e419ac10bdf"),
+        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMajor(from: "2.1.0")),
+        .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "0.0.3")),
+        .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.1.0")),
+        .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0"))
     ],
     targets: [
         .target(
@@ -48,6 +50,7 @@ let package = Package(
             .product(name: "Crypto", package: "swift-crypto"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "Atomics", package: "swift-atomics"),
+            .product(name: "Algorithms", package: "swift-algorithms"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol")
         ]),

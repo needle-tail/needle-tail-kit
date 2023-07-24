@@ -8,6 +8,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 import NeedleTailProtocol
+
 #if os(macOS)
 import AppKit
 #endif
@@ -384,26 +385,37 @@ extension NeedleTailTransport {
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) async {
         logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
-    
-    @MultipartActor
-    func doMultipartMessageDownload(_ packet: [String]) async throws {
-        guard let media = packet.first else { return }
-        guard let data = Data(base64Encoded: media) else { return }
-        let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: data))
-        guard let multipartPacket = packet.multipartMessage else { return }
-        guard let nick = packet.multipartMessage?.sender else { return }
 
-        try await processMultipartMediaMessage(
-            packet,
-            sender: IRCUserID(nick: nick),
-            recipient: .nick(nick),
-            messageType: .message,
-            ackType: .multipartReceived,
-            multipartPacket: multipartPacket
-        )
+    func doMultipartMessageDownload(_ packet: [String]) async throws {
+        logger.trace("Received multipart packet: \(packet[1]) of: \(packet[2])")
+        precondition(packet.count == 4)
+        let partNumber = packet[1]
+        let totalParts = packet[2]
+        let chunk = packet[3]
+        guard let data = Data(base64Encoded: chunk) else { return }
+
+        multipartData.append(data)
+        
+        if Int(partNumber) == Int(totalParts) {
+            
+            let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: multipartData))
+            guard let multipartPacket = packet.multipartMessage else { return }
+            guard let nick = packet.multipartMessage?.sender else { return }
+            logger.trace("Finished receiving parts...")
+            logger.trace("Starting to process multipart packet...")
+            
+            try await processMultipartMediaMessage(
+                packet,
+                sender: IRCUserID(nick: nick),
+                recipient: .nick(nick),
+                messageType: .message,
+                ackType: .multipartReceived,
+                multipartPacket: multipartPacket
+            )
+            multipartData = Data()
+        }
     }
     
-    @MultipartActor
     private func processMultipartMediaMessage(_
                                 packet: MessagePacket,
                                 sender: IRCUserID?,

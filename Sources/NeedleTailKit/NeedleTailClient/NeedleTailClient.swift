@@ -16,7 +16,7 @@ struct NTKClientBundle: Sendable {
 
 @NeedleTailClientActor
 final class NeedleTailClient {
-    
+    let messageParser = MessageParser()
     let logger = Logger(label: "Client")
     let ntkBundle: NTKClientBundle
     let groupManager: EventLoopGroupManager

@@ -76,6 +76,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     let motdBuilder = MOTDBuilder()
     let transportJobQueue = JobQueue<MultipartMessagePacket>()
     var hasStarted = false
+    var multipartData = Data()
     
     init(
         ntkBundle: NTKClientBundle,
@@ -224,14 +225,12 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
                         self.logger.info("The following users \(users) were Kicked from the channels \(channels) for these reasons \(comments)")
                         //TODO: Handle
                     }
-                    break
                 case .KILL(let nick, let comment):
                     group.addTask { [weak self] in
                         guard let self else { return }
                         self.logger.info("The following nick \(nick.description) was Killed because it already exists. This is what the server has to say: \(comment)")
                     }
                     //TODO: Handle
-                    break
                 case .otherCommand(Constants.blobs.rawValue, let blob):
                     group.addTask { [weak self] in
                         guard let self else { return }

@@ -97,17 +97,20 @@ extension EventLoopGroupManager {
         
         guard let group = self.group else { throw ELGMErrors.nilEventLoopGroup }
         
+        @_spi(AsyncChannel)
         func socketChannelCreator() async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
             let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
             let client = ClientBootstrap(group: group)
             let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await client
-                .channelInitializer { channel in
-                    createHandlers(channel)
-                }
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-                .connect(host: host, port: port)
-            
+                .connect(host: host, port: port) { channel in
+                    channel.eventLoop.makeCompletedFuture {
+                       _ = createHandlers(channel)
+                        return try NIOAsyncChannel(synchronouslyWrapping: channel)
+                    }
+                }
+                
             let bootstrap = try NIOClientTCPBootstrap(
                 client,
                 tls: NIOSSLClientTLSProvider(
@@ -126,16 +129,19 @@ extension EventLoopGroupManager {
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
 //             We run on a new-enough Darwin so we can use Network.framework
             var connection = NIOTSConnectionBootstrap(group: group)
+            let tcpOptions = NWProtocolTCP.Options()
+            connection = connection.tcpOptions(tcpOptions)
             if enableTLS {
-                connection = connection.tlsOptions(NWProtocolTLS.Options())
+                let tlsOptions = NWProtocolTLS.Options()
+                connection = connection.tlsOptions(tlsOptions)
             }
             let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
-                .channelInitializer { channel in
+                .channelInitializer({ channel in
                     createHandlers(channel)
-                }
+                })
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-                .connectAsync(host: host, port: port, backpressureStrategy: nil)
+                .connect(host: host, port: port)
             return channel
         } else {
             // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.

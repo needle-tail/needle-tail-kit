@@ -26,7 +26,7 @@ public class NeedleTailPlugin: Plugin {
         self.emitter = emitter
     }
     
-    var multipartData: Data?
+    private var multipartData: Data?
     
     public func onReceiveMessage(_ message: ReceivedMessageContext) async throws -> ProcessMessageAction? {
         if message.message.messageSubtype == "multipart/*" && message.message.messageType == .magic {
@@ -59,8 +59,9 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
-        
+       
         Task {
+            print("RECEIVED__SUBTYPE", await message.messageSubtype)
             try await withThrowingTaskGroup(of: Bool?.self, body: { group in
                 
                 group.addTask { @MainActor [weak self] in

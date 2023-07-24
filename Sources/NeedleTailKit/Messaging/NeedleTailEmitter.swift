@@ -248,8 +248,15 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
         self.sortChats = sortChats
     }
     
-    //MARK: Inbound
     @MainActor
+    public func findMessage(by mediaId: String) async -> AnyChatMessage? {
+        return await bundles.contactBundle?.messages.async.first(where: { message in
+            guard let binary = message.metadata["mediaId"] as? Binary else { return false }
+            return String(data: binary.data, encoding: .utf8) == mediaId && message.messageSubtype == "video/*"
+        })
+    }
+    
+    //MARK: Inbound
     public func fetchConversations(_
                                    cypher: CypherMessenger
     ) async throws {

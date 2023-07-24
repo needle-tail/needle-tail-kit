@@ -49,13 +49,12 @@ extension NeedleTailClient: ClientTransportDelegate {
                         let handlers = try await self.createHandlers(childChannel)
                         async let mechanism = try await self.setMechanisim(handlers.0)
                         async let transport = try await self.setTransport(handlers.1)
-                        async let store = try await self.setStore(handlers.2)
+                        async let _ = try await self.setStore(handlers.2)
                         
                         await NeedleTailClient.handleChildChannel(
                             childChannel.inboundStream,
                             mechanism: try await mechanism,
-                            transport: try await transport,
-                            store: try await store
+                            transport: try await transport
                         )
                         
                         await self.setChildChannel(childChannel)
@@ -110,11 +109,11 @@ extension NeedleTailClient: ClientTransportDelegate {
     static func handleChildChannel(_
                                    stream: NIOAsyncChannelInboundStream<ByteBuffer>,
                                    mechanism: KeyBundleMechanism,
-                                   transport: NeedleTailTransport,
-                                   store: TransportStore
+                                   transport: NeedleTailTransport
     ) async {
-        //TODO: THIS IS BAD BUT WE CANNOT RECEIVE UPDATES FROM THE CHANNEL WITH OUT DETACHING FOR SOME REASON
-        Task.detached { 
+        Task {
+            let messageParser = MessageParser()
+            try Task.checkCancellation()
             do {
                 for try await buffer in stream {
                     var buffer = buffer
@@ -124,8 +123,8 @@ extension NeedleTailClient: ClientTransportDelegate {
                         .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                         .filter { !$0.isEmpty }
                     
-                    for await message in messages.async {
-                        guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
+                    for message in messages {
+                        guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: messageParser) else { break }
                         Logger(label: "Child Channel Processor").trace("Message Parsed \(parsedMessage)")
                         await mechanism.processKeyBundle(parsedMessage)
                         await transport.processReceivedMessages(parsedMessage)

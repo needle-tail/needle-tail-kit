@@ -477,7 +477,6 @@ public final class NeedleTail {
         guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
         var metadata = metadata
         metadata.append(deviceId.description)
-        print("METADATA____", metadata)
         try await messenger?.downloadMultipart(metadata)
     }
 }

@@ -9,6 +9,7 @@
 import NeedleTailHelpers
 import CypherMessaging
 import NeedleTailProtocol
+import Algorithms
 import DequeModule
 @_spi(AsyncChannel) import NIOCore
 
@@ -186,7 +187,7 @@ extension NeedleTailTransport {
             
             
             let dataCount = try BSONEncoder().encode(message).makeData().count
-            // Need to make sure we are no sending if we are not actually multipart, if the job deque contains an item ready to be used it could be multipart
+            // Need to make sure we are not sending if we are not actually multipart, if the job deque contains an item ready to be used it could be multipart
             if dataCount >= 10777216 {
                 if await !transportJobQueue.jobDeque.isEmpty {
                     group.addTask { [weak self] in
@@ -216,10 +217,26 @@ extension NeedleTailTransport {
                         
                         let encodedData = try BSONEncoder().encode(packet).makeData()
                         
-                        try await multipartMessage(.otherCommand(
-                            Constants.multipartMediaUpload.rawValue,
-                            [encodedData.base64EncodedString()]
-                        ), tags: nil)
+                        
+                    
+                        var chunkCount = 0
+                        let numberOfChunks = encodedData.chunks(ofCount: 10777216)
+                        let packets = encodedData.async.chunks(ofCount: 10777216, into: Data.self)
+                        for try await chunk in packets {
+                            chunkCount += 1
+                            let multipartObject = MultipartObject(
+                                partNumber: String(chunkCount),
+                                totalParts: String(numberOfChunks.count),
+                                data: chunk
+                            )
+                                          
+                            let multipartData = try BSONEncoder().encode(multipartObject).makeData()
+                            try await multipartMessage(.otherCommand(
+                                Constants.multipartMediaUpload.rawValue,
+                                [multipartData.base64EncodedString()]
+                            ), tags: nil)
+                          
+                        }
                         
                         await transportJobQueue.transferTransportJobs()
                         await NeedleTail.shared.chatJobQueue.transferTransportJobs()
@@ -249,7 +266,7 @@ extension NeedleTailTransport {
     
     private func processMultipartDumbnail(with message: String, from job: ChatPacketJob) async throws {
 #if (os(macOS) || os(iOS))
-        // We check for the expected chat multipart job and do the followinf
+        // We check for the expected chat multipart job and do the following
         //1. Add the multipartMessage to the transport job
         //2. Send the message with the correct chat from the job queue
         //3. Throw away the job
@@ -450,4 +467,10 @@ extension NeedleTailTransport {
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
         try await transportMessage(type)
     }
+}
+
+struct MultipartObject: Sendable, Codable {
+    var partNumber: String
+    var totalParts: String
+    var data: Data
 }

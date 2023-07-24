@@ -3,22 +3,16 @@ import Logging
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
 
-//@ParsingActor
-public final class MessageParser: @unchecked Sendable {
+public struct MessageParser: Sendable {
+    
+    let logger = Logger(label: "MessageParser")
     
     enum IRCCommandKey {
         case int   (Int)
         case string(String)
     }
-    let logger: Logger
-    let lock = NIOLock()
     
-    public init() {
-        lock.lock()
-        self.logger = Logger(label: "MessageParser")
-        lock.unlock()
-    }
-    
+    public init() {}
     
     internal func parseMessage(_ message: String) throws -> IRCMessage {
         var ircMessage: IRCMessage
@@ -26,9 +20,8 @@ public final class MessageParser: @unchecked Sendable {
         var seperatedTags: [String] = []
         var stripedMessage: String = ""
         var commandKey: IRCCommandKey = .string("")
-        lock.lock()
+        
         self.logger.trace("Parsing Message....")
-        lock.unlock()
         
         /// IRCMessage sytax
         /// ::= ['@' <tags> SPACE] [':' <source> SPACE] <command> <parameters> <crlf>
@@ -40,8 +33,8 @@ public final class MessageParser: @unchecked Sendable {
             stripedMessage = message
         }
         guard let firstSpaceIndex = stripedMessage.firstIndex(of: Character(Constants.space.rawValue)) else {
-                throw MessageParserError.messageWithWhiteSpaceNil
-            }
+            throw MessageParserError.messageWithWhiteSpaceNil
+        }
         
         var command = ""
         var parameter = ""
@@ -125,9 +118,7 @@ public final class MessageParser: @unchecked Sendable {
             )
             
         }
-        lock.lock()
         self.logger.trace("Parsed Message")
-        lock.unlock()
         return ircMessage
     }
     
@@ -149,9 +140,8 @@ public final class MessageParser: @unchecked Sendable {
                 }
             }
         }
-        lock.lock()
+        
         self.logger.trace("Parsing CommandKey")
-        lock.unlock()
         return commandKey
     }
     
@@ -210,7 +200,7 @@ public final class MessageParser: @unchecked Sendable {
             } else if commandKey.hasPrefix(Constants.kill.rawValue) {
                 let seperatedCommand = stripedMessage.components(separatedBy: commandKey)
                 let spread = seperatedCommand[1].components(separatedBy: Constants.space.rawValue).filter({ !$0.isEmpty })
-                args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: " ")])
+                args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: Constants.space.rawValue)])
             } else if commandKey.hasPrefix(Constants.kick.rawValue) {
                 //TODO:
                 //               print(stripedMessage)
@@ -224,14 +214,12 @@ public final class MessageParser: @unchecked Sendable {
                         commandKey.hasPrefix(Constants.offlineMessages.rawValue) ||
                         commandKey.hasPrefix(Constants.deleteOfflineMessage.rawValue) ||
                         commandKey.hasPrefix(Constants.quit.rawValue) ||
-                        commandKey.hasPrefix(Constants.badgeUpdate.rawValue) ||
-                        commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue) ||
-                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
+                        commandKey.hasPrefix(Constants.badgeUpdate.rawValue) {
                 var stripedMessage = stripedMessage
                 
                 if stripedMessage.contains(commandKey) {
                     let seperatedCommand = stripedMessage.components(separatedBy: commandKey)
-                    let joined = seperatedCommand.joined(separator: " ")
+                    let joined = seperatedCommand.joined(separator: Constants.space.rawValue)
                     stripedMessage = joined
                 }
                 
@@ -257,6 +245,21 @@ public final class MessageParser: @unchecked Sendable {
                         args.append(argument.trimmingCharacters(in: .whitespaces))
                     }
                 }
+                //This Logic is intended for IRCMessages that contain an array of string for arguments
+            } else if commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue)  ||
+                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
+                var stripedMessage = stripedMessage
+                if stripedMessage.contains(commandKey) {
+                    let seperatedCommand = stripedMessage.components(separatedBy: Constants.space.rawValue + commandKey + Constants.space.rawValue)
+                    let joined = seperatedCommand.joined(separator: Constants.space.rawValue)
+                    stripedMessage = joined
+                }
+                
+                let seperatedArguments = stripedMessage.trimmingCharacters(in: .whitespaces)
+                    .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
+                    .components(separatedBy: " ")
+                
+                args.append(contentsOf: seperatedArguments)
             }
         }
         return args
@@ -303,9 +306,8 @@ public final class MessageParser: @unchecked Sendable {
                     IRCTags(key: String(kvpArray[0]), value: String(kvpArray[1]))
                 )
             }
-            lock.lock()
+            
             self.logger.trace("Parsing Tags")
-            lock.unlock()
             return tagArray
         }
         return nil
@@ -338,8 +340,7 @@ public enum MessageParserError: Error, Sendable {
     case jobFailedToParse
 }
 
-extension String: Sendable
-{
+extension String: Sendable {
     var isInt: Bool {
         return Int(self) != nil
     }
