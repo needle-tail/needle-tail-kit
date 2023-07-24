@@ -216,26 +216,20 @@ extension NeedleTailTransport {
                         )
                         
                         let encodedData = try BSONEncoder().encode(packet).makeData()
-                        
-                        
-                    
-                        var chunkCount = 0
-                        let numberOfChunks = encodedData.chunks(ofCount: 10777216)
-                        let packets = encodedData.async.chunks(ofCount: 10777216, into: Data.self)
-                        for try await chunk in packets {
-                            chunkCount += 1
-                            let multipartObject = MultipartObject(
-                                partNumber: String(chunkCount),
-                                totalParts: String(numberOfChunks.count),
-                                data: chunk
-                            )
-                                          
-                            let multipartData = try BSONEncoder().encode(multipartObject).makeData()
+
+                        var packetCount = 0
+                        let packets = encodedData.chunks(ofCount: 10777216)
+
+                        for packet in packets {
+                            packetCount += 1
                             try await multipartMessage(.otherCommand(
                                 Constants.multipartMediaUpload.rawValue,
-                                [multipartData.base64EncodedString()]
+                                [
+                                    String(packetCount),
+                                    String(packets.map{$0}.count),
+                                    packet.base64EncodedString()
+                                ]
                             ), tags: nil)
-                          
                         }
                         
                         await transportJobQueue.transferTransportJobs()
