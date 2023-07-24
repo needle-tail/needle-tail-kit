@@ -250,9 +250,8 @@ public struct MessageParser: Sendable {
                         commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
                 var stripedMessage = stripedMessage
                 if stripedMessage.contains(commandKey) {
-                    let seperatedCommand = stripedMessage.components(separatedBy: Constants.space.rawValue + commandKey + Constants.space.rawValue)
-                    let joined = seperatedCommand.joined(separator: Constants.space.rawValue)
-                    stripedMessage = joined
+                        let droppedCommand = stripedMessage.replacingOccurrences(of: commandKey, with: Constants.none.rawValue)
+                        stripedMessage = droppedCommand
                 }
                 
                 let seperatedArguments = stripedMessage.trimmingCharacters(in: .whitespaces)

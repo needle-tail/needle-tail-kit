@@ -136,12 +136,30 @@ extension EventLoopGroupManager {
                 connection = connection.tlsOptions(tlsOptions)
             }
             let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
-                .channelInitializer({ channel in
-                    createHandlers(channel)
-                })
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-                .connect(host: host, port: port)
+//                .connect(host: host, port: port, channelInitializer: { channel in
+//                    createHandlers(channel)
+//                })
+            
+                .connect(
+                host: host,
+                port: port
+            ) { channel in
+               return channel.eventLoop.makeCompletedFuture {
+                   try channel.pipeline.syncOperations.addHandlers([
+                       ByteToMessageHandler(
+                           LineBasedFrameDecoder()
+   //                        maximumBufferSize: 16777216
+                       )
+                   ], position: .first)
+                    return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
+                        synchronouslyWrapping: channel,
+                        configuration: .init()
+                    )
+                }
+            }
+            
             return channel
         } else {
             // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
