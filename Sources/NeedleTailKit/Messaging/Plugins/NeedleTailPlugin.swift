@@ -9,6 +9,7 @@ import MessagingHelpers
 import CypherMessaging
 import NeedleTailHelpers
 import AsyncAlgorithms
+import SwiftDTF
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -18,7 +19,7 @@ import Cocoa
 //Our Store for loading receiving messages in real time(TOP LEVEL)
 public class NeedleTailPlugin: Plugin {
     
-    public static let pluginIdentifier = "needletail"
+    public static let pluginIdentifier = "@/needletail"
     
     var emitter: NeedleTailEmitter
     
@@ -26,30 +27,8 @@ public class NeedleTailPlugin: Plugin {
         self.emitter = emitter
     }
     
+    
     private var multipartData: Data?
-    
-    public func onReceiveMessage(_ message: ReceivedMessageContext) async throws -> ProcessMessageAction? {
-        if message.message.messageSubtype == "multipart/*" && message.message.messageType == .magic {
-            print("Processing multipart data....")
-            multipartData = Data()
-            let multipartBinary = message.message.metadata["multipartBlob"] as? Binary
-            guard let multipartBlob = multipartBinary?.data else { return nil }
-#if (os(macOS) || os(iOS))
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.emitter.multipartReceived = multipartBlob
-                }
-#endif
-                multipartData = nil
-            return .ignore
-        } else if message.message.messageType == .media, message.message.messageType == .text {
-            return .save
-        } else {
-            //We were magic but didn't specify a type
-            return .none
-        }
-    }
-    
     
     public func onCreateChatMessage(_ message: AnyChatMessage) {
         
@@ -71,8 +50,7 @@ public class NeedleTailPlugin: Plugin {
                 
                 guard let isWrittenByMe = try await group.next() else { return }
                 
-                group.addTask(priority: .background) { [weak self] in
-                    guard let self else { return false }
+                group.addTask(priority: .background) {
                     if await message.messageSubtype == "videoThumbnail/*" && isWrittenByMe == true {}
                     return true
                 }
@@ -151,8 +129,6 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
         Task.detached {
             try await NeedleTail.shared.notifyContactRemoved(contact.username)
-            //            let contacts = try await emitter.cypher?.getContact(byUsername: username)
-            //            contacts?.remove()
         }
 #endif
     }
@@ -187,9 +163,6 @@ public class NeedleTailPlugin: Plugin {
         try await messenger.addDevice(config)
     }
     public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) {
-        //        DispatchQueue.main.async {
-        //            emitter.userDevicesChanged.send()
-        //        }
 #if os(iOS)
         Task {
             try await cypher.renameCurrentDevice(to: UIDevice.current.name)
@@ -214,13 +187,6 @@ public class NeedleTailPlugin: Plugin {
             }
             emitter.conversationChanged = await resolved.value
         }
-        
-        //            Task.detached {
-        //                let viewModel = await viewModel.resolveTarget()
-        //                DispatchQueue.main.async {
-        //                    emitter.conversationChanged.send(viewModel)
-        //                }
-        //            }
 #endif
     }
     public func onCreateConversation(_ viewModel: AnyConversation) {
@@ -228,16 +194,6 @@ public class NeedleTailPlugin: Plugin {
         emitter.conversationAdded = viewModel
 #endif
     }
-    
-    //
-    //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
-    //        emitter.p2pClientConnected.send(client)
-    //    }
-    //
-    //    public func onCustomConfigChange() {
-    //        emitter.customConfigChanged.send()
-    //    }
-    
 }
 
 

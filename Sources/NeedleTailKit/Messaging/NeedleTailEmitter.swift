@@ -242,7 +242,7 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
     @Published public var destructionTime: DestructionMetadata?
     //    = UserDefaults.standard.integer(forKey: "destructionTime")
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
-    let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    public let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     public init(sortChats: @escaping @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
         self.sortChats = sortChats
@@ -299,8 +299,8 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
                         guard let username = contact?.username else { return }
                         if privateChat.conversation.members.contains(username) {
                             let cursor = try await privateChat.cursor(sortedBy: .descending)
-                            
                             let nextBatch = try await cursor.getMore(50)
+
                             messsages.append(contentsOf: nextBatch)
                             
                             guard let contact = contact else { return }

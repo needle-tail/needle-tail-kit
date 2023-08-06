@@ -95,7 +95,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     ) async {
         do {
             switch message.command {
-            case .otherCommand("READKEYBNDL", let keyBundle):
+            case .otherCommand(Constants.readKeyBundle.rawValue, let keyBundle):
                 try await doReadKeyBundle(keyBundle)
             default:
                 return
@@ -107,26 +107,18 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
-    nonisolated func readKeyBundle(_ packet: String) async throws {
-        let type = TransportMessageType.standard(.otherCommand("READKEYBNDL", [packet]))
+    func readKeyBundle(_ packet: String) async throws {
+        let type = TransportMessageType.standard(.otherCommand(Constants.readKeyBundle.rawValue, [packet]))
         try await keyBundleMessage(type)
-        try await RunLoop.run(30, sleep: 1) { [weak self] in
-            guard let strongSelf = self else { return false }
-            var canRun = true
-            if strongSelf.store.keyBundle != nil {
-                canRun = false
-            }
-            return canRun
-        }
     }
     
-    @KeyBundleMechanismActor
     func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }
         guard let data = Data(base64Encoded: keyBundle) else { throw KeyBundleErrors.cannotReadKeyBundle }
         let buffer = ByteBuffer(data: data)
         let config = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         store.setKeyBundle(config)
+        print("SET_BUNDLE", store.keyBundle)
     }
     
     

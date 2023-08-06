@@ -249,6 +249,13 @@ public struct MessageParser: Sendable {
             } else if commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue)  ||
                         commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
                 var stripedMessage = stripedMessage
+                
+                //If we are a message from the server we will have it's origin included, so parse it
+                if let origin = origin {
+                    stripedMessage = stripedMessage.replacingOccurrences(of: origin, with: Constants.none.rawValue)
+                }
+                
+              
                 if stripedMessage.contains(commandKey) {
                         let droppedCommand = stripedMessage.replacingOccurrences(of: commandKey, with: Constants.none.rawValue)
                         stripedMessage = droppedCommand

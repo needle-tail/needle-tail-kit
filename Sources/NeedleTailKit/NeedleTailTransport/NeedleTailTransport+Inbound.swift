@@ -388,10 +388,10 @@ extension NeedleTailTransport {
 
     func doMultipartMessageDownload(_ packet: [String]) async throws {
         logger.trace("Received multipart packet: \(packet[1]) of: \(packet[2])")
-        precondition(packet.count == 4)
-        let partNumber = packet[1]
-        let totalParts = packet[2]
-        let chunk = packet[3]
+        precondition(packet.count == 3)
+        let partNumber = packet[0]
+        let totalParts = packet[1]
+        let chunk = packet[2]
         guard let data = Data(base64Encoded: chunk) else { return }
 
         multipartData.append(data)

@@ -274,9 +274,9 @@ extension NeedleTailTransport {
                 var metadata = Document()
                 
                 if job.messageSubType == "image/*" {
-                    if let thumbnailBinary = job.metadata["thumbnail"] as? Binary {
+                    if let thumbnailBinary = job.metadata["blob"] as? Binary {
                         metadata.append([
-                            "thumbnail": thumbnailBinary
+                            "blob": thumbnailBinary
                         ])
                     }
                 }

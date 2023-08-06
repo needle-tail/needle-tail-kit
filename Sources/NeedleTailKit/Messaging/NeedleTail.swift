@@ -46,7 +46,7 @@ public final class NeedleTail {
     private var suspendQueue = NeedleTailStack<Int>()
     private var totalResumeRequests = 0
     private var totalSuspendRequests = 0
-    private var store: CypherMessengerStore?
+    public var store: CypherMessengerStore?
     public var chatJobQueue = JobQueue<ChatPacketJob>()
     
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
@@ -252,6 +252,7 @@ public final class NeedleTail {
     ) async throws -> CypherMessenger? {
         //Create plugin here
         plugin = NeedleTailPlugin(emitter: emitter)
+
         guard let plugin = plugin else { return nil }
         cypher = try await CypherMessenger.resumeMessenger(
             appPassword: serverInfo.password,
@@ -450,6 +451,7 @@ public final class NeedleTail {
             UserProfilePlugin(),
             ChatActivityPlugin(),
             ModifyMessagePlugin(),
+            MessageDataToFilePlugin(),
             plugin
         ])
     }

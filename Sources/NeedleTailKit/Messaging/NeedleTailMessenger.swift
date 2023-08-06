@@ -210,7 +210,7 @@ public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendab
     /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
     /// from **CypherTextKit**'s **registerMessenger()** method.
     public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
-        guard let transportBridge = transportBridge else { throw NeedleTailError.bridgeDelegateNotSet }
+        guard let transportBridge = transportBridge else { fatalError("Cannot be nil") }
         return try await transportBridge.readKeyBundle(username)
     }
     
@@ -617,6 +617,7 @@ extension Array {
 }
 
 final class TransportStore {
+    @KeyBundleMechanismActor
     var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var setAcknowledgement: Acknowledgment.AckType = .none {
@@ -630,6 +631,7 @@ final class TransportStore {
         Logger(label: "Transport Store").info("INFO RECEIVED - ACK: - \(acknowledgment)")
     }
     
+    @KeyBundleMechanismActor
     func setKeyBundle(_ config: UserConfig) {
         keyBundle = config
     }

@@ -21,17 +21,19 @@ let package = Package(
             targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio-transport-services.git", branch: "main"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.56.0"),
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", revision: "01fc0ae7e5de9199d53932582a28c0e59b883f5f"),
+        .package(url: "https://github.com/apple/swift-nio.git", exact: "2.56.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", .upToNextMajor(from: "1.12.1")),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMajor(from: "2.24.0")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.1.3")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "3385cd67bb52cfbe9c68d0a3ca4c2e419ac10bdf"),
-//        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
+//        .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "63326570b308415c396d2eae9c58e8b2cca18298"),
+        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMajor(from: "2.1.0")),
         .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "0.0.3")),
         .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.1.0")),
-        .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0"))
+        .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0")),
+        .package(path: "../swift-dtf"),
+        .package(path: "../needletail-media-kit")
     ],
     targets: [
         .target(
@@ -52,7 +54,9 @@ let package = Package(
             .product(name: "Atomics", package: "swift-atomics"),
             .product(name: "Algorithms", package: "swift-algorithms"),
             .target(name: "NeedleTailHelpers"),
-            .target(name: "NeedleTailProtocol")
+            .target(name: "NeedleTailProtocol"),
+            .product(name: "SwiftDTF", package: "swift-dtf"),
+            .product(name: "NeedletailMediaKit", package: "needletail-media-kit")
         ]),
         .target(
             name: "NeedleTailProtocol",

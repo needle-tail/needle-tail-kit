@@ -228,16 +228,38 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
-        guard let mechanism = await mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
-        try await clearUserConfig()
+        let task = Task {
+            guard let mechanism = await mechanism else { throw NeedleTailError.transportNotIntitialized }
+            guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+            try await clearUserConfig()
+            
+            let jwt = try self.makeToken(ntkUser.username)
+            let readBundleObject = self.readBundleRequest(jwt, for: username)
+            let packet = try BSONEncoder().encode(readBundleObject).makeData()
+            try await mechanism.readKeyBundle(packet.base64EncodedString())
+            
+            let result = try await withThrowingTaskGroup(of: UserConfig?.self) { @KeyBundleMechanismActor group in
+                try Task.checkCancellation()
+                group.addTask {
+                    try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) { @KeyBundleMechanismActor in
+                        var bundle: UserConfig?
+                        var canRun = true
+                        if let keyBundle = store.keyBundle {
+                            canRun = false
+                            bundle = keyBundle
+                        }
+                        return (canRun, bundle)
+                    }
+                }
+                return try await group.next()
+            }
+            return result
+        }
         
-        let jwt = try makeToken(ntkUser.username)
-        let readBundleObject = readBundleRequest(jwt, for: username)
-        let packet = try BSONEncoder().encode(readBundleObject).makeData()
-        try await mechanism.readKeyBundle(packet.base64EncodedString())
-        
-        guard let userConfig = store.keyBundle else {
+        guard let unwrapedTaskValue = try await task.value else {
+            throw NeedleTailError.nilUserConfig
+        }
+        guard let userConfig = unwrapedTaskValue else {
             throw NeedleTailError.nilUserConfig
         }
         return userConfig
@@ -545,8 +567,9 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
+    @KeyBundleMechanismActor
     func clearUserConfig() async throws {
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+        guard let store = await store else { throw NeedleTailError.transportNotIntitialized }
         store.keyBundle = nil
     }
     
