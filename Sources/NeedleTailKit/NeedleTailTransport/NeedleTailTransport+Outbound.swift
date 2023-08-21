@@ -160,23 +160,7 @@ extension NeedleTailTransport {
                     //We need to configure the multipart message packet if we are going to need to do a multipart message
                     var jobs = try await NeedleTail.shared.chatJobQueue.checkForExistingJobs { [weak self] job in
                         guard let self else { return job }
-                        let subtype = await self.parseFilename(job.multipartMessage.fileName)
-                        
-                        var message = ""
-                        switch subtype {
-                        case .text:
-                            message = "You have a message you can download. Long press to download..."
-                        case .audio:
-                            message = "You have an audio message you can download. Long press to download..."
-                        case .image:
-                            message = "You have an image you can download. Long press to download..."
-                        case .doc:
-                            message = "You have a document you can download. Long press to download..."
-                        default:
-                            break
-                        }
-                        
-                        try await processMultipartDumbnail(with: message, from: job)
+                        await self.transportJobQueue.addJob(job.multipartMessage)
                         return job
                     }
                     jobs.removeAll()
@@ -193,43 +177,43 @@ extension NeedleTailTransport {
                     group.addTask { [weak self] in
                         guard let self else { return }
                         // In theory we should have only 1 message but just in case we queue messges to be sent. Theoretically each time this method is called our job should be synchronized with the data inside of this method the CTK gives us. if there is no data it means we did not send the message from the application, so we create basically a dummy job so we can send the message in the same logic flow without needing to recreate the message packet in different areas
-                        var jobs = try await transportJobQueue.checkForExistingJobs { [weak self] job in
-                            guard let self else { return nil }
-                            return await self.configureMultipartMessagePacket(
+                        _ = try await transportJobQueue.checkForExistingJobs { [weak self] job in
+                            guard let self else { return job }
+                            let configuredMessage = await self.configureMultipartMessagePacket(
                                 job,
                                 username: toUser.username.raw,
                                 deviceId: toUser.deviceId
                             )
-                        }
-                        
-                        guard let configuredMessage = jobs.popLast() else { return }
-                        let packet = MessagePacket(
-                            id: messageId,
-                            pushType: pushType,
-                            type: messageType,
-                            createdAt: Date(),
-                            sender: fromUser.deviceId,
-                            recipient: toUser.deviceId,
-                            message: message,
-                            readReceipt: readReceipt,
-                            multipartMessage: configuredMessage
-                        )
-                        
-                        let encodedData = try BSONEncoder().encode(packet).makeData()
+                            
+                            let packet = MessagePacket(
+                                id: messageId,
+                                pushType: pushType,
+                                type: messageType,
+                                createdAt: Date(),
+                                sender: fromUser.deviceId,
+                                recipient: toUser.deviceId,
+                                message: message,
+                                readReceipt: readReceipt,
+                                multipartMessage: configuredMessage
+                            )
+                            
+                            let encodedData = try BSONEncoder().encode(packet).makeData()
 
-                        var packetCount = 0
-                        let packets = encodedData.chunks(ofCount: 10777216)
+                            var packetCount = 0
+                            let packets = encodedData.chunks(ofCount: 10777216)
 
-                        for packet in packets {
-                            packetCount += 1
-                            try await multipartMessage(.otherCommand(
-                                Constants.multipartMediaUpload.rawValue,
-                                [
-                                    String(packetCount),
-                                    String(packets.map{$0}.count),
-                                    packet.base64EncodedString()
-                                ]
-                            ), tags: nil)
+                            for packet in packets {
+                                packetCount += 1
+                                try await multipartMessage(.otherCommand(
+                                    Constants.multipartMediaUpload.rawValue,
+                                    [
+                                        String(packetCount),
+                                        String(packets.map{$0}.count),
+                                        packet.base64EncodedString()
+                                    ]
+                                ), tags: nil)
+                            }
+                            return job
                         }
                         
                         await transportJobQueue.transferTransportJobs()
@@ -253,45 +237,6 @@ extension NeedleTailTransport {
                     let encodedData = try BSONEncoder().encode(packet).makeData()
                     try await sendPrivateMessage(toUser: toUser, type: conversationType, data: encodedData)
                 }
-            }
-        }
-#endif
-    }
-    
-    private func processMultipartDumbnail(with message: String, from job: ChatPacketJob) async throws {
-#if (os(macOS) || os(iOS))
-        // We check for the expected chat multipart job and do the following
-        //1. Add the multipartMessage to the transport job
-        //2. Send the message with the correct chat from the job queue
-        //3. Throw away the job
-        
-        let new = await !transportJobQueue.newDeque.contains(where: { $0.fileName == job.multipartMessage.fileName })
-        if await !transportJobQueue.jobDeque.contains(where: { $0.fileName == job.multipartMessage.fileName }) && new
-        {
-            await transportJobQueue.addJob(job.multipartMessage)
-            
-            if job.messageSubType != "video/*", job.messageSubType != "videoThumbnail/*" {
-                var metadata = Document()
-                
-                if job.messageSubType == "image/*" {
-                    if let thumbnailBinary = job.metadata["blob"] as? Binary {
-                        metadata.append([
-                            "blob": thumbnailBinary
-                        ])
-                    }
-                }
-                metadata.append([
-                    "messageId": job.multipartMessage.id
-                ])
-                try await self.emitter?.sendMessage(
-                    chat: job.chat,
-                    type: job.type,
-                    messageSubtype: job.messageSubType,
-                    text: message,
-                    metadata: metadata,
-                    conversationType: job.conversationType,
-                    sender: job.multipartMessage.sender
-                )
             }
         }
 #endif

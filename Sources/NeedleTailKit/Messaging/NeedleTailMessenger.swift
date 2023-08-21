@@ -441,15 +441,15 @@ extension NeedleTailMessenger {
                             pushType: PushType,
                             messageId: String
     ) async throws {
-                    try await self.transportBridge?.sendMessage(
-                        message: message,
-                        toUser: username,
-                        otherUserDeviceId: deviceId,
-                        pushType: pushType,
-                        messageId: messageId,
-                        type: self.conversationType,
-                        readReceipt: self.readReceipt
-                    )
+        try await self.transportBridge?.sendMessage(
+            message: message,
+            toUser: username,
+            otherUserDeviceId: deviceId,
+            pushType: pushType,
+            messageId: messageId,
+            type: self.conversationType,
+            readReceipt: self.readReceipt
+        )
     }
     
     //Should be done by Recipient

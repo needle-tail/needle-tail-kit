@@ -40,7 +40,6 @@ public class NeedleTailPlugin: Plugin {
 #if (os(macOS) || os(iOS))
        
         Task {
-            print("RECEIVED__SUBTYPE", await message.messageSubtype)
             try await withThrowingTaskGroup(of: Bool?.self, body: { group in
                 
                 group.addTask { @MainActor [weak self] in

@@ -242,7 +242,7 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
     @Published public var destructionTime: DestructionMetadata?
     //    = UserDefaults.standard.integer(forKey: "destructionTime")
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
-    public let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     public init(sortChats: @escaping @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool) {
         self.sortChats = sortChats
@@ -252,8 +252,21 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
     public func findMessage(by mediaId: String) async -> AnyChatMessage? {
         return await bundles.contactBundle?.messages.async.first(where: { message in
             guard let binary = message.metadata["mediaId"] as? Binary else { return false }
-            return String(data: binary.data, encoding: .utf8) == mediaId && message.messageSubtype == "video/*"
+            return String(data: binary.data, encoding: .utf8) == mediaId
         })
+    }
+    
+    @MainActor
+    public func findAllMessages(with mediaId: String) async throws -> [AnyChatMessage] {
+        var messages = [AnyChatMessage]()
+        guard let contactBundle = bundles.contactBundle else { return [] }
+        for try await message in contactBundle.messages.async {
+            guard let binary = message.metadata["mediaId"] as? Binary else { return [] }
+            if String(data: binary.data, encoding: .utf8) == mediaId {
+                messages.append(message)
+            }
+        }
+        return messages
     }
     
     //MARK: Inbound
@@ -382,6 +395,8 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
         sender: NeedleTailNick,
         dataCount: Int = 0
     ) async throws {
+
+        //Create a job for each device we need to upload an object for
        try await self.generatePacketDetails(
             mediaId: "\(messageSubtype ?? "none/*")_\(mediaId)",
             sender: sender,
@@ -395,7 +410,8 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
             pushType: pushType,
             conversationType: conversationType
         )
-        
+
+        //Send Message
         _ = try await chat.sendRawMessage(
             type: type,
             messageSubtype: messageSubtype,
@@ -422,8 +438,20 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
 #if (os(macOS) || os(iOS))
         let pc = chat as? PrivateChat
         guard let recipientsDevices = try await NeedleTail.shared.messenger?.readKeyBundle(forUsername: pc!.conversationPartner) else { return }
+        //We need to block this if we have a large data count and need to create thumbnail
         if dataCount > 10777216 {
+            var fileNameData: Binary?
+            if let fileNameBinary = metadata["fileNameBinary"] as? Binary {
+                fileNameData = fileNameBinary
+            } else if let imageNameBinary = metadata["imageNameBinary"] as? Binary {
+                fileNameData = imageNameBinary
+            } else if let thumbnailNameBinary = metadata["thumbnailNameBinary"] as? Binary {
+                fileNameData = thumbnailNameBinary
+            }
+            
+            //For each device we need to upload an object for that device
             for device in try recipientsDevices.readAndValidateDevices() {
+                guard let fileNameData = (String(data: fileNameData?.data ?? Data(), encoding: .utf8)) else { return }
                 await NeedleTail.shared.chatJobQueue.addJob(
                     ChatPacketJob(
                         chat: chat,
@@ -437,10 +465,64 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
                         multipartMessage: MultipartMessagePacket(
                             id: mediaId,
                             sender: sender,
-                            fileName: "\(mediaId)_\(device.deviceId.raw)",
+                            fileName: "\(fileNameData)_\(device.deviceId.raw)",
                             dataCount: dataCount
                         )
                     )
+                )
+            }
+            
+            //Send Thumbail image if we are not video or videoThumbnail
+            var message = ""
+            switch MessageSubType(rawValue: messageSubType) {
+            case .text:
+                message = "You have a message you can download. Long press to download..."
+            case .audio:
+                message = "You have an audio message you can download. Long press to download..."
+            case .image:
+                message = "You have an image you can download. Long press to download..."
+            case .doc:
+                message = "You have a document you can download. Long press to download..."
+            default:
+                break
+            }
+            
+            if messageSubType != "video/*", messageSubType != "videoThumbnail/*" {
+                var newMetadata = Document()
+                guard let mediaId = metadata["mediaId"] as? Binary else { return }
+                
+                if messageSubType == "image/*" {
+                    if let thumbnailBinary = metadata["thumbnailBlob"] as? Binary {
+                        guard let fileNameData = fileNameData?.data else { return }
+                        newMetadata = [
+                            "mediaId": mediaId,
+                            "blob": thumbnailBinary,
+                            "fileNameBinary": fileNameData,
+                            "fileSize": dataCount
+                        ]
+                    }
+                } else if messageSubType == "doc/*" ||  messageSubType == "audio/*" {
+                    
+                    guard let fileNameData = fileNameData?.data else { return }
+                    guard let fileType = messageSubType.dropLast(2).data(using: .utf8) else { return }
+                    
+                    newMetadata = try await MessageDataToFilePlugin.createDataToFileMetadata(
+                        metadata: DataToFileMetaData(
+                            mediaId: mediaId.data,
+                            fileNameBinary: fileNameData,
+                            fileTypeBinary: fileType,
+                            fileSize: dataCount
+                        )
+                    )
+                }
+
+                _ = try await chat.sendRawMessage(
+                    type: type,
+                    messageSubtype: messageSubType,
+                    text: message,
+                    metadata: newMetadata,
+                    destructionTimer: destructionTimer,
+                    preferredPushType: pushType
                 )
             }
         }
@@ -451,16 +533,6 @@ public final class NeedleTailEmitter: NSObject, @unchecked Sendable {
         
     }
 #endif
-    //    public let onRekey = PassthroughSubject<Void, Never>()
-    //    public let savedChatMessages = PassthroughSubject<AnyChatMessage, Never>()
-    //    public let chatMessageRemoved = PassthroughSubject<AnyChatMessage, Never>()
-    //    public let conversationChanged = PassthroughSubject<TargetConversation.Resolved, Never>()
-    //    public let contactChanged = PassthroughSubject<Contact, Never>()
-    //    public let userDevicesChanged = PassthroughSubject<Void, Never>()
-    //    public let customConfigChanged = PassthroughSubject<Void, Never>()
-    //    public let p2pClientConnected = PassthroughSubject<P2PClient, Never>()
-    //    public let conversationAdded = PassthroughSubject<AnyConversation, Never>()
-    
     public static func == (lhs: NeedleTailEmitter, rhs: NeedleTailEmitter) -> Bool {
         return lhs.id == rhs.id
     }

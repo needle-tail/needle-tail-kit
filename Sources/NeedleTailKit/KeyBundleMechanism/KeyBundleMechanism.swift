@@ -118,7 +118,6 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         let buffer = ByteBuffer(data: data)
         let config = try BSONDecoder().decode(UserConfig.self, from: Document(buffer: buffer))
         store.setKeyBundle(config)
-        print("SET_BUNDLE", store.keyBundle)
     }
     
     

@@ -32,8 +32,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "0.0.3")),
         .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.1.0")),
         .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0")),
-        .package(path: "../swift-dtf"),
-        .package(path: "../needletail-media-kit")
+        .package(url: "https://github.com/needle-tail/swift-data-to-file.git", branch: "main"),
+        .package(url: "https://github.com/needle-tail/needletail-media-kit.git", branch: "main")
     ],
     targets: [
         .target(
@@ -55,7 +55,7 @@ let package = Package(
             .product(name: "Algorithms", package: "swift-algorithms"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol"),
-            .product(name: "SwiftDTF", package: "swift-dtf"),
+            .product(name: "SwiftDTF", package: "swift-data-to-file"),
             .product(name: "NeedletailMediaKit", package: "needletail-media-kit")
         ]),
         .target(
