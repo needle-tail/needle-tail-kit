@@ -412,20 +412,7 @@ extension NeedleTailMessenger {
         }
         
         config.blob.metadata = meta
-    }
-    
-    func configureMultipartMessagePacket(_
-                                         multipartMessagePacket: MultipartMessagePacket,
-                                         username: String,
-                                         deviceId: DeviceId
-    ) async -> MultipartMessagePacket {
-        var multipartMessagePacket = multipartMessagePacket
-        multipartMessagePacket.recipient = NeedleTailNick(name: username, deviceId: deviceId)
-        multipartMessagePacket.fileName = multipartMessagePacket.fileName + "_\(deviceId.description)"
-        return multipartMessagePacket
-        
-    }
-    
+    }    
     fileprivate struct MultipartQueuedPacket: Sendable {
         var packet: MultipartMessagePacket
         var message: RatchetedCypherMessage
@@ -559,6 +546,11 @@ extension NeedleTailMessenger {
     @MultipartActor
     public func downloadMultipart(_ metadata: [String]) async throws {
         try await transportBridge?.downloadMultipart(metadata)
+    }
+    
+    @MultipartActor
+    public func uploadMultipart(_ multipartPacket: MultipartMessagePacket) async throws {
+        try await transportBridge?.uploadMultipart(multipartPacket)
     }
     
     public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {

@@ -7,16 +7,16 @@
 
 import NeedleTailHelpers
 import CypherMessaging
-import NeedleTailProtocol
 import JWTKit
-
+@_spi(AsyncChannel) import NeedleTailProtocol
+@_spi(AsyncChannel) import NIOCore
 
 protocol TransportBridge: AnyObject {
     
     func connectClient() async throws
     func resumeClient(
-                      type: RegistrationType,
-                      state: RegistrationState?
+        type: RegistrationType,
+        state: RegistrationState?
     ) async throws
     func suspendClient(_ isSuspending: Bool) async throws
     func sendMessage(
@@ -59,7 +59,7 @@ protocol TransportBridge: AnyObject {
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws
     func sendReadMessages(count: Int) async throws
     func downloadMultipart(_ metadata: [String]) async throws
-    func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws
+    func uploadMultipart(_ packet: MultipartMessagePacket) async throws
 }
 
 
@@ -448,6 +448,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     @NeedleTailTransportActor
+    @_spi(AsyncChannel)
     public func registerAPNSToken(_ token: Data) async throws {
         
         let jwt = try await makeToken(ntkUser.username)
@@ -470,7 +471,11 @@ extension NeedleTailClient: TransportBridge {
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let encodedString = encodedData.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await transport.transportMessage(type)
+        let writer = transport.asyncChannel.outboundWriter
+        try await transport.transportMessage(
+            writer,
+            type: type
+        )
     }
     
     func makeToken(_ username: Username) throws -> String {
@@ -573,34 +578,60 @@ extension NeedleTailClient: TransportBridge {
         store.keyBundle = nil
     }
     
-    func sendReadMessages(count: Int) async throws {
+    @_spi(AsyncChannel)
+    public func sendReadMessages(count: Int) async throws {
         let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
-        try await transport?.transportMessage(type)
+        guard let writer = await transport?.asyncChannel.outboundWriter else { return }
+        try await transport?.transportMessage(
+            writer,
+            type: type
+        )
     }
     
-    @MultipartActor
-    func downloadMultipart(_ metadata: [String]) async throws {
-        guard !metadata[0].isEmpty else { throw NeedleTailError.mediaIdNil }
-        guard !metadata[1].isEmpty else { throw NeedleTailError.deviceIdNil }
+    @_spi(AsyncChannel)
+    public func downloadMultipart(_ metadata: [String]) async throws {
         let data = try BSONEncoder().encode(metadata).makeData()
-        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]), tags: nil)
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+        guard let writer = await transport?.asyncChannel.outboundWriter else { return }
+        try await transport?.transportMessage(
+            writer,
+            type: type
+        )
     }
     
-    @MultipartActor
-    func uploadMultipart(_ packet: MultipartMessagePacket, message: RatchetedCypherMessage) async throws {
+    @_spi(AsyncChannel)
+    public func uploadMultipart(_ packet: MultipartMessagePacket) async throws {
         let messagePacket = MessagePacket(
-            id: UUID().uuidString,
-            pushType: .message,
+            id: packet.id,
+            pushType: .none,
             type: .multiRecipientMessage,
             createdAt: Date(),
             sender: packet.sender.deviceId,
             recipient: packet.recipient?.deviceId,
-            message: message,
             readReceipt: .none,
             multipartMessage: packet
         )
         let data = try BSONEncoder().encode(messagePacket).makeData()
-
-        try await transport?.multipartMessage(.otherCommand(Constants.multipartMediaUpload.rawValue, [data.base64EncodedString()]), tags: nil)
+        
+        var packetCount = 0
+        let packets = data.chunks(ofCount: 10777216)
+        guard let writer = await transport?.asyncChannel.outboundWriter else { return }
+        
+        for packet in packets {
+            packetCount += 1
+            let type = TransportMessageType.standard(.otherCommand(
+                Constants.multipartMediaUpload.rawValue,
+                [
+                    String(packetCount),
+                    String(packets.map{$0}.count),
+                    packet.base64EncodedString()
+                ]
+            ))
+            try await transport?.transportMessage(
+                writer,
+                type: type
+            )
+        }
+        
     }
 }

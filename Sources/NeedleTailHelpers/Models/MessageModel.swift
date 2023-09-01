@@ -37,21 +37,24 @@ public struct MultipartMessagePacket: Codable, Sendable, Equatable {
     public var id: String
     public var sender: NeedleTailNick
     public var recipient: NeedleTailNick?
-    public var fileName: String
-    public var dataCount: Int
+    public var dtfp: DataToFilePacket?
+    public var usersFileName: String?
+    public var usersThumbnailName: String?
     
     public init(
         id: String,
         sender: NeedleTailNick,
         recipient: NeedleTailNick? = nil,
-        fileName: String,
-        dataCount: Int
+        dtfp: DataToFilePacket? = nil,
+        usersFileName: String? = nil,
+        usersThumbnailName: String? = nil
     ) {
         self.id = id
         self.sender = sender
         self.recipient = recipient
-        self.fileName = fileName
-        self.dataCount = dataCount
+        self.dtfp = dtfp
+        self.usersFileName = usersFileName
+        self.usersThumbnailName = usersThumbnailName
     }
 }
 
@@ -63,7 +66,6 @@ public struct ChatPacketJob: Sendable {
     public var type: CypherMessageType
     public var messageSubType: String
     public var text: String
-    public var metadata: Document
     public var destructionTimer: TimeInterval
     public var preferredPushType: PushType
     public var conversationType: ConversationType
@@ -74,7 +76,6 @@ public struct ChatPacketJob: Sendable {
         type: CypherMessageType,
         messageSubType: String,
         text: String,
-        metadata: Document,
         destructionTimer: TimeInterval,
         preferredPushType: PushType,
         conversationType: ConversationType,
@@ -84,7 +85,6 @@ public struct ChatPacketJob: Sendable {
         self.type = type
         self.messageSubType = messageSubType
         self.text = text
-        self.metadata = metadata
         self.destructionTimer = destructionTimer
         self.preferredPushType = preferredPushType
         self.conversationType = conversationType
@@ -116,8 +116,8 @@ public struct MessagePacket: Codable, Sendable, Equatable {
         createdAt: Date,
         sender: DeviceId?,
         recipient: DeviceId?,
-        message: RatchetedCypherMessage?,
-        readReceipt: ReadReceipt?,
+        message: RatchetedCypherMessage? = nil,
+        readReceipt: ReadReceipt? = nil,
         channelName: String? = nil,
         addKeyBundle: Bool? = nil,
         contacts: [NTKContact]? = nil,
@@ -156,3 +156,39 @@ public struct NTKContact: Codable, Sendable {
     }
 }
 
+public struct DataToFilePacket: Codable, Sendable, Equatable {
+    public var mediaId: String
+    public var fileName: String
+    public var thumbnailName: String
+    public var fileType: String
+    public var thumbnailType: String
+    public var fileLocation: String
+    public var thumbnailLocation: String
+    public var fileBlob: Data?
+    public var thumbnailBlob: Data?
+    public var symmetricKey: Data?
+    
+    public init(
+        mediaId: String,
+        fileName: String,
+        thumbnailName: String,
+        fileType: String,
+        thumbnailType: String,
+        fileLocation: String,
+        thumbnailLocation: String,
+        fileBlob: Data? = nil,
+        thumbnailBlob: Data? = nil,
+        symmetricKey: Data? = nil
+    ) {
+        self.mediaId = mediaId
+        self.fileName = fileName
+        self.thumbnailName = thumbnailName
+        self.fileType = fileType
+        self.thumbnailType = thumbnailType
+        self.fileLocation = fileLocation
+        self.thumbnailLocation = thumbnailLocation
+        self.fileBlob = fileBlob
+        self.thumbnailBlob = thumbnailBlob
+        self.symmetricKey = symmetricKey
+    }
+}

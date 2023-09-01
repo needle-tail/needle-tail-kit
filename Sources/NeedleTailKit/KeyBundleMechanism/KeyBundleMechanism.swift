@@ -112,7 +112,7 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         try await keyBundleMessage(type)
     }
     
-    func doReadKeyBundle(_ keyBundle: [String]) async throws {
+    public func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }
         guard let data = Data(base64Encoded: keyBundle) else { throw KeyBundleErrors.cannotReadKeyBundle }
         let buffer = ByteBuffer(data: data)

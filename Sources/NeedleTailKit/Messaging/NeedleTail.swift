@@ -15,6 +15,10 @@ import NeedleTailHelpers
 import Cocoa
 #endif
 import DequeModule
+#if canImport(Crypto)
+import Crypto
+#endif
+import SwiftDTF
 
 extension PublicSigningKey: Equatable {
     public static func == (lhs: CypherProtocol.PublicSigningKey, rhs: CypherProtocol.PublicSigningKey) -> Bool {
@@ -48,6 +52,9 @@ public final class NeedleTail {
     private var totalSuspendRequests = 0
     public var store: CypherMessengerStore?
     public var chatJobQueue = JobQueue<ChatPacketJob>()
+    public var dtfpJobQueue = JobQueue<DataToFilePacket>()
+    
+    internal var needletailCrypto = NeedleTailCrypto()
     
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
@@ -476,9 +483,6 @@ public final class NeedleTail {
     }
     
     public func downloadMultipart(_ metadata: [String]) async throws {
-        guard let deviceId = messenger?.deviceId else { throw NeedleTailError.deviceIdNil }
-        var metadata = metadata
-        metadata.append("_\(deviceId.description)")
         try await messenger?.downloadMultipart(metadata)
     }
 }
@@ -585,7 +589,7 @@ extension NeedleTail {
 #if os(iOS)
                 UIApplication.shared.endEditing()
 #endif
-              emitter.showProgress = true
+                emitter.showProgress = true
                 
                 self.buttonTask = Task {
                     if createContact {
@@ -635,6 +639,148 @@ extension NeedleTail {
             .onDisappear {
                 self.buttonTask?.cancel()
             }
+        }
+    }
+    
+    public struct ThumbnailToMultipart {
+        public var dtfp: DataToFilePacket
+        public var symmetricKey: SymmetricKey
+        public init(
+            dtfp: DataToFilePacket,
+            symmetricKey: SymmetricKey
+        ) {
+            self.dtfp = dtfp
+            self.symmetricKey = symmetricKey
+        }
+    }
+    
+    //MARK: Outbound
+    public func sendMessageThumbnail<Chat: AnyConversation>(
+        chat: Chat,
+        messageSubtype: String,
+        dtfp: DataToFilePacket,
+        destructionTimer: TimeInterval? = nil,
+        fileURL: URL?,
+        fileData: Data?,
+        thumbnailData: Data
+    ) async throws -> ThumbnailToMultipart? {
+        guard let cypher = cypher else { return nil }
+        
+        //Encrypt our file for us locally
+        let thumbnailBox = try cypher.encryptLocalFile(thumbnailData)
+        guard let thumbnailBoxData = thumbnailBox.combined else { return nil }
+        
+        let thumbnailLocation = try DataToFile.shared.generateFile(
+            data: thumbnailBoxData,
+            fileName: dtfp.thumbnailName,
+            fileType: dtfp.thumbnailType
+        )
+        
+        var fileBlob: Data?
+        if let fileURL = fileURL {
+            fileBlob = try DataToFile.shared.generateData(from: fileURL.absoluteString)
+            await MessageDataToFilePlugin.removeFile(with: fileURL)
+        } else {
+            fileBlob = fileData
+        }
+        guard let fileBlob = fileBlob else { return nil }
+        //Encrypt our file for us locally
+        let fileBox = try cypher.encryptLocalFile(fileBlob)
+        guard let fileBoxData = fileBox.combined else { return nil }
+        
+        let fileLocation = try DataToFile.shared.generateFile(
+            data: fileBoxData,
+            fileName: dtfp.fileName,
+            fileType: dtfp.fileType
+        )
+        
+        // Generate the symmetric key for us and the other users to decrypt the blob later
+        let symmetricKey = needletailCrypto.userInfoKey(UUID().uuidString)
+        let encodedKey = try BSONEncoder().encode(symmetricKey).makeData()
+
+        var dtfp = dtfp
+        dtfp.fileLocation = fileLocation
+        dtfp.thumbnailLocation = thumbnailLocation
+        dtfp.symmetricKey = encodedKey
+        
+        let metadata = try await MessageDataToFilePlugin.createDataToFileMetadata(metadata: dtfp)
+        
+        //Save the message for ourselves and send the message to each device
+        _ = try await chat.sendRawMessage(
+            type: .media,
+            messageSubtype: messageSubtype,
+            text: "",
+            metadata: metadata,
+            destructionTimer: destructionTimer,
+            preferredPushType: .message
+        )
+        return ThumbnailToMultipart(
+            dtfp: dtfp,
+            symmetricKey: symmetricKey
+        )
+    }
+    
+    public func sendMultipartMessage(
+        dtfp: DataToFilePacket,
+        conversationPartner: Username,
+        symmetricKey: SymmetricKey
+    ) async throws {
+        guard let cypher = cypher else { return }
+//        1. Access the file locations for both blobs snd decrypt
+        let fileBlob = try await needletailCrypto.decryptFile(from: dtfp.fileLocation, cypher: cypher)
+        let thumbnailBlob = try await needletailCrypto.decryptFile(from: dtfp.thumbnailLocation, cypher: cypher)
+        
+//        2. Encrypt with our symmetric key for share
+            let sharedFileBlob = try needletailCrypto.encrypt(data: fileBlob, symmetricKey: symmetricKey)
+            let sharedThumbnailBlob = try needletailCrypto.encrypt(data: thumbnailBlob, symmetricKey: symmetricKey)
+            var dtfp = dtfp
+            dtfp.fileBlob = sharedFileBlob
+            dtfp.thumbnailBlob = sharedThumbnailBlob
+        guard let messenger = messenger else { return }
+        let recipientsDevices = try await messenger.readKeyBundle(forUsername: conversationPartner)
+        guard let sender = messenger.needleTailNick else { return }
+        
+            //For each device we need to upload an object for that device for them
+            for device in try recipientsDevices.readAndValidateDevices() {
+                //create multipart message
+                let packet = MultipartMessagePacket(
+                    id: dtfp.mediaId,
+                    sender: sender,
+                    recipient: NeedleTailNick(
+                        name: conversationPartner.raw,
+                        deviceId: device.deviceId
+                    ),
+                    dtfp: dtfp,
+                    usersFileName: "\(dtfp.fileName)_\(device.deviceId.raw).\(dtfp.fileType)",
+                    usersThumbnailName: "\(dtfp.thumbnailName)_\(device.deviceId.raw).\(dtfp.thumbnailType)"
+                )
+                
+                dtfp.symmetricKey = nil
+                dtfp.fileLocation = ""
+                dtfp.thumbnailLocation = ""
+                try await messenger.uploadMultipart(packet)
+            }
+        
+        //Send for me
+        let myDevices = try await messenger.readKeyBundle(forUsername: cypher.username)
+        for device in try myDevices.readAndValidateDevices().filter({ $0.deviceId != cypher.deviceId }) {
+            //create multipart message
+            let packet = MultipartMessagePacket(
+                id: dtfp.mediaId,
+                sender: sender,
+                recipient: NeedleTailNick(
+                    name: cypher.username.raw,
+                    deviceId: device.deviceId
+                ),
+                dtfp: dtfp,
+                usersFileName: "\(dtfp.fileName)_\(device.deviceId.raw).\(dtfp.fileType)",
+                usersThumbnailName: "\(dtfp.thumbnailName)_\(device.deviceId.raw).\(dtfp.thumbnailType)"
+            )
+            
+            dtfp.symmetricKey = nil
+            dtfp.fileLocation = ""
+            dtfp.thumbnailLocation = ""
+            try await messenger.uploadMultipart(packet)
         }
     }
     

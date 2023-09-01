@@ -8,9 +8,11 @@
 
 import NeedleTailHelpers
 import CypherMessaging
-import NeedleTailProtocol
+@_spi(AsyncChannel) import NeedleTailProtocol
 import Algorithms
 import DequeModule
+import SwiftDTF
+import Crypto
 @_spi(AsyncChannel) import NIOCore
 
 @NeedleTailTransportActor
@@ -20,7 +22,7 @@ extension NeedleTailTransport {
     /// - Parameter regPacket: Our Registration Packet
     @_spi(AsyncChannel)
     public func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
-        let isActive = await asyncChannel.channel.isActive
+        let isActive = asyncChannel.channel.isActive
         await transportState.transition(to:
                 .transportRegistering(
                     isActive: isActive,
@@ -30,21 +32,35 @@ extension NeedleTailTransport {
         
         guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
+        let writer = asyncChannel.outboundWriter
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
-            try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
+            try await transportMessage(
+                writer,
+                type: .standard(.NICK(clientContext.nickname)),
+                tags: [tag]
+            )
             return
         }
         
-        try await clientMessage(.otherCommand("PASS", [""]))
         let tag = IRCTags(key: "registrationPacket", value: value)
-        try await clientMessage(.NICK(clientContext.nickname), tags: [tag])
+        try await transportMessage(
+            writer,
+            type: .standard(.otherCommand("PASS", [""]))
+        )
+        
+        try await transportMessage(
+            writer,
+            type: .standard(.NICK(clientContext.nickname)),
+            tags: [tag]
+        )
         
         await transportState.transition(to: .transportRegistered(isActive: isActive, clientContext: clientContext))
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
         quiting = true
+        let writer = asyncChannel.outboundWriter
         let authObject = AuthPacket(
             ntkUser: NTKUser(
                 username: username,
@@ -53,12 +69,18 @@ extension NeedleTailTransport {
             tempRegister: false
         )
         let packet = try BSONEncoder().encode(authObject).makeData()
-        try await clientMessage(.QUIT(packet.base64EncodedString()))
+        try await transportMessage(
+            writer,
+            type: .standard(.QUIT(packet.base64EncodedString()))
+        )
     }
     
-    @BlobActor
     func publishBlob(_ packet: String) async throws {
-        try await blobMessage(.otherCommand("BLOBS", [packet]))
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: .standard(.otherCommand("BLOBS", [packet]))
+        )
         try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
@@ -71,7 +93,11 @@ extension NeedleTailTransport {
     
     func requestOfflineMessages() async throws {
         if !quiting {
-            try await clientMessage(.otherCommand("OFFLINEMESSAGES", [""]))
+            let writer = asyncChannel.outboundWriter
+            try await transportMessage(
+                writer,
+                type: .standard(.otherCommand("OFFLINEMESSAGES", []))
+            )
         }
     }
     
@@ -110,7 +136,12 @@ extension NeedleTailTransport {
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
         let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
-        try await transportMessage(type, tags: [tag])
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type,
+            tags: [tag]
+        )
     }
     
     func partNeedleTailChannel(
@@ -136,7 +167,12 @@ extension NeedleTailTransport {
         let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
         guard let channelName = IRCChannelName(name) else { return }
         let type = TransportMessageType.standard(.PART(channels: [channelName]))
-        try await transportMessage(type, tags: [tag])
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type,
+            tags: [tag]
+        )
     }
     
     
@@ -152,75 +188,8 @@ extension NeedleTailTransport {
     ) async throws {
 #if (os(macOS) || os(iOS))
         try await withThrowingTaskGroup(of: Void.self) { group in
-            
-            //Multipart is about to happen we need to create transport messages for each device
-            if await !NeedleTail.shared.chatJobQueue.jobDeque.isEmpty {
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    //We need to configure the multipart message packet if we are going to need to do a multipart message
-                    var jobs = try await NeedleTail.shared.chatJobQueue.checkForExistingJobs { [weak self] job in
-                        guard let self else { return job }
-                        await self.transportJobQueue.addJob(job.multipartMessage)
-                        return job
-                    }
-                    jobs.removeAll()
-                }
-                
-                _ = try await group.next()
-            }
-            
-            
-            let dataCount = try BSONEncoder().encode(message).makeData().count
+            try Task.checkCancellation()
             // Need to make sure we are not sending if we are not actually multipart, if the job deque contains an item ready to be used it could be multipart
-            if dataCount >= 10777216 {
-                if await !transportJobQueue.jobDeque.isEmpty {
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        // In theory we should have only 1 message but just in case we queue messges to be sent. Theoretically each time this method is called our job should be synchronized with the data inside of this method the CTK gives us. if there is no data it means we did not send the message from the application, so we create basically a dummy job so we can send the message in the same logic flow without needing to recreate the message packet in different areas
-                        _ = try await transportJobQueue.checkForExistingJobs { [weak self] job in
-                            guard let self else { return job }
-                            let configuredMessage = await self.configureMultipartMessagePacket(
-                                job,
-                                username: toUser.username.raw,
-                                deviceId: toUser.deviceId
-                            )
-                            
-                            let packet = MessagePacket(
-                                id: messageId,
-                                pushType: pushType,
-                                type: messageType,
-                                createdAt: Date(),
-                                sender: fromUser.deviceId,
-                                recipient: toUser.deviceId,
-                                message: message,
-                                readReceipt: readReceipt,
-                                multipartMessage: configuredMessage
-                            )
-                            
-                            let encodedData = try BSONEncoder().encode(packet).makeData()
-
-                            var packetCount = 0
-                            let packets = encodedData.chunks(ofCount: 10777216)
-
-                            for packet in packets {
-                                packetCount += 1
-                                try await multipartMessage(.otherCommand(
-                                    Constants.multipartMediaUpload.rawValue,
-                                    [
-                                        String(packetCount),
-                                        String(packets.map{$0}.count),
-                                        packet.base64EncodedString()
-                                    ]
-                                ), tags: nil)
-                            }
-                            return job
-                        }
-                        
-                        await transportJobQueue.transferTransportJobs()
-                        await NeedleTail.shared.chatJobQueue.transferTransportJobs()
-                    }
-                }
-            } else {
                 group.addTask { [weak self] in
                     guard let self else { return }
                     let packet = MessagePacket(
@@ -238,7 +207,6 @@ extension NeedleTailTransport {
                     try await sendPrivateMessage(toUser: toUser, type: conversationType, data: encodedData)
                 }
             }
-        }
 #endif
     }
     
@@ -247,7 +215,11 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: type, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], data.base64EncodedString()))
-        try await self.transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     func parseFilename(_ name: String) -> MessageSubType? {
@@ -255,17 +227,7 @@ extension NeedleTailTransport {
         guard let subType = components.first?.dropLast(2) else { return nil }
         return MessageSubType(rawValue: String(subType))
     }
-    
-    func configureMultipartMessagePacket(_
-                                         multipartMessagePacket: MultipartMessagePacket,
-                                         username: String,
-                                         deviceId: DeviceId
-    ) async -> MultipartMessagePacket {
-        var multipartMessagePacket = multipartMessagePacket
-        multipartMessagePacket.recipient = NeedleTailNick(name: username, deviceId: deviceId)
-        return multipartMessagePacket
-    }
-    
+
     func createReadReceiptMessage(
         pushType: PushType,
         toUser: NTKUser,
@@ -287,7 +249,11 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     func createGroupMessage(
@@ -319,7 +285,11 @@ extension NeedleTailTransport {
             //Channel Recipient
             let recipient = try await recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            try await transportMessage(type)
+            let writer = asyncChannel.outboundWriter
+            try await transportMessage(
+                writer,
+                type: type
+            )
         } catch {
             logger.error("\(error)")
         }
@@ -344,7 +314,11 @@ extension NeedleTailTransport {
         self.registryRequestId = packet.id
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     func sendChildDeviceConfig(_ masterNick: NeedleTailNick, config: UserDeviceConfig) async throws {
@@ -366,19 +340,31 @@ extension NeedleTailTransport {
         self.registryRequestId = packet.id
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
     func changeNick(_ nick: NeedleTailNick) async throws {
         let type = TransportMessageType.standard(.NICK(nick))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     func deleteOfflineMessages(from contact: String) async throws {
         let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
     /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
@@ -404,7 +390,11 @@ extension NeedleTailTransport {
         // The recipient is ourself
         let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
 }
 

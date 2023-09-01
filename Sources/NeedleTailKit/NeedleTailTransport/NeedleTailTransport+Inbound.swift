@@ -7,22 +7,26 @@
 
 import CypherMessaging
 import NeedleTailHelpers
-import NeedleTailProtocol
-
+@_spi(AsyncChannel) import NeedleTailProtocol
+@_spi(AsyncChannel) import NIOCore
 #if os(macOS)
 import AppKit
 #endif
+#if canImport(Crypto)
+import Crypto
+#endif
+#if canImport(SwiftDTF)
+import SwiftDTF
+#endif
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
-@NeedleTailTransportActor
 extension NeedleTailTransport {
-    func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
+    public func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
     }
 }
 #endif
 
-@NeedleTailTransportActor
 extension NeedleTailTransport {
     
     
@@ -75,7 +79,8 @@ extension NeedleTailTransport {
 #endif
     }
     
-    private func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
+    @_spi(AsyncChannel)
+    public func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
@@ -88,10 +93,15 @@ extension NeedleTailTransport {
         )
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
-        try await transportMessage(type)
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
     
-    func doMessage(
+    @_spi(AsyncChannel)
+    public func doMessage(
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
         message: String,
@@ -156,7 +166,11 @@ extension NeedleTailTransport {
                         switch transportState.current {
                         case .transportRegistered(isActive: let isActive, clientContext: let clientContext):
                             let type = TransportMessageType.standard(.USER(clientContext.userInfo))
-                            try await transportMessage(type)
+                            let writer = asyncChannel.outboundWriter
+                            try await transportMessage(
+                                writer,
+                                type: type
+                            )
                             await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
                         default:
                             return
@@ -168,8 +182,18 @@ extension NeedleTailTransport {
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
-                    case .multipartUploadComplete:
+                    case .multipartUploadComplete(let packet):
 #if (os(macOS) || os(iOS))
+                        if packet.size <= 10777216 && packet.size != 0 {
+                            let data = try BSONEncoder().encode([packet.name]).makeData()
+                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+                            let writer = asyncChannel.outboundWriter
+                            try await transportMessage(
+                                writer,
+                                type: type
+                            )
+                        }
+                        
                         Task { @MainActor [weak self] in
                             guard let self else { return }
                             self.emitter?.multipartUploadComplete = true
@@ -178,6 +202,7 @@ extension NeedleTailTransport {
                             guard let self else { return }
                             hasStarted = false
                         }
+                        
 #else
                         break
 #endif
@@ -233,13 +258,14 @@ extension NeedleTailTransport {
         }
     }
     
-    private func processMessage(_
-                                packet: MessagePacket,
-                                sender: IRCUserID?,
-                                recipient: IRCMessageRecipient,
-                                messageType: MessageType,
-                                ackType: Acknowledgment.AckType,
-                                messagePacket: MultipartMessagePacket? = nil
+    @_spi(AsyncChannel)
+    public func processMessage(_
+                               packet: MessagePacket,
+                               sender: IRCUserID?,
+                               recipient: IRCMessageRecipient,
+                               messageType: MessageType,
+                               ackType: Acknowledgment.AckType,
+                               messagePacket: MultipartMessagePacket? = nil
     ) async throws {
         guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
         guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
@@ -257,11 +283,16 @@ extension NeedleTailTransport {
             logger.error("\(error.localizedDescription)")
             return
         }
-
+        
         let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
         let ackMessage = acknowledgement.base64EncodedString()
-            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-            try await transportMessage(type)
+        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
+        
     }
     
     private func createAcknowledgment(_
@@ -289,10 +320,10 @@ extension NeedleTailTransport {
     }
     
     
-    func doNick(_ newNick: NeedleTailNick) async throws {}
+    public func doNick(_ newNick: NeedleTailNick) async throws {}
     
     
-    func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
+    public func doMode(nick: NeedleTailNick, add: IRCUserMode, remove: IRCUserMode) async throws {
         var newMode = userMode
         newMode.subtract(remove)
         newMode.formUnion(add)
@@ -303,13 +334,13 @@ extension NeedleTailTransport {
     }
     
     
-    func doBlobs(_ blobs: [String]) async throws {
+    public func doBlobs(_ blobs: [String]) async throws {
         guard let blob = blobs.first else { throw NeedleTailError.nilBlob }
         self.channelBlob = blob
     }
     
     
-    func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
+    public func doJoin(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         logger.info("Joining channels: \(channels)")
         await respondToTransportState()
         
@@ -322,7 +353,7 @@ extension NeedleTailTransport {
         await plugin?.onMembersOnline(onlineNicks)
     }
     
-    func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
+    public func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
         await respondToTransportState()
         
         guard let tag = tags?.first?.value else { return }
@@ -331,24 +362,30 @@ extension NeedleTailTransport {
         await plugin?.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
     }
     
-    func doIsOnline(_ nicks: [NeedleTailNick]) async throws {
+    public func doIsOnline(_ nicks: [NeedleTailNick]) async throws {
         for nick in nicks {
             print("IS ONLINE", nick)
         }
     }
     
-    func doModeGet(nick: NeedleTailNick) async throws {
+    public func doModeGet(nick: NeedleTailNick) async throws {
         await respondToTransportState()
     }
     
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
-    @PingPongActor
-    func doPing(_ origin: String, origin2: String? = nil) async throws {
+    //    @PingPongActor
+    @_spi(AsyncChannel)
+    public func doPing(_ origin: String, origin2: String? = nil) async throws {
         try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-        try await self.pingPongMessage(.PONG(server: origin, server2: origin2), tags: nil)
+        let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
+        let writer = asyncChannel.outboundWriter
+        try await transportMessage(
+            writer,
+            type: type
+        )
     }
-
+    
     public func respondToTransportState() async {
         switch transportState.current {
         case .clientOffline:
@@ -385,67 +422,86 @@ extension NeedleTailTransport {
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) async {
         logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
-
-    func doMultipartMessageDownload(_ packet: [String]) async throws {
-        logger.trace("Received multipart packet: \(packet[1]) of: \(packet[2])")
-        precondition(packet.count == 3)
+    
+    public func doMultipartMessageDownload(_ packet: [String]) async throws {
+        logger.info("Received multipart packet: \(packet[0]) of: \(packet[1])")
+        precondition(packet.count == 4)
         let partNumber = packet[0]
         let totalParts = packet[1]
-        let chunk = packet[2]
+        let chunk = packet[3]
         guard let data = Data(base64Encoded: chunk) else { return }
-
+        
         multipartData.append(data)
         
         if Int(partNumber) == Int(totalParts) {
+            logger.info("Finished receiving parts...")
+            logger.info("Starting to process multipart packet...")
             
-            let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(data: multipartData))
-            guard let multipartPacket = packet.multipartMessage else { return }
-            guard let nick = packet.multipartMessage?.sender else { return }
-            logger.trace("Finished receiving parts...")
-            logger.trace("Starting to process multipart packet...")
-            
-            try await processMultipartMediaMessage(
-                packet,
-                sender: IRCUserID(nick: nick),
-                recipient: .nick(nick),
-                messageType: .message,
-                ackType: .multipartReceived,
-                multipartPacket: multipartPacket
-            )
-            multipartData = Data()
+            try await processMultipartMediaMessage(multipartData)
+            multipartData.removeAll()
         }
     }
     
-    private func processMultipartMediaMessage(_
-                                packet: MessagePacket,
-                                sender: IRCUserID?,
-                                recipient: IRCMessageRecipient,
-                                messageType: MessageType,
-                                ackType: Acknowledgment.AckType,
-                                multipartPacket: MultipartMessagePacket? = nil
-    ) async throws {
-        guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
-        guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
-        guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
-
-        do {
-            try await ctcDelegate?.receiveServerEvent(
-                .messageSent(
-                    message,
-                    id: packet.id,
-                    byUser: Username(sender),
-                    deviceId: deviceId
-                )
-            )
-        } catch {
-            logger.error("\(error.localizedDescription)")
-            return
+    private func processMultipartMediaMessage(_ multipartData: Data) async throws {
+        let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
+        guard let cypher = NeedleTail.shared.cypher else { return }
+        //1. Look up message by Id
+        //TODO: We only find messages if the contact bundle is loaded, how can we search all messagage?
+        if let message = try await NeedleTailEmitter.shared.findPrivateMessage(by: decodedData.mediaId) {
+            try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
+        }    }
+    
+    private func processDownload(message: AnyChatMessage, decodedData: FilePacket, cypher: CypherMessenger) async throws {
+        let mediaId = await message.metadata["mediaId"] as? String
+        if mediaId == decodedData.mediaId {
+            guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { return }
+            let symmetricKey = try BSONDecoder().decode(SymmetricKey.self, from: Document(data: keyBinary.data))
+            try await message.setMetadata(cypher, sortChats: sortConversations, run: { [weak self] props in
+                let document = props.message.metadata
+                var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
+                guard let self else { return try BSONEncoder().encode(dtfp) }
+                guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { return try BSONEncoder().encode(dtfp) }
+                guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { return try BSONEncoder().encode(dtfp) }
+                
+                switch decodedData.mediaType {
+                case .file:
+                    let fileLocation = try DataToFile.shared.generateFile(
+                        data: fileBoxData,
+                        fileName: dtfp.fileName,
+                        fileType: dtfp.fileType
+                    )
+                    dtfp.fileLocation = fileLocation
+                case .thumbnail:
+                    let fileLocation = try DataToFile.shared.generateFile(
+                        data: fileBoxData,
+                        fileName: dtfp.thumbnailName,
+                        fileType: dtfp.thumbnailType
+                    )
+                    dtfp.thumbnailLocation = fileLocation
+                }
+                
+                dtfp.fileBlob = nil
+                dtfp.thumbnailBlob = nil
+                return try BSONEncoder().encode(dtfp)
+            })
+            await updateMetadata(message)
         }
-
-        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: multipartPacket)
-        let ackMessage = acknowledgement.base64EncodedString()
-            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-            try await transportMessage(type)
+    }
+    
+    @MainActor
+    func updateMetadata(_ message: AnyChatMessage?) {
+        NeedleTailEmitter.shared.metadataChanged = message
     }
 }
 
+
+struct FilePacket: Sendable, Codable {
+    var mediaId: String
+    var mediaType: MediaType
+    var name: String
+    var data: Data
+}
+
+enum MediaType: Sendable, Codable {
+    case thumbnail, file
+}

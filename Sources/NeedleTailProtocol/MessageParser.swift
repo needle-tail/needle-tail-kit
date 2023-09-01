@@ -254,21 +254,32 @@ public struct MessageParser: Sendable {
                 if let origin = origin {
                     stripedMessage = stripedMessage.replacingOccurrences(of: origin, with: Constants.none.rawValue)
                 }
+//
+//
+//                if stripedMessage.contains(commandKey) {
+//                        let droppedCommand = stripedMessage.replacingOccurrences(of: commandKey, with: Constants.none.rawValue)
+//                        stripedMessage = droppedCommand
+//                }
+//
+//                let seperatedArguments = stripedMessage.trimmingCharacters(in: .whitespaces)
+//                    .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
+//                    .components(separatedBy: " ")
+//
+//                args.append(contentsOf: seperatedArguments)
                 
-              
-                if stripedMessage.contains(commandKey) {
-                        let droppedCommand = stripedMessage.replacingOccurrences(of: commandKey, with: Constants.none.rawValue)
-                        stripedMessage = droppedCommand
-                }
                 
-                let seperatedArguments = stripedMessage.trimmingCharacters(in: .whitespaces)
-                    .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
-                    .components(separatedBy: " ")
-                
-                args.append(contentsOf: seperatedArguments)
+                // Message Looks like - :origin COMMAND arugmentOne arugmentTwo :finalArgument
+                // Or - COMMAND arugmentOne arugmentTwo :finalArgument
+                        let message = stripedMessage
+                            .components(separatedBy: commandKey + Constants.space.rawValue)[1]
+                            .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
+                            .trimmingCharacters(in: .whitespaces)
+                        let arguments = message.components(separatedBy: Constants.space.rawValue)
+                        args.append(contentsOf: arguments)
             }
         }
         return args
+        
     }
     
     private func createArgFromIntCommand(_ newArray: [String], command: Int) -> String {
