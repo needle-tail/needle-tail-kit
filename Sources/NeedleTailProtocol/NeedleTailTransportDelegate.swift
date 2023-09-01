@@ -44,7 +44,7 @@ extension NeedleTailClientDelegate {
     ) async throws {
         switch type {
         case .standard(let command):
-            let message = IRCMessage(command: command, tags: tags)
+            let message = IRCMessage(origin: origin, command: command, tags: tags)
             try await sendAndFlushMessage(writer, message: message)
         case .private(let command), .notice(let command):
             switch command {

@@ -37,6 +37,7 @@ extension NeedleTailTransport {
             let tag = IRCTags(key: "tempRegPacket", value: value)
             try await transportMessage(
                 writer,
+                origin: self.origin ?? "",
                 type: .standard(.NICK(clientContext.nickname)),
                 tags: [tag]
             )
@@ -46,11 +47,13 @@ extension NeedleTailTransport {
         let tag = IRCTags(key: "registrationPacket", value: value)
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: .standard(.otherCommand("PASS", [""]))
         )
-        
+
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: .standard(.NICK(clientContext.nickname)),
             tags: [tag]
         )
@@ -71,6 +74,7 @@ extension NeedleTailTransport {
         let packet = try BSONEncoder().encode(authObject).makeData()
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: .standard(.QUIT(packet.base64EncodedString()))
         )
     }
@@ -79,6 +83,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: .standard(.otherCommand("BLOBS", [packet]))
         )
         try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
@@ -96,7 +101,8 @@ extension NeedleTailTransport {
             let writer = asyncChannel.outboundWriter
             try await transportMessage(
                 writer,
-                type: .standard(.otherCommand("OFFLINEMESSAGES", []))
+                origin: self.origin ?? "",
+                type: .standard(.otherCommand(Constants.offlineMessages.rawValue, []))
             )
         }
     }
@@ -139,6 +145,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type,
             tags: [tag]
         )
@@ -170,6 +177,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type,
             tags: [tag]
         )
@@ -218,6 +226,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -252,6 +261,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -317,6 +327,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -343,6 +354,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -354,6 +366,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -363,6 +376,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -393,6 +407,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }

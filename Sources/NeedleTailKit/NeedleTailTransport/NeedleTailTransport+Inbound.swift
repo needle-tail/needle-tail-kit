@@ -96,6 +96,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }
@@ -159,7 +160,6 @@ extension NeedleTailTransport {
                     let buffer = ByteBuffer(data: ack)
                     let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                     store.setAck(ack.acknowledgment)
-                    
                     switch store.acknowledgment {
                     case .registered(let bool):
                         guard bool == "true" else { return }
@@ -169,6 +169,7 @@ extension NeedleTailTransport {
                             let writer = asyncChannel.outboundWriter
                             try await transportMessage(
                                 writer,
+                                origin: self.origin ?? "",
                                 type: type
                             )
                             await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
@@ -190,6 +191,7 @@ extension NeedleTailTransport {
                             let writer = asyncChannel.outboundWriter
                             try await transportMessage(
                                 writer,
+                                origin: self.origin ?? "",
                                 type: type
                             )
                         }
@@ -290,6 +292,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
         
@@ -382,6 +385,7 @@ extension NeedleTailTransport {
         let writer = asyncChannel.outboundWriter
         try await transportMessage(
             writer,
+            origin: self.origin ?? "",
             type: type
         )
     }

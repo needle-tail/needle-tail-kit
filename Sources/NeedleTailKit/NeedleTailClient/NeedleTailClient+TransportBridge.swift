@@ -474,6 +474,7 @@ extension NeedleTailClient: TransportBridge {
         let writer = transport.asyncChannel.outboundWriter
         try await transport.transportMessage(
             writer,
+            origin: transport.origin ?? "",
             type: type
         )
     }
@@ -584,6 +585,7 @@ extension NeedleTailClient: TransportBridge {
         guard let writer = await transport?.asyncChannel.outboundWriter else { return }
         try await transport?.transportMessage(
             writer,
+            origin: transport?.origin ?? "",
             type: type
         )
     }
@@ -595,6 +597,7 @@ extension NeedleTailClient: TransportBridge {
         guard let writer = await transport?.asyncChannel.outboundWriter else { return }
         try await transport?.transportMessage(
             writer,
+            origin: transport?.origin ?? "",
             type: type
         )
     }
@@ -629,6 +632,7 @@ extension NeedleTailClient: TransportBridge {
             ))
             try await transport?.transportMessage(
                 writer,
+                origin: transport?.origin ?? "",
                 type: type
             )
         }
