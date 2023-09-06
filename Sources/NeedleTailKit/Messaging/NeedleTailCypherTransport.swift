@@ -17,6 +17,7 @@ import FoundationNetworking
 import NIOTransportServices
 #endif
 
+#if os(iOS) || os(macOS)
 public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     internal var configuration: NeedleTailCypherTransport.Configuration
@@ -667,3 +668,4 @@ final class TransportStore {
         keyBundle = config
     }
 }
+#endif
