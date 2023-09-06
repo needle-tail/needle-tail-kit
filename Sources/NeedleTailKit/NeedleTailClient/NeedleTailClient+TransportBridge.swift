@@ -11,6 +11,7 @@ import JWTKit
 @_spi(AsyncChannel) import NeedleTailProtocol
 @_spi(AsyncChannel) import NIOCore
 
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 protocol TransportBridge: AnyObject {
     
     func connectClient(
@@ -680,3 +681,4 @@ extension NeedleTailClient: TransportBridge {
         
     }
 }
+#endif

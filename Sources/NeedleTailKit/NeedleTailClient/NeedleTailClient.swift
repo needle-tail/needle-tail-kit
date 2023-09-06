@@ -7,7 +7,7 @@ import CypherMessaging
 import NIOTransportServices
 #endif
 
-
+#if (os(macOS) || os(iOS))
 struct NTKClientBundle: Sendable {
     let signer: TransportCreationRequest?
     var cypher: CypherMessenger?
@@ -40,7 +40,6 @@ actor NeedleTailClient {
                       plugin: NeedleTailPlugin,
                       messenger: NeedleTailMessenger
     ) async {
-        var transport = transport
         transport.ctcDelegate = delegate
         transport.ctDelegate = self
         transport.plugin = plugin
@@ -82,9 +81,14 @@ actor NeedleTailClient {
     
     func teardownClient() async {
         transport = nil
-//        mechanism = nil
         childChannel = nil
-//        store = nil
+        await tearDownKeyMech()
+    }
+    
+    @KeyBundleMechanismActor
+    func tearDownKeyMech() async {
+        mechanism = nil
+        store = nil
     }
 }
 
@@ -94,4 +98,4 @@ extension NeedleTailClient: Equatable {
     }
 }
 
-
+#endif

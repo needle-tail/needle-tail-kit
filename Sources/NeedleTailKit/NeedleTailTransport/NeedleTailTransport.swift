@@ -72,8 +72,9 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
     let motdBuilder = MOTDBuilder()
     var hasStarted = false
     var multipartData = Data()
+#if canImport(Crypto)
     let needleTailCrypto = NeedleTailCrypto()
-    
+#endif
     init(
         ntkBundle: NTKClientBundle,
         asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,

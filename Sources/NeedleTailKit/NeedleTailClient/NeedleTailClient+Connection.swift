@@ -13,7 +13,7 @@ import Logging
 @_spi(AsyncChannel) import NIOCore
 @_spi(AsyncChannel) import NeedleTailProtocol
 
-
+#if (os(macOS) || os(iOS))
 extension NeedleTailClient: ClientTransportDelegate {
     
     func attemptConnection(
@@ -290,3 +290,4 @@ extension NeedleTailClient: ClientTransportDelegate {
         try await self.transport?.notifyContactRemoved(ntkUser, removed: contact)
     }
 }
+#endif
