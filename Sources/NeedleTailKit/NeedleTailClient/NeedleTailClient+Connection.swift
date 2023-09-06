@@ -56,7 +56,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                         async let mechanism = try await self.setMechanisim(handlers.0)
                         async let transport = try await self.setTransport(handlers.1)
                         async let _ = try await self.setStore(handlers.2)
-                        
+
                         await NeedleTailClient.handleChildChannel(
                             childChannel.inboundStream,
                             mechanism: try await mechanism,
