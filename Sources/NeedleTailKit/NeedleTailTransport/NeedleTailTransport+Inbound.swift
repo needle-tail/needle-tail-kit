@@ -27,6 +27,7 @@ extension NeedleTailTransport {
 }
 #endif
 
+#if (os(macOS) || os(iOS))
 extension NeedleTailTransport {
     
     
@@ -521,3 +522,4 @@ struct FilePacket: Sendable, Codable {
 enum MediaType: Sendable, Codable {
     case thumbnail, file
 }
+#endif

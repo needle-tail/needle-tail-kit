@@ -14,6 +14,7 @@ import Combine
 @_spi(AsyncChannel) import NIOCore
 @_spi(AsyncChannel) import NeedleTailProtocol
 
+#if (os(macOS) || os(iOS))
 protocol MessengerTransportBridge: AnyObject, Sendable {
     @NeedleTailTransportActor
     var ctcDelegate: CypherTransportClientDelegate? { get set }
@@ -312,3 +313,4 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
         }
     }
 }
+#endif

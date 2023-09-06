@@ -15,6 +15,7 @@ import SwiftDTF
 import Crypto
 @_spi(AsyncChannel) import NIOCore
 
+#if (os(macOS) || os(iOS))
 @NeedleTailTransportActor
 extension NeedleTailTransport {
     
@@ -476,6 +477,7 @@ struct MultipartObject: Sendable, Codable {
     var totalParts: String
     var data: Data
 }
+#endif
 
 extension ThrowingTaskGroup {
     
