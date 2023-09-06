@@ -239,6 +239,11 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
                         guard let self else { return }
                         try await self.delegate?.doMultipartMessageDownload(media)
                     }
+                case .otherCommand(Constants.listBucket.rawValue, let packet):
+                    group.addTask { [weak self] in
+                        guard let self else { return }
+                        try await self.delegate?.doListBucket(packet)
+                    }
                 case .numeric(.replyMotDStart, _):
                     group.addTask { [weak self] in
                         guard let self else { return }

@@ -27,7 +27,7 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
-    @Published public var listedFilenames = Set<Filename>()
+    @Published public var listedFilenames = [Filename]()
     
     @Published public var contactChanged: Contact?
     @Published public var registered = false

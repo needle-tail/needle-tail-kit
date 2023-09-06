@@ -463,6 +463,21 @@ extension NeedleTailTransport {
         }
     }
     
+    public func doListBucket(_ packet: [String]) async throws {
+        guard let data = Data(base64Encoded: packet[0]) else { return }
+        let nameList = try BSONDecoder().decode([String].self, from: Document(data: data))
+        var filenames = [Filename]()
+        for name in nameList {
+            filenames.append(Filename(name))
+        }
+        await setFileNames(filenames)
+    }
+    
+    @MainActor
+    private func setFileNames(_ filenames: [Filename]) async {
+        messenger.emitter.listedFilenames = filenames
+    }
+    
     private func processMultipartMediaMessage(_ multipartData: Data) async throws {
         let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
         guard let cypher = await messenger.cypher else { return }
