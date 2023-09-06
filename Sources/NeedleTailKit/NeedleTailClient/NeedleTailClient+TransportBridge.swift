@@ -685,8 +685,8 @@ extension NeedleTailClient: TransportBridge {
     public func requestBucketContents(_ bucket: String) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
-            guard let writer = await transport?.asyncChannel.outboundWriter else { return }
-            let data = try BSONEncoder().encode(bucket).makeData()
+            guard let writer = await self.transport?.asyncChannel.outboundWriter else { return }
+            let data = try BSONEncoder().encode([bucket]).makeData()
             let type = TransportMessageType.standard(.otherCommand(
                 Constants.listBucket.rawValue,
                 [data.base64EncodedString()]

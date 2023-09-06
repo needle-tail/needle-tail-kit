@@ -251,9 +251,10 @@ public struct MessageParser: Sendable {
                         args.append(argument.trimmingCharacters(in: .whitespaces))
                     }
                 }
-                //This Logic is intended for IRCMessages that contain an array of string for arguments
+                //This Logic is intended for IRCMessages that contain an array of strings for arguments
             } else if commandKey.hasPrefix(Constants.multipartMediaDownload.rawValue)  ||
-                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue) {
+                        commandKey.hasPrefix(Constants.multipartMediaUpload.rawValue)  ||
+                        commandKey.hasPrefix(Constants.listBucket.rawValue) {
                 var stripedMessage = stripedMessage
                 
                 //If we are a message from the server we will have it's origin included, so parse it
