@@ -7,12 +7,12 @@
 //
 
 import Foundation
-import CryptoKit
+import Crypto
 import CypherMessaging
 import SwiftDTF
 
-public struct NeedleTailCrypto {
-
+public struct NeedleTailCrypto: Sendable {
+    
     public init() {}
     
     //Any string we can use to generate a SymmetricKey it should be unique to a client/app

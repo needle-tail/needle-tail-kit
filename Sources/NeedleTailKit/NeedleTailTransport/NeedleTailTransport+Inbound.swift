@@ -36,7 +36,7 @@ extension NeedleTailTransport {
 #if (os(macOS) || os(iOS))
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.emitter?.requestMessageId = messageId
+            self.messenger.emitter.requestMessageId = messageId
         }
 #endif
     }
@@ -57,8 +57,7 @@ extension NeedleTailTransport {
 #if (os(macOS) || os(iOS))
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard let emitter = self.emitter else { return }
-            self.clearNewDeviceState(emitter)
+            self.clearNewDeviceState(messenger)
         }
 #endif
     }
@@ -71,34 +70,37 @@ extension NeedleTailTransport {
     }
     
     @MainActor
-    private func clearNewDeviceState(_ emitter: NeedleTailEmitter) {
+    private func clearNewDeviceState(_ messenger: NeedleTailMessenger) {
 #if (os(macOS) || os(iOS))
-        emitter.qrCodeData = nil
-        emitter.showProgress = false
-        emitter.dismissRegistration = true
+        messenger.emitter.qrCodeData = nil
+        messenger.emitter.showProgress = false
+        messenger.emitter.dismissRegistration = true
 #endif
     }
     
     @_spi(AsyncChannel)
     public func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
-        let packet = MessagePacket(
-            id: UUID().uuidString,
-            pushType: .none,
-            type: type,
-            createdAt: Date(),
-            sender: nil,
-            recipient: nil,
-            message: nil,
-            readReceipt: .none
-        )
-        let encodedData = try BSONEncoder().encode(packet).makeData()
-        let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
-        let writer = asyncChannel.outboundWriter
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
+        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+            guard let self else { return }
+            let packet = MessagePacket(
+                id: UUID().uuidString,
+                pushType: .none,
+                type: type,
+                createdAt: Date(),
+                sender: nil,
+                recipient: nil,
+                message: nil,
+                readReceipt: .none
+            )
+            let encodedData = try BSONEncoder().encode(packet).makeData()
+            let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
+            let writer = await self.asyncChannel.outboundWriter
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     }
     
     @_spi(AsyncChannel)
@@ -165,14 +167,17 @@ extension NeedleTailTransport {
                         guard bool == "true" else { return }
                         switch transportState.current {
                         case .transportRegistered(isActive: let isActive, clientContext: let clientContext):
-                            let type = TransportMessageType.standard(.USER(clientContext.userInfo))
-                            let writer = asyncChannel.outboundWriter
-                            try await transportMessage(
-                                writer,
-                                origin: self.origin ?? "",
-                                type: type
-                            )
-                            await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
+                            try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+                                guard let self else { return }
+                                let type = TransportMessageType.standard(.USER(clientContext.userInfo))
+                                let writer = await self.asyncChannel.outboundWriter
+                                try await self.transportMessage(
+                                    writer,
+                                    origin: self.origin ?? "",
+                                    type: type
+                                )
+                                await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
+                            }
                         default:
                             return
                         }
@@ -186,19 +191,22 @@ extension NeedleTailTransport {
                     case .multipartUploadComplete(let packet):
 #if (os(macOS) || os(iOS))
                         if packet.size <= 10777216 && packet.size != 0 {
-                            let data = try BSONEncoder().encode([packet.name]).makeData()
-                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-                            let writer = asyncChannel.outboundWriter
-                            try await transportMessage(
-                                writer,
-                                origin: self.origin ?? "",
-                                type: type
-                            )
+                            try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+                                guard let self else { return }
+                                let data = try BSONEncoder().encode([packet.name]).makeData()
+                                let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+                                let writer = await self.asyncChannel.outboundWriter
+                                try await self.transportMessage(
+                                    writer,
+                                    origin: self.origin ?? "",
+                                    type: type
+                                )
+                            }
                         }
                         
                         Task { @MainActor [weak self] in
                             guard let self else { return }
-                            self.emitter?.multipartUploadComplete = true
+                            self.messenger.emitter.multipartUploadComplete = true
                         }
                         Task { @NeedleTailTransportActor [weak self] in
                             guard let self else { return }
@@ -212,7 +220,7 @@ extension NeedleTailTransport {
 #if (os(macOS) || os(iOS))
                         Task { @MainActor [weak self] in
                             guard let self else { return }
-                            self.emitter?.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
+                            self.messenger.emitter.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
                         }
 #else
                         break
@@ -239,8 +247,8 @@ extension NeedleTailTransport {
                 case .notifyContactRemoval:
 #if os(iOS) || os(macOS)
                     guard let contact = packet.contacts?.first else { return }
-                    guard let foundContact = try await emitter?.cypher?.getContact(byUsername: contact.username) else { return }
-                    try await emitter?.removeMessages(from: foundContact)
+                    guard let foundContact = try await messenger.cypher?.getContact(byUsername: contact.username) else { return }
+                    try await messenger.removeMessages(from: foundContact)
                     try await foundContact.remove()
 #else
                     return
@@ -286,16 +294,18 @@ extension NeedleTailTransport {
             return
         }
         
-        let acknowledgement = try await createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
-        let ackMessage = acknowledgement.base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-        let writer = asyncChannel.outboundWriter
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-        
+        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+            guard let self else { return }
+            let acknowledgement = try await self.createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
+            let ackMessage = acknowledgement.base64EncodedString()
+            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+            let writer = await self.asyncChannel.outboundWriter
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     }
     
     private func createAcknowledgment(_
@@ -377,17 +387,19 @@ extension NeedleTailTransport {
     
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
-    //    @PingPongActor
     @_spi(AsyncChannel)
     public func doPing(_ origin: String, origin2: String? = nil) async throws {
-        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-        let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-        let writer = asyncChannel.outboundWriter
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
+        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+            guard let self else { return }
+            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+            let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
+            let writer = await self.asyncChannel.outboundWriter
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     }
     
     public func respondToTransportState() async {
@@ -448,10 +460,10 @@ extension NeedleTailTransport {
     
     private func processMultipartMediaMessage(_ multipartData: Data) async throws {
         let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
-        guard let cypher = NeedleTail.shared.cypher else { return }
+        guard let cypher = await messenger.cypher else { return }
         //1. Look up message by Id
         //TODO: We only find messages if the contact bundle is loaded, how can we search all messagage?
-        if let message = try await NeedleTailEmitter.shared.findPrivateMessage(by: decodedData.mediaId) {
+        if let message = try await messenger.findPrivateMessage(by: decodedData.mediaId) {
             try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
         }    }
     
@@ -493,8 +505,8 @@ extension NeedleTailTransport {
     }
     
     @MainActor
-    func updateMetadata(_ message: AnyChatMessage?) {
-        NeedleTailEmitter.shared.metadataChanged = message
+    func updateMetadata(_ message: AnyChatMessage?) async {
+        messenger.emitter.metadataChanged = message
     }
 }
 

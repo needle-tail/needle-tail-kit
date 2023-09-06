@@ -42,7 +42,6 @@ public final class NeedleTailEncoder {
                 newString = userBase + Constants.space.rawValue + (userInfo.hostname ?? Constants.star.rawValue) + Constants.space.rawValue + (userInfo.servername ?? Constants.star.rawValue)
             }
             newString += Constants.space.rawValue + Constants.colon.rawValue + userInfo.realname
-         print("NEW_STRING___", newString)
         case .ISON(let nicks):
             newString += base + Constants.space.rawValue + arguments(nicks.lazy.map({ $0.stringValue }))
             

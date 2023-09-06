@@ -27,12 +27,12 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMajor(from: "2.24.0")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.1.3")),
         .package(url: "https://github.com/needle-tail/CypherTextKit.git", revision: "78b489adc3e35ccd30d23e65f8e7a00140a9f0b9"),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMajor(from: "2.1.0")),
         .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "0.0.3")),
         .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.1.0")),
         .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/needle-tail/swift-data-to-file.git", branch: "main"),
-        .package(url: "https://github.com/needle-tail/needletail-media-kit.git", branch: "main")
+        .package(url: "https://github.com/needle-tail/needletail-media-kit.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "2.6.0"),
     ],
     targets: [
         .target(
@@ -48,14 +48,14 @@ let package = Package(
             .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
-            .product(name: "Crypto", package: "swift-crypto"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "Atomics", package: "swift-atomics"),
             .product(name: "Algorithms", package: "swift-algorithms"),
+            .product(name: "SwiftDTF", package: "swift-data-to-file"),
+            .product(name: "NeedletailMediaKit", package: "needletail-media-kit"),
+            .product(name: "Crypto", package: "swift-crypto"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol"),
-            .product(name: "SwiftDTF", package: "swift-data-to-file"),
-            .product(name: "NeedletailMediaKit", package: "needletail-media-kit")
         ]),
         .target(
             name: "NeedleTailProtocol",

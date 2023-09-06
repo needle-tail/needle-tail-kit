@@ -19,6 +19,10 @@
     public static let shared = NeedleTailClientActor()
 }
 
+@globalActor public final actor NeedleTailMessengerActor {
+    public static let shared = NeedleTailMessengerActor()
+}
+
 @globalActor public final actor NeedleTailChannelActor {
     public static let shared = NeedleTailChannelActor()
 }

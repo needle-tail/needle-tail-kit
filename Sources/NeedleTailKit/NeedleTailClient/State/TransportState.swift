@@ -17,14 +17,14 @@ public class TransportState: StateMachine {
     public let identifier: UUID
     public var current: State = .clientOffline
     private var logger: Logger
-    @MainActor private var emitter: NeedleTailEmitter
+    @MainActor private var messenger: NeedleTailMessenger
     
     public init(
         identifier: UUID,
-        emitter: NeedleTailEmitter
+        messenger: NeedleTailMessenger
     ) {
         self.identifier = identifier
-        self.emitter = emitter
+        self.messenger = messenger
         self.logger = Logger(label: "TransportState:")
     }
 
@@ -63,7 +63,7 @@ public class TransportState: StateMachine {
             logger.info("Registered Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
 #if (os(macOS) || os(iOS))
             Task { @MainActor in
-                emitter.clientIsRegistered = true
+                messenger.emitter.clientIsRegistered = true
             }
 #endif
         case .transportOnline(isActive: let isActive, clientContext: let clientContext):
@@ -75,7 +75,7 @@ public class TransportState: StateMachine {
             logger.info("Successfully de-registerd Session")
 #if (os(macOS) || os(iOS))
             Task { @MainActor in
-                emitter.clientIsRegistered = false
+                messenger.emitter.clientIsRegistered = false
             }
 #endif
         case .clientDisconnected:
@@ -86,8 +86,8 @@ public class TransportState: StateMachine {
     @MainActor
     func setState(_ currentState: State) -> State {
 #if (os(macOS) || os(iOS))
-        self.emitter.state = currentState
-        return self.emitter.state
+        self.messenger.emitter.transportState = currentState
+        return self.messenger.emitter.transportState
 #else
 return State.clientOffline
 #endif

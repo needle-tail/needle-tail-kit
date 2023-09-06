@@ -17,19 +17,17 @@ import Cocoa
 #endif
 
 //Our Store for loading receiving messages in real time(TOP LEVEL)
-public class NeedleTailPlugin: Plugin {
+public final class NeedleTailPlugin: Plugin, Sendable {
     
     public static let pluginIdentifier = "@/needletail"
     
-    var emitter: NeedleTailEmitter
+    let messenger: NeedleTailMessenger
     
-    public init(emitter: NeedleTailEmitter) {
-        self.emitter = emitter
+    public init(messenger: NeedleTailMessenger) {
+        self.messenger = messenger
     }
     
-    
-    private var multipartData: Data?
-    
+    @MainActor
     public func onCreateChatMessage(_ message: AnyChatMessage) {
         
 #if os(iOS)
@@ -38,15 +36,19 @@ public class NeedleTailPlugin: Plugin {
 #endif
         
 #if (os(macOS) || os(iOS))
-            self.emitter.messageReceived = message
+        print("CREATED MESSAGE", message.text)
+        self.messenger.emitter.messageReceived = message
 #endif
     }
     
+    @MainActor
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        emitter.messageRemoved = message
+        messenger.emitter.messageRemoved = message
 #endif
     }
+    
+    @MainActor
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
         //        Task { @MainActor in
@@ -59,22 +61,23 @@ public class NeedleTailPlugin: Plugin {
         
 #if (os(macOS) || os(iOS))
         print("MESSAGE_CHANGED____")
-        emitter.messageChanged = message
+        messenger.emitter.messageChanged = message
 #endif
     }
-    
+    @MainActor
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
         print("CREATED CONTACT")
-        emitter.contactAdded = contact
+        messenger.emitter.contactAdded = contact
 #endif
     }
     
+    @MainActor
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
         print("CONTACT CHANGED")
         deleteOfflineMessage(contact)
-        emitter.contactChanged = contact
+        messenger.emitter.contactChanged = contact
 #endif
     }
     
@@ -84,20 +87,21 @@ public class NeedleTailPlugin: Plugin {
         deleteOfflineMessage(contact, removedContact: true)
         //Tell other devieces we want to delete the contact
         notifyContactRemoved(contact)
-        emitter.contactRemoved = contact
+        messenger.emitter.contactRemoved = contact
 #endif
     }
     
     //If a user is not friends, we blocked them, or we deleted them as a contact we will delete all the stored messages that maybe online. Since we no long want to communicate with them.
     func deleteOfflineMessage(_ contact: Contact, removedContact: Bool = false) {
 #if (os(macOS) || os(iOS))
-        Task.detached {
+        Task.detached { [weak self] in
+            guard let self else { return }
             let blocked = await contact.ourFriendshipState == .blocked
             let notFriend = await contact.ourFriendshipState == .notFriend
             if blocked || notFriend {
-                try await NeedleTail.shared.deleteOfflineMessages(from: contact.username.raw)
+                try await messenger.deleteOfflineMessages(from: contact.username.raw)
             } else if removedContact {
-                try await NeedleTail.shared.deleteOfflineMessages(from: contact.username.raw)
+                try await messenger.deleteOfflineMessages(from: contact.username.raw)
             }
         }
 #endif
@@ -105,21 +109,22 @@ public class NeedleTailPlugin: Plugin {
     
     func notifyContactRemoved(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        Task.detached {
-            try await NeedleTail.shared.notifyContactRemoved(contact.username)
+        Task.detached { [weak self] in
+            guard let self else { return }
+            try await self.messenger.notifyContactRemoved(contact.username)
         }
 #endif
     }
     
     @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
 #if (os(macOS) || os(iOS))
-        emitter.nicksOnline = nick
+        messenger.emitter.nicksOnline = nick
 #endif
     }
     
     @MainActor public func onPartMessage(_ message: String) {
 #if (os(macOS) || os(iOS))
-        emitter.partMessage = message
+        messenger.emitter.partMessage = message
 #endif
     }
     
@@ -156,20 +161,20 @@ public class NeedleTailPlugin: Plugin {
         
     }
     
-    
-    public func onConversationChange(_ viewModel: AnyConversation) {
+    @MainActor
+    public func onConversationChange(_ viewModel: AnyConversation) async {
 #if (os(macOS) || os(iOS))
-        Task { @MainActor in
-            let resolved = Task.detached {
-                return await viewModel.resolveTarget()
-            }
-            emitter.conversationChanged = await resolved.value
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.messenger.emitter.conversationChanged = await viewModel.resolveTarget()
         }
 #endif
     }
+    
+    @MainActor
     public func onCreateConversation(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
-        emitter.conversationAdded = viewModel
+        self.messenger.emitter.conversationAdded = viewModel
 #endif
     }
 }

@@ -14,15 +14,13 @@ import Combine
 @_spi(AsyncChannel) import NIOCore
 @_spi(AsyncChannel) import NeedleTailProtocol
 
-protocol MessengerTransportBridge: AnyObject {
+protocol MessengerTransportBridge: AnyObject, Sendable {
     @NeedleTailTransportActor
     var ctcDelegate: CypherTransportClientDelegate? { get set }
     @NeedleTailTransportActor
     var ctDelegate: ClientTransportDelegate? { get set }
     @NeedleTailTransportActor
     var plugin: NeedleTailPlugin? { get set }
-    @MainActor
-    var emitter: NeedleTailEmitter? { get set }
 }
 
 protocol ClientTransportDelegate: AnyObject {
@@ -66,25 +64,23 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
     weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
     weak var ctDelegate: ClientTransportDelegate?
     var plugin: NeedleTailPlugin?
-    @MainActor
-    var emitter: NeedleTailEmitter?
+    let messenger: NeedleTailMessenger
     var quiting = false
 #if canImport(Combine)
     private var statusCancellable: Cancellable?
 #endif
     let motdBuilder = MOTDBuilder()
-//    let transportJobQueue = JobQueue<MultipartMessagePacket>()
     var hasStarted = false
     var multipartData = Data()
     let needleTailCrypto = NeedleTailCrypto()
-    
     
     init(
         ntkBundle: NTKClientBundle,
         asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         transportState: TransportState,
         clientContext: ClientContext,
-        store: TransportStore
+        store: TransportStore,
+        messenger: NeedleTailMessenger
     ) {
         self.ntkBundle = ntkBundle
         self.store = store
@@ -92,11 +88,10 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
         self.transportState = transportState
         self.clientContext = clientContext
         self.serverInfo = clientContext.serverInfo
+        self.messenger = messenger
         self.delegate = self
-        
-        guard let emitter = emitter else { return }
 #if canImport(Combine)
-        statusCancellable = emitter.publisher(for: \.clientIsRegistered) as? Cancellable
+        statusCancellable = self.messenger.emitter.publisher(for: \.clientIsRegistered) as? Cancellable
 #endif
     }
     
