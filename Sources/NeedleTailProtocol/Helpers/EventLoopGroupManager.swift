@@ -51,7 +51,11 @@ public final class EventLoopGroupManager: @unchecked Sendable {
         case .createNew:
             lock.lock()
             if usingNetwork {
+#if canImport(Network)
                 self.groupWrapper = GroupWrapper(group: NIOTSEventLoopGroup())
+#else
+                self.groupWrapper = GroupWrapper(group: MultiThreadedEventLoopGroup(numberOfThreads: 1))
+#endif
             } else {
                 self.groupWrapper = GroupWrapper(group: MultiThreadedEventLoopGroup(numberOfThreads: 1))
             }
@@ -114,11 +118,11 @@ extension EventLoopGroupManager {
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(host: host, port: port) { channel in
                     channel.eventLoop.makeCompletedFuture {
-                       _ = createHandlers(channel)
+                        _ = createHandlers(channel)
                         return try NIOAsyncChannel(synchronouslyWrapping: channel)
                     }
                 }
-                
+            
             let bootstrap = try NIOClientTCPBootstrap(
                 client,
                 tls: NIOSSLClientTLSProvider(
@@ -135,7 +139,7 @@ extension EventLoopGroupManager {
         
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
-//             We run on a new-enough Darwin so we can use Network.framework
+            //             We run on a new-enough Darwin so we can use Network.framework
             var connection = NIOTSConnectionBootstrap(group: group)
             let tcpOptions = NWProtocolTCP.Options()
             connection = connection.tcpOptions(tcpOptions)
@@ -147,21 +151,21 @@ extension EventLoopGroupManager {
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(
-                host: host,
-                port: port
-            ) { channel in
-               return channel.eventLoop.makeCompletedFuture {
-                   try channel.pipeline.syncOperations.addHandlers([
-                       ByteToMessageHandler(
-                           LineBasedFrameDecoder()
-                       )
-                   ], position: .first)
-                    return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
-                        synchronouslyWrapping: channel,
-                        configuration: .init()
-                    )
+                    host: host,
+                    port: port
+                ) { channel in
+                    return channel.eventLoop.makeCompletedFuture {
+                        try channel.pipeline.syncOperations.addHandlers([
+                            ByteToMessageHandler(
+                                LineBasedFrameDecoder()
+                            )
+                        ], position: .first)
+                        return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
+                            synchronouslyWrapping: channel,
+                            configuration: .init()
+                        )
+                    }
                 }
-            }
             
             return channel
         } else {
