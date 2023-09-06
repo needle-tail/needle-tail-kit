@@ -491,5 +491,17 @@ extension ThrowingTaskGroup {
             group.cancelAll()
         })
     }
+   
+    static func executeReturningChildTask<T>(work: @Sendable @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self, body: { group in
+            try Task.checkCancellation()
+            group.addTask {
+                try await work()
+            }
+            guard let work = try await group.next() else { fatalError("Cannot be nil") }
+            group.cancelAll()
+            return work
+        })
+    }
     
 }

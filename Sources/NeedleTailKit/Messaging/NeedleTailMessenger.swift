@@ -528,6 +528,10 @@ public final class NeedleTailMessenger {
     public func downloadMultipart(_ metadata: [String]) async throws {
         try await cypherTransport?.downloadMultipart(metadata)
     }
+    
+    public func requestBucketContents(_ bucket: String = "MultipartBucket") async throws {
+        try await cypherTransport?.requestBucketContents(bucket)
+    }
 }
 
 

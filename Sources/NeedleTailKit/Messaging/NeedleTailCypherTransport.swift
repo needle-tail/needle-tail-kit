@@ -172,6 +172,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
         let plugin = configuration.plugin
         await configuration.client?.delegateJob.addJob(
             NeedleTailCypherTransport.DelegateJob(
+                transport: nil,
                 delegate: delegate,
                 mtDelegate: mtDelegate,
                 plugin: plugin,
@@ -186,6 +187,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
 public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
     
     struct DelegateJob {
+        var transport: NeedleTailTransport?
         var delegate: CypherTransportClientDelegate
         var mtDelegate: MessengerTransportBridge?
         var plugin: NeedleTailPlugin
@@ -593,9 +595,10 @@ extension NeedleTailCypherTransport {
         try await transportBridge?.uploadMultipart(multipartPacket)
     }
     
-    //    public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
-    //        fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
-    //    }
+    @MultipartActor
+    public func requestBucketContents(_ bucket: String) async throws {
+        try await transportBridge?.requestBucketContents(bucket)
+    }
 }
 
 protocol IRCMessageDelegate {

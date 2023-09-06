@@ -213,7 +213,6 @@ extension NeedleTailTransport {
                             guard let self else { return }
                             hasStarted = false
                         }
-                        
 #else
                         break
 #endif
@@ -229,7 +228,6 @@ extension NeedleTailTransport {
                     default:
                         break
                     }
-                    
                 case .requestRegistry:
                     switch packet.addDeviceType {
                     case .master:
@@ -261,7 +259,13 @@ extension NeedleTailTransport {
                 switch packet.type {
                 case .message:
                     // We get the Message from IRC and Pass it off to CypherTextKit where it will enqueue it in a job and save it to the DB where we can get the message from.
-                    try await processMessage(packet, sender: sender, recipient: recipient, messageType: .message, ackType: .messageSent)
+                    try await processMessage(
+                        packet,
+                        sender: sender,
+                        recipient: recipient,
+                        messageType: .message,
+                        ackType: .messageSent
+                    )
                 default:
                     return
                 }
@@ -466,7 +470,8 @@ extension NeedleTailTransport {
         //TODO: We only find messages if the contact bundle is loaded, how can we search all messagage?
         if let message = try await messenger.findPrivateMessage(by: decodedData.mediaId) {
             try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
-        }    }
+        }
+    }
     
     private func processDownload(message: AnyChatMessage, decodedData: FilePacket, cypher: CypherMessenger) async throws {
         let mediaId = await message.metadata["mediaId"] as? String

@@ -10,6 +10,7 @@ import CypherMessaging
 import NIOExtras
 import NIOTransportServices
 import Logging
+import DequeModule
 @_spi(AsyncChannel) import NIOCore
 @_spi(AsyncChannel) import NeedleTailProtocol
 
@@ -55,18 +56,6 @@ extension NeedleTailClient: ClientTransportDelegate {
                         async let mechanism = try await self.setMechanisim(handlers.0)
                         async let transport = try await self.setTransport(handlers.1)
                         async let _ = try await self.setStore(handlers.2)
-                        
-                        //A little weird to do it this way, but we set the delegates on NeedleTailTranport at this point in time
-                        //                        _ = try await self.delegateJob.checkForExistingJobs { [weak self] job in
-                        //                            guard let self else { return job }
-                        //                            await self.setDelegates(
-                        //                                job.delegate,
-                        //                                mtDelegate: job.mtDelegate,
-                        //                                plugin: job.plugin,
-                        //                                messenger: job.messenger
-                        //                            )
-                        //                            return job
-                        //                        }
                         
                         await NeedleTailClient.handleChildChannel(
                             childChannel.inboundStream,
@@ -114,18 +103,22 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     func setTransport(_ transport: NeedleTailTransport?) async throws -> NeedleTailTransport {
-        self.transport = transport
-        guard let transport = self.transport else { throw NeedleTailError.transportNotIntitialized }
-        _ = try await self.delegateJob.checkForExistingJobs { [weak self] job in
+     
+        let job: Deque<NeedleTailCypherTransport.DelegateJob> = try await self.delegateJob.checkForExistingJobs { [weak self] job in
             guard let self else { return job }
-            await self.setDelegates(
+            guard let transport = transport else { return job }
+            let setTransport = await self.setDelegates(
                 transport,
                 delegate: job.delegate,
                 plugin: job.plugin,
                 messenger: job.messenger
             )
+            var job = job
+            job.transport = setTransport
             return job
         }
+        self.transport = job.last?.transport
+        guard let transport = self.transport else { throw NeedleTailError.transportNotIntitialized }
         return transport
     }
     
