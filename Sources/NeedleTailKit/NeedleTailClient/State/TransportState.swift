@@ -11,6 +11,7 @@ import NeedleTailHelpers
 import NeedleTailProtocol
 @_spi(AsyncChannel) import NIOCore
 
+#if os(iOS) || os(macOS)
 @NeedleTailTransportActor
 public class TransportState: StateMachine {
 
@@ -93,3 +94,4 @@ return State.clientOffline
 #endif
     }
 }
+#endif

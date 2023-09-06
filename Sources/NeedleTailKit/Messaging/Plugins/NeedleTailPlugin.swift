@@ -16,6 +16,7 @@ import UIKit
 import Cocoa
 #endif
 
+#if os(iOS) || os(macOS)
 //Our Store for loading receiving messages in real time(TOP LEVEL)
 public final class NeedleTailPlugin: Plugin, Sendable {
     
@@ -221,3 +222,4 @@ extension AnyChatMessage: Hashable, Identifiable {
         id.hash(into: &hasher)
     }
 }
+#endif

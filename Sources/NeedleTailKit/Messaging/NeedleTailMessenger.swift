@@ -19,7 +19,7 @@ import DequeModule
 import Crypto
 #endif
 import SwiftDTF
-
+#if os(iOS) || os(macOS)
 @NeedleTailMessengerActor
 public final class NeedleTailMessenger {
     
@@ -1076,4 +1076,4 @@ extension EnvironmentValues {
 
 
 #endif
-
+#endif

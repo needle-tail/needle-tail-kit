@@ -15,7 +15,7 @@ import CypherMessaging
     internal init() {}
 }
 
-
+#if os(iOS) || os(macOS)
 //@KeyBundleMechanismActor
 public protocol KeyBundleMechanisimDelegate: AnyObject {
     @KeyBundleMechanismActor
@@ -125,3 +125,4 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         case cannotReadKeyBundle, nilData
     }
 }
+#endif
