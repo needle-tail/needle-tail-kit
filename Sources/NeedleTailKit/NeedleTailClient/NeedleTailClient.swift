@@ -1,21 +1,20 @@
 import Logging
 import NeedleTailHelpers
 import CypherMessaging
-import NeedleTailProtocol
+@_spi(AsyncChannel) import NeedleTailProtocol
 @_spi(AsyncChannel) import NIOCore
 #if canImport(Network)
 import NIOTransportServices
 #endif
 
-
+#if (os(macOS) || os(iOS))
 struct NTKClientBundle: Sendable {
-    var cypher: CypherMessenger?
-    var messenger: NeedleTailMessenger
     let signer: TransportCreationRequest?
+    var cypher: CypherMessenger?
+    var cypherTransport: NeedleTailCypherTransport
 }
 
-@NeedleTailClientActor
-final class NeedleTailClient {
+actor NeedleTailClient {
     let messageParser = MessageParser()
     let logger = Logger(label: "Client")
     let ntkBundle: NTKClientBundle
@@ -24,51 +23,47 @@ final class NeedleTailClient {
     let clientContext: ClientContext
     let serverInfo: ClientContext.ServerClientInfo
     let ntkUser: NTKUser
-    @NeedleTailTransportActor
+    let messenger: NeedleTailMessenger
     var transport: NeedleTailTransport?
     @KeyBundleMechanismActor
     var mechanism: KeyBundleMechanism?
+    @KeyBundleMechanismActor
     var store: TransportStore?
     var childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     var registrationState: RegistrationState = .full
+    let delegateJob = JobQueue<NeedleTailCypherTransport.DelegateJob>()
+    
     @NeedleTailTransportActor
     func setDelegates(_
+                      transport: NeedleTailTransport,
                       delegate: CypherTransportClientDelegate,
-                      mtDelegate: MessengerTransportBridge?,
                       plugin: NeedleTailPlugin,
-                      emitter: NeedleTailEmitter
-    ) async {
-        var mtDelegate = mtDelegate
-        mtDelegate = transport
-        guard let mtDelegate = mtDelegate else { return }
-        mtDelegate.ctcDelegate = delegate
-        mtDelegate.ctDelegate = self
-#if (os(macOS) || os(iOS))
-          await setEmitter(mtDelegate, emitter: emitter)
-#endif
-        mtDelegate.plugin = plugin
+                      messenger: NeedleTailMessenger
+    ) async -> NeedleTailTransport {
+        transport.ctcDelegate = delegate
+        transport.ctDelegate = self
+        transport.plugin = plugin
+        return transport
     }
-    
-    @MainActor
-    func setEmitter(_ mtDelegate: MessengerTransportBridge, emitter: NeedleTailEmitter) {
-        mtDelegate.emitter = emitter
-    }
-    
+
     init(
         ntkBundle: NTKClientBundle,
         transportState: TransportState,
         clientContext: ClientContext,
-        ntkUser: NTKUser
+        ntkUser: NTKUser,
+        messenger: NeedleTailMessenger
     ) {
         self.ntkBundle = ntkBundle
         self.clientContext = clientContext
         self.serverInfo = clientContext.serverInfo
         self.ntkUser = ntkUser
         self.transportState = transportState
-        
+        self.messenger = messenger
         var group: EventLoopGroup?
+        var usingNetwork = false
 #if canImport(Network)
-        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
+        usingNetwork = true
+        if #available(macOS 13, iOS 16, *) {
             group = NIOTSEventLoopGroup()
         } else {
             logger.error("Sorry, your OS is too old for Network.framework.")
@@ -78,29 +73,23 @@ final class NeedleTailClient {
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 #endif
         let provider: EventLoopGroupManager.Provider = group.map { .shared($0) } ?? .createNew
-        self.groupManager = EventLoopGroupManager(provider: provider)
+        self.groupManager = EventLoopGroupManager(provider: provider, usingNetwork: usingNetwork)
     }
     
     deinit {
         //            print("RECLAIMING MEMORY IN CLIENT")
     }
     
-    
     func teardownClient() async {
-        await teardownTransport()
-        await teardownMechanism()
-        childChannel = nil
-        store = nil
-    }
-    
-    @NeedleTailTransportActor
-    func teardownTransport() {
         transport = nil
+        childChannel = nil
+        await tearDownKeyMech()
     }
     
     @KeyBundleMechanismActor
-    func teardownMechanism() {
+    func tearDownKeyMech() async {
         mechanism = nil
+        store = nil
     }
 }
 
@@ -110,4 +99,4 @@ extension NeedleTailClient: Equatable {
     }
 }
 
-
+#endif

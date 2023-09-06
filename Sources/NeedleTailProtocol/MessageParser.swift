@@ -184,10 +184,16 @@ public struct MessageParser: Sendable {
                     args.append(parameter)
                 }
             } else if commandKey.hasPrefix(Constants.user.rawValue) {
+                //Seperate last arguement
                 let initialBreak = commandMessage.components(separatedBy: Constants.space.rawValue + Constants.colon.rawValue)
                 var spreadArgs = initialBreak[0].components(separatedBy: Constants.space.rawValue)
+                //Drop Command
+                if spreadArgs.first == Constants.user.rawValue {
+                    spreadArgs.removeFirst()
+                }
                 spreadArgs.append(initialBreak[1])
                 args = spreadArgs
+    
             } else if commandKey.hasPrefix(Constants.privMsg.rawValue) {
                 let initialBreak = stripedMessage.components(separatedBy: Constants.space.rawValue)
                 var newArgArray: [String] = []
@@ -255,20 +261,18 @@ public struct MessageParser: Sendable {
                     stripedMessage = stripedMessage.replacingOccurrences(of: origin, with: Constants.none.rawValue)
                 }
                 
-              
-                if stripedMessage.contains(commandKey) {
-                        let droppedCommand = stripedMessage.replacingOccurrences(of: commandKey, with: Constants.none.rawValue)
-                        stripedMessage = droppedCommand
-                }
-                
-                let seperatedArguments = stripedMessage.trimmingCharacters(in: .whitespaces)
-                    .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
-                    .components(separatedBy: " ")
-                
-                args.append(contentsOf: seperatedArguments)
+                // Message Looks like - :origin COMMAND arugmentOne arugmentTwo :finalArgument
+                // Or - COMMAND arugmentOne arugmentTwo :finalArgument
+                        let message = stripedMessage
+                            .components(separatedBy: commandKey + Constants.space.rawValue)[1]
+                            .replacingOccurrences(of: Constants.colon.rawValue, with: Constants.none.rawValue)
+                            .trimmingCharacters(in: .whitespaces)
+                        let arguments = message.components(separatedBy: Constants.space.rawValue)
+                        args.append(contentsOf: arguments)
             }
         }
         return args
+        
     }
     
     private func createArgFromIntCommand(_ newArray: [String], command: Int) -> String {

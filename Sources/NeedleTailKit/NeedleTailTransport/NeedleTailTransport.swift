@@ -6,23 +6,22 @@
 //
 
 import NeedleTailHelpers
-import NeedleTailProtocol
 import Logging
 import CypherMessaging
 #if canImport(Combine)
 import Combine
 #endif
 @_spi(AsyncChannel) import NIOCore
+@_spi(AsyncChannel) import NeedleTailProtocol
 
-protocol MessengerTransportBridge: AnyObject {
+#if (os(macOS) || os(iOS))
+protocol MessengerTransportBridge: AnyObject, Sendable {
     @NeedleTailTransportActor
     var ctcDelegate: CypherTransportClientDelegate? { get set }
     @NeedleTailTransportActor
     var ctDelegate: ClientTransportDelegate? { get set }
     @NeedleTailTransportActor
     var plugin: NeedleTailPlugin? { get set }
-    @MainActor
-    var emitter: NeedleTailEmitter? { get set }
 }
 
 protocol ClientTransportDelegate: AnyObject {
@@ -31,8 +30,7 @@ protocol ClientTransportDelegate: AnyObject {
 
 
 @NeedleTailTransportActor
-final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, MessengerTransportBridge {
-    
+public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTransportBridge {
     
     @_spi(AsyncChannel)
     public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
@@ -67,23 +65,24 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     weak var ctcDelegate: CypherMessaging.CypherTransportClientDelegate?
     weak var ctDelegate: ClientTransportDelegate?
     var plugin: NeedleTailPlugin?
-    @MainActor
-    var emitter: NeedleTailEmitter?
+    let messenger: NeedleTailMessenger
     var quiting = false
 #if canImport(Combine)
     private var statusCancellable: Cancellable?
 #endif
     let motdBuilder = MOTDBuilder()
-    let transportJobQueue = JobQueue<MultipartMessagePacket>()
     var hasStarted = false
     var multipartData = Data()
-    
+#if canImport(Crypto)
+    let needleTailCrypto = NeedleTailCrypto()
+#endif
     init(
         ntkBundle: NTKClientBundle,
         asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         transportState: TransportState,
         clientContext: ClientContext,
-        store: TransportStore
+        store: TransportStore,
+        messenger: NeedleTailMessenger
     ) {
         self.ntkBundle = ntkBundle
         self.store = store
@@ -91,11 +90,10 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         self.transportState = transportState
         self.clientContext = clientContext
         self.serverInfo = clientContext.serverInfo
+        self.messenger = messenger
         self.delegate = self
-        
-        guard let emitter = emitter else { return }
 #if canImport(Combine)
-        statusCancellable = emitter.publisher(for: \.clientIsRegistered) as? Cancellable
+        statusCancellable = self.messenger.emitter.publisher(for: \.clientIsRegistered) as? Cancellable
 #endif
     }
     
@@ -116,7 +114,7 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
     /// - Parameter message: Our IRCMessage
-    func processReceivedMessages(_ message: IRCMessage) async {
+    public func processReceivedMessages(_ message: IRCMessage) async {
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 try Task.checkCancellation()
@@ -315,3 +313,4 @@ final class NeedleTailTransport: NeedleTailTransportDelegate, IRCDispatcher, Mes
         }
     }
 }
+#endif

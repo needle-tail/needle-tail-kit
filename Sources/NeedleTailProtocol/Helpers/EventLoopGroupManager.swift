@@ -1,6 +1,7 @@
 import NIOSSL
 import NIOExtras
 import NeedleTailHelpers
+import NIOConcurrencyHelpers
 @_spi(AsyncChannel) import NIOCore
 @_spi(AsyncChannel) import NIOPosix
 #if canImport(Network)
@@ -23,13 +24,16 @@ import Network
 /// components. That raises the question of how to choose a bootstrap and a matching TLS implementation without even
 /// knowing the concrete `EventLoopGroup` type (it may be `SelectableEventLoop` which is an internal `NIO` types).
 /// `EventLoopGroupManager` should support all those use cases with a simple API.
-public class EventLoopGroupManager {
-    private var group: Optional<EventLoopGroup>
+public final class EventLoopGroupManager: @unchecked Sendable {
     private let provider: Provider
+    private let lock = NIOLock()
+    public let groupWrapper: GroupWrapper
     
-    private var sslContext = try! NIOSSLContext(configuration: .makeClientConfiguration())
+    public struct GroupWrapper: Sendable {
+        public var group: EventLoopGroup
+    }
     
-    public enum Provider {
+    public enum Provider: Sendable {
         case createNew
         case shared(EventLoopGroup)
     }
@@ -37,13 +41,25 @@ public class EventLoopGroupManager {
     /// Initialize the `EventLoopGroupManager` with a `Provder` of `EventLoopGroup`s.
     ///
     /// The `Provider` lets you choose whether to use a `.shared(group)` or to `.createNew`.
-    public init(provider: Provider) {
+    public init(provider: Provider, usingNetwork: Bool = false) {
         self.provider = provider
         switch self.provider {
         case .shared(let group):
-            self.group = group
+            lock.lock()
+            self.groupWrapper = GroupWrapper(group: group)
+            lock.unlock()
         case .createNew:
-            self.group = nil
+            lock.lock()
+            if usingNetwork {
+#if canImport(Network)
+                self.groupWrapper = GroupWrapper(group: NIOTSEventLoopGroup())
+#else
+                self.groupWrapper = GroupWrapper(group: MultiThreadedEventLoopGroup(numberOfThreads: 1))
+#endif
+            } else {
+                self.groupWrapper = GroupWrapper(group: MultiThreadedEventLoopGroup(numberOfThreads: 1))
+            }
+            lock.unlock()
         }
     }
     
@@ -64,13 +80,10 @@ extension EventLoopGroupManager {
     public func shutdown() async throws {
         switch self.provider {
         case .createNew:
-            try await self.group?.shutdownGracefully()
-            print("shutdown new group")
+            ()
         case .shared:
-            print("shutdown shared group \(String(describing: group))")
-            () // nothing to do.
+            print("shutdown shared group \(String(describing: groupWrapper.group))")
         }
-        self.group = nil
     }
 }
 
@@ -92,10 +105,9 @@ extension EventLoopGroupManager {
     public func makeAsyncChannel(
         host: String,
         port: Int,
-        enableTLS:  Bool = true
+        enableTLS: Bool = true,
+        group: EventLoopGroup
     ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
-        
-        guard let group = self.group else { throw ELGMErrors.nilEventLoopGroup }
         
         @_spi(AsyncChannel)
         func socketChannelCreator() async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
@@ -106,11 +118,11 @@ extension EventLoopGroupManager {
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(host: host, port: port) { channel in
                     channel.eventLoop.makeCompletedFuture {
-                       _ = createHandlers(channel)
+                        _ = createHandlers(channel)
                         return try NIOAsyncChannel(synchronouslyWrapping: channel)
                     }
                 }
-                
+            
             let bootstrap = try NIOClientTCPBootstrap(
                 client,
                 tls: NIOSSLClientTLSProvider(
@@ -127,7 +139,7 @@ extension EventLoopGroupManager {
         
 #if canImport(Network)
         if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 3, *) {
-//             We run on a new-enough Darwin so we can use Network.framework
+            //             We run on a new-enough Darwin so we can use Network.framework
             var connection = NIOTSConnectionBootstrap(group: group)
             let tcpOptions = NWProtocolTCP.Options()
             connection = connection.tcpOptions(tcpOptions)
@@ -138,27 +150,22 @@ extension EventLoopGroupManager {
             let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-//                .connect(host: host, port: port, channelInitializer: { channel in
-//                    createHandlers(channel)
-//                })
-            
                 .connect(
-                host: host,
-                port: port
-            ) { channel in
-               return channel.eventLoop.makeCompletedFuture {
-                   try channel.pipeline.syncOperations.addHandlers([
-                       ByteToMessageHandler(
-                           LineBasedFrameDecoder()
-   //                        maximumBufferSize: 16777216
-                       )
-                   ], position: .first)
-                    return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
-                        synchronouslyWrapping: channel,
-                        configuration: .init()
-                    )
+                    host: host,
+                    port: port
+                ) { channel in
+                    return channel.eventLoop.makeCompletedFuture {
+                        try channel.pipeline.syncOperations.addHandlers([
+                            ByteToMessageHandler(
+                                LineBasedFrameDecoder()
+                            )
+                        ], position: .first)
+                        return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
+                            synchronouslyWrapping: channel,
+                            configuration: .init()
+                        )
+                    }
                 }
-            }
             
             return channel
         } else {
@@ -175,7 +182,6 @@ extension EventLoopGroupManager {
                 try channel.pipeline.syncOperations.addHandlers([
                     ByteToMessageHandler(
                         LineBasedFrameDecoder()
-//                        maximumBufferSize: 16777216
                     )
                 ], position: .first)
             }

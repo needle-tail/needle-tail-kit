@@ -22,7 +22,7 @@ public struct Acknowledgment: Codable, Sendable {
         case publishedKeyBundle(String)
         case readReceipt
         case multipartReceived
-        case multipartUploadComplete
+        case multipartUploadComplete(MultipartUploadAckPacket)
         case multipartDownloadFailed(String)
     }
 
@@ -32,5 +32,18 @@ public struct Acknowledgment: Codable, Sendable {
         acknowledgment: AckType
     ) {
         self.acknowledgment = acknowledgment
+    }
+}
+
+public struct MultipartUploadAckPacket: Sendable, Codable, Equatable {
+    public var name: String
+    public var size: Int
+    
+    public init(
+        name: String,
+        size: Int
+    ) {
+        self.name = name
+        self.size = size
     }
 }
