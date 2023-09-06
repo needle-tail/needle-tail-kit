@@ -39,10 +39,11 @@ actor NeedleTailClient {
                       delegate: CypherTransportClientDelegate,
                       plugin: NeedleTailPlugin,
                       messenger: NeedleTailMessenger
-    ) async {
+    ) async -> NeedleTailTransport {
         transport.ctcDelegate = delegate
         transport.ctDelegate = self
         transport.plugin = plugin
+        return transport
     }
 
     init(

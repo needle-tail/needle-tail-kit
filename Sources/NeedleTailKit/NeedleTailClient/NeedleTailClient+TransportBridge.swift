@@ -68,6 +68,7 @@ protocol TransportBridge: AnyObject {
     func sendReadMessages(count: Int) async throws
     func downloadMultipart(_ metadata: [String]) async throws
     func uploadMultipart(_ packet: MultipartMessagePacket) async throws
+    func requestBucketContents(_ bucket: String) async throws
 }
 
 
@@ -678,7 +679,24 @@ extension NeedleTailClient: TransportBridge {
                 )
             }
         }
-        
+    }
+    
+    @_spi(AsyncChannel)
+    public func requestBucketContents(_ bucket: String) async throws {
+        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
+            guard let self else { return }
+            guard let writer = await transport?.asyncChannel.outboundWriter else { return }
+            let data = try BSONEncoder().encode(bucket).makeData()
+            let type = TransportMessageType.standard(.otherCommand(
+                Constants.listBucket.rawValue,
+                [data.base64EncodedString()]
+            ))
+            try await self.transport?.transportMessage(
+                writer,
+                origin: self.transport?.origin ?? "",
+                type: type
+            )
+        }
     }
 }
 #endif
