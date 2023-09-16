@@ -167,6 +167,9 @@ public struct DataToFilePacket: Codable, Sendable, Equatable {
     public var fileBlob: Data?
     public var thumbnailBlob: Data?
     public var symmetricKey: Data?
+    public var fileTitle: String?
+    public var fileSize: Int?
+    public var thumbnailSize: Int?
     
     public init(
         mediaId: String,
@@ -178,7 +181,10 @@ public struct DataToFilePacket: Codable, Sendable, Equatable {
         thumbnailLocation: String,
         fileBlob: Data? = nil,
         thumbnailBlob: Data? = nil,
-        symmetricKey: Data? = nil
+        symmetricKey: Data? = nil,
+        fileTitle: String? = nil,
+        fileSize: Int? = nil,
+        thumbnailSize: Int? = nil
     ) {
         self.mediaId = mediaId
         self.fileName = fileName
@@ -190,5 +196,8 @@ public struct DataToFilePacket: Codable, Sendable, Equatable {
         self.fileBlob = fileBlob
         self.thumbnailBlob = thumbnailBlob
         self.symmetricKey = symmetricKey
+        self.fileTitle = fileTitle
+        self.fileSize = fileSize
+        self.thumbnailSize = thumbnailSize
     }
 }

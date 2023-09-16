@@ -482,9 +482,10 @@ extension NeedleTailTransport {
         let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
         guard let cypher = await messenger.cypher else { return }
         //1. Look up message by Id
-        //TODO: We only find messages if the contact bundle is loaded, how can we search all messagage?
-        if let message = try await messenger.findPrivateMessage(by: decodedData.mediaId) {
+        if let message = try await messenger.findMessage(from: decodedData.mediaId, cypher: cypher) {
             try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
+        } else {
+            logger.info("Couldn't find message in order to process media")
         }
     }
     
@@ -499,7 +500,7 @@ extension NeedleTailTransport {
                 guard let self else { return try BSONEncoder().encode(dtfp) }
                 guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { return try BSONEncoder().encode(dtfp) }
                 guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { return try BSONEncoder().encode(dtfp) }
-                
+
                 switch decodedData.mediaType {
                 case .file:
                     let fileLocation = try DataToFile.shared.generateFile(
@@ -508,6 +509,7 @@ extension NeedleTailTransport {
                         fileType: dtfp.fileType
                     )
                     dtfp.fileLocation = fileLocation
+                    dtfp.fileSize = fileBoxData.count
                 case .thumbnail:
                     let fileLocation = try DataToFile.shared.generateFile(
                         data: fileBoxData,
@@ -515,6 +517,7 @@ extension NeedleTailTransport {
                         fileType: dtfp.thumbnailType
                     )
                     dtfp.thumbnailLocation = fileLocation
+                    dtfp.thumbnailSize = fileBoxData.count
                 }
                 
                 dtfp.fileBlob = nil
@@ -522,6 +525,43 @@ extension NeedleTailTransport {
                 return try BSONEncoder().encode(dtfp)
             })
             await updateMetadata(message)
+
+            var fileName = ""
+            var fileType = ""
+            switch decodedData.mediaType {
+            case .file:
+               fileName = await message.metadata["fileName"] as? String ?? ""
+               fileType = await message.metadata["fileType"] as? String ?? ""
+            case .thumbnail:
+                fileName = await message.metadata["thumbnailName"] as? String ?? ""
+                fileType = await message.metadata["thumbnailType"] as? String ?? ""
+            }
+         
+           
+            guard let senderDeviceId = await messenger.cypher?.deviceId else { return }
+            var packet = MessagePacket(
+                id: UUID().uuidString,
+                pushType: .none,
+                type: .ack(Data()),
+                createdAt: Date(),
+                sender: senderDeviceId,
+                recipient: nil,
+                multipartMessage: MultipartMessagePacket(
+                    id: "\(fileName)_\(senderDeviceId.raw).\(fileType)",
+                    sender: clientContext.nickname
+                )
+            )
+            
+            let acknowledgement = try await self.createAcknowledgment(.multipartReceived, id: packet.id, messagePacket: packet.multipartMessage)
+            packet.type = .ack(acknowledgement)
+            let ackMessage = acknowledgement.base64EncodedString()
+            let type = TransportMessageType.private(.PRIVMSG([IRCMessageRecipient.nick(clientContext.nickname)], ackMessage))
+            let writer = self.asyncChannel.outboundWriter
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )   
         }
     }
     

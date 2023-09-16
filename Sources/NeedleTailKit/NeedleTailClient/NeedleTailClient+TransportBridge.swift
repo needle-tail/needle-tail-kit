@@ -664,6 +664,7 @@ extension NeedleTailClient: TransportBridge {
             for packet in packets {
                 
                 packetCount += 1
+                self.logger.info("Uploading Multipart... Packet \(packetCount) of \(packets.map{$0}.count)")
                 let type = TransportMessageType.standard(.otherCommand(
                     Constants.multipartMediaUpload.rawValue,
                     [

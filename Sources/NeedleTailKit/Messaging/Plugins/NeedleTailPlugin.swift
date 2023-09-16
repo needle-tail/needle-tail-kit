@@ -61,7 +61,6 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
         
 #if (os(macOS) || os(iOS))
-        print("MESSAGE_CHANGED____")
         messenger.emitter.messageChanged = message
 #endif
     }

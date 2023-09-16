@@ -481,7 +481,7 @@ struct MultipartObject: Sendable, Codable {
 
 extension ThrowingTaskGroup {
     
-    static func executeChildTask(work: @Sendable @escaping () async throws -> Void) async throws {
+    public static func executeChildTask(work: @Sendable @escaping () async throws -> Void) async throws {
         try await withThrowingTaskGroup(of: Void.self, body: { group in
             try Task.checkCancellation()
             group.addTask {
@@ -492,7 +492,7 @@ extension ThrowingTaskGroup {
         })
     }
    
-    static func executeReturningChildTask<T>(work: @Sendable @escaping () async throws -> T) async throws -> T {
+    public static func executeReturningChildTask<T>(work: @Sendable @escaping () async throws -> T) async throws -> T {
         try await withThrowingTaskGroup(of: T.self, body: { group in
             try Task.checkCancellation()
             group.addTask {

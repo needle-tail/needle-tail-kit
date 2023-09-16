@@ -529,7 +529,7 @@ public final class NeedleTailMessenger {
         try await cypherTransport?.downloadMultipart(metadata)
     }
     
-    public func requestBucketContents(_ bucket: String = "MultipartMediaBucket") async throws {
+    public func requestBucketContents(_ bucket: String = "MediaBucket") async throws {
         try await cypherTransport?.requestBucketContents(bucket)
     }
 }
@@ -850,6 +850,27 @@ extension NeedleTailMessenger {
 //LocalDB Stuff
 extension NeedleTailMessenger {
     
+    public func findMessage(from mediaId: String, cypher: CypherMessenger) async throws -> AnyChatMessage? {
+        let conversations = try await cypher.listConversations(
+            includingInternalConversation: true,
+            increasingOrder: sortChats
+        )
+        for conversation in conversations {
+            switch conversation {
+            case .privateChat(let privateChat):
+                let allMessages = try await privateChat.allMessages(sortedBy: .ascending)
+                if let message = await allMessages.async.first(where: { await $0.metadata["mediaId"] as? String == mediaId }) {
+                    return message
+                }
+                break
+            case .groupChat(_):
+              return nil
+            case .internalChat(_):
+                return nil
+            }
+        }
+        return nil
+    }
     
     public func findMessage(by mediaId: String) async -> AnyChatMessage? {
         return await emitter.bundles.contactBundle?.messages.async.first(where: { message in

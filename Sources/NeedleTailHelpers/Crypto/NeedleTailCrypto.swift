@@ -123,13 +123,13 @@ extension NeedleTailCrypto {
 }
 
 extension NeedleTailCrypto {
-    private func createData(message: SingleCypherMessage, messenger: CypherMessenger) async throws -> Data {
+    private func createData(message: SingleCypherMessage, cypher: CypherMessenger) async throws -> Data {
         guard let filePath = message.metadata["filePath"] as? String else { fatalError("Could not generate blob") }
         guard let blob = try DataToFile.shared.generateData(from: filePath) else { fatalError("Could not generate blob") }
         let fileComponents = filePath.components(separatedBy: ".")
         try DataToFile.shared.removeItem(fileName: fileComponents[0], fileType: fileComponents[1])
         //Decrypt
-        return try messenger.decryptLocalFile(AES.GCM.SealedBox(combined: blob))
+        return try cypher.decryptLocalFile(AES.GCM.SealedBox(combined: blob))
     }
     
     public func decryptFileData(_ fileData: Data, cypher: CypherMessenger) async throws -> Data {
