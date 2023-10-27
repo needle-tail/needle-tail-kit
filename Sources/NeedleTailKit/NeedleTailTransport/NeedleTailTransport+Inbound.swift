@@ -7,8 +7,8 @@
 
 import CypherMessaging
 import NeedleTailHelpers
-@_spi(AsyncChannel) import NeedleTailProtocol
-@_spi(AsyncChannel) import NIOCore
+ import NeedleTailProtocol
+ import NIOCore
 #if os(macOS)
 import AppKit
 #endif
@@ -79,7 +79,7 @@ extension NeedleTailTransport {
 #endif
     }
     
-    @_spi(AsyncChannel)
+    
     public func sendMessageTypePacket(_ type: MessageType, nick: NeedleTailNick) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
@@ -95,7 +95,7 @@ extension NeedleTailTransport {
             )
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -104,7 +104,7 @@ extension NeedleTailTransport {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     public func doMessage(
         sender: IRCUserID?,
         recipients: [ IRCMessageRecipient ],
@@ -166,22 +166,17 @@ extension NeedleTailTransport {
                     switch store.acknowledgment {
                     case .registered(let bool):
                         guard bool == "true" else { return }
-                        switch transportState.current {
-                        case .transportRegistered(isActive: let isActive, clientContext: let clientContext):
-                            try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-                                guard let self else { return }
+                        await self.transportState.transition(to: .transportRegistered(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
                                 let type = TransportMessageType.standard(.USER(clientContext.userInfo))
-                                let writer = await self.asyncChannel.outboundWriter
+                                let writer = self.asyncChannel.outbound
                                 try await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
                                     type: type
                                 )
-                                await transportState.transition(to: .transportOnline(isActive: isActive, clientContext: clientContext))
-                            }
-                        default:
-                            return
-                        }
+                    case .isOnline:
+                        await transportState.transition(to: .transportOnline(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
+                   
                     case .quited:
                         quiting = false
                         await ctDelegate?.shutdown()
@@ -196,7 +191,7 @@ extension NeedleTailTransport {
                                 guard let self else { return }
                                 let data = try BSONEncoder().encode([packet.name]).makeData()
                                 let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-                                let writer = await self.asyncChannel.outboundWriter
+                                let writer = await self.asyncChannel.outbound
                                 try await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
@@ -273,7 +268,7 @@ extension NeedleTailTransport {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     public func processMessage(_
                                packet: MessagePacket,
                                sender: IRCUserID?,
@@ -304,7 +299,7 @@ extension NeedleTailTransport {
             let acknowledgement = try await self.createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
             let ackMessage = acknowledgement.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -392,13 +387,13 @@ extension NeedleTailTransport {
     
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
-    @_spi(AsyncChannel)
+    
     public func doPing(_ origin: String, origin2: String? = nil) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
             try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
             let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -556,7 +551,7 @@ extension NeedleTailTransport {
             packet.type = .ack(acknowledgement)
             let ackMessage = acknowledgement.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([IRCMessageRecipient.nick(clientContext.nickname)], ackMessage))
-            let writer = self.asyncChannel.outboundWriter
+            let writer = self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",

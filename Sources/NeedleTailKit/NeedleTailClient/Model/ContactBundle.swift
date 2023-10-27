@@ -6,7 +6,7 @@
 //
 
 import CypherMessaging
-@_spi(AsyncChannel) import NeedleTailHelpers
+ import NeedleTailHelpers
 
 #if (os(macOS) || os(iOS))
 public final class ContactsBundle: ObservableObject {

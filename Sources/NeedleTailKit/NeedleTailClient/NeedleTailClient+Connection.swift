@@ -11,12 +11,13 @@ import NIOExtras
 import NIOTransportServices
 import Logging
 import DequeModule
-@_spi(AsyncChannel) import NIOCore
-@_spi(AsyncChannel) import NeedleTailProtocol
+ import NIOCore
+ import NeedleTailProtocol
 
 #if (os(macOS) || os(iOS))
 extension NeedleTailClient: ClientTransportDelegate {
     
+    @NeedleTailTransportActor
     func attemptConnection(
         serverInfo: ClientContext.ServerClientInfo,
         groupManager: EventLoopGroupManager,
@@ -26,14 +27,14 @@ extension NeedleTailClient: ClientTransportDelegate {
         clientContext: ClientContext,
         messenger: NeedleTailMessenger
     ) async throws {
-        switch await transportState.current {
+        switch transportState.current {
         case .clientOffline, .transportOffline:
             await transportState.transition(to: .clientConnecting)
             
             do {
                 try await withThrowingTaskGroup(of: NIOAsyncChannel<ByteBuffer, ByteBuffer>.self) { taskGroup in
                     try Task.checkCancellation()
-                    taskGroup.addTask {
+                    taskGroup.addTask { @NeedleTailTransportActor in
                         return try await self.createChannel(
                             host: serverInfo.hostname,
                             port: serverInfo.port,
@@ -44,9 +45,9 @@ extension NeedleTailClient: ClientTransportDelegate {
                     }
                     let nextItem = try await taskGroup.next()
                     guard let childChannel = nextItem else { return }
-                    taskGroup.addTask {
+                    taskGroup.addTask { @NeedleTailTransportActor in
                         
-                        let handlers = try await self.createHandlers(
+                        let handlers = try! await self.createHandlers(
                             childChannel,
                             ntkBundle: ntkBundle,
                             transportState: transportState,
@@ -58,7 +59,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                         async let _ = try await self.setStore(handlers.2)
 
                         await NeedleTailClient.handleChildChannel(
-                            childChannel.inboundStream,
+                            childChannel.inbound,
                             mechanism: try await mechanism,
                             transport: try await transport
                         )
@@ -75,6 +76,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                 await transportState.transition(to: .clientOffline)
                 try await attemptDisconnect(true)
                 await setAuthenticationState(ntkBundle: ntkBundle)
+                throw error
             }
         default:
             break
@@ -85,7 +87,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     
     @NeedleTailTransportActor
     func setAuthenticationState(ntkBundle: NTKClientBundle) async {
-        ntkBundle.cypherTransport.authenticated  = .unauthenticated
+        ntkBundle.cypherTransport.authenticated = .unauthenticated
     }
     
     @KeyBundleMechanismActor
@@ -117,7 +119,12 @@ extension NeedleTailClient: ClientTransportDelegate {
             job.transport = setTransport
             return job
         }
-        self.transport = job.last?.transport
+        if let unwrappedTransport = job.last?.transport {
+            self.transport = unwrappedTransport
+        } else {
+            self.transport = transport
+        }
+
         guard let transport = self.transport else { throw NeedleTailError.transportNotIntitialized }
         return transport
     }
@@ -137,7 +144,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                                    mechanism: KeyBundleMechanism,
                                    transport: NeedleTailTransport
     ) async {
-        Task {
+        Task { @NeedleTailTransportActor in
             let messageParser = MessageParser()
             try Task.checkCancellation()
             do {
@@ -163,7 +170,7 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     
-    @_spi(AsyncChannel)
+    
     public func createChannel(
         host: String,
         port: Int,

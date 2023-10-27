@@ -11,8 +11,8 @@ import CypherMessaging
 #if canImport(Combine)
 import Combine
 #endif
-@_spi(AsyncChannel) import NIOCore
-@_spi(AsyncChannel) import NeedleTailProtocol
+ import NIOCore
+ import NeedleTailProtocol
 
 #if (os(macOS) || os(iOS))
 protocol MessengerTransportBridge: AnyObject, Sendable {
@@ -32,7 +32,7 @@ protocol ClientTransportDelegate: AnyObject {
 @NeedleTailTransportActor
 public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTransportBridge {
     
-    @_spi(AsyncChannel)
+    
     public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var userMode = IRCUserMode()
     @NeedleTailClientActor
@@ -93,7 +93,7 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
         self.messenger = messenger
         self.delegate = self
 #if canImport(Combine)
-        statusCancellable = self.messenger.emitter.publisher(for: \.clientIsRegistered) as? Cancellable
+        statusCancellable = self.messenger.emitter.publisher(for: \.connectionState) as? Cancellable
 #endif
     }
     

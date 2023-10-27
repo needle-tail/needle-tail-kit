@@ -8,8 +8,8 @@
 import NeedleTailHelpers
 import CypherMessaging
 import JWTKit
-@_spi(AsyncChannel) import NeedleTailProtocol
-@_spi(AsyncChannel) import NIOCore
+ import NeedleTailProtocol
+ import NIOCore
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 protocol TransportBridge: AnyObject {
@@ -288,6 +288,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     
+    @NeedleTailTransportActor
     func connectClient(
         serverInfo: ClientContext.ServerClientInfo,
         groupManager: EventLoopGroupManager,
@@ -369,7 +370,7 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     @KeyBundleMechanismActor
     public func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
         guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
@@ -476,7 +477,7 @@ extension NeedleTailClient: TransportBridge {
         return await transport.computeApproval(code)
     }
     
-    @_spi(AsyncChannel)
+    
     public func registerAPNSToken(_ token: Data) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
@@ -500,7 +501,7 @@ extension NeedleTailClient: TransportBridge {
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let encodedString = encodedData.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-            let writer = await transport.asyncChannel.outboundWriter
+            let writer = await transport.asyncChannel.outbound
             try await transport.transportMessage(
                 writer,
                 origin: transport.origin ?? "",
@@ -612,12 +613,12 @@ extension NeedleTailClient: TransportBridge {
         store.keyBundle = nil
     }
     
-    @_spi(AsyncChannel)
+    
     public func sendReadMessages(count: Int) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
             let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
-            guard let writer = await self.transport?.asyncChannel.outboundWriter else { return }
+            guard let writer = await self.transport?.asyncChannel.outbound else { return }
             try await self.transport?.transportMessage(
                 writer,
                 origin: self.transport?.origin ?? "",
@@ -626,13 +627,13 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     public func downloadMultipart(_ metadata: [String]) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
             let data = try BSONEncoder().encode(metadata).makeData()
             let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-            guard let writer = await self.transport?.asyncChannel.outboundWriter else { return }
+            guard let writer = await self.transport?.asyncChannel.outbound else { return }
             try await self.transport?.transportMessage(
                 writer,
                 origin: self.transport?.origin ?? "",
@@ -641,7 +642,7 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     public func uploadMultipart(_ packet: MultipartMessagePacket) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
@@ -659,7 +660,7 @@ extension NeedleTailClient: TransportBridge {
             
             var packetCount = 0
             let packets = data.chunks(ofCount: 10777216)
-            guard let writer = await transport?.asyncChannel.outboundWriter else { return }
+            guard let writer = await transport?.asyncChannel.outbound else { return }
             
             for packet in packets {
                 
@@ -682,11 +683,11 @@ extension NeedleTailClient: TransportBridge {
         }
     }
     
-    @_spi(AsyncChannel)
+    
     public func requestBucketContents(_ bucket: String) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
-            guard let writer = await self.transport?.asyncChannel.outboundWriter else { return }
+            guard let writer = await self.transport?.asyncChannel.outbound else { return }
             let data = try BSONEncoder().encode([bucket]).makeData()
             let type = TransportMessageType.standard(.otherCommand(
                 Constants.listBucket.rawValue,

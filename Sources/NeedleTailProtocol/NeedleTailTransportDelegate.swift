@@ -1,10 +1,10 @@
 import CypherMessaging
 import NeedleTailHelpers
-@_spi(AsyncChannel) import NIOCore
+ import NIOCore
 
 public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWriterDelegate {
     
-    @_spi(AsyncChannel)
+    
     func transportMessage(_
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
@@ -14,7 +14,7 @@ public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWr
 }
 
 public protocol NeedleTailWriterDelegate: AnyObject {
-    @_spi(AsyncChannel)
+    
     func sendAndFlushMessage(_
                              writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                              message: IRCMessage
@@ -23,7 +23,7 @@ public protocol NeedleTailWriterDelegate: AnyObject {
 
 //TODO: Fa Fu: Getting fat/rich
 extension NeedleTailWriterDelegate {
-    @_spi(AsyncChannel)
+    
     public func sendAndFlushMessage(_
                                     writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                     message: IRCMessage
@@ -35,7 +35,7 @@ extension NeedleTailWriterDelegate {
 
 //MARK: Client Side
 extension NeedleTailClientDelegate {
-    @_spi(AsyncChannel)
+    
     public func transportMessage(_
                                  writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                  origin: String = "",
@@ -75,7 +75,7 @@ public protocol NeedleTailServerMessageDelegate: AnyObject, IRCDispatcher, Needl
 
 extension NeedleTailServerMessageDelegate {
     
-    @_spi(AsyncChannel)
+    
     public func sendAndFlushMessage(_
                                     writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                     message: IRCMessage
@@ -84,7 +84,7 @@ extension NeedleTailServerMessageDelegate {
         try await writer.write(buffer)
     }
     
-    @_spi(AsyncChannel)
+    
     public func sendError(_
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
@@ -101,7 +101,7 @@ extension NeedleTailServerMessageDelegate {
         try await sendAndFlushMessage(writer, message: message)
     }
     
-    @_spi(AsyncChannel)
+    
     public func sendReply(_
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
@@ -116,7 +116,7 @@ extension NeedleTailServerMessageDelegate {
         try await sendAndFlushMessage(writer, message: message)
     }
     
-    @_spi(AsyncChannel)
+    
     public func sendMotD(_
                          writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                          origin: String,

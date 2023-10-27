@@ -42,15 +42,12 @@ public final class NeedleTailMessenger {
     var registrationApproved = false
     var registeringNewDevice = false
     var plugin: NeedleTailPlugin?
-    private var resumeQueue = NeedleTailStack<Int>()
-    private var suspendQueue = NeedleTailStack<Int>()
-    private var totalResumeRequests = 0
-    private var totalSuspendRequests = 0
     public var store: CypherMessengerStore?
     public var cypher: CypherMessenger? {
         didSet {
             if let cypher = cypher {
                 Task { @MainActor in
+                    emitter.cypher = cypher
                     emitter.username = cypher.username
                     emitter.deviceId = cypher.deviceId
                 }
@@ -110,44 +107,46 @@ public final class NeedleTailMessenger {
             nameToVerify: username
         )
         do {
-            let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
-            for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
-                guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
-                try await cypherTransport.transportBridge?.requestDeviceRegistration(nick)
-            }
-            
-            //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
-            await displayScanner()
-            
-            try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailMessengerActor [weak self] in
-                guard let self else { return false }
-                var running = true
-                if self.registrationApproved == true {
-                    running = false
+            if await emitter.channelIsActive {
+                let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
+                for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
+                    guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
+                    try await cypherTransport.transportBridge?.requestDeviceRegistration(nick)
                 }
-                return running
-            })
-            
-            guard self.registrationApproved == true else {
-                throw NeedleTailError.cannotRegisterNewDevice
-            }
-            
-            
-            
-            try await serviceInterupted(true,  cypherTransport: cypherTransport)
-            await removeCypherTransport()
-            self.cypher = try await registerNeedleTail(
-                appleToken: appleToken,
-                username: username,
-                store: store,
-                serverInfo: serverInfo,
-                p2pFactories: p2pFactories,
-                eventHandler: eventHandler,
-                addChildDevice: withChildDevice,
-                messenger: messenger
-            )
-            Task { @MainActor in
-                emitter.needleTailNick = cypherTransport.configuration.needleTailNick
+                
+                //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
+                await displayScanner()
+                
+                try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailMessengerActor [weak self] in
+                    guard let self else { return false }
+                    var running = true
+                    if self.registrationApproved == true {
+                        running = false
+                    }
+                    return running
+                })
+                
+                guard self.registrationApproved == true else {
+                    throw NeedleTailError.cannotRegisterNewDevice
+                }
+                
+                
+                
+                try await serviceInterupted(true,  cypherTransport: cypherTransport)
+                await removeCypherTransport()
+                self.cypher = try await registerNeedleTail(
+                    appleToken: appleToken,
+                    username: username,
+                    store: store,
+                    serverInfo: serverInfo,
+                    p2pFactories: p2pFactories,
+                    eventHandler: eventHandler,
+                    addChildDevice: withChildDevice,
+                    messenger: messenger
+                )
+                Task { @MainActor in
+                    emitter.needleTailNick = cypherTransport.configuration.needleTailNick
+                }
             }
         } catch let nterror as NeedleTailError {
             switch nterror {
@@ -259,24 +258,30 @@ public final class NeedleTailMessenger {
         if !nameToVerify.isEmpty {
             cypherTransport.configuration.registrationState = .temp
         }
-        Task {
-            try await withThrowingTaskGroup(of: Void.self, body: { group in
-                try Task.checkCancellation()
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    //We need to make sure we have internet before we try this
-                    for await status in self.networkMonitor.$currentStatus.values {
-                        if status == .satisfied {
-                            if cypherTransport.isConnected == false {
-                                try await self.resumeService(nameToVerify)
+        do {
+            let task = Task { @NeedleTailTransportActor in
+                try await withThrowingTaskGroup(of: Void.self, body: { group in
+                    try! Task.checkCancellation()
+                    group.addTask { @NeedleTailTransportActor [weak self] in
+                        guard let self else { return }
+                        //We need to make sure we have internet before we try this
+                        for try await status in self.networkMonitor.$currentStatus.values {
+                            if status == .satisfied {
+                                if cypherTransport.isConnected == false {
+                                    try await self.resumeService(nameToVerify)
+                                }
+                                return
                             }
-                            return
                         }
                     }
-                }
-                _ = try await group.next()
-                group.cancelAll()
-            })
+                    _ = try await group.next()
+                    group.cancelAll()
+                })
+            }
+            _ = try await task.value
+        } catch {
+            //TODO: TEAR DOWN REGISTRATION PROCESS AND NOTIFY ERROR
+            print("ERROR RESULT_____", error)
         }
         return cypherTransport
     }
@@ -327,55 +332,59 @@ public final class NeedleTailMessenger {
         }
     }
     
-    private func resumeRequest(_ request: Int) async {
-        totalResumeRequests += request
-        await resumeQueue.enqueue(totalResumeRequests)
+    @MainActor
+    func setRegistrationState(_ state: ServerConnectionState) async {
+        emitter.connectionState = state
     }
     
+    @NeedleTailTransportActor
     public func resumeService(_
                               nameToVerify: String = "",
                               appleToken: String = "",
                               newHost: String = "")
     async throws {
-        guard let cypherTransport = await cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
-        await resumeRequest(1)
-        if await resumeQueue.popFirst() == 1 {
-            
-            totalSuspendRequests = 0
-            await suspendQueue.drain()
-            try await cypherTransport.createClient(nameToVerify, newHost: newHost)
-            await monitorClientConnection()
+        switch await emitter.connectionState {
+        case .deregistered:
+            guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+            await setRegistrationState(.registering)
+                try await cypherTransport.createClient(nameToVerify, newHost: newHost)
+                await monitorClientConnection()
+        default:
+            print("Trying to resume service during a \(await emitter.connectionState) state")
         }
     }
     
     @NeedleTailTransportActor
     func monitorClientConnection() async {
-        //            for await status in NeedleTailEmitter.shared.$clientIsRegistered.values {
-        for await status in await emitter.$clientIsRegistered.values {
-            self.cypherTransport?.isConnected = status
-            self.cypherTransport?.authenticated = status ? .authenticated : .unauthenticated
-            if self.cypherTransport?.isConnected == true { return }
-            //                if self.messenger?.isConnected == false { return }
+        for await state in await emitter.$connectionState.values {
+            switch state {
+            case .registered:
+                self.cypherTransport?.isConnected = true
+                self.cypherTransport?.authenticated = .authenticated
+                if self.cypherTransport?.isConnected == true { return }
+            case .deregistered:
+                self.cypherTransport?.isConnected = false
+                self.cypherTransport?.authenticated = .unauthenticated
+            default: break
+            }
         }
     }
     
-    private func suspendRequest(_ request: Int) async {
-        totalSuspendRequests += request
-        await suspendQueue.enqueue(totalSuspendRequests)
-    }
-    
+    @NeedleTailTransportActor
     public func serviceInterupted(_ isSuspending: Bool = false) async throws {
-        guard let cypherTransport = await cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
         try await serviceInterupted(isSuspending, cypherTransport: cypherTransport)
     }
     
+    @NeedleTailTransportActor
     internal func serviceInterupted(_ isSuspending: Bool = false, cypherTransport: NeedleTailCypherTransport) async throws {
-        await suspendRequest(1)
-        if await suspendQueue.popFirst() == 1 {
-            totalResumeRequests = 0
-            await resumeQueue.drain()
+        switch await emitter.connectionState {
+        case .registered:
+            await setRegistrationState(.deregistering)
             try await cypherTransport.transportBridge?.suspendClient(isSuspending)
             await removeClient()
+        default:
+            break
         }
     }
     

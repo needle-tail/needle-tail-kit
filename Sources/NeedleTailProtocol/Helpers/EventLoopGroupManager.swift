@@ -2,11 +2,11 @@ import NIOSSL
 import NIOExtras
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
-@_spi(AsyncChannel) import NIOCore
-@_spi(AsyncChannel) import NIOPosix
+ import NIOCore
+ import NIOPosix
 #if canImport(Network)
 import Network
-@_spi(AsyncChannel) import NIOTransportServices
+ import NIOTransportServices
 #endif
 
 /// `EventLoopGroupManager` can be used to manage an `EventLoopGroup`, either by creating or by sharing an existing one.
@@ -101,7 +101,7 @@ enum ELGMErrors: Swift.Error {
 // - MARK: Internal functions
 extension EventLoopGroupManager {
     
-    @_spi(AsyncChannel)
+    
     public func makeAsyncChannel(
         host: String,
         port: Int,
@@ -109,7 +109,7 @@ extension EventLoopGroupManager {
         group: EventLoopGroup
     ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
         
-        @_spi(AsyncChannel)
+        
         func socketChannelCreator() async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
             let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
             let client = ClientBootstrap(group: group)

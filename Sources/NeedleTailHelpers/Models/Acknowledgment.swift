@@ -9,6 +9,7 @@ public struct Acknowledgment: Codable, Sendable {
     
     public enum AckType: Codable, Equatable, Sendable {
         case registered(String)
+        case isOnline(String)
         case registryRequestRejected(String, String)
         case registryRequestAccepted(String, String)
         case newDevice(String)

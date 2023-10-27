@@ -8,7 +8,7 @@
 import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
-@_spi(AsyncChannel) import NIOCore
+ import NIOCore
 
 @globalActor actor KeyBundleMechanismActor {
     static let shared = KeyBundleMechanismActor()
@@ -21,7 +21,7 @@ public protocol KeyBundleMechanisimDelegate: AnyObject {
     @KeyBundleMechanismActor
     var origin: String? { get }
     @KeyBundleMechanismActor
-    @_spi(AsyncChannel)
+    
     var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
     func keyBundleMessage(_
                           type: TransportMessageType,

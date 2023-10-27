@@ -6,19 +6,25 @@
 //
 
 import CypherMessaging
-@_spi(AsyncChannel) import NeedleTailHelpers
+ import NeedleTailHelpers
 
+@NeedleTailTransportActor
+public enum ServerConnectionState {
+    case registering, registered, deregistering, deregistered
+}
 
 @MainActor
 public final class NeedleTailEmitter: NSObject {
     public static let shared = NeedleTailEmitter()
 #if (os(macOS) || os(iOS))
     
+    @Published public var cypher: CypherMessenger?
     @Published public var username: Username = Username("")
     @Published public var deviceId: DeviceId = DeviceId()
     
     @Published public var channelIsActive = false
-    @Published public var clientIsRegistered = false
+//    @Published public var clientIsRegistered = false
+    @Published public var connectionState = ServerConnectionState.deregistered
     
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?

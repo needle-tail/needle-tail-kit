@@ -9,12 +9,12 @@ import Foundation
 import Logging
 import NeedleTailHelpers
 import NeedleTailProtocol
-@_spi(AsyncChannel) import NIOCore
+ import NIOCore
 
 #if os(iOS) || os(macOS)
 @NeedleTailTransportActor
 public class TransportState: StateMachine {
-
+    
     public let identifier: UUID
     public var current: State = .clientOffline
     private var logger: Logger
@@ -28,7 +28,7 @@ public class TransportState: StateMachine {
         self.messenger = messenger
         self.logger = Logger(label: "TransportState:")
     }
-
+    
     public enum State {
         
         case clientOffline
@@ -63,8 +63,9 @@ public class TransportState: StateMachine {
         case .transportRegistered(isActive: _, clientContext: let context):
             logger.info("Registered Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
 #if (os(macOS) || os(iOS))
-            Task { @MainActor in
-                messenger.emitter.clientIsRegistered = true
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.messenger.emitter.connectionState = .registered
             }
 #endif
         case .transportOnline(isActive: let isActive, clientContext: let clientContext):
@@ -75,8 +76,9 @@ public class TransportState: StateMachine {
         case .transportOffline:
             logger.info("Successfully de-registerd Session")
 #if (os(macOS) || os(iOS))
-            Task { @MainActor in
-                messenger.emitter.clientIsRegistered = false
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                messenger.emitter.connectionState = .deregistered
             }
 #endif
         case .clientDisconnected:
@@ -90,7 +92,7 @@ public class TransportState: StateMachine {
         self.messenger.emitter.transportState = currentState
         return self.messenger.emitter.transportState
 #else
-return State.clientOffline
+        return State.clientOffline
 #endif
     }
 }

@@ -8,12 +8,12 @@
 
 import NeedleTailHelpers
 import CypherMessaging
-@_spi(AsyncChannel) import NeedleTailProtocol
+ import NeedleTailProtocol
 import Algorithms
 import DequeModule
 import SwiftDTF
 import Crypto
-@_spi(AsyncChannel) import NIOCore
+ import NIOCore
 
 #if (os(macOS) || os(iOS))
 @NeedleTailTransportActor
@@ -21,7 +21,7 @@ extension NeedleTailTransport {
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-    @_spi(AsyncChannel)
+    
     public func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
         let isActive = asyncChannel.channel.isActive
         await transportState.transition(to:
@@ -33,7 +33,7 @@ extension NeedleTailTransport {
         
         guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
-        let writer = asyncChannel.outboundWriter
+        let writer = asyncChannel.outbound
         guard temp == false else {
             try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
                 guard let self else { return }
@@ -69,11 +69,11 @@ extension NeedleTailTransport {
                     tags: [tag]
                 )
             }
-            _  = try await group.next()
-            group.addTask { [weak self] in
-                guard let self else { return }
-                await self.transportState.transition(to: .transportRegistered(isActive: isActive, clientContext: clientContext))
-            }
+//            _  = try await group.next()
+//            group.addTask { [weak self] in
+//                guard let self else { return }
+//                await self.transportState.transition(to: .transportRegistered(isActive: isActive, clientContext: clientContext))
+//            }
             _  = try await group.next()
             group.cancelAll()
         })
@@ -83,7 +83,7 @@ extension NeedleTailTransport {
         quiting = true
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             let authObject = AuthPacket(
                 ntkUser: NTKUser(
                     username: username,
@@ -103,7 +103,7 @@ extension NeedleTailTransport {
     func publishBlob(_ packet: String) async throws {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -125,7 +125,7 @@ extension NeedleTailTransport {
             
             try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
                 guard let self else { return }
-                let writer = await self.asyncChannel.outboundWriter
+                let writer = await self.asyncChannel.outbound
                 try await self.transportMessage(
                     writer,
                     origin: self.origin ?? "",
@@ -172,7 +172,7 @@ extension NeedleTailTransport {
             guard let channelName = IRCChannelName(name) else { return }
             //Keys are Passwords for Channels
             let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -207,7 +207,7 @@ extension NeedleTailTransport {
             let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
             guard let channelName = IRCChannelName(name) else { return }
             let type = TransportMessageType.standard(.PART(channels: [channelName]))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -259,7 +259,7 @@ extension NeedleTailTransport {
             let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await self.recipient(conversationType: type, deviceId: toUser.deviceId, name: "\(ircUser)")
             let type = TransportMessageType.private(.PRIVMSG([recipient], data.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -297,7 +297,7 @@ extension NeedleTailTransport {
             let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
             let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -336,7 +336,7 @@ extension NeedleTailTransport {
                 //Channel Recipient
                 let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
                 let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-                let writer = await self.asyncChannel.outboundWriter
+                let writer = await self.asyncChannel.outbound
                 try await self.transportMessage(
                     writer,
                     type: type
@@ -370,7 +370,7 @@ extension NeedleTailTransport {
             guard let self else { return }
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -400,7 +400,7 @@ extension NeedleTailTransport {
             guard let self else { return }
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -415,7 +415,7 @@ extension NeedleTailTransport {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
             let type = TransportMessageType.standard(.NICK(nick))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -428,7 +428,7 @@ extension NeedleTailTransport {
         try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
             guard let self else { return }
             let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await transportMessage(
                 writer,
                 origin: self.origin ?? "",
@@ -462,7 +462,7 @@ extension NeedleTailTransport {
             // The recipient is ourself
             let recipient = try await self.recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outboundWriter
+            let writer = await self.asyncChannel.outbound
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
