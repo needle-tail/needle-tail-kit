@@ -62,15 +62,15 @@ public class TransportState: StateMachine {
             logger.info("Now registering Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
         case .transportRegistered(isActive: _, clientContext: let context):
             logger.info("Registered Nick: \(context.nickname.name) has UserInfo: \(context.userInfo.description)")
+        case .transportOnline(isActive: let isActive, clientContext: let clientContext):
+            logger.info("Transport Channel is Active? - \(isActive)")
+            logger.info("Nick: \(clientContext.nickname.name) with UserInfo: \(clientContext.userInfo.description) is now online")
 #if (os(macOS) || os(iOS))
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.messenger.emitter.connectionState = .registered
             }
 #endif
-        case .transportOnline(isActive: let isActive, clientContext: let clientContext):
-            logger.info("Transport Channel is Active? - \(isActive)")
-            logger.info("Nick: \(clientContext.nickname.name) with UserInfo: \(clientContext.userInfo.description) is now online")
         case .transportDeregistering:
             logger.info("We are de-registering Session")
         case .transportOffline:

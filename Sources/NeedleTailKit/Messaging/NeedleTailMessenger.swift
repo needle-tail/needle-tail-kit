@@ -344,20 +344,26 @@ public final class NeedleTailMessenger {
                               newHost: String = "")
     async throws {
         switch await emitter.connectionState {
-        case .deregistered:
+        case .deregistered, .shouldRegister:
             guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
             await setRegistrationState(.registering)
-                try await cypherTransport.createClient(nameToVerify, newHost: newHost)
-                await monitorClientConnection()
+            try await cypherTransport.createClient(nameToVerify, newHost: newHost)
+        case .deregistering:
+            await setRegistrationState(.shouldRegister)
         default:
             print("Trying to resume service during a \(await emitter.connectionState) state")
         }
+        try await monitorClientConnection()
     }
+    @NeedleTailTransportActor
+    var canReregister = false
     
     @NeedleTailTransportActor
-    func monitorClientConnection() async {
+    func monitorClientConnection() async throws {
         for await state in await emitter.$connectionState.values {
             switch state {
+            case .shouldRegister:
+                canReregister = true
             case .registered:
                 self.cypherTransport?.isConnected = true
                 self.cypherTransport?.authenticated = .authenticated
@@ -365,6 +371,9 @@ public final class NeedleTailMessenger {
             case .deregistered:
                 self.cypherTransport?.isConnected = false
                 self.cypherTransport?.authenticated = .unauthenticated
+                if canReregister {
+                    try await resumeService()
+                }
             default: break
             }
         }
@@ -873,7 +882,7 @@ extension NeedleTailMessenger {
                 }
                 break
             case .groupChat(_):
-              return nil
+                return nil
             case .internalChat(_):
                 return nil
             }

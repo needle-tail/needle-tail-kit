@@ -144,11 +144,13 @@ extension NeedleTailClient: ClientTransportDelegate {
                                    mechanism: KeyBundleMechanism,
                                    transport: NeedleTailTransport
     ) async {
+        //TODO: Cancel task if needed
         Task { @NeedleTailTransportActor in
             let messageParser = MessageParser()
             try Task.checkCancellation()
             do {
                 for try await buffer in stream {
+                    print("RECIEVED MESSAGE")
                     var buffer = buffer
                     guard let message = buffer.readString(length: buffer.readableBytes) else { break }
                     guard !message.isEmpty else { return }
@@ -271,7 +273,6 @@ extension NeedleTailClient: ClientTransportDelegate {
             guard let username = self.ntkBundle.cypherTransport.configuration.username else { throw NeedleTailError.usernameNil }
             guard let deviceId = self.ntkBundle.cypherTransport.configuration.deviceId else { throw NeedleTailError.deviceIdNil }
             try await self.transport?.sendQuit(username, deviceId: deviceId)
-            await transportState.transition(to: .transportOffline)
             ntkBundle.cypherTransport.authenticated = .unauthenticated
         default:
             break

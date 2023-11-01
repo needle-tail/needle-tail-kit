@@ -10,7 +10,7 @@ import CypherMessaging
 
 @NeedleTailTransportActor
 public enum ServerConnectionState {
-    case registering, registered, deregistering, deregistered
+    case shouldRegister, registering, registered, deregistering, deregistered
 }
 
 @MainActor
@@ -23,7 +23,6 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var deviceId: DeviceId = DeviceId()
     
     @Published public var channelIsActive = false
-//    @Published public var clientIsRegistered = false
     @Published public var connectionState = ServerConnectionState.deregistered
     
     @Published public var messageReceived: AnyChatMessage?

@@ -160,6 +160,7 @@ extension NeedleTailTransport {
                         break
                     }
                 case .ack(let ack):
+                    print("RECIEVED ACK_____")
                     let buffer = ByteBuffer(data: ack)
                     let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                     store.setAck(ack.acknowledgment)
@@ -169,7 +170,7 @@ extension NeedleTailTransport {
                         await self.transportState.transition(to: .transportRegistered(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
                                 let type = TransportMessageType.standard(.USER(clientContext.userInfo))
                                 let writer = self.asyncChannel.outbound
-                                try await self.transportMessage(
+                                try! await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
                                     type: type
@@ -393,12 +394,14 @@ extension NeedleTailTransport {
             guard let self else { return }
             try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
             let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-            let writer = await self.asyncChannel.outbound
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
+            if await self.asyncChannel.channel.isActive {
+                let writer = await self.asyncChannel.outbound
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: type
+                )
+            }
         }
     }
     

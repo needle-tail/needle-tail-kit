@@ -2,11 +2,11 @@ import NIOSSL
 import NIOExtras
 import NeedleTailHelpers
 import NIOConcurrencyHelpers
- import NIOCore
- import NIOPosix
+import NIOCore
+import NIOPosix
 #if canImport(Network)
 import Network
- import NIOTransportServices
+import NIOTransportServices
 #endif
 
 /// `EventLoopGroupManager` can be used to manage an `EventLoopGroup`, either by creating or by sharing an existing one.
@@ -119,7 +119,10 @@ extension EventLoopGroupManager {
                 .connect(host: host, port: port) { channel in
                     channel.eventLoop.makeCompletedFuture {
                         _ = createHandlers(channel)
-                        return try NIOAsyncChannel(synchronouslyWrapping: channel)
+                        return try NIOAsyncChannel(
+                            synchronouslyWrapping: channel,
+                            configuration: .init(backPressureStrategy: .init(lowWatermark: 1, highWatermark: 10))
+                        )
                     }
                 }
             
@@ -162,7 +165,7 @@ extension EventLoopGroupManager {
                         ], position: .first)
                         return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
                             synchronouslyWrapping: channel,
-                            configuration: .init()
+                            configuration: .init(backPressureStrategy: .init(lowWatermark: 1, highWatermark: 10))
                         )
                     }
                 }

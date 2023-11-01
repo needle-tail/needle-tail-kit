@@ -69,11 +69,6 @@ extension NeedleTailTransport {
                     tags: [tag]
                 )
             }
-//            _  = try await group.next()
-//            group.addTask { [weak self] in
-//                guard let self else { return }
-//                await self.transportState.transition(to: .transportRegistered(isActive: isActive, clientContext: clientContext))
-//            }
             _  = try await group.next()
             group.cancelAll()
         })
