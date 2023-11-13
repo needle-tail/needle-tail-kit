@@ -57,11 +57,13 @@ public struct IRCMessage: Codable, Sendable {
         origin: String? = nil,
         target: String? = nil,
         command: IRCCommand,
+        arguments: [String]? = nil,
         tags: [IRCTags]? = nil
     ) {
         self.origin = origin
         self.target = target
         self.command = command
+        self.arguments = arguments
         self.tags = tags
     }
     

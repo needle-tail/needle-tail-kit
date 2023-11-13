@@ -9,6 +9,7 @@ public struct Acknowledgment: Codable, Sendable {
     
     public enum AckType: Codable, Equatable, Sendable {
         case registered(String)
+        case isOnline(String)
         case registryRequestRejected(String, String)
         case registryRequestAccepted(String, String)
         case newDevice(String)
@@ -20,6 +21,10 @@ public struct Acknowledgment: Codable, Sendable {
         case unblocked
         case quited
         case publishedKeyBundle(String)
+        case readReceipt
+        case multipartReceived
+        case multipartUploadComplete(MultipartUploadAckPacket)
+        case multipartDownloadFailed(String)
     }
 
     public var acknowledgment: AckType
@@ -28,5 +33,18 @@ public struct Acknowledgment: Codable, Sendable {
         acknowledgment: AckType
     ) {
         self.acknowledgment = acknowledgment
+    }
+}
+
+public struct MultipartUploadAckPacket: Sendable, Codable, Equatable {
+    public var name: String
+    public var size: Int
+    
+    public init(
+        name: String,
+        size: Int
+    ) {
+        self.name = name
+        self.size = size
     }
 }

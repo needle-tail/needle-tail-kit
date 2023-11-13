@@ -9,32 +9,33 @@
 import Network
 import Combine
 
-private final class NetworkPublisher: NSObject, ObservableObject {
-    @Published var currentStatus: NWPath.Status = .unsatisfied
-}
-
-public final actor NetworkMonitor {
-    
-    @MainActor public let receiver = MonitorReceiver()
+public final class NetworkMonitor: NSObject, ObservableObject {
+    public static let shared = NetworkMonitor()
     private let monitorPath = NWPathMonitor()
     private var statusCancellable: Cancellable?
-    fileprivate let networkPublisher = NetworkPublisher()
+    private var isSet = false
+    @Published public var currentStatus: NWPath.Status = .unsatisfied
     
-    public init() {
-        statusCancellable = networkPublisher.publisher(for: \.currentStatus) as? Cancellable
+    public override init() {
+        super.init()
+        statusCancellable = self.publisher(for: \.currentStatus) as? Cancellable
     }
 
 
     public func startMonitor() async {
-        let queue = DispatchQueue(label: "NetworkMonitor")
-        monitorPath.start(queue: queue)
-        await monitor()
+        if !isSet {
+            let queue = DispatchQueue(label: "network-monitor")
+            monitorPath.start(queue: queue)
+            monitor()
+        }
     }
     
-    public func monitor() async {
+    public func monitor() {
         monitorPath.pathUpdateHandler = { [weak self] path in
-            guard let strongSelf = self else { return }
-            strongSelf.networkPublisher.currentStatus = path.status
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.currentStatus = path.status
+            }
         }
     }
     
@@ -42,39 +43,5 @@ public final actor NetworkMonitor {
         monitorPath.cancel()
         statusCancellable = nil
     }
-    
-    
-    @MainActor
-    public func getStatus() async {
-            for await status in networkPublisher.$currentStatus.values {
-                receiver.updateStatus = status
-            }
-    }
-}
-
-
-public class MonitorReceiver: ObservableObject {
-    @MainActor
-    @Published
-    public var statusArray = [NWPath.Status]()
-    
-    @Published
-    public var updateStatus: NWPath.Status = .requiresConnection {
-        didSet {
-             Task {
-                await updateStatus()
-            }
-        }
-    }
-    
-    @MainActor
-    func updateStatus() async {
-        statusArray.removeAll()
-        for await status in $updateStatus.values {
-            statusArray.append(status)
-            break
-        }
-    }
-    
 }
 #endif

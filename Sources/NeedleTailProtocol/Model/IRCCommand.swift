@@ -39,6 +39,8 @@ public enum IRCCommand: Codable, Sendable {
     case CHANNELMODE_GET_BANMASK(IRCChannelName)
     case WHOIS(server: String?, usermasks: [ String ])
     case WHO(usermask: String?, onlyOperators: Bool)
+    case KICK([IRCChannelName], [NeedleTailNick], [String])
+    case KILL(NeedleTailNick, String)
     
     case numeric(IRCCommandCode, [ String ])
     case otherCommand(String, [ String ])
@@ -58,44 +60,47 @@ public enum IRCCommand: Codable, Sendable {
 // MARK: - Description
 
 extension IRCCommand: CustomStringConvertible {
-
-    public var commandAsString : String {
+    
+    public var commandAsString: String {
         switch self {
         case .NICK:
-            return Constants.nick
+            return Constants.nick.rawValue
         case .USER:
-            return Constants.user
+            return Constants.user.rawValue
         case .ISON:
-            return Constants.isOn
+            return Constants.isOn.rawValue
         case .QUIT:
-            return Constants.quit
+            return Constants.quit.rawValue
         case .PING:
-            return Constants.isOn
+            return Constants.ping.rawValue
         case .PONG:
-            return Constants.pong
+            return Constants.pong.rawValue
         case .JOIN, .JOIN0:
-            return Constants.join
+            return Constants.join.rawValue
         case .PART:
-            return Constants.part
+            return Constants.part.rawValue
         case .LIST:
-            return Constants.list
+            return Constants.list.rawValue
         case .PRIVMSG:
-            return Constants.privMsg
+            return Constants.privMsg.rawValue
         case .NOTICE:
-            return Constants.notice
+            return Constants.notice.rawValue
         case .CAP:
-            return Constants.cap
+            return Constants.cap.rawValue
         case .MODE, .MODEGET:
-            return Constants.mode
+            return Constants.mode.rawValue
         case .WHOIS:
-            return Constants.whoIs
+            return Constants.whoIs.rawValue
         case .WHO:
-            return Constants.who
+            return Constants.who.rawValue
         case .CHANNELMODE:
-            return Constants.mode
+            return Constants.mode.rawValue
         case .CHANNELMODE_GET, .CHANNELMODE_GET_BANMASK:
-            return Constants.mode
-
+            return Constants.mode.rawValue
+        case .KICK:
+            return Constants.kick.rawValue
+        case .KILL:
+            return Constants.kill.rawValue
         case .otherCommand(let cmd, _):
             return cmd
         case .otherNumeric(let cmd, _):
@@ -108,101 +113,117 @@ extension IRCCommand: CustomStringConvertible {
             return String(repeating: "0", count: 3 - s.count) + s
         }
     }
-
+    
     public var arguments : [ String ] {
         switch self {
         case .NICK(let nick):
             return [ nick.stringValue ]
         case .USER(let info):
             if let usermask = info.usermask {
-                return [ info.username, usermask.stringValue, Constants.star, info.realname ]
-            }
-            else {
+                return [ info.username, usermask.stringValue, Constants.star.rawValue, info.realname ]
+            } else {
                 return [ info.username,
-                         info.hostname ?? info.usermask?.stringValue ?? Constants.star,
-                         info.servername ?? Constants.star,
+                         info.hostname ?? info.usermask?.stringValue ?? Constants.star.rawValue,
+                         info.servername ?? Constants.star.rawValue,
                          info.realname ]
             }
-
+            
         case .ISON(let nicks): return nicks.map { $0.stringValue }
-
+            
         case .QUIT(.none):                          return []
         case .QUIT(.some(let message)):             return [ message ]
         case .PING(let server, .none):              return [ server ]
         case .PONG(let server, .none):              return [ server ]
         case .PING(let server, .some(let server2)): return [ server, server2 ]
         case .PONG(let server, .some(let server2)): return [ server, server2 ]
-
+            
         case .JOIN(let channels, .none):
-            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
+            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma.rawValue) ]
         case .JOIN(let channels, .some(let keys)):
-            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma),
-                     keys.joined(separator: Constants.comma)]
-
+            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma.rawValue),
+                     keys.joined(separator: Constants.comma.rawValue)]
+            
         case .JOIN0: return [ "0" ]
-
+            
         case .PART(let channels):
-            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
-
+            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma.rawValue) ]
+            
         case .LIST(let channels, .none):
             guard let channels = channels else { return [] }
-            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma) ]
+            return [ channels.map { $0.stringValue }.joined(separator: Constants.comma.rawValue) ]
         case .LIST(let channels, .some(let target)):
-            return [ (channels ?? []).map { $0.stringValue }.joined(separator: Constants.comma),
+            return [ (channels ?? []).map { $0.stringValue }.joined(separator: Constants.comma.rawValue),
                      target ]
-
+            
         case .PRIVMSG(let recipients, let m), .NOTICE (let recipients, let m):
-            return [ recipients.map { $0.stringValue }.joined(separator: Constants.comma), m ]
-
+            return [ recipients.map { $0.stringValue }.joined(separator: Constants.comma.rawValue), m ]
+            
         case .MODE(let name, let add, let remove):
-            if add.isEmpty && remove.isEmpty { return [ name.stringValue, Constants.none ] }
+            if add.isEmpty && remove.isEmpty { return [ name.stringValue, Constants.none.rawValue ] }
             else if !add.isEmpty && !remove.isEmpty {
                 return [ name.stringValue,
-                         Constants.plus + add.stringValue, Constants.minus + remove.stringValue ]
+                         Constants.plus.rawValue + add.stringValue, Constants.minus.rawValue + remove.stringValue ]
             }
             else if !remove.isEmpty {
-                return [ name.stringValue, Constants.minus + remove.stringValue ]
+                return [ name.stringValue, Constants.minus.rawValue + remove.stringValue ]
             }
             else {
-                return [ name.stringValue, Constants.plus + add.stringValue ]
+                return [ name.stringValue, Constants.plus.rawValue + add.stringValue ]
             }
         case .CHANNELMODE(let name, let add, let remove):
-            if add.isEmpty && remove.isEmpty { return [ name.stringValue, Constants.none ] }
+            if add.isEmpty && remove.isEmpty { return [ name.stringValue, Constants.none.rawValue ] }
             else if !add.isEmpty && !remove.isEmpty {
                 return [ name.stringValue,
-                         Constants.plus + add.stringValue, Constants.minus + remove.stringValue ]
+                         Constants.plus.rawValue + add.stringValue, Constants.minus.rawValue + remove.stringValue ]
             }
             else if !remove.isEmpty {
-                return [ name.stringValue, Constants.minus + remove.stringValue ]
+                return [ name.stringValue, Constants.minus.rawValue + remove.stringValue ]
             }
             else {
-                return [ name.stringValue, Constants.plus + add.stringValue ]
+                return [ name.stringValue, Constants.plus.rawValue + add.stringValue ]
             }
         case .MODEGET(let name):
             return [ name.stringValue ]
         case .CHANNELMODE_GET(let name), .CHANNELMODE_GET_BANMASK(let name):
             return [ name.stringValue ]
         case .WHOIS(.some(let server), let usermasks):
-            return [ server, usermasks.joined(separator: Constants.comma)]
+            return [ server, usermasks.joined(separator: Constants.comma.rawValue)]
         case .WHOIS(.none, let usermasks):
-            return [ usermasks.joined(separator: Constants.comma) ]
+            return [ usermasks.joined(separator: Constants.comma.rawValue) ]
         case .WHO(.none, _):
             return []
         case .WHO(.some(let usermask), false):
             return [ usermask ]
         case .WHO(.some(let usermask), true):
-            return [ usermask, Constants.oString ]
-
+            return [ usermask, Constants.oString.rawValue ]
+        case .KICK(let channelNames, let users, let comments):
+            if channelNames.count == users.count {
+                return [
+                    channelNames.map { $0.stringValue }.joined(separator: Constants.comma.rawValue),
+                    users.map { $0.stringValue }.joined(separator: Constants.comma.rawValue),
+                    comments.map { $0 }.joined(separator: Constants.comma.rawValue)
+                ]
+            } else {
+                guard let firstChannel = channelNames.first else { return [] }
+                guard let firstUser = users.first else { return [] }
+                return [
+                    firstChannel.stringValue,
+                    firstUser.stringValue,
+                    comments.map { $0 }.joined(separator: Constants.comma.rawValue)
+                ]
+            }
+        case .KILL(let nick, let comment):
+            return [nick.stringValue, comment]
         case .numeric     (_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):
             return args
-
+            
         default: // TBD: which case do we miss???
             fatalError("unexpected case \(self)")
         }
     }
-
+    
     public var description : String {
         switch self {
         case .PING(let server, let server2), .PONG(let server, let server2):
@@ -213,77 +234,84 @@ extension IRCCommand: CustomStringConvertible {
                 return "\(commandAsString) '\(server)'"
             }
         case .QUIT(.some(let v)):
-            return Constants.quit + Constants.space + "'\(v)'"
+            return Constants.quit.rawValue + Constants.space.rawValue + "'\(v)'"
         case .QUIT(.none):
-            return Constants.quit
+            return Constants.quit.rawValue
         case .NICK(let v):
-            return Constants.nick + Constants.space + "\(v)"
+            return Constants.nick.rawValue + Constants.space.rawValue + "\(v)"
         case .USER(let v):
-            return Constants.user + Constants.space + "\(v)"
+            return Constants.user.rawValue + Constants.space.rawValue + "\(v)"
         case .ISON(let v):
             let nicks = v.map { $0.stringValue}
-            return Constants.isOn + Constants.space + nicks.joined(separator: Constants.comma)
+            return Constants.isOn.rawValue + Constants.space.rawValue + nicks.joined(separator: Constants.comma.rawValue)
         case .MODEGET(let nick):
-            return Constants.mode + Constants.space + "\(nick)"
+            return Constants.mode.rawValue + Constants.space.rawValue + "\(nick)"
         case .MODE(let nick, let add, let remove):
-            var s = Constants.mode + Constants.space + "\(nick)"
-            if !add   .isEmpty { s += Constants.space + Constants.plus + add.stringValue }
-            if !remove.isEmpty { s += Constants.space + Constants.minus + remove.stringValue }
+            var s = Constants.mode.rawValue + Constants.space.rawValue + "\(nick)"
+            if !add   .isEmpty { s += Constants.space.rawValue + Constants.plus.rawValue + add.stringValue }
+            if !remove.isEmpty { s += Constants.space.rawValue + Constants.minus.rawValue + remove.stringValue }
             return s
         case .CHANNELMODE_GET(let v):
-            return Constants.mode + Constants.space + "\(v)"
+            return Constants.mode.rawValue + Constants.space.rawValue + "\(v)"
         case .CHANNELMODE_GET_BANMASK(let v):
-            return Constants.mode + Constants.space + Constants.bString + Constants.space + "\(v)"
+            return Constants.mode.rawValue + Constants.space.rawValue + Constants.bString.rawValue + Constants.space.rawValue + "\(v)"
         case .CHANNELMODE(let nick, let add, let remove):
-            var s = Constants.mode + Constants.space + "\(nick)"
-            if !add   .isEmpty { s += Constants.space + Constants.plus + add.stringValue }
-            if !remove.isEmpty { s += Constants.space + Constants.minus + remove.stringValue }
+            var s = Constants.mode.rawValue + Constants.space.rawValue + "\(nick)"
+            if !add   .isEmpty { s += Constants.space.rawValue + Constants.plus.rawValue + add.stringValue }
+            if !remove.isEmpty { s += Constants.space.rawValue + Constants.minus.rawValue + remove.stringValue }
             return s
         case .JOIN0:
-            return Constants.join0
+            return Constants.join0.rawValue
         case .JOIN(let channels, .none):
             let names = channels.map { $0.stringValue}
-            return Constants.join + Constants.space + names.joined(separator: Constants.comma)
+            return Constants.join.rawValue + Constants.space.rawValue + names.joined(separator: Constants.comma.rawValue)
         case .JOIN(let channels, .some(let keys)):
             let names = channels.map { $0.stringValue}
-            return Constants.join + Constants.space + names.joined(separator: Constants.comma)
-            + Constants.space + Constants.keys + Constants.space + keys.joined(separator: Constants.comma)
+            return Constants.join.rawValue + Constants.space.rawValue + names.joined(separator: Constants.comma.rawValue)
+            + Constants.space.rawValue + Constants.keys.rawValue + Constants.space.rawValue + keys.joined(separator: Constants.comma.rawValue)
         case .PART(let channels):
             let names = channels.map { $0.stringValue}
-            return Constants.part + names.joined(separator: Constants.comma)
+            return Constants.part.rawValue + names.joined(separator: Constants.comma.rawValue)
         case .LIST(.none, .none):
-            return Constants.list + Constants.space + Constants.star
+            return Constants.list.rawValue + Constants.space.rawValue + Constants.star.rawValue
         case .LIST(.none, .some(let target)):
-            return Constants.list + Constants.space + Constants.star + Constants.space + Constants.atString + target
+            return Constants.list.rawValue + Constants.space.rawValue + Constants.star.rawValue + Constants.space.rawValue + Constants.atString.rawValue + target
         case .LIST(.some(let channels), .none):
             let names = channels.map { $0.stringValue}
-            return Constants.list + Constants.space + names.joined(separator: Constants.comma) + Constants.space
+            return Constants.list.rawValue + Constants.space.rawValue + names.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue
         case .LIST(.some(let channels), .some(let target)):
             let names = channels.map { $0.stringValue}
-            return Constants.list + Constants.space + Constants.atString + target + names.joined(separator: Constants.comma) + Constants.space
+            return Constants.list.rawValue + Constants.space.rawValue + Constants.atString.rawValue + target + names.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue
         case .PRIVMSG(let recipients, let message):
             let to = recipients.map { $0.description }
-            return Constants.privMsg + Constants.space + to.joined(separator: Constants.comma) + Constants.space + "'\(message)'"
+            return Constants.privMsg.rawValue + Constants.space.rawValue + to.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue + "'\(message)'"
         case .NOTICE (let recipients, let message):
             let to = recipients.map { $0.description }
-            return Constants.notice + Constants.space + to.joined(separator: Constants.comma) + Constants.space + "'\(message)'"
+            return Constants.notice.rawValue + Constants.space.rawValue + to.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue + "'\(message)'"
         case .CAP(let subcmd, let capIDs):
-            return Constants.cap + Constants.space + "\(subcmd)" + capIDs.joined(separator: Constants.comma)
+            return Constants.cap.rawValue + Constants.space.rawValue + "\(subcmd)" + capIDs.joined(separator: Constants.comma.rawValue)
         case .WHOIS(.none, let masks):
-            return Constants.whoIs + Constants.space + masks.joined(separator: Constants.comma) + Constants.space
+            return Constants.whoIs.rawValue + Constants.space.rawValue + masks.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue
         case .WHOIS(.some(let target), let masks):
-            return Constants.whoIs + Constants.space + Constants.atString + target + Constants.space + masks.joined(separator: Constants.comma) + Constants.space
+            return Constants.whoIs.rawValue + Constants.space.rawValue + Constants.atString.rawValue + target + Constants.space.rawValue + masks.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue
         case .WHO(.none, _):
-            return Constants.who
+            return Constants.who.rawValue
         case .WHO(.some(let mask), let opOnly):
-            let opertorOnly = opOnly ? Constants.space + Constants.oString : Constants.none
-            return Constants.who + Constants.space + mask + opertorOnly;
+            let opertorOnly = opOnly ? Constants.space.rawValue + Constants.oString.rawValue : Constants.none.rawValue
+            return Constants.who.rawValue + Constants.space.rawValue + mask + opertorOnly;
+        case .KICK(let channels, let users, let comments):
+            let channels = channels.map { $0.stringValue}
+            let users = users.map { $0.stringValue}
+            let comments = comments.map { $0}
+            return Constants.kick.rawValue + Constants.space.rawValue + channels.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue + users.joined(separator: Constants.comma.rawValue) + Constants.space.rawValue + comments.joined(separator: Constants.comma.rawValue)
+        case .KILL(let nick, let comment):
+            return Constants.kill.rawValue + Constants.space.rawValue + "\(nick)" + Constants.space.rawValue + "\(comment)"
         case .otherCommand(let cmd, let args):
-            return "<IRCCmd: \(cmd) args=\(args.joined(separator: Constants.comma))>"
+            return "<IRCCmd: \(cmd) args=\(args.joined(separator: Constants.comma.rawValue))>"
         case .otherNumeric(let cmd, let args):
-            return "<IRCCmd: \(cmd) args=\(args.joined(separator: Constants.comma))>"
+            return "<IRCCmd: \(cmd) args=\(args.joined(separator: Constants.comma.rawValue))>"
         case .numeric(let cmd, let args):
-            return "<IRCCmd: \(cmd.rawValue) args=\(args.joined(separator: Constants.comma))>"
+            return "<IRCCmd: \(cmd.rawValue) args=\(args.joined(separator: Constants.comma.rawValue))>"
         }
     }
 }

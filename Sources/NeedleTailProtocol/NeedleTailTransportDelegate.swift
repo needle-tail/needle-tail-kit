@@ -1,154 +1,155 @@
 import CypherMessaging
 import NeedleTailHelpers
+ import NIOCore
 
-@NeedleTailClientActor
-public protocol NeedleTailClientDelegate: AnyObject {
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> { get set }
-}
-@NeedleTailTransportActor
-public protocol NeedleTailTransportDelegate: AnyObject, NeedleTailClientDelegate {
-    var origin: String? { get }
-    var target: String { get }
-    var tags: [IRCTags]? { get }
+public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWriterDelegate {
     
-    func clientMessage(_
-                       command: IRCCommand,
-                       tags: [IRCTags]?
-    ) async throws
     
     func transportMessage(_
+                          writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                          origin: String,
                           type: TransportMessageType,
                           tags: [IRCTags]?
     ) async throws
-
-    func blobMessage(_
-                     command: IRCCommand,
-                     tags: [IRCTags]?
-    ) async throws
-    
 }
 
-//MARK: Server/Client
-extension NeedleTailTransportDelegate {
-    @NeedleTailTransportActor
-    public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        //THIS IS ANNOYING BUT WORKS
-        try await RunLoop.run(5, sleep: 1, stopRunning: { [weak self] in
-            guard let self else { return false }
-            var canRun = true
-            if await self.channel.channel.isActive  {
-                canRun = false
-            }
-            return canRun
-        })
+public protocol NeedleTailWriterDelegate: AnyObject {
+    
+    func sendAndFlushMessage(_
+                             writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                             message: IRCMessage
+    ) async throws
+}
+
+//TODO: Fa Fu: Getting fat/rich
+extension NeedleTailWriterDelegate {
+    
+    public func sendAndFlushMessage(_
+                                    writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                                    message: IRCMessage
+    ) async throws {
         let buffer = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(buffer)
+        try await writer.write(buffer)
     }
 }
 
 //MARK: Client Side
-extension NeedleTailTransportDelegate {
-    public var target: String { get { return "" } set{} }
-    public var userConfig: UserConfig? { get { return nil } set{} }
-//    public var acknowledgment: Acknowledgment.AckType { get { return .none } set{} }
-
-    @NeedleTailTransportActor
-    public func clientMessage(_
-                              command: IRCCommand,
-                              tags: [IRCTags]? = nil
-    ) async throws {
-        let message = IRCMessage(origin: self.origin, command: command, tags: tags)
-        try await sendAndFlushMessage(message)
-    }
+extension NeedleTailClientDelegate {
     
-    @NeedleTailTransportActor
     public func transportMessage(_
+                                 writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                                 origin: String = "",
                                  type: TransportMessageType,
                                  tags: [IRCTags]? = nil
     ) async throws {
         switch type {
         case .standard(let command):
-            let message = IRCMessage(command: command, tags: tags)
-            try await sendAndFlushMessage(message)
+            let message = IRCMessage(origin: origin, command: command, tags: tags)
+            try await sendAndFlushMessage(writer, message: message)
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                 _ = try await lines.asyncMap {
-                   let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
-                    try await sendAndFlushMessage(message)
+                    let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(writer, message: message)
                 }
                 
             case .NOTICE(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                 _ = try await lines.asyncMap {
-                    let message = IRCMessage(origin: self.origin, command: .NOTICE(recipients, $0), tags: tags)
-                    try await sendAndFlushMessage(message)
+                    let message = IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
+                    try await sendAndFlushMessage(writer, message: message)
                 }
             default:
                 break
             }
         }
     }
-
-    @NeedleTailTransportActor
-    public func blobMessage(_
-                            command: IRCCommand,
-                            tags: [IRCTags]? = nil
-    ) async throws {
-        let message = IRCMessage(command: command, tags: tags)
-        try await sendAndFlushMessage(message)
-    }
 }
 
 //MARK: Server Side
-extension NeedleTailTransportDelegate {
+public protocol NeedleTailServerMessageDelegate: AnyObject, IRCDispatcher, NeedleTailWriterDelegate {}
+
+extension NeedleTailServerMessageDelegate {
     
-    @NeedleTailTransportActor
-    public func sendError(
-        _ code: IRCCommandCode,
-        message: String? = nil,
-        _ args: String...
+    
+    public func sendAndFlushMessage(_
+                                    writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                                    message: IRCMessage
+    ) async throws {
+        let buffer = await NeedleTailEncoder.encode(value: message)
+        try await writer.write(buffer)
+    }
+    
+    
+    public func sendError(_
+                          writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                          origin: String,
+                          target: String,
+                          code: IRCCommandCode,
+                          message: String? = nil,
+                          args: String...
     ) async throws {
         let enrichedArgs = args + [ message ?? code.errorMessage ]
         let message = IRCMessage(origin: origin,
                                  target: target,
                                  command: .numeric(code, enrichedArgs),
                                  tags: nil)
-        try await sendAndFlushMessage(message)
+        try await sendAndFlushMessage(writer, message: message)
     }
     
-    @NeedleTailTransportActor
-    public func sendReply(
-        _ code: IRCCommandCode,
-        _ args: String...
+    
+    public func sendReply(_
+                          writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                          origin: String,
+                          target: String,
+                          code: IRCCommandCode,
+                          args: String...
     ) async throws {
         let message = IRCMessage(origin: origin,
                                  target: target,
                                  command: .numeric(code, args),
                                  tags: nil)
-        try await sendAndFlushMessage(message)
+        try await sendAndFlushMessage(writer, message: message)
     }
     
-    @NeedleTailTransportActor
-    public func sendMotD(_ message: String) async throws {
+    
+    public func sendMotD(_
+                         writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
+                         origin: String,
+                         target: String,
+                         message: String
+    ) async throws {
         guard !message.isEmpty else { return }
-        let origin = self.origin ?? "??"
-        try await sendReply(.replyMotDStart, "\(origin) - Message of the Day -")
+        let origin = origin
+        try await sendReply(
+            writer,
+            origin: origin,
+            target: target,
+            code: .replyMotDStart,
+            args: "- Message of the Day -"
+        )
         
-        let lines = message.components(separatedBy: Constants.cLF)
-            .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
-            .map { Constants.minus + Constants.space + $0 }
+        let lines = message.components(separatedBy: Constants.cLF.rawValue)
+            .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
+            .map { Constants.minus.rawValue + Constants.space.rawValue + $0 }
         
         _ = try await lines.asyncMap {
             let message = IRCMessage(origin: origin,
                                      command: .numeric(.replyMotD, [ target, $0 ]),
                                      tags: nil)
-            try await sendAndFlushMessage(message)
+            try await sendAndFlushMessage(writer, message: message)
         }
-        try await sendReply(.replyEndOfMotD, "End of /MOTD command.")
+        try await sendReply(
+            writer,
+            origin: origin,
+            target: target,
+            code: .replyEndOfMotD,
+            args:"End of /MOTD command."
+        )
     }
 }
 

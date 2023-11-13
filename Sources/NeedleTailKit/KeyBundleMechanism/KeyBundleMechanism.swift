@@ -8,17 +8,21 @@
 import NeedleTailProtocol
 import NeedleTailHelpers
 import CypherMessaging
+ import NIOCore
 
 @globalActor actor KeyBundleMechanismActor {
     static let shared = KeyBundleMechanismActor()
     internal init() {}
 }
 
-
+#if os(iOS) || os(macOS)
 //@KeyBundleMechanismActor
 public protocol KeyBundleMechanisimDelegate: AnyObject {
+    @KeyBundleMechanismActor
     var origin: String? { get }
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
+    @KeyBundleMechanismActor
+    
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>{ get }
     func keyBundleMessage(_
                           type: TransportMessageType,
                           tags: [IRCTags]?
@@ -39,8 +43,8 @@ extension KeyBundleMechanisimDelegate {
         case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF)
-                    .map { $0.replacingOccurrences(of: Constants.cCR, with: Constants.space) }
+                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                 _ = try await lines.asyncMap {
                     let message = IRCMessage(origin: self.origin, command: .PRIVMSG(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(message)
@@ -53,16 +57,8 @@ extension KeyBundleMechanisimDelegate {
     
     @KeyBundleMechanismActor
     public func sendAndFlushMessage(_ message: IRCMessage) async throws {
-        //THIS IS ANNOYING BUT WORKS
-        try await RunLoop.run(5, sleep: 1, stopRunning: {
-            var canRun = true
-            if self.channel.channel.isActive  {
-                canRun = false
-            }
-            return canRun
-        })
         let buffer = await NeedleTailEncoder.encode(value: message)
-        try await channel.writeAndFlush(buffer)
+        try await asyncChannel.channel.writeAndFlush(buffer)
     }
 }
 
@@ -70,20 +66,22 @@ extension KeyBundleMechanisimDelegate {
 @KeyBundleMechanismActor
 internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
+    @KeyBundleMechanismActor
     var origin: String? {
         return try? BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
     }
-    var channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    @KeyBundleMechanismActor
+    var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     var updateKeyBundle = false
     let store: TransportStore
     let clientContext: ClientContext
     
     internal init(
-        channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
+        asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
         store: TransportStore,
         clientContext: ClientContext
     ) {
-        self.channel = channel
+        self.asyncChannel = asyncChannel
         self.store = store
         self.clientContext = clientContext
     }
@@ -94,32 +92,27 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
     
     func processKeyBundle(
         _ message: IRCMessage
-    ) async throws {
-        switch message.command {
-        case .otherCommand("READKEYBNDL", let keyBundle):
-            try await doReadKeyBundle(keyBundle)
-        default:
-            return
+    ) async {
+        do {
+            switch message.command {
+            case .otherCommand(Constants.readKeyBundle.rawValue, let keyBundle):
+                try await doReadKeyBundle(keyBundle)
+            default:
+                return
+            }
+        } catch {
+            print(error)
         }
     }
     
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
     func readKeyBundle(_ packet: String) async throws {
-        let type = TransportMessageType.standard(.otherCommand("READKEYBNDL", [packet]))
+        let type = TransportMessageType.standard(.otherCommand(Constants.readKeyBundle.rawValue, [packet]))
         try await keyBundleMessage(type)
-        try await RunLoop.run(30, sleep: 1) { [weak self] in
-            guard let strongSelf = self else { return false }
-            var canRun = true
-            if strongSelf.store.keyBundle != nil {
-                canRun = false
-            }
-            return canRun
-        }
     }
     
-    @KeyBundleMechanismActor
-    func doReadKeyBundle(_ keyBundle: [String]) async throws {
+    public func doReadKeyBundle(_ keyBundle: [String]) async throws {
         guard let keyBundle = keyBundle.first else { throw KeyBundleErrors.cannotReadKeyBundle }
         guard let data = Data(base64Encoded: keyBundle) else { throw KeyBundleErrors.cannotReadKeyBundle }
         let buffer = ByteBuffer(data: data)
@@ -132,3 +125,4 @@ internal final class KeyBundleMechanism: KeyBundleMechanisimDelegate {
         case cannotReadKeyBundle, nilData
     }
 }
+#endif

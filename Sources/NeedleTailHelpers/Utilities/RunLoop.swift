@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CypherMessaging
 
 
 public class RunLoop {
@@ -67,9 +68,29 @@ public class RunLoop {
         let date = RunLoop.timeInterval(expiresIn)
         var canRun = true
         while await RunLoop.execute(date, canRun: canRun) {
-            try? await Task.sleep(nanoseconds: sleep)
+            try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
             canRun = try await stopRunning()
         }
+    }
+    
+    public static func runKeyRequestLoop(_
+                          expiresIn: TimeInterval,
+                           canRun: Bool,
+                          sleep: UInt64,
+                          stopRunning: @Sendable @escaping () async throws -> (Bool, UserConfig?)
+    ) async throws -> UserConfig? {
+        let date = RunLoop.timeInterval(expiresIn)
+        var userConfig: UserConfig?
+        var canRun = canRun
+        while await RunLoop.execute(date, canRun: canRun) {
+            try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
+            let stoppedRunning = try await stopRunning()
+            canRun = stoppedRunning.0
+            if !canRun {
+                userConfig = stoppedRunning.1
+            }
+        }
+        return userConfig
     }
     
 

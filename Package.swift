@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -21,19 +21,18 @@ let package = Package(
             targets: ["NeedleTailHelpers"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/needle-tail/swift-nio-transport-services.git", branch: "main"),
-//        .package(path: "../swift-nio-transport-services"),
-//        .package(url: "https://github.com/apple/swift-nio.git", from: "2.45.0"),
-        .package(url: "https://github.com/Cartisim/swift-nio.git", branch: "main"),
-//            .package(path: "../ForkedSwiftNIO/Apple/swift-nio"),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.12.1"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.21.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
-        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "feature/async-await"),
-//        .package(path: "../ForkedCypherTextKit/CypherTextKit"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "2.1.0"),
-        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "0.0.3"),
-//        .package(path: "../spine-tailed-kit")
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", .upToNextMajor(from: "1.20.0")),
+        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMajor(from: "2.60.0")),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", .upToNextMajor(from: "1.12.1")),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMajor(from: "2.24.0")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.1.3")),
+        .package(url: "https://github.com/needle-tail/CypherTextKit.git", branch: "update-chat-message-with-updated-dribble"),
+        .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "0.0.3")),
+        .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.1.0")),
+        .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/needle-tail/swift-data-to-file.git", branch: "main"),
+        .package(url: "https://github.com/needle-tail/needletail-media-kit.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "2.6.0"),
     ],
     targets: [
         .target(
@@ -49,11 +48,14 @@ let package = Package(
             .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
             .product(name: "CypherMessaging", package: "CypherTextKit"),
             .product(name: "MessagingHelpers", package: "CypherTextKit"),
-            .product(name: "Crypto", package: "swift-crypto"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-//            .product(name: "SpineTailedKit", package: "spine-tailed-kit"),
+            .product(name: "Atomics", package: "swift-atomics"),
+            .product(name: "Algorithms", package: "swift-algorithms"),
+            .product(name: "SwiftDTF", package: "swift-data-to-file"),
+            .product(name: "NeedletailMediaKit", package: "needletail-media-kit"),
+            .product(name: "Crypto", package: "swift-crypto"),
             .target(name: "NeedleTailHelpers"),
-            .target(name: "NeedleTailProtocol")
+            .target(name: "NeedleTailProtocol"),
         ]),
         .target(
             name: "NeedleTailProtocol",

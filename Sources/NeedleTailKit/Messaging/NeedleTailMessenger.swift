@@ -2,520 +2,1202 @@
 //  NeedleTailMessenger.swift
 //
 //
-//  Created by Cole M on 9/19/21.
+//  Created by Cole M on 4/17/22.
 //
-
+#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 import CypherMessaging
-import Logging
-import NeedleTailProtocol
+import MessagingHelpers
+import SwiftUI
 import NeedleTailHelpers
-#if canImport(FoundationNetworking)
-import FoundationNetworking
+//import SpineTailedKit
+//import SpineTailedProtocol
+#if os(macOS)
+import Cocoa
 #endif
-#if canImport(Network)
-import NIOTransportServices
+import DequeModule
+#if canImport(Crypto)
+import Crypto
 #endif
-
-
-public class NeedleTailMessenger: CypherServerTransportClient, @unchecked Sendable {
+import SwiftDTF
+#if os(iOS) || os(macOS)
+@NeedleTailMessengerActor
+public final class NeedleTailMessenger {
     
-    
-    public var isConnected: Bool = false
-    public var supportsDelayedRegistration = false
-    public weak var delegate: CypherTransportClientDelegate?
-    /// A **CypherServerTransportClient** property for setting`true` when logged in, `false` on incorrect login, `nil` when no server request has been executed yet
-    public internal(set) var authenticated = AuthenticationState.unauthenticated
-    public var supportsMultiRecipientMessages = false
-    public var type: ConversationType = .privateMessage
-    public private(set) var signer: TransportCreationRequest?
-    private(set) var needleTailNick: NeedleTailNick?
-    private let appleToken: String?
-    private var nameToVerify: String?
-    private var transportState: TransportState
-    private var serverInfo: ClientContext.ServerClientInfo
-    private var keyBundle: String = ""
-    var recipientDeviceId: DeviceId?
-    var emitter: NeedleTailEmitter?
     @MainActor
-    var plugin: NeedleTailPlugin
-    var logger: Logger
-    var messageType = MessageType.message
-    var readReceipt: ReadReceipt?
-    var needleTailChannelMetaData: NeedleTailChannelPacket?
-    var username: Username?
-    var deviceId: DeviceId?
-    var registrationState: RegistrationState = .full
-    var addChildDevice = false
-    var client: NeedleTailClient? {
+    public let emitter: NeedleTailEmitter
+    public let networkMonitor: NetworkMonitor
+    public typealias NTAnyChatMessage = AnyChatMessage
+    public typealias NTContact = Contact
+    public typealias NTPrivateChat = PrivateChat
+    @NeedleTailTransportActor
+    public var cypherTransport: NeedleTailCypherTransport?
+    @NeedleTailTransportActor
+    public var messageType: MessageType = .message {
         didSet {
-            Task {
-                if let delegate = delegate {
-                    await setTransportDelegate(delegate)
+            cypherTransport?.configuration.messageType = messageType
+        }
+    }
+    
+    public var multipartMessage: MultipartMessagePacket?
+    var registrationApproved = false
+    var registeringNewDevice = false
+    var plugin: NeedleTailPlugin?
+    public var store: CypherMessengerStore?
+    public var cypher: CypherMessenger? {
+        didSet {
+            if let cypher = cypher {
+                Task { @MainActor in
+                    emitter.cypher = cypher
+                    emitter.username = cypher.username
+                    emitter.deviceId = cypher.deviceId
                 }
             }
         }
     }
-var lastOtherDeviceId: DeviceId?
-    weak var transportBridge: TransportBridge?
-    @NeedleTailTransportActor
-    weak var mtDelegate: MessengerTransportBridge?
+#if canImport(Crypto)
+    let needletailCrypto = NeedleTailCrypto()
+#endif
+    let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
+    let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
-    @NeedleTailTransportActor
+    
     public init(
-        username: Username? = nil,
-        deviceId: DeviceId? = nil,
-        signer: TransportCreationRequest? = nil,
-        appleToken: String? = nil,
-        transportState: TransportState,
-        serverInfo: ClientContext.ServerClientInfo,
         emitter: NeedleTailEmitter,
-        plugin: NeedleTailPlugin
-    ) async throws {
-        self.logger = Logger(label: "IRCMessenger - ")
-        self.transportState = transportState
-        self.serverInfo = serverInfo
-        self.username = username
-        self.deviceId = deviceId
-        self.signer = signer
-        self.appleToken = appleToken
+        networkMonitor: NetworkMonitor,
+        sortChats: @Sendable @MainActor @escaping (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    ) async {
         self.emitter = emitter
-        self.plugin = plugin
+        self.networkMonitor = networkMonitor
+        self.sortChats = sortChats
     }
     
-    enum ClientServerState {
-        case clientRegistering, lockState
+    
+    /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
+    /// - Parameter code: The **QR Code** scanned from the **Master Device**
+    public func waitForApproval(_ code: String) async throws {
+        guard let transportBridge = await cypherTransport?.transportBridge else { throw NeedleTailError.transportNotIntitialized }
+        let approved = try await transportBridge.processApproval(code)
+        registrationApproved = approved
     }
     
-#if os(macOS) || os(iOS)
-    public class func authenticate(
-        appleToken: String? = "",
-        transportRequest: TransportCreationRequest?,
+    // After the master scans the new device we feed it to cypher in order to add the new device locally and remotely
+    public func addNewDevice(_ config: UserDeviceConfig) async throws {
+        guard let cypher = cypher else { throw NeedleTailError.cypherMessengerNotSet}
+        try await cypherTransport?.transportBridge?.addNewDevice(config, cypher: cypher)
+    }
+    
+    func onBoardAccount(
+        appleToken: String,
+        username: String,
+        store: CypherMessengerStore,
         serverInfo: ClientContext.ServerClientInfo,
-        plugin: NeedleTailPlugin,
-        emitter: NeedleTailEmitter
-    ) async throws -> NeedleTailMessenger {
-        return try await NeedleTailMessenger(
-            username: transportRequest?.username,
-            deviceId: transportRequest?.deviceId,
-            signer: transportRequest,
-            appleToken: appleToken,
-            transportState: TransportState(
-                identifier: UUID(),
-                emitter: emitter
-            ),
-            serverInfo: serverInfo,
-            emitter: emitter,
-            plugin: plugin
-        )
-    }
-#endif
-    
-    func createClient(_
-                      nameToVerify: String? = nil,
-                      newHost: String = "",
-                      tls: Bool = true
+        p2pFactories: [P2PTransportClientFactory],
+        eventHandler: PluginEventHandler? = nil,
+        withChildDevice: Bool = false,
+        messenger: NeedleTailMessenger
     ) async throws {
-        if !newHost.isEmpty {
-        self.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
-        }
-        var deviceId: DeviceId?
+        self.store = store
+        plugin = NeedleTailPlugin(messenger: self)
+        guard let plugin = plugin else { return }
         
-        if signer?.username.raw == nil {
-            //We are checking if we have an account
-            self.nameToVerify = nameToVerify?.replacingOccurrences(of: " ", with: "").ircLowercased()
-        } else {
-            //We have an account
-            self.nameToVerify = signer?.username.raw.replacingOccurrences(of: " ", with: "").ircLowercased()
-        }
-        
-        if signer?.deviceId == nil {
-            deviceId = DeviceId("")
-        } else {
-            deviceId = signer?.deviceId
-        }
-        guard let name = self.nameToVerify else { throw NeedleTailError.nilNickName }
-        self.needleTailNick = NeedleTailNick(name: name, deviceId: deviceId)
-        guard let nick = self.needleTailNick else { throw NeedleTailError.nilNickName }
-        
-        let clientContext = ClientContext(
-            serverInfo: self.serverInfo,
-            nickname: nick
-        )
-        guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
-#if os(macOS) || os(iOS)
-        let username = Username(name)
-        let client = await NeedleTailClient(
-            ntkBundle: NTKClientBundle(
-                cypher: emitter?.cypher,
-                messenger: self,
-                signer: signer
-            ),
-            transportState: self.transportState,
-            clientContext: clientContext,
-            ntkUser: NTKUser(
-                username: username,
-                deviceId: deviceId
-            )
-        )
-        
-        self.transportBridge = client
-        try await transportBridge?.connectClient()
-        try await transportBridge?.resumeClient(type: appleToken != "" ? .siwa(appleToken!) : .plain(name), state: registrationState)
-        self.client = client
-#endif
-    }
-    
-    //MARK: Delegate setters
-    public func setDelegate(to delegate: CypherTransportClientDelegate) async throws {
-        self.delegate = delegate
-        await setTransportDelegate(delegate)
-    }
-    
-    @NeedleTailClientActor
-    private func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
-#if os(macOS) || os(iOS)
-        guard let emitter = emitter else { return }
-        await client?.setDelegates(
-            delegate,
-            mtDelegate: mtDelegate,
+        let cypherTransport = try await createTransport(
+            serverInfo: serverInfo,
             plugin: plugin,
-            emitter: emitter
+            messenger: messenger,
+            nameToVerify: username
         )
-#endif
+        let asyncChannel = try await self.resumeService(cypherTransport, nameToVerify: username)
+        do {
+            if asyncChannel?.channel.isActive == true {
+                let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
+                for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
+                    guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
+                    try await cypherTransport.transportBridge?.requestDeviceRegistration(nick)
+                }
+                
+                //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
+                await displayScanner()
+                
+                try await RunLoop.run(240, sleep: 1, stopRunning: { @NeedleTailMessengerActor [weak self] in
+                    guard let self else { return false }
+                    var running = true
+                    if self.registrationApproved == true {
+                        running = false
+                    }
+                    return running
+                })
+                
+                guard self.registrationApproved == true else {
+                    throw NeedleTailError.cannotRegisterNewDevice
+                }
+                
+                try await serviceInterupted(true,  cypherTransport: cypherTransport)
+                await removeCypherTransport()
+                await setRegistrationState(.deregistered)
+                
+                self.cypher = try await registerNeedleTail(
+                    appleToken: appleToken,
+                    username: username,
+                    store: store,
+                    serverInfo: serverInfo,
+                    p2pFactories: p2pFactories,
+                    eventHandler: eventHandler,
+                    addChildDevice: withChildDevice,
+                    messenger: messenger
+                )
+                Task { @MainActor in
+                    emitter.needleTailNick = cypherTransport.configuration.needleTailNick
+                }
+            }
+        } catch let nterror as NeedleTailError {
+            switch nterror {
+            case .nilUserConfig:
+                print("User Does not exist,  proceed...", nterror)
+                try await self.serviceInterupted(true, cypherTransport: cypherTransport)
+                await removeCypherTransport()
+                await setRegistrationState(.deregistered)
+                
+                do {
+                    self.cypher = try await registerNeedleTail(
+                        appleToken: appleToken,
+                        username: username,
+                        store: store,
+                        serverInfo: serverInfo,
+                        p2pFactories: p2pFactories,
+                        eventHandler: eventHandler,
+                        messenger: messenger
+                    )
+                    
+                    Task { @MainActor in
+                        emitter.needleTailNick = cypherTransport.configuration.needleTailNick
+                        dismissUI()
+                    }
+                } catch {
+                    print("ERROR REGISTERING", error)
+                }
+            default:
+                return
+            }
+        } catch {
+            print(error)
+            return
+        }
     }
     
-    /// It's required to only allow publishing by devices whose identity matches that of a **master device**. The list of master devices is published in the user's key bundle.
-    public func publishKeyBundle(_ data: UserConfig) async throws {
-        try await transportBridge?.publishKeyBundle(data, appleToken: appleToken ?? "", nameToVerify: nameToVerify ?? "",recipientDeviceId: recipientDeviceId)
-    }
-    
-    
-    
-    /// When we initially create a user we need to read the key bundle upon registration. Since the User is created on the Server a **UserConfig** exists.
-    /// Therefore **CypherTextKit** will ask to read that users bundle. If It does not exist then the error is caught and we will call ``publishKeyBundle(_ data:)``
-    /// from **CypherTextKit**'s **registerMessenger()** method.
-    public func readKeyBundle(forUsername username: Username) async throws -> UserConfig {
-        guard let transportBridge = transportBridge else { throw NeedleTailError.bridgeDelegateNotSet }
-        return try await transportBridge.readKeyBundle(username)
-    }
-    
-    struct SignUpResponse: Codable {
-        let existingUser: Username?
-    }
-    
-}
-
-public enum RegistrationType {
-    case siwa(String), plain(String)
-}
-
-public enum RegistrationState {
-    case full, temp
-}
-
-
-extension NeedleTailMessenger {
-    
-    public func reconnect() async throws {}
-    
-    public func disconnect() async throws {}
-    
-    /// When we request a new device registration. We generate a QRCode that the master device needs to scan. Once that is scanned, the master device should notify via a server request/response to the child in order to set masterScanned to true. The the new device can register to IRC and receive messages with that username.
-    /// - Parameter config: The Requesters User Device Configuration
-    public func requestDeviceRegistery(_ config: UserDeviceConfig) async throws {
-        try await transportBridge?.requestDeviceRegistery(config, addChildDevice: addChildDevice, appleToken: appleToken ?? "")
+    @NeedleTailTransportActor
+    func removeCypherTransport() async {
+        self.cypherTransport = nil
     }
     
     @MainActor
-    func updateEmitter(_ data: Data?) {
-#if (os(macOS) || os(iOS))
-        guard let emitter = emitter else { return }
+    private func displayScanner() {
         emitter.showScanner = true
-        /// Send **User Config** data to generate a QRCode in the **Child Device**
-        emitter.requestMessageId = nil
-        emitter.qrCodeData = data
+    }
+    
+    @MainActor
+    private func dismissUI() {
+#if (os(macOS) || os(iOS))
+        emitter.dismissRegistration = true
+        emitter.showProgress = false
+        emitter.bundles.contactBundle = nil
 #endif
     }
     
-    public struct SetToken: Codable {
-        let token: String
-    }
-    
-    @BlobActor
-    public func publishBlob<C>(_ blob: C) async throws -> ReferencedBlob<C> where C : Decodable, C : Encodable {
-        guard let transportBridge = transportBridge else { throw NeedleTailError.nilBlob }
-        return try await transportBridge.publishBlob(blob)
+    @discardableResult
+    public func registerNeedleTail(
+        appleToken: String,
+        username: String,
+        store: CypherMessengerStore,
+        serverInfo: ClientContext.ServerClientInfo,
+        p2pFactories: [P2PTransportClientFactory],
+        eventHandler: PluginEventHandler? = nil,
+        addChildDevice: Bool = false,
+        messenger: NeedleTailMessenger
+    ) async throws -> CypherMessenger? {
+        if cypher == nil {
+            //Create plugin here
+            plugin = NeedleTailPlugin(messenger: self)
+            guard let plugin = plugin else { return nil }
+            self.cypher = try! await CypherMessenger.registerMessenger(
+                username: Username(username),
+                appPassword: serverInfo.password,
+                usingTransport: { [weak self] transportRequest async throws in
+                    guard let self else { fatalError() }
+                    let transport = try await self.createTransport(
+                        serverInfo: serverInfo,
+                        plugin: plugin,
+                        messenger: messenger,
+                        transportRequest: transportRequest,
+                        addChildDevice: addChildDevice
+                    )
+                    await self.setTransport(transport: transport)
+                    _ = try await self.resumeService(transport, nameToVerify: username)
+                    return transport
+                },
+                p2pFactories: p2pFactories,
+                database: store,
+                eventHandler: eventHandler ?? makeEventHandler(plugin)
+            )
+        }
+        return self.cypher
     }
     
     @NeedleTailTransportActor
-    public func readPublishedBlob<C>(byId id: String, as type: C.Type) async throws -> ReferencedBlob<C>? where C : Decodable, C : Encodable {
-        fatalError()
+    private func createTransport(
+        serverInfo: ClientContext.ServerClientInfo,
+        plugin: NeedleTailPlugin,
+        messenger: NeedleTailMessenger,
+        transportRequest: TransportCreationRequest? = nil,
+        nameToVerify: String = "",
+        addChildDevice: Bool = false
+    ) async throws -> NeedleTailCypherTransport {
+        let cypherTransport = NeedleTailCypherTransport.authenticate(
+            transportRequest: transportRequest,
+            serverInfo: serverInfo,
+            plugin: plugin,
+            messenger: messenger
+        )
+        cypherTransport.configuration.addChildDevice = addChildDevice
+        if !nameToVerify.isEmpty {
+            cypherTransport.configuration.registrationState = .temp
+        }
+        return cypherTransport
+    }
+    
+    @discardableResult
+    public func spoolService(
+        appleToken: String,
+        store: CypherMessengerStore,
+        serverInfo: ClientContext.ServerClientInfo,
+        eventHandler: PluginEventHandler? = nil,
+        p2pFactories: [P2PTransportClientFactory],
+        messenger: NeedleTailMessenger
+    ) async throws -> CypherMessenger? {
+        //Create plugin here
+        self.plugin = NeedleTailPlugin(messenger: messenger)
+        
+        guard let plugin = self.plugin else { return nil }
+        self.cypher = try await CypherMessenger.resumeMessenger(
+            appPassword: serverInfo.password,
+            usingTransport: { transportRequest -> NeedleTailCypherTransport in
+                return try await self.createTransport(
+                    serverInfo: serverInfo,
+                    plugin: plugin,
+                    messenger: messenger,
+                    transportRequest: transportRequest
+                )
+            },
+            p2pFactories: p2pFactories,
+            database: store,
+            eventHandler: eventHandler ?? self.makeEventHandler(plugin)
+        )
+        let cypherTransport = self.cypher?.transport as! NeedleTailCypherTransport
+        await setTransport(transport: cypherTransport)
+        _ = try await self.resumeService(cypherTransport)
+        await self.setNick()
+        return self.cypher
+    }
+    
+    @NeedleTailTransportActor
+    func setTransport(transport: NeedleTailCypherTransport) async {
+        self.cypherTransport = transport
+    }
+    
+    @MainActor
+    func setNick() async {
+        emitter.needleTailNick = await cypherTransport?.configuration.needleTailNick
+    }
+    
+    @NeedleTailTransportActor
+    public func connectionAvailability() -> Bool {
+        guard let cypherTransport = cypherTransport else { return false }
+        if cypherTransport.authenticated == .unauthenticated && cypherTransport.isConnected == false {
+            return false
+        } else {
+            return true
+        }
+    }
+    
+    @MainActor
+    func setRegistrationState(_ state: ServerConnectionState) async {
+#if (os(macOS) || os(iOS))
+        emitter.connectionState = state
+#endif
     }
     
     
-    
-    /// This method has 2 purposes.
-    /// - **1 create new channel locally and the send the metadata to the server in order to join the channel**
-    /// - **2. If a locally channel already exists, there is no need to create it again so we just join the channel.**
-    /// - Parameters:
-    ///   - name: Name of the channel
-    ///   - admin: Admin's Username i.e. **needletail:123-456-234-sdga34-vadf**
-    ///   - organizers: Set of the organizers on this channel
-    ///   - members:Set of the members on this channel
-    ///   - permissions: The channel permission
     @NeedleTailTransportActor
-    func createLocalChannel(
+    public func resumeService(_
+                              nameToVerify: String = "",
+                              appleToken: String = "",
+                              newHost: String = "")
+    async throws {
+        if let cypherTransport = self.cypherTransport {
+            await networkServiceResumer(
+                cypherTransport,
+                nameToVerify: nameToVerify,
+                appleToken: appleToken,
+                newHost: newHost
+            )
+        }
+    }
+    
+    @NeedleTailTransportActor
+    internal func resumeService(_
+                                cypherTransport: NeedleTailCypherTransport,
+                                nameToVerify: String = "",
+                                appleToken: String = "",
+                                newHost: String = ""
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer>? {
+        switch await emitter.connectionState {
+        case .deregistered, .shouldRegister:
+            await setRegistrationState(.registering)
+            let asyncChannel = try await cypherTransport.createClient(
+                cypherTransport,
+                nameToVerify: nameToVerify,
+                newHost: newHost
+            )
+            try await monitorClientConnection(cypherTransport)
+#if (os(macOS) || os(iOS))
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.emitter.channelIsActive = asyncChannel.channel.isActive
+            }
+#endif
+            return asyncChannel
+        case .deregistering:
+            await setRegistrationState(.shouldRegister)
+            try await monitorClientConnection(cypherTransport)
+        default:
+            print("Trying to resume service during a \(await emitter.connectionState) state")
+        }
+        return nil
+    }
+    
+    private func networkServiceResumer(_
+                                       cypherTransport: NeedleTailCypherTransport,
+                                       nameToVerify: String = "",
+                                       appleToken: String = "",
+                                       newHost: String = ""
+    ) async {
+        let networkServiceResumerTask = Task { @NeedleTailTransportActor in
+            return try await withThrowingTaskGroup(of: Void.self, body: { group in
+                //We need to make sure we have internet before we try this
+                for try await status in self.networkMonitor.$currentStatus.values {
+                    try Task.checkCancellation()
+                    group.addTask { @NeedleTailTransportActor [weak self] in
+                        guard let self else { return }
+                        if status == .satisfied {
+                            if cypherTransport.isConnected == false {
+                                _ = try await self.resumeService(
+                                    cypherTransport,
+                                    nameToVerify: nameToVerify,
+                                    appleToken: appleToken,
+                                    newHost: newHost
+                                )
+                            }
+                            return
+                        }
+                    }
+                }
+                _ = try await group.next()
+                group.cancelAll()
+            })
+        }
+        
+        do {
+            try await networkServiceResumerTask.value
+        } catch {
+            print("ERROR RESULT_____", error)
+            if !networkServiceResumerTask.isCancelled {
+                networkServiceResumerTask.cancel()
+            }
+        }
+    }
+    
+    @NeedleTailTransportActor
+    var canReregister = false
+    @NeedleTailTransportActor
+    func monitorClientConnection(_ cypherTransport: NeedleTailCypherTransport) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for await state in await self.emitter.$connectionState.values {
+                try Task.checkCancellation()
+                group.addTask { @NeedleTailTransportActor [weak self] in
+                    guard let self else { return }
+                    switch state {
+                    case .shouldRegister:
+                        self.canReregister = true
+                    case .registered:
+                        await self.setNick()
+                        cypherTransport.isConnected = true
+                        cypherTransport.authenticated = .authenticated
+                        if self.cypherTransport?.isConnected == true { return }
+                    case .deregistered:
+                        cypherTransport.isConnected = false
+                        cypherTransport.authenticated = .unauthenticated
+                        if self.canReregister {
+                            _ = try await self.resumeService(cypherTransport)
+                        }
+                    default:
+                        ()
+                    }
+                }
+                _ = try await group.next()
+                group.cancelAll()
+            }
+        }
+    }
+    
+    @NeedleTailTransportActor
+    public func serviceInterupted(_ isSuspending: Bool = false) async throws {
+        guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        try await serviceInterupted(isSuspending, cypherTransport: cypherTransport)
+    }
+    
+    @NeedleTailTransportActor
+    internal func serviceInterupted(_ isSuspending: Bool = false, cypherTransport: NeedleTailCypherTransport) async throws {
+        switch await emitter.connectionState {
+        case .registered:
+            await setRegistrationState(.deregistering)
+            try await cypherTransport.transportBridge?.suspendClient(isSuspending)
+            await removeClient()
+        default:
+            break
+        }
+    }
+    
+    @NeedleTailTransportActor
+    func removeClient() async {
+        cypherTransport?.configuration.client = nil
+    }
+    
+    @NeedleTailClientActor
+    func removeTransport(_ cypherTransport: NeedleTailCypherTransport) async {
+        await cypherTransport.configuration.client?.teardownClient()
+    }
+    
+    @NeedleTailTransportActor
+    public func requestOfflineMessages() async throws {
+        guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        try await cypherTransport.transportBridge?.requestOfflineMessages()
+    }
+    
+    @NeedleTailTransportActor
+    internal func deleteOfflineMessages(from contact: String) async throws {
+        guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        try await cypherTransport.transportBridge?.deleteOfflineMessages(from: contact)
+    }
+    
+    @NeedleTailTransportActor
+    internal func notifyContactRemoved(_ contact: Username) async throws {
+        guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        guard let username = cypherTransport.configuration.username else { throw NeedleTailError.usernameNil }
+        guard let deviceId = cypherTransport.configuration.deviceId else { throw NeedleTailError.deviceIdNil }
+        try await cypherTransport.transportBridge?.notifyContactRemoved(NTKUser(username: username, deviceId: deviceId), removed: contact)
+    }
+    
+    public func registerAPN(_ token: Data) async throws {
+        try await cypherTransport?.transportBridge?.registerAPNSToken(token)
+    }
+    
+    @NeedleTailTransportActor
+    public func blockUnblockUser(_ contact: Contact) async throws {
+        cypherTransport?.configuration.messageType = .blockUnblock
+        if await contact.isBlocked {
+            try await contact.unblock()
+        } else {
+            try await contact.block()
+        }
+        await self.updateBundle(contact)
+    }
+    
+    @MainActor
+    public func updateBundle(_ contact: Contact) {
+        guard var bundle = emitter.bundles.contactBundleViewModel.first(where: { $0.contact.username == contact.username }) else { return }
+        bundle.contact = contact
+    }
+    
+    public func beFriend(_ contact: Contact) async throws {
+        let undecided = await contact.ourFriendshipState == .undecided
+        if await contact.ourFriendshipState == .notFriend || undecided {
+            try await contact.befriend()
+        } else {
+            try await contact.unfriend()
+        }
+        await updateBundle(contact)
+    }
+    
+    @NeedleTailTransportActor
+    public func addContact(newContact: String, nick: String = "") async throws {
+        let chat = try await cypher?.createPrivateChat(with: Username(newContact))
+        let contact = try await cypher?.createContact(byUsername: Username(newContact))
+        messageType = .message
+        try await contact?.befriend()
+        try await contact?.setNickname(to: nick)
+        messageType = .message
+        _ = try await chat?.sendRawMessage(
+            type: .magic,
+            messageSubtype: "_/ignore",
+            text: "",
+            preferredPushType: .contactRequest
+        )
+    }
+    
+    public func removeDevice(_ id: UUID) async throws {
+        let ids = try await store?.fetchDeviceIdentities()
+        guard let device = ids?.first(where: { $0.id == id}) else { return }
+        try await store?.removeDeviceIdentity(device)
+    }
+    
+    //We are not using CTK for groups. All messages are sent in one-on-one conversations. This includes group chat communication, that will also be routed in private chats. What we want to do is create a group. The Organizer of the group will do this. The organizer can then do the following.
+    // - Name the group
+    // - add initial members
+    // - add other organizers to the group
+    //How are we going to save groups to a device? Let's build a plug that will do the following
+    //1. The admin creates the group encrypts it and saves it to disk then sends it to the NeedleTailChannel.
+    //2. The Channel then is operating. it will then join the members and organizers of the Channel and emit the needed information to them if they are online, of not it will save that information until they are online and when they come online they will receive the event and be able to respond to the request. If accepted the Client will save to disk the Channel, if not it will reject it and tell the server. Either way the pending request will be deleted from the DB and all clients will be notified of the current status.
+    //3. The Channel will exisit as long as the server is up. The DB will know the channel name and the Nicks assosiated with it along with their roles. The channels will be brought online when the server spools up.
+    //4. The Channel acts as a passthrough of private messages and who receives them. The Logic Should be the exact same as PRIVMSG except we specify a channel recipient.
+    //5. Basic Flow - DoJoin(Creates the channel if it does not exist with organizers and intial members) -> DoMessage(Sends Messages to that Channel)
+    public func createLocalChannel(
         name: String,
         admin: Username,
         organizers: Set<Username>,
         members: Set<Username>,
         permissions: IRCChannelMode
     ) async throws {
-        
-        guard members.count > 1 else { throw NeedleTailError.membersCountInsufficient }
-        
-        let seperated = admin.description.components(separatedBy: ":")
-        guard let needleTailAdmin = NeedleTailNick(name: seperated[0], deviceId: DeviceId(seperated[1])) else { return }
-        
-        //Build our server message, we set the meta data variable here, this will give sendMessage the needed data by the time the sendMessage flow starts.
-        needleTailChannelMetaData = NeedleTailChannelPacket(
+        try await cypherTransport?.createLocalChannel(
             name: name,
-            admin: needleTailAdmin,
+            admin: admin,
             organizers: organizers,
             members: members,
             permissions: permissions
         )
+    }
+    
+    public func makeEventHandler(_
+                                 plugin: NeedleTailPlugin
+    ) throws -> PluginEventHandler {
+        return PluginEventHandler(plugins: [
+            FriendshipPlugin(ruleset: {
+                var ruleset = FriendshipRuleset()
+                ruleset.ignoreWhenUndecided = true
+                ruleset.preventSendingDisallowedMessages = true
+                return ruleset
+            }()),
+            UserProfilePlugin(),
+            ChatActivityPlugin(),
+            ModifyMessagePlugin(),
+            //            MessageDataToFilePlugin(),
+            plugin
+        ])
+    }
+    
+    public func startVideoChat(_ username: String, data: Data) async throws {
+        //        let chat = try await cypher?.createPrivateChat(with: Username(username))
+        //        try await chat?.buildP2PConnections()
+        //
+        //        let packet = try RTPPacket(from: data)
+        //        let data = try BSONEncoder().encode(packet).makeData()
+        //        let string = data.base64EncodedString()
+        //        _ = try await chat?.sendRawMessage(type: .media, text: string, preferredPushType: .call)
         
-        var cypher: CypherMessenger?
-#if os(macOS) || os(iOS)
-        cypher = emitter?.cypher
-#endif
-        let metaDoc = try BSONEncoder().encode(needleTailChannelMetaData)
+    }
+    
+    public func sendMessageReadReceipt() async throws {
+        try await cypherTransport?.sendMessageReadReceipt()
+    }
+    
+    public func sendReadMessages(count: Int) async throws {
+        try await cypherTransport?.sendReadMessages(count: count)
+    }
+    
+    public func downloadMultipart(_ metadata: [String]) async throws {
+        try await cypherTransport?.downloadMultipart(metadata)
+    }
+    
+    public func requestBucketContents(_ bucket: String = "MediaBucket") async throws {
+        try await cypherTransport?.requestBucketContents(bucket)
+    }
+}
+
+
+//SwiftUI Stuff
+extension NeedleTailMessenger {
+    
+    public struct SkeletonView<Content>: View where Content: View {
         
-        guard let cypher = cypher else { return }
+        @StateObject var emitter = NeedleTailEmitter.shared
+        @StateObject var networkMonitor = NetworkMonitor.shared
         
-        //Always remove Admin, CTK will add it layer. We need it pass through though for NTK MetaData
-        var members = members
-        members.remove(admin)
-        var organizers = organizers
-        organizers.remove(admin)
-        switch try await searchChannels(cypher, channelName: name) {
-        case .new:
-            /// This will kick off a sendMessage flow. Everytime `createGroupChat(with:)` is called we initialized a new conversation with a  new *UUID*.
-            /// That means we need a way of checking if the conversation already exist before we create a new one, if not we will create multiple local channels with the same name.
-            /// CTK will add the current user as a member and moderator/organizer. This is fine, but we are Identifeing a device paried with it's username.
-            /// So we want to add the **NeedTailNick** which contains the Identifier. This will end up placing the CTK Username and our NTNick in the Set of members&moderators.
-            /// Technically these are duplicates and unnecessary. We want to keep our metadata with the needed info for the server and at the same time strip what is unneeded for CTK.
-            /// If we don't not only will we have duplicates but, when CTK calls `readKeyBundle` it will try and read the NTNick which the serve doesn't know about the
-            /// Device Identity for a key bundle; therefore it will throw an error saying that we cannot fond the key bundle. It is best to just remove the duplicate to avoid all these problems.
-            let group = try await cypher.createGroupChat(with: members, localMetadata: metaDoc, sharedMetadata: metaDoc)
-            await updateGroupChats(group, organizers: organizers, members: members, meta: metaDoc)
-        case .found(let chat):
-            /// We already have a chat... So just update localDB
-            await updateGroupChats(chat, organizers: organizers, members: members, meta: metaDoc)
-        default:
-            break
+        let content: Content
+        
+        public init(content: Content) {
+            self.content = content
         }
-        /// Send the Channel Info to NeedleTailServer
-        let meta = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: metaDoc)
         
-        try await transportBridge?.createNeedleTailChannel(
-            name: meta.name,
-            admin: meta.admin,
-            organizers: meta.organizers,
-            members: meta.members,
-            permissions: meta.permissions
-        )
-    }
-    
-    enum SearchResult {
-        case new, found(GroupChat), none
-    }
-    
-    ///We want to first make sure that a channel doesn't exist with the and ID
-    @NeedleTailTransportActor
-    func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
-#if (os(macOS) || os(iOS))
-        guard let emitter = emitter else { return .none }
-        _ = await emitter.fetchChats(cypher: cypher)
-        let groupChats = try await emitter.fetchGroupChats(cypher)
-        let channel = try await groupChats.asyncFirstThrowing { chat in
-            let metaDoc = await chat.conversation.metadata
-            let meta = try BSONDecoder().decode(GroupMetadata.self, from: metaDoc)
-            let config = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: meta.config.blob.metadata)
-            return config.name == channelName
-        }
-        
-        guard let channel = channel else { return .new }
-        return .found(channel)
-#else
-        return .none
-#endif
-    }
-    
-    @NeedleTailTransportActor
-    func updateGroupChats(_
-                          group: GroupChat,
-                          organizers: Set<Username>,
-                          members: Set<Username>,
-                          meta: Document
-    ) async {
-        //Update any organizers Locally
-        var config = await group.getGroupConfig()
-        for organizer in organizers {
-            if config.blob.moderators.contains(organizer) == false {
-                config.blob.promoteAdmin(organizer)
+        public var body: some View {
+            AsyncView(run: { () async throws -> NeedleTailMessenger in
+                return await NeedleTailMessenger(
+                    emitter: emitter,
+                    networkMonitor: networkMonitor,
+                    sortChats: sortConversations
+                )
+            }) { messenger in
+                content
+                    .environment(\.messenger, messenger)
+                    .environmentObject(messenger.emitter)
+                    .environmentObject(networkMonitor)
             }
         }
-        
-        //Update localDB with members
-        for member in members {
-            guard !config.blob.members.contains(member) else { return }
-            config.blob.addMember(member)
-        }
-        
-        config.blob.metadata = meta
     }
     
     
-    /// We are getting the message from CypherTextKit after Encryption. Our Client will send it to CypherTextKit Via `sendRawMessage()`
-    @NeedleTailTransportActor
-    public func sendMessage(_
-                            message: RatchetedCypherMessage,
-                            toUser username: Username,
-                            otherUserDeviceId deviceId: DeviceId,
-                            pushType: PushType,
-                            messageId: String
+    public func spoolService(
+        with serverInfo: ClientContext.ServerClientInfo,
+        messenger: NeedleTailMessenger,
+        store: CypherMessengerStore
     ) async throws {
-        lastOtherDeviceId = deviceId
-        try await transportBridge?.sendMessage(
-            message: message,
-            toUser: username,
-            otherUserDeviceId: deviceId,
-            pushType: pushType,
-            messageId: messageId,
-            type: type,
-            readReceipt: readReceipt
+        if messenger.cypher == nil {
+            self.cypher = try await spoolService(
+                appleToken: "",
+                store: store,
+                serverInfo: serverInfo,
+                p2pFactories: makeP2PFactories(),
+                messenger: messenger
+            )
+        }
+    }
+    
+    
+    public struct RegisterOrAddButton: View {
+        public var exists: Bool = true
+        public var createContact: Bool = true
+        public var createChannel: Bool = true
+        public var buttonTitle: String = ""
+        public var username: Username = ""
+        public var userHandle: String = ""
+        public var nick: String = ""
+        public var channelName: String?
+        public var admin: Username?
+        public var organizers: Set<Username>?
+        public var members: Set<Username>?
+        public var permissions: IRCChannelMode?
+        public var password: String = ""
+        public var store: CypherMessengerStore? = nil
+        public var serverInfo: ClientContext.ServerClientInfo? = nil
+        @State var buttonTask: Task<(), Error>? = nil
+        @Environment(\.messenger) var messenger
+        @EnvironmentObject var emitter: NeedleTailEmitter
+        
+        public init(
+            exists: Bool,
+            createContact: Bool,
+            createChannel: Bool,
+            buttonTitle: String,
+            username: Username,
+            password: String,
+            userHandle: String,
+            nick: String,
+            channelName: String? = nil,
+            admin: Username? = nil,
+            organizers: Set<Username>? = nil,
+            members: Set<Username>? = nil,
+            permissions: IRCChannelMode? = nil,
+            store: CypherMessengerStore? = nil,
+            serverInfo: ClientContext.ServerClientInfo? = nil
+        ) {
+            self.exists = exists
+            self.createContact = createContact
+            self.createChannel = createChannel
+            self.channelName = channelName
+            self.admin = admin
+            self.organizers = organizers
+            self.members = members
+            self.permissions = permissions
+            self.buttonTitle = buttonTitle
+            self.username = username
+            self.userHandle = userHandle
+            self.nick = nick
+            self.password = password
+            self.store = store
+            self.serverInfo = serverInfo
+            self.serverInfo?.password = password
+        }
+        
+        public var body: some View {
+            
+            Button(buttonTitle, action: {
+#if os(iOS)
+                UIApplication.shared.endEditing()
+#endif
+                emitter.showProgress = true
+                
+                self.buttonTask = Task {
+                    if createContact {
+                        try await messenger.addContact(newContact: userHandle, nick: nick)
+                    } else if createChannel {
+                        guard let channelName = channelName else { return }
+                        guard let admin = admin else { return }
+                        guard let organizers = organizers else { return }
+                        guard let members = members else { return }
+                        guard let permissions = permissions else { return }
+                        try await messenger.createLocalChannel(
+                            name: channelName,
+                            admin: admin,
+                            organizers: organizers,
+                            members: members,
+                            permissions: permissions
+                        )
+                    } else {
+                        do {
+                            guard let store = store else { throw NeedleTailError.storeNotIntitialized }
+                            guard let serverInfo = serverInfo else { throw NeedleTailError.clientInfotNotIntitialized }
+                            
+                            try await messenger.onBoardAccount(
+                                appleToken: "",
+                                username: username.raw,
+                                store: store,
+                                serverInfo: serverInfo,
+                                p2pFactories: makeP2PFactories(),
+                                eventHandler: nil,
+                                messenger: messenger
+                            )
+                        } catch let error as NeedleTailError {
+                            if error == .masterDeviceReject {
+                                //TODO: Send REJECTED/RETRY Notification
+                                print("MASTER_DEVICE_REJECTED_REGISTRATION", error)
+                            } else if error == .registrationFailure {
+                                //TODO: Send RETRY with new Username Notification
+                                print("REGISTRATION_FAILED", error)
+                            } else {
+                                print(error)
+                            }
+                        } catch {
+                            print(error)
+                        }
+                    }
+                }
+            })
+            .onDisappear {
+                self.buttonTask?.cancel()
+            }
+        }
+    }
+    
+    public struct ThumbnailToMultipart {
+        public var dtfp: DataToFilePacket
+        public var symmetricKey: SymmetricKey
+        public init(
+            dtfp: DataToFilePacket,
+            symmetricKey: SymmetricKey
+        ) {
+            self.dtfp = dtfp
+            self.symmetricKey = symmetricKey
+        }
+    }
+    
+    //MARK: Outbound
+    public func sendMessageThumbnail<Chat: AnyConversation>(
+        chat: Chat,
+        messageSubtype: String,
+        dtfp: DataToFilePacket,
+        destructionTimer: TimeInterval? = nil,
+        fileURL: URL?,
+        fileData: Data?,
+        thumbnailData: Data
+    ) async throws -> ThumbnailToMultipart? {
+        guard let cypher = cypher else { return nil }
+        
+        //Encrypt our file for us locally
+        let thumbnailBox = try cypher.encryptLocalFile(thumbnailData)
+        guard let thumbnailBoxData = thumbnailBox.combined else { return nil }
+        
+        let thumbnailLocation = try DataToFile.shared.generateFile(
+            data: thumbnailBoxData,
+            fileName: dtfp.thumbnailName,
+            fileType: dtfp.thumbnailType
+        )
+        
+        var fileBlob: Data?
+        if let fileURL = fileURL {
+            fileBlob = try DataToFile.shared.generateData(from: fileURL.absoluteString)
+            let fileName = fileURL.lastPathComponent.components(separatedBy: ".")
+            try DataToFile.shared.removeItem(fileName: fileName[0], fileType: fileName[1])
+        } else {
+            fileBlob = fileData
+        }
+        guard let fileBlob = fileBlob else { return nil }
+        //Encrypt our file for us locally
+        let fileBox = try cypher.encryptLocalFile(fileBlob)
+        guard let fileBoxData = fileBox.combined else { return nil }
+        
+        let fileLocation = try DataToFile.shared.generateFile(
+            data: fileBoxData,
+            fileName: dtfp.fileName,
+            fileType: dtfp.fileType
+        )
+        
+        // Generate the symmetric key for us and the other users to decrypt the blob later
+        let symmetricKey = needletailCrypto.userInfoKey(UUID().uuidString)
+        let encodedKey = try BSONEncoder().encode(symmetricKey).makeData()
+        
+        var dtfp = dtfp
+        dtfp.fileLocation = fileLocation
+        dtfp.thumbnailLocation = thumbnailLocation
+        dtfp.symmetricKey = encodedKey
+        
+        
+        let metadata = try BSONEncoder().encode(dtfp)
+        
+        //Save the message for ourselves and send the message to each device
+        _ = try await chat.sendRawMessage(
+            type: .media,
+            messageSubtype: messageSubtype,
+            text: "",
+            metadata: metadata,
+            destructionTimer: destructionTimer,
+            preferredPushType: .message
+        )
+        
+        return ThumbnailToMultipart(
+            dtfp: dtfp,
+            symmetricKey: symmetricKey
         )
     }
     
-    public func sendMessageReadReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        print("CALLED sendMessageReadReceipt")
-        let bundle = try await readKeyBundle(forUsername: username)
-        for validatedBundle in try bundle.readAndValidateDevices() {
-            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
-            guard let sender = self.username else { return }
-            guard let deviceId = self.deviceId else { return }
-            let receipt = ReadReceipt(
-                messageId: remoteId,
-                state: .displayed,
-                sender:  NTKUser(username: sender, deviceId: deviceId),
-                recipient: recipient,
-                receivedAt: Date()
+    public func sendMultipartMessage(
+        dtfp: DataToFilePacket,
+        conversationPartner: Username,
+        symmetricKey: SymmetricKey
+    ) async throws {
+        guard let cypher = cypher else { return }
+        //        1. Access the file locations for both blobs snd decrypt
+        let fileBlob = try await needletailCrypto.decryptFile(from: dtfp.fileLocation, cypher: cypher)
+        let thumbnailBlob = try await needletailCrypto.decryptFile(from: dtfp.thumbnailLocation, cypher: cypher)
+        
+        //        2. Encrypt with our symmetric key for share
+        let sharedFileBlob = try needletailCrypto.encrypt(data: fileBlob, symmetricKey: symmetricKey)
+        let sharedThumbnailBlob = try needletailCrypto.encrypt(data: thumbnailBlob, symmetricKey: symmetricKey)
+        var dtfp = dtfp
+        dtfp.fileBlob = sharedFileBlob
+        dtfp.thumbnailBlob = sharedThumbnailBlob
+        guard let cypherTransport = await cypherTransport else { return }
+        let recipientsDevices = try await cypherTransport.readKeyBundle(forUsername: conversationPartner)
+        guard let sender = cypherTransport.configuration.needleTailNick else { return }
+        
+        //For each device we need to upload an object for that device for them
+        for device in try recipientsDevices.readAndValidateDevices() {
+            //create multipart message
+            let packet = MultipartMessagePacket(
+                id: dtfp.mediaId,
+                sender: sender,
+                recipient: NeedleTailNick(
+                    name: conversationPartner.raw,
+                    deviceId: device.deviceId
+                ),
+                dtfp: dtfp,
+                usersFileName: "\(dtfp.fileName)_\(device.deviceId.raw).\(dtfp.fileType)",
+                usersThumbnailName: "\(dtfp.thumbnailName)_\(device.deviceId.raw).\(dtfp.thumbnailType)"
             )
-            try await transportBridge?.sendReadReceiptMessage(
-                recipient: recipient,
-                pushType: .none,
-                type: .privateMessage,
-                readReceipt: receipt
-            )
-        }
-    }
-    
-    public func sendMessageReceivedReceipt(byRemoteId remoteId: String, to username: Username) async throws {
-        let bundle = try await readKeyBundle(forUsername: username)
-        for validatedBundle in try bundle.readAndValidateDevices() {
             
-            let recipient = NTKUser(username: username, deviceId: validatedBundle.deviceId)
-            guard let sender = self.username else { return }
-            guard let deviceId = self.deviceId else { return }
-            let receipt = ReadReceipt(
-                messageId: remoteId,
-                state: .received,
-                sender:  NTKUser(username: sender, deviceId: deviceId),
-                recipient: recipient,
-                receivedAt: Date()
+            dtfp.symmetricKey = nil
+            dtfp.fileLocation = ""
+            dtfp.thumbnailLocation = ""
+            try await cypherTransport.uploadMultipart(packet)
+        }
+        
+        //Send for me
+        let myDevices = try await cypherTransport.readKeyBundle(forUsername: cypher.username)
+        for device in try myDevices.readAndValidateDevices().filter({ $0.deviceId != cypher.deviceId }) {
+            //create multipart message
+            let packet = MultipartMessagePacket(
+                id: dtfp.mediaId,
+                sender: sender,
+                recipient: NeedleTailNick(
+                    name: cypher.username.raw,
+                    deviceId: device.deviceId
+                ),
+                dtfp: dtfp,
+                usersFileName: "\(dtfp.fileName)_\(device.deviceId.raw).\(dtfp.fileType)",
+                usersThumbnailName: "\(dtfp.thumbnailName)_\(device.deviceId.raw).\(dtfp.thumbnailType)"
             )
-            try await transportBridge?.sendReadReceiptMessage(
-                recipient: recipient,
-                pushType: .none,
-                type: .privateMessage,
-                readReceipt: receipt
-            )
+            
+            dtfp.symmetricKey = nil
+            dtfp.fileLocation = ""
+            dtfp.thumbnailLocation = ""
+            try await cypherTransport.uploadMultipart(packet)
         }
     }
     
-    public func sendMultiRecipientMessage(_ message: MultiRecipientCypherMessage, pushType: PushType, messageId: String) async throws {
-        fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
+    enum SampleError: Error {
+        case usernameIsNil
     }
 }
 
-protocol IRCMessageDelegate {
-    func passSendMessage(_ text: Data, to recipients: IRCMessageRecipient, tags: [IRCTags]?) async
-}
-
-
-let charA = UInt8(UnicodeScalar("a").value)
-let char0 = UInt8(UnicodeScalar("0").value)
-
-private func itoh(_ value: UInt8) -> UInt8 {
-    return (value > 9) ? (charA + value - 10) : (char0 + value)
-}
-
-extension DataProtocol {
-    var hexString: String {
-        var bytes = [UInt8]()
-        
-        self.regions.forEach { (_) in
-            for i in self {
-                bytes.append(itoh((i >> 4) & 0xF))
-                bytes.append(itoh(i & 0xF))
-            }
-        }
-        
-        return String(bytes: bytes, encoding: .utf8)!
-    }
-}
-
-extension URLResponse {
-    convenience public init?(_ url: URL) {
-        self.init(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: "")
-    }
-}
-
-extension Array {
-    func asyncFirstThrowing(where matches: (Element) async throws -> Bool) async rethrows -> Element? {
-        for i in 0..<self.count {
-            let element = self[i]
-            if try await matches(element) {
-                return element
+//LocalDB Stuff
+extension NeedleTailMessenger {
+    
+    public func findMessage(from mediaId: String, cypher: CypherMessenger) async throws -> AnyChatMessage? {
+        let conversations = try await cypher.listConversations(
+            includingInternalConversation: true,
+            increasingOrder: sortChats
+        )
+        for conversation in conversations {
+            switch conversation {
+            case .privateChat(let privateChat):
+                let allMessages = try await privateChat.allMessages(sortedBy: .ascending)
+                for message in allMessages {
+                    if await message.metadata["mediaId"] as! String == mediaId {
+                        return message
+                    }
+                }
+                break
+            case .groupChat(_):
+                return nil
+            case .internalChat(_):
+                return nil
             }
         }
         return nil
     }
+    
+    public func findMessage(by mediaId: String) async -> AnyChatMessage? {
+        return await emitter.bundles.contactBundle?.messages.async.first(where: { message in
+            let id = await message.message.metadata["mediaId"] as? String
+            return id == mediaId
+        })?.message
+    }
+    public func findPrivateMessage(by mediaId: String) async throws -> AnyChatMessage? {
+        return try await emitter.bundles.contactBundle?.privateChat.allMessages(sortedBy: .ascending).async.first(where: { message in
+            let id = await message.metadata["mediaId"] as? String
+            return id == mediaId
+        })
+    }
+    
+    public func findAllMessages(with mediaId: String) async throws -> [AnyChatMessage] {
+        var messages = [AnyChatMessage]()
+        guard let contactBundle = await emitter.bundles.contactBundle else { return [] }
+        for try await message in contactBundle.messages.async {
+            let id = await message.message.metadata["mediaId"] as? String
+            if id == mediaId {
+                messages.append(message.message)
+            }
+        }
+        return messages
+    }
+    
+    //MARK: Inbound
+    public func fetchConversations(_
+                                   cypher: CypherMessenger
+    ) async throws -> [TargetConversation.Resolved] {
+        let conversations = try await cypher.listConversations(
+            includingInternalConversation: false,
+            increasingOrder: sortChats
+        )
+        return conversations
+    }
+    
+    public func fetchContacts(_ cypher: CypherMessenger) async throws -> [Contact] {
+        try await cypher.listContacts()
+    }
+    
+    public func fetchGroupChats(_ cypher: CypherMessenger) async throws -> [GroupChat] {
+        return await emitter.groupChats
+    }
+    
+    /// `fetchChats()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
+    /// that this device has knowledge of. We then can use them in our NeedleTailKit Transport Mechanism.
+    /// - Parameters:
+    ///   - cypher: **CTK**'s `CypherMessenger` for this Device.
+    ///   - contact: The opitional `Contact` we want to use to filter private chats on.
+    /// - Returns: An `AnyChatMessageCursor` which references a point in memory of `CypherMessenger`'s `AnyChatMessage`
+    public func fetchChats(
+        cypher: CypherMessenger,
+        contact: Contact? = nil
+    ) async {
+        do {
+            let results = try await fetchConversations(cypher)
+            for result in results {
+                switch result {
+                case .privateChat(let privateChat):
+                    var messages: [NeedleTailMessage] = []
+                    
+                    guard let username = await contact?.username else { return }
+                    if await privateChat.conversation.members.contains(username) {
+                        let cursor = try await privateChat.cursor(sortedBy: .descending)
+                        let nextBatch = try await cursor.getMore(50)
+                        
+                        for message in nextBatch {
+                            messages.append(NeedleTailMessage(message: message))
+                        }
+                        
+                        guard let contact = contact else { return }
+                        let bundle = ContactsBundle.ContactBundle(
+                            contact: contact,
+                            privateChat: privateChat,
+                            groupChats: [],
+                            cursor: cursor,
+                            messages: messages,
+                            mostRecentMessage: try await MostRecentMessage(
+                                chat: privateChat
+                            )
+                        )
+                        
+                        await handleBundle(bundle: bundle)
+                    }
+                case .groupChat(let groupChat):
+                    if await !emitter.groupChats.contains(groupChat) {
+                        //                            emitter.groupChats.append(groupChat)
+                    }
+                case .internalChat(_):
+                    return
+                }
+            }
+        } catch {
+            print(error)
+        }
+        return
+    }
+    
+    @MainActor
+    func handleBundle(bundle: ContactsBundle.ContactBundle) async {
+        if await containsUsername(bundle: bundle) {
+            let index = await firstIndex(bundle: bundle)
+            emitter.bundles.contactBundleViewModel[index] = bundle
+        } else {
+            emitter.bundles.contactBundleViewModel.append(bundle)
+        }
+        await emitter.bundles.arrangeBundle()
+    }
+    
+    @MainActor
+    func containsUsername(bundle: ContactsBundle.ContactBundle) async -> Bool {
+        emitter.bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username })
+    }
+    
+    @MainActor
+    func firstIndex(bundle: ContactsBundle.ContactBundle) async -> Array.Index {
+        guard let index = emitter.bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return 0 }
+        return index
+    }
+    
+    public func removeMessages(from contact: Contact) async throws {
+        guard let cypher = cypher else { return }
+        let conversations = try await cypher.listConversations(
+            includingInternalConversation: false,
+            increasingOrder: sortChats
+        )
+        
+        for conversation in conversations {
+            
+            switch conversation {
+            case .privateChat(let privateChat):
+                let conversationPartner = await privateChat.conversation.members.contains(contact.username)
+                if await privateChat.conversation.members.contains(cypher.username) && conversationPartner {
+                    for message in try await privateChat.allMessages(sortedBy: .descending) {
+                        try await message.remove()
+                    }
+                }
+            default:
+                break
+            }
+        }
+        await fetchChats(cypher: cypher, contact: contact)
+    }
+    
+    
+    //MARK: Outbound
+    public func sendMessage<Chat: AnyConversation>(
+        chat: Chat,
+        type: CypherMessageType,
+        messageSubtype: String? = nil,
+        text: String = "",
+        dtfp: DataToFilePacket? = nil,
+        destructionTimer: TimeInterval? = nil,
+        pushType: PushType = .message,
+        conversationType: ConversationType,
+        mediaId: String = "",
+        sender: NeedleTailNick,
+        dataCount: Int = 0
+    ) async throws {
+        
+        //Send Message
+        _ = try await chat.sendRawMessage(
+            type: type,
+            messageSubtype: messageSubtype,
+            text: text,
+            //            metadata: metadata,
+            destructionTimer: destructionTimer,
+            preferredPushType: pushType
+        )
+    }
+    
+    public func sendGroupMessage(message: String) async throws {
+        
+    }
 }
 
-@globalActor actor TransportStoreActor {
-    static var shared = TransportStoreActor()
-    internal init() {}
+@MainActor
+public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
+    switch (lhs.isPinned(), rhs.isPinned()) {
+    case (true, true), (false, false):
+        ()
+    case (true, false):
+        return true
+    case (false, true):
+        return false
+    }
+    
+    
+    switch (lhs.lastActivity, rhs.lastActivity) {
+    case (.some(let lhs), .some(let rhs)):
+        return lhs > rhs
+    case (.some, .none):
+        return true
+    case (.none, .some):
+        return false
+    case (.none, .none):
+        return true
+    }
 }
 
-//@KeyBundleMechanismActor
-final class TransportStore {
-    var keyBundle: UserConfig?
-    var acknowledgment: Acknowledgment.AckType = .none
-    var setAcknowledgement: Acknowledgment.AckType = .none {
-        didSet {
-            acknowledgment = setAcknowledgement
+extension TargetConversation.Resolved: Sendable {}
+
+
+public func makeP2PFactories() -> [P2PTransportClientFactory] {
+    return [
+        //        IPv6TCPP2PTransportClientFactory()
+        //        SpineTailedTransportFactory()
+    ]
+}
+
+extension EnvironmentValues {
+    private struct NeedleTailMessengerKey: EnvironmentKey {
+        typealias Value = NeedleTailMessenger?
+        
+        static let defaultValue: NeedleTailMessenger? = nil
+    }
+    public var _messenger: NeedleTailMessenger? {
+        get {
+            self[NeedleTailMessengerKey.self]
+        }
+        set {
+            self[NeedleTailMessengerKey.self] = newValue
         }
     }
     
-    func setAck(_ ack: Acknowledgment.AckType) {
-        acknowledgment = ack
-        Logger(label: "Transport Store").info("INFO RECEIVED - ACK: - \(acknowledgment)")
+    public var messenger: NeedleTailMessenger {
+        get {
+            self[NeedleTailMessengerKey.self]!
+        }
+        set {
+            self[NeedleTailMessengerKey.self] = newValue
+        }
     }
     
-    func setKeyBundle(_ config: UserConfig) {
-        keyBundle = config
-    }
 }
+
+
+#endif
+#endif

@@ -47,8 +47,8 @@ extension URLSession {
                 
                 if data.count > maxBodySize {
 #if canImport(FoundationNetworking)
-                    guard let url = URL(string: "cartisim.io") else { throw NeedleTailError.urlResponseNil }
-                    let res = URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)
+                    guard let imageURL = URL(string: "cartisim.io") else { throw NeedleTailError.urlResponseNil }
+                    let res = URLResponse(url: imageURL, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)
                     return (Data(), res)
 #else
                     return (Data(), URLResponse())

@@ -16,6 +16,7 @@ public enum NeedleTailError: String, Error {
     case membersCountInsufficient = "Insufficient members. You are trying to create a group chat with only 1 member."
     case nilElG
     case transportNotIntitialized
+    case transportBridgeDelegateNotSet
     case transportationStateError
     case messengerNotIntitialized
     case masterDeviceReject = "The Master Device rejected the request to add a new device"
@@ -42,4 +43,7 @@ public enum NeedleTailError: String, Error {
     case couldNotCreateHandlers = "Could Not Create Handlers"
     case emitterIsNil = "Emitter is nil"
     case cannotFindChat
+    case mediaIdNil
+    case payloadTooLarge
+    case couldNotConnectToNetwork
 }

@@ -30,10 +30,11 @@
 
 import NeedleTailHelpers
 
-public protocol IRCDispatcher: AnyObject {
+public protocol IRCDispatcher: AnyObject, Sendable {
     
     // MARK: - Implementations
-    func doPing(_ server: String, server2: String?) async throws
+    func doPing(_ origin: String, origin2: String?) async throws
+    func doPong(_ origin: String, origin2: String?) async throws
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
     func doNick(_ sender: IRCUserID?, nick: NeedleTailNick, tags: [IRCTags]?) async throws
@@ -46,7 +47,7 @@ public protocol IRCDispatcher: AnyObject {
     
     func doJoin(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
     func doPart(_ channels: [ IRCChannelName ], tags: [IRCTags]?) async throws
-    func doPartAll()async throws
+    func doPartAll() async throws
     func doGetBanMask(_ channel  : IRCChannelName) async throws
     func doNotice(recipients: [ IRCMessageRecipient ], message: String) async throws
     func doMessage(
@@ -56,7 +57,7 @@ public protocol IRCDispatcher: AnyObject {
         tags: [IRCTags]?
     ) async throws
     func doIsOnline (_ nicks: [ NeedleTailNick ]) async throws
-    func doList(_ channels: [ IRCChannelName ]?, _ target   : String?) async throws
+    func doList(_ channels: [ IRCChannelName ]?, _ target: String?) async throws
     func doQuit(_ message: String?) async throws
     func doPublishKeyBundle(_ keyBundle: [String]) async throws
     func doReadKeyBundle(_ keyBundle: [String]) async throws
@@ -66,29 +67,25 @@ public protocol IRCDispatcher: AnyObject {
     func doBlobs(_ blobs: [String]) async throws
     func doReadBlob(_ blob: [String]) async throws
     func doOfflineMessages(_ nick: NeedleTailNick) async throws
+    func doDeleteOfflineMessages(from contact: String) async throws
+    func doKick(_
+                channels: [IRCChannelName],
+                users: [NeedleTailNick],
+                comments: [String]?
+    ) async throws
+    func doKill(_ nick: NeedleTailNick, comment: String) async throws
+    func doMultipartMessageDownload(_ packet: [String]) async throws
+    func doMultipartMessageUpload(_ packet: [String]) async throws
+    func doListBucket(_ packet: [String]) async throws
+    func badgeCountUpdate(_ count: Int) async throws
 }
-
-public enum IRCDispatcherError : Swift.Error {
-    
-    case doesNotRespondTo(IRCMessage)
-    case nicknameInUse(NeedleTailNick)
-    case noSuchNick(NeedleTailNick)
-    case noSuchChannel(IRCChannelName)
-    case alreadyRegistered
-    case notRegistered
-    case cantChangeModeForOtherUsers
-    case nilUserConfig
-    case nilToken
-}
-
-fileprivate enum InternalDispatchError : Swift.Error {
-    case notImplemented(function: String)
-}
-
 
 public extension IRCDispatcher {
     
-    func doPing(_ server: String, server2: String?) async throws {
+    func doPing(_ origin: String, origin2: String? = nil) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doPong(_ origin: String, origin2: String? = nil) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {
@@ -173,4 +170,46 @@ public extension IRCDispatcher {
     func doOfflineMessages(_ nick: NeedleTailNick) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
+    func doDeleteOfflineMessages(from contact: String) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doKick(_
+                channels: [IRCChannelName],
+                users: [NeedleTailNick],
+                comments: [String]?
+    ) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    
+    func doKill(_ nick: NeedleTailNick, comment: String) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doMultipartMessageDownload(_ packet: [String]) async throws{
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doMultipartMessageUpload(_ packet: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doListBucket(_ packet: [String]) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func badgeCountUpdate(_ count: Int) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+}
+
+public enum IRCDispatcherError : Swift.Error {
+    case doesNotRespondTo(IRCMessage)
+    case nicknameInUse(NeedleTailNick)
+    case noSuchNick(NeedleTailNick)
+    case noSuchChannel(IRCChannelName)
+    case alreadyRegistered
+    case notRegistered
+    case cantChangeModeForOtherUsers
+    case nilUserConfig
+    case nilToken
+}
+
+fileprivate enum InternalDispatchError : Swift.Error {
+    case notImplemented(function: String)
 }

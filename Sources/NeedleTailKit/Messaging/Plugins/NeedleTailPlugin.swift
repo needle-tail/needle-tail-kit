@@ -8,84 +8,123 @@
 import MessagingHelpers
 import CypherMessaging
 import NeedleTailHelpers
+import AsyncAlgorithms
+import SwiftDTF
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
 import Cocoa
 #endif
 
+#if os(iOS) || os(macOS)
 //Our Store for loading receiving messages in real time(TOP LEVEL)
-public class NeedleTailPlugin: Plugin {
+public final class NeedleTailPlugin: Plugin, Sendable {
     
-    public static let pluginIdentifier = "needletail"
+    public static let pluginIdentifier = "@/needletail"
     
-    var emitter: NeedleTailEmitter
+    let messenger: NeedleTailMessenger
     
-    public init(emitter: NeedleTailEmitter) {
-        self.emitter = emitter
+    public init(messenger: NeedleTailMessenger) {
+        self.messenger = messenger
     }
     
+    @MainActor
     public func onCreateChatMessage(_ message: AnyChatMessage) {
+        
 #if os(iOS)
-        UIApplication.shared.applicationIconBadgeNumber += 1
+        //        UIApplication.shared.applicationIconBadgeNumber += 1
 #elseif os(macOS)
 #endif
         
 #if (os(macOS) || os(iOS))
-        emitter.messageReceived = message
+        print("CREATED MESSAGE", message.text)
+        self.messenger.emitter.messageReceived = message
 #endif
     }
     
+    @MainActor
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
 #if (os(macOS) || os(iOS))
-        emitter.messageRemoved = message
+        messenger.emitter.messageRemoved = message
 #endif
     }
+    
+    @MainActor
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
-        Task { @MainActor in
-            if message.raw.deliveryState == .read {
-                UIApplication.shared.applicationIconBadgeNumber -= 1
-            }
-        }
+        //        Task { @MainActor in
+        //            if message.raw.deliveryState == .read {
+        //                UIApplication.shared.applicationIconBadgeNumber -= 1
+        //            }
+        //        }
 #elseif os(macOS)
 #endif
         
 #if (os(macOS) || os(iOS))
-        emitter.messageChanged = message
+        messenger.emitter.messageChanged = message
 #endif
     }
-    
+    @MainActor
     public func onCreateContact(_ contact: Contact, cypher: CypherMessenger) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT CREATED")
-        emitter.contactAdded = contact
+        print("CREATED CONTACT")
+        messenger.emitter.contactAdded = contact
 #endif
     }
     
+    @MainActor
     public func onContactChange(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT CHANGE")
-        emitter.contactChanged = contact
+        print("CONTACT CHANGED")
+        deleteOfflineMessage(contact)
+        messenger.emitter.contactChanged = contact
 #endif
     }
     
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        print("CONTACT REMOVED")
-        emitter.contactRemoved = contact
+        print("REMOVED CONTACT")
+        deleteOfflineMessage(contact, removedContact: true)
+        //Tell other devieces we want to delete the contact
+        notifyContactRemoved(contact)
+        messenger.emitter.contactRemoved = contact
+#endif
+    }
+    
+    //If a user is not friends, we blocked them, or we deleted them as a contact we will delete all the stored messages that maybe online. Since we no long want to communicate with them.
+    func deleteOfflineMessage(_ contact: Contact, removedContact: Bool = false) {
+#if (os(macOS) || os(iOS))
+        Task.detached { [weak self] in
+            guard let self else { return }
+            let blocked = await contact.ourFriendshipState == .blocked
+            let notFriend = await contact.ourFriendshipState == .notFriend
+            if blocked || notFriend {
+                try await messenger.deleteOfflineMessages(from: contact.username.raw)
+            } else if removedContact {
+                try await messenger.deleteOfflineMessages(from: contact.username.raw)
+            }
+        }
+#endif
+    }
+    
+    func notifyContactRemoved(_ contact: Contact) {
+#if (os(macOS) || os(iOS))
+        Task.detached { [weak self] in
+            guard let self else { return }
+            try await self.messenger.notifyContactRemoved(contact.username)
+        }
 #endif
     }
     
     @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
 #if (os(macOS) || os(iOS))
-        emitter.nicksOnline = nick
+        messenger.emitter.nicksOnline = nick
 #endif
     }
     
     @MainActor public func onPartMessage(_ message: String) {
 #if (os(macOS) || os(iOS))
-        emitter.partMessage = message
+        messenger.emitter.partMessage = message
 #endif
     }
     
@@ -107,9 +146,6 @@ public class NeedleTailPlugin: Plugin {
         try await messenger.addDevice(config)
     }
     public func onDeviceRegistery(_ deviceId: DeviceId, cypher: CypherMessenger) {
-        //        DispatchQueue.main.async {
-        //            emitter.userDevicesChanged.send()
-        //        }
 #if os(iOS)
         Task {
             try await cypher.renameCurrentDevice(to: UIDevice.current.name)
@@ -125,33 +161,22 @@ public class NeedleTailPlugin: Plugin {
         
     }
     
-    
-    public func onConversationChange(_ viewModel: AnyConversation) {
+    @MainActor
+    public func onConversationChange(_ viewModel: AnyConversation) async {
 #if (os(macOS) || os(iOS))
-        emitter.conversationChanged = viewModel
-        //            Task.detached {
-        //                let viewModel = await viewModel.resolveTarget()
-        //                DispatchQueue.main.async {
-        //                    emitter.conversationChanged.send(viewModel)
-        //                }
-        //            }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.messenger.emitter.conversationChanged = await viewModel.resolveTarget()
+        }
 #endif
     }
+    
+    @MainActor
     public func onCreateConversation(_ viewModel: AnyConversation) {
 #if (os(macOS) || os(iOS))
-        emitter.conversationAdded = viewModel
+        self.messenger.emitter.conversationAdded = viewModel
 #endif
     }
-    
-    //
-    //    public func onP2PClientOpen(_ client: P2PClient, messenger: CypherMessenger) {
-    //        emitter.p2pClientConnected.send(client)
-    //    }
-    //
-    //    public func onCustomConfigChange() {
-    //        emitter.customConfigChanged.send()
-    //    }
-    
 }
 
 
@@ -196,3 +221,4 @@ extension AnyChatMessage: Hashable, Identifiable {
         id.hash(into: &hasher)
     }
 }
+#endif
