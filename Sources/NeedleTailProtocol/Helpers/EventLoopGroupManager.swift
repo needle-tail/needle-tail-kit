@@ -77,7 +77,7 @@ extension EventLoopGroupManager {
     /// `EventLoopGroup` runs on.
     ///
     /// This method _must_ be called when you're done with this `EventLoopGroupManager`.
-    public func shutdown() async throws {
+    public func shutdown() async {
         switch self.provider {
         case .createNew:
             ()
@@ -108,8 +108,6 @@ extension EventLoopGroupManager {
         enableTLS: Bool = true,
         group: EventLoopGroup
     ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
-        
-        
         func socketChannelCreator() async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
             let sslContext = try NIOSSLContext(configuration: TLSConfiguration.makeClientConfiguration())
             let client = ClientBootstrap(group: group)
@@ -117,13 +115,7 @@ extension EventLoopGroupManager {
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(host: host, port: port) { channel in
-                    channel.eventLoop.makeCompletedFuture {
-                        _ = createHandlers(channel)
-                        return try NIOAsyncChannel(
-                            synchronouslyWrapping: channel,
-                            configuration: .init(backPressureStrategy: .init(lowWatermark: 1, highWatermark: 10))
-                        )
-                    }
+                        return createHandlers(channel)
                 }
             
             let bootstrap = try NIOClientTCPBootstrap(
@@ -150,27 +142,17 @@ extension EventLoopGroupManager {
                 let tlsOptions = NWProtocolTLS.Options()
                 connection = connection.tlsOptions(tlsOptions)
             }
-            let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
+
+            let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(
                     host: host,
                     port: port
                 ) { channel in
-                    return channel.eventLoop.makeCompletedFuture {
-                        try channel.pipeline.syncOperations.addHandlers([
-                            ByteToMessageHandler(
-                                LineBasedFrameDecoder()
-                            )
-                        ], position: .first)
-                        return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
-                            synchronouslyWrapping: channel,
-                            configuration: .init(backPressureStrategy: .init(lowWatermark: 1, highWatermark: 10))
-                        )
-                    }
+                    return createHandlers(channel)
                 }
-            
-            return channel
+            return asyncChannel
         } else {
             // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
             return try await socketChannelCreator()
@@ -180,15 +162,18 @@ extension EventLoopGroupManager {
         return try await socketChannelCreator()
 #endif
         
-        @Sendable func createHandlers(_ channel: Channel) -> EventLoopFuture<Void> {
+        @Sendable func createHandlers(_ channel: Channel) -> EventLoopFuture<NIOAsyncChannel<ByteBuffer, ByteBuffer>> {
             channel.eventLoop.makeCompletedFuture {
                 try channel.pipeline.syncOperations.addHandlers([
                     ByteToMessageHandler(
                         LineBasedFrameDecoder()
                     )
                 ], position: .first)
+                return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
+                    synchronouslyWrapping: channel,
+                    configuration: .init()
+                )
             }
         }
     }
-    
 }

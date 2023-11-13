@@ -5,7 +5,7 @@
 //  Created by Cole M on 9/19/21.
 //
 
-import CypherMessaging
+@preconcurrency import CypherMessaging
 import Logging
 import NeedleTailProtocol
 import NeedleTailHelpers
@@ -34,6 +34,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     /// A **CypherServerTransportClient** property for setting`true` when logged in, `false` on incorrect login, `nil` when no server request has been executed yet
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
+    let delegateJob = JobQueue<NeedleTailCypherTransport.DelegateJob>()
     
     public func setDelegate(to delegate: CypherMessaging.CypherTransportClientDelegate) async throws {
         self.delegate = delegate
@@ -132,7 +133,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     }
     
     public func readKeyBundle(forUsername username: CypherProtocol.Username) async throws -> CypherMessaging.UserConfig {
-        guard let transportBridge = transportBridge else { fatalError("Cannot be nil") }
+        guard let transportBridge = transportBridge else { throw NeedleTailError.transportBridgeDelegateNotSet }
         return try await transportBridge.readKeyBundle(username)
     }
     
@@ -141,7 +142,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     }
     
     public func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {
-        guard let transportBridge = transportBridge else { throw NeedleTailError.nilBlob }
+        guard let transportBridge = transportBridge else { throw NeedleTailError.transportBridgeDelegateNotSet }
         return try await transportBridge.publishBlob(blob)
     }
     
@@ -170,7 +171,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
 #if os(macOS) || os(iOS)
         guard let messenger = configuration.messenger else { return }
         let plugin = configuration.plugin
-        await configuration.client?.delegateJob.addJob(
+        await self.delegateJob.addJob(
             NeedleTailCypherTransport.DelegateJob(
                 transport: nil,
                 delegate: delegate,
@@ -316,10 +317,11 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
 #endif
     
     func createClient(_
+                      cypherTransport: NeedleTailCypherTransport,
                       nameToVerify: String? = nil,
                       newHost: String = "",
                       tls: Bool = true
-    ) async throws {
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
         if !newHost.isEmpty {
             configuration.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
         }
@@ -349,7 +351,7 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
 #if os(macOS) || os(iOS)
         let username = Username(name)
-        guard let messenger = configuration.messenger else { return }
+        guard let messenger = configuration.messenger else { throw NeedleTailError.messengerNotIntitialized }
         let cypher = await messenger.cypher
         let client = NeedleTailClient(
             ntkBundle: NTKClientBundle(
@@ -369,18 +371,21 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
         configuration.client = client
         self.transportBridge = client
 
-        try await self.transportBridge?.connectClient(
+        guard let channel = try await self.transportBridge?.connectClient(
             serverInfo: client.serverInfo,
             groupManager: client.groupManager,
             ntkBundle: client.ntkBundle,
             transportState: client.transportState,
             clientContext: client.clientContext,
-            messenger: client.messenger
-        )
+            messenger: client.messenger,
+            cypherTransport: cypherTransport
+        ) else { throw NeedleTailError.transportBridgeDelegateNotSet }
+        
         try await self.transportBridge?.resumeClient(
             type: configuration.appleToken != "" ? .siwa(configuration.appleToken!) : .plain(name),
             state: configuration.registrationState
         )
+        return channel
 #endif
     }
     

@@ -8,17 +8,17 @@
 import DequeModule
 import Atomics
 
-public struct NeedleTailAsyncSequence<T>: AsyncSequence {
+public struct NeedleTailAsyncSequence<ConsumerTypeValue>: AsyncSequence {
 
-    public typealias Element = NTASequenceStateMachine.NTASequenceResult<T>
+    public typealias Element = NTASequenceStateMachine.NTASequenceResult<ConsumerTypeValue>
     
-    public let consumer: NeedleTailAsyncConsumer<T>
+    public let consumer: NeedleTailAsyncConsumer<ConsumerTypeValue>
     
-    public init(consumer: NeedleTailAsyncConsumer<T>) {
+    public init(consumer: NeedleTailAsyncConsumer<ConsumerTypeValue>) {
         self.consumer = consumer
     }
     
-    public func makeAsyncIterator() -> Iterator<T> {
+    public func makeAsyncIterator() -> Iterator<ConsumerTypeValue> {
         return NeedleTailAsyncSequence.Iterator(consumer: consumer)
     }
     

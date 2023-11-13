@@ -11,8 +11,8 @@ import CypherMessaging
 #if canImport(Combine)
 import Combine
 #endif
- import NIOCore
- import NeedleTailProtocol
+import NIOCore
+import NeedleTailProtocol
 
 #if (os(macOS) || os(iOS))
 protocol MessengerTransportBridge: AnyObject, Sendable {
@@ -116,202 +116,98 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
     /// - Parameter message: Our IRCMessage
     public func processReceivedMessages(_ message: IRCMessage) async {
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                try Task.checkCancellation()
-                let tags = message.tags
-                switch message.command {
-                case .PING(let origin, let origin2):
-                    group.addTask(priority: .utility) { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doPing(origin, origin2: origin2)
-                    }
-                case .PONG(_, _):
-                    break
-                case .PRIVMSG(let recipients, let payload):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        guard let origin = message.origin else { return }
-                        let sender = try await self.getSender(origin)
-                        try await self.delegate?.doMessage(sender: sender,
-                                                           recipients: recipients,
-                                                           message: payload,
-                                                           tags: tags)
-                    }
-                case .NOTICE(let recipients, let message):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doNotice(recipients: recipients, message: message)
-                    }
-                case .NICK(let nickName):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        guard let origin = message.origin else { return }
-                        let sender = try await self.getSender(origin)
-                        try await self.delegate?.doNick(sender, nick: nickName, tags: message.tags)
-                    }
-                case .USER(let info):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doUserInfo(info, tags: message.tags)
-                    }
-                case .ISON(let nicks):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doIsOnline(nicks)
-                    }
-                case .MODEGET(let nickName):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doModeGet(nick: nickName)
-                    }
-                case .CAP(let subcmd, let capIDs):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doCAP(subcmd, capIDs)
-                    }
-                case .QUIT(let message):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doQuit(message)
-                    }
-                case .CHANNELMODE_GET(let channelName):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doModeGet(channel: channelName)
-                    }
-                case .CHANNELMODE_GET_BANMASK(let channelName):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doGetBanMask(channelName)
-                    }
-                case .MODE(let nickName, let add, let remove):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doMode(nick: nickName, add: add, remove: remove)
-                    }
-                case .WHOIS(let server, let masks):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doWhoIs(server: server, usermasks: masks)
-                    }
-                case .WHO(let mask, let opOnly):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doWho(mask: mask, operatorsOnly: opOnly)
-                    }
-                case .JOIN(let channels, _):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doJoin(channels, tags: tags)
-                    }
-                case .PART(let channels):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        guard let origin = message.origin, let _ = IRCUserID(origin) else {
-                            return self.logger.error("ERROR: JOIN is missing a proper origin: \(message)")
-                        }
-                        try await self.delegate?.doPart(channels, tags: tags)
-                    }
-                case .LIST(let channels, let target):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doList(channels, target)
-                    }
-                case .KICK(let channels, let users, let comments):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        self.logger.info("The following users \(users) were Kicked from the channels \(channels) for these reasons \(comments)")
-                        //TODO: Handle
-                    }
-                case .KILL(let nick, let comment):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        self.logger.info("The following nick \(nick.description) was Killed because it already exists. This is what the server has to say: \(comment)")
-                    }
-                    //TODO: Handle
-                case .otherCommand(Constants.blobs.rawValue, let blob):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doBlobs(blob)
-                    }
-                case.otherCommand(Constants.multipartMediaDownload.rawValue, let media):
-                    group.addTask(priority: .background) { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doMultipartMessageDownload(media)
-                    }
-                case .otherCommand(Constants.listBucket.rawValue, let packet):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        try await self.delegate?.doListBucket(packet)
-                    }
-                case .numeric(.replyMotDStart, _):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        guard let arguments = message.arguments else { return }
-                        motdBuilder.createInitial(message: "\(arguments.last!)\n")
-                    }
-                case .numeric(.replyMotD, _):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        guard let arguments = message.arguments else { return }
-                        motdBuilder.createBody(message: "\(arguments.last!)\n")
-                    }
-                case .numeric(.replyEndOfMotD, _):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                            let messageOfTheDay = motdBuilder.createFinalMessage()
-                            await self.handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
-                            motdBuilder.clearMessage()
-                    }
-                case .numeric(.replyNameReply, let args):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleServerMessages(args, type: .replyNameReply)
-                    }
-                case .numeric(.replyEndOfNames, let args):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleServerMessages(args, type: .replyEndOfNames)
-                    }
-                case .numeric(.replyInfo, let info):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleInfo(info)
-                    }
-                case .numeric(.replyMyInfo, let info):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleServerMessages(info, type: .replyMyInfo)
-                    }
-                case .numeric(.replyWelcome, let args):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleServerMessages(args, type: .replyWelcome)
-                    }
-                case .numeric(.replyTopic, let args):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        // :localhost 332 Guest31 #NIO :Welcome to #nio!
-                        guard args.count > 2, let channel = IRCChannelName(args[3]) else {
-                            return self.logger.error("ERROR: topic args incomplete: \(message)")
-                        }
-                        await self.handleTopic(args[2], on: channel)
-                    }
-                case .otherNumeric(let code, let args):
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        self.logger.trace("otherNumeric Code: - \(code)")
-                        self.logger.trace("otherNumeric Args: - \(args)")
-                        await self.handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
-                    }
-                default:
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        await self.handleInfo(message.command.arguments)
-                    }
+            let tags = message.tags
+            switch message.command {
+            case .PING(let origin, let origin2):
+                try await self.delegate?.doPong(origin, origin2: origin2)
+            case .PONG(_, _):
+                break
+            case .PRIVMSG(let recipients, let payload):
+                guard let origin = message.origin else { return }
+                let sender = try await self.getSender(origin)
+                try await self.delegate?.doMessage(sender: sender,
+                                                   recipients: recipients,
+                                                   message: payload,
+                                                   tags: tags)
+            case .NOTICE(let recipients, let message):
+                try await self.delegate?.doNotice(recipients: recipients, message: message)
+            case .NICK(let nickName):
+                guard let origin = message.origin else { return }
+                let sender = try await self.getSender(origin)
+                try await self.delegate?.doNick(sender, nick: nickName, tags: message.tags)
+            case .USER(let info):
+                try await self.delegate?.doUserInfo(info, tags: message.tags)
+            case .ISON(let nicks):
+                try await self.delegate?.doIsOnline(nicks)
+            case .MODEGET(let nickName):
+                try await self.delegate?.doModeGet(nick: nickName)
+            case .CAP(let subcmd, let capIDs):
+                try await self.delegate?.doCAP(subcmd, capIDs)
+            case .QUIT(let message):
+                try await self.delegate?.doQuit(message)
+            case .CHANNELMODE_GET(let channelName):
+                try await self.delegate?.doModeGet(channel: channelName)
+            case .CHANNELMODE_GET_BANMASK(let channelName):
+                try await self.delegate?.doGetBanMask(channelName)
+            case .MODE(let nickName, let add, let remove):
+                try await self.delegate?.doMode(nick: nickName, add: add, remove: remove)
+            case .WHOIS(let server, let masks):
+                try await self.delegate?.doWhoIs(server: server, usermasks: masks)
+            case .WHO(let mask, let opOnly):
+                try await self.delegate?.doWho(mask: mask, operatorsOnly: opOnly)
+            case .JOIN(let channels, _):
+                try await self.delegate?.doJoin(channels, tags: tags)
+            case .PART(let channels):
+                guard let origin = message.origin, let _ = IRCUserID(origin) else {
+                    return self.logger.error("ERROR: JOIN is missing a proper origin: \(message)")
                 }
-                try await group.next()
-                group.cancelAll()
+                try await self.delegate?.doPart(channels, tags: tags)
+            case .LIST(let channels, let target):
+                try await self.delegate?.doList(channels, target)
+            case .KICK(let channels, let users, let comments):
+                self.logger.info("The following users \(users) were Kicked from the channels \(channels) for these reasons \(comments)")
+                //TODO: Handle
+            case .KILL(let nick, let comment):
+                self.logger.info("The following nick \(nick.description) was Killed because it already exists. This is what the server has to say: \(comment)")
+                //TODO: Handle
+            case .otherCommand(Constants.blobs.rawValue, let blob):
+                try await self.delegate?.doBlobs(blob)
+            case.otherCommand(Constants.multipartMediaDownload.rawValue, let media):
+                try await self.delegate?.doMultipartMessageDownload(media)
+            case .otherCommand(Constants.listBucket.rawValue, let packet):
+                try await self.delegate?.doListBucket(packet)
+            case .numeric(.replyMotDStart, _):
+                guard let arguments = message.arguments else { return }
+                motdBuilder.createInitial(message: "\(arguments.last!)\n")
+            case .numeric(.replyMotD, _):
+                guard let arguments = message.arguments else { return }
+                motdBuilder.createBody(message: "\(arguments.last!)\n")
+            case .numeric(.replyEndOfMotD, _):
+                let messageOfTheDay = motdBuilder.createFinalMessage()
+                await self.handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
+                motdBuilder.clearMessage()
+            case .numeric(.replyNameReply, let args):
+                await self.handleServerMessages(args, type: .replyNameReply)
+            case .numeric(.replyEndOfNames, let args):
+                await self.handleServerMessages(args, type: .replyEndOfNames)
+            case .numeric(.replyInfo, let info):
+                await self.handleInfo(info)
+            case .numeric(.replyMyInfo, let info):
+                await self.handleServerMessages(info, type: .replyMyInfo)
+            case .numeric(.replyWelcome, let args):
+                await self.handleServerMessages(args, type: .replyWelcome)
+            case .numeric(.replyTopic, let args):
+                // :localhost 332 Guest31 #NIO :Welcome to #nio!
+                guard args.count > 2, let channel = IRCChannelName(args[3]) else {
+                    return self.logger.error("ERROR: topic args incomplete: \(message)")
+                }
+                self.handleTopic(args[2], on: channel)
+            case .otherNumeric(let code, let args):
+                self.logger.trace("otherNumeric Code: - \(code)")
+                self.logger.trace("otherNumeric Args: - \(args)")
+                await self.handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
+            default:
+                await self.handleInfo(message.command.arguments)
             }
         } catch {
             logger.error("\(error)")

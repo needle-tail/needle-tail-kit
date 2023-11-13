@@ -31,7 +31,7 @@ actor NeedleTailClient {
     var store: TransportStore?
     var childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     var registrationState: RegistrationState = .full
-    let delegateJob = JobQueue<NeedleTailCypherTransport.DelegateJob>()
+    var childChannelTasks = [Task<Void, Error>]()
     
     @NeedleTailTransportActor
     func setDelegates(_

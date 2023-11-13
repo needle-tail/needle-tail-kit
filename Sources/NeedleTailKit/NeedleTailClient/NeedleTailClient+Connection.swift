@@ -11,8 +11,8 @@ import NIOExtras
 import NIOTransportServices
 import Logging
 import DequeModule
- import NIOCore
- import NeedleTailProtocol
+import NIOCore
+import NeedleTailProtocol
 
 #if (os(macOS) || os(iOS))
 extension NeedleTailClient: ClientTransportDelegate {
@@ -25,53 +25,47 @@ extension NeedleTailClient: ClientTransportDelegate {
         ntkBundle: NTKClientBundle,
         transportState: TransportState,
         clientContext: ClientContext,
-        messenger: NeedleTailMessenger
-    ) async throws {
+        messenger: NeedleTailMessenger,
+        cypherTransport: NeedleTailCypherTransport
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
         switch transportState.current {
         case .clientOffline, .transportOffline:
             await transportState.transition(to: .clientConnecting)
-            
             do {
-                try await withThrowingTaskGroup(of: NIOAsyncChannel<ByteBuffer, ByteBuffer>.self) { taskGroup in
-                    try Task.checkCancellation()
-                    taskGroup.addTask { @NeedleTailTransportActor in
-                        return try await self.createChannel(
-                            host: serverInfo.hostname,
-                            port: serverInfo.port,
-                            enableTLS: serverInfo.tls,
-                            groupManager: groupManager,
-                            group: eventLoopGroup
-                        )
-                    }
-                    let nextItem = try await taskGroup.next()
-                    guard let childChannel = nextItem else { return }
-                    taskGroup.addTask { @NeedleTailTransportActor in
-                        
-                        let handlers = try! await self.createHandlers(
-                            childChannel,
-                            ntkBundle: ntkBundle,
-                            transportState: transportState,
-                            clientContext: clientContext,
-                            messenger: messenger
-                        )
-                        async let mechanism = try await self.setMechanisim(handlers.0)
-                        async let transport = try await self.setTransport(handlers.1)
-                        async let _ = try await self.setStore(handlers.2)
-
-                        await NeedleTailClient.handleChildChannel(
-                            childChannel.inbound,
-                            mechanism: try await mechanism,
-                            transport: try await transport
-                        )
-                        
-                        await self.setChildChannel(childChannel)
-                        await self.transportState.transition(to: .clientConnected)
-                        return childChannel
-                    }
-                    _ = try await taskGroup.next()
-                    taskGroup.cancelAll()
-                }
-            } catch {
+                let childChannel = try await self.createChannel(
+                    host: "Cartisim-2.local",
+                    port: serverInfo.port,
+                    enableTLS: false,
+                    groupManager: groupManager,
+                    group: eventLoopGroup
+                )
+                
+                await self.setChildChannel(childChannel)
+                let handlers = try await self.createHandlers(
+                    childChannel,
+                    ntkBundle: ntkBundle,
+                    transportState: transportState,
+                    clientContext: clientContext,
+                    messenger: messenger
+                )
+                
+                let mechanism = try await self.setMechanisim(handlers.0)
+                let transport = try await self.setTransport(
+                    handlers.1,
+                    cypherTransport: cypherTransport
+                )
+                transport.asyncChannel = childChannel
+                let _ = try await self.setStore(handlers.2)
+                
+                await self.handleChildChannel(
+                    childChannel.inbound,
+                    mechanism: mechanism,
+                    transport: transport
+                )
+                
+                await self.transportState.transition(to: .clientConnected)
+                return childChannel
+            }  catch {
                 logger.error("Could not start client: \(error)")
                 await transportState.transition(to: .clientOffline)
                 try await attemptDisconnect(true)
@@ -81,9 +75,9 @@ extension NeedleTailClient: ClientTransportDelegate {
         default:
             break
         }
+        //We hit an unknown state attempting connection
+        throw NeedleTailError.couldNotConnectToNetwork
     }
-    
-    
     
     @NeedleTailTransportActor
     func setAuthenticationState(ntkBundle: NTKClientBundle) async {
@@ -104,9 +98,12 @@ extension NeedleTailClient: ClientTransportDelegate {
         return mechanism
     }
     
-    func setTransport(_ transport: NeedleTailTransport?) async throws -> NeedleTailTransport {
-     
-        let job: Deque<NeedleTailCypherTransport.DelegateJob> = try await self.delegateJob.checkForExistingJobs { [weak self] job in
+    @NeedleTailClientActor
+    func setTransport(_
+                      transport: NeedleTailTransport?,
+                      cypherTransport: NeedleTailCypherTransport
+    ) async throws -> NeedleTailTransport {
+        let job: Deque<NeedleTailCypherTransport.DelegateJob> = try await cypherTransport.delegateJob.checkForExistingJobs { [weak self] job in
             guard let self else { return job }
             guard let transport = transport else { return job }
             let setTransport = await self.setDelegates(
@@ -120,55 +117,66 @@ extension NeedleTailClient: ClientTransportDelegate {
             return job
         }
         if let unwrappedTransport = job.last?.transport {
-            self.transport = unwrappedTransport
+            await setTransport(transport: unwrappedTransport)
         } else {
-            self.transport = transport
+            await setTransport(transport: transport!)
         }
-
-        guard let transport = self.transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await self.transport else { throw NeedleTailError.transportNotIntitialized }
         return transport
+    }
+    
+    func setTransport(transport: NeedleTailTransport) async {
+        self.transport = transport
     }
     
     func setChildChannel(_ childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async {
         self.childChannel = childChannel
-#if (os(macOS) || os(iOS))
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            await self.transport?.messenger.emitter.channelIsActive = childChannel.channel.isActive
-        }
-#endif
     }
     
-    static func handleChildChannel(_
-                                   stream: NIOAsyncChannelInboundStream<ByteBuffer>,
-                                   mechanism: KeyBundleMechanism,
-                                   transport: NeedleTailTransport
+    func handleChildChannel(_
+                            stream: NIOAsyncChannelInboundStream<ByteBuffer>,
+                            mechanism: KeyBundleMechanism,
+                            transport: NeedleTailTransport
     ) async {
-        //TODO: Cancel task if needed
-        Task { @NeedleTailTransportActor in
-            let messageParser = MessageParser()
+        if !childChannelTasks.isEmpty {
+            if childChannelTasks.first?.isCancelled == false {
+                childChannelTasks.first?.cancel()
+            }
+            childChannelTasks.removeAll()
+        }
+        
+        let childChannelTask = Task { @NeedleTailTransportActor in
             try Task.checkCancellation()
+            let messageParser = MessageParser()
             do {
-                for try await buffer in stream {
-                    print("RECIEVED MESSAGE")
-                    var buffer = buffer
-                    guard let message = buffer.readString(length: buffer.readableBytes) else { break }
-                    guard !message.isEmpty else { return }
-                    let messages = message.components(separatedBy: Constants.cLF.rawValue)
-                        .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
-                        .filter { !$0.isEmpty }
-                    
-                    for message in messages {
-                        guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: messageParser) else { break }
-                        Logger(label: "Child Channel Processor").trace("Message Parsed \(parsedMessage)")
-                        await mechanism.processKeyBundle(parsedMessage)
-                        await transport.processReceivedMessages(parsedMessage)
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    try Task.checkCancellation()
+                    for try await buffer in stream {
+                        group.addTask { [weak self] in
+                            guard let self else { return }
+                            var buffer = buffer
+                            guard let message = buffer.readString(length: buffer.readableBytes) else { return }
+                            guard !message.isEmpty else { return }
+                            let messages = message.components(separatedBy: Constants.cLF.rawValue)
+                                .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
+                                .filter { !$0.isEmpty }
+                            
+                            for message in messages {
+                                guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: messageParser) else { break }
+                                self.logger.trace("Message Parsed \(parsedMessage)")
+                                await mechanism.processKeyBundle(parsedMessage)
+                                await transport.processReceivedMessages(parsedMessage)
+                            }
+                        }
+                        _ = try await group.next()
+                        group.cancelAll()
                     }
                 }
             } catch {
-                Logger(label: "Child Channel Processor").error("Hit error: \(error)")
+                print("Error:---", error)
             }
         }
+        childChannelTasks.append(childChannelTask)
     }
     
     
@@ -243,8 +251,10 @@ extension NeedleTailClient: ClientTransportDelegate {
     func shutdownClient() async {
         do {
             guard let channel = childChannel?.channel else { throw NeedleTailError.channelIsNil }
-            _ = try await channel.close(mode: .all).get()
-            try await groupManager.shutdown()
+            if channel.isActive {
+                _ = try await channel.close(mode: .all).get()
+            }
+            await groupManager.shutdown()
             await ntkBundle.cypherTransport.configuration.client?.teardownClient()
             await transportState.transition(to: .clientOffline)
         } catch {

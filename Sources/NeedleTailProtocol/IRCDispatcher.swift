@@ -34,6 +34,7 @@ public protocol IRCDispatcher: AnyObject, Sendable {
     
     // MARK: - Implementations
     func doPing(_ origin: String, origin2: String?) async throws
+    func doPong(_ origin: String, origin2: String?) async throws
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs   : [ String ]) async throws
     
     func doNick(_ sender: IRCUserID?, nick: NeedleTailNick, tags: [IRCTags]?) async throws
@@ -82,6 +83,9 @@ public protocol IRCDispatcher: AnyObject, Sendable {
 public extension IRCDispatcher {
     
     func doPing(_ origin: String, origin2: String? = nil) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doPong(_ origin: String, origin2: String? = nil) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func doCAP(_ cmd: IRCCommand.CAPSubCommand, _ capIDs: [ String ]) async throws {

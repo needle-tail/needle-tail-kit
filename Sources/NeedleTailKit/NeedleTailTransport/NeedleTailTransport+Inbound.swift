@@ -160,7 +160,6 @@ extension NeedleTailTransport {
                         break
                     }
                 case .ack(let ack):
-                    print("RECIEVED ACK_____")
                     let buffer = ByteBuffer(data: ack)
                     let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
                     store.setAck(ack.acknowledgment)
@@ -170,7 +169,7 @@ extension NeedleTailTransport {
                         await self.transportState.transition(to: .transportRegistered(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
                                 let type = TransportMessageType.standard(.USER(clientContext.userInfo))
                                 let writer = self.asyncChannel.outbound
-                                try! await self.transportMessage(
+                                try await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
                                     type: type
@@ -188,17 +187,14 @@ extension NeedleTailTransport {
                     case .multipartUploadComplete(let packet):
 #if (os(macOS) || os(iOS))
                         if packet.size <= 10777216 && packet.size != 0 {
-                            try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-                                guard let self else { return }
                                 let data = try BSONEncoder().encode([packet.name]).makeData()
                                 let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-                                let writer = await self.asyncChannel.outbound
+                                let writer = self.asyncChannel.outbound
                                 try await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
                                     type: type
                                 )
-                            }
                         }
                         
                         Task { @MainActor [weak self] in
@@ -389,19 +385,22 @@ extension NeedleTailTransport {
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
     
-    public func doPing(_ origin: String, origin2: String? = nil) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-            let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-            if await self.asyncChannel.channel.isActive {
-                let writer = await self.asyncChannel.outbound
-                try await self.transportMessage(
-                    writer,
-                    origin: self.origin ?? "",
-                    type: type
-                )
-            }
+    public func doPong(_ origin: String, origin2: String? = nil) async throws {
+            let task = Task { @NeedleTailTransportActor [weak self] in
+                guard let self else { return }
+                try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+                let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
+                if self.asyncChannel.channel.isActive {
+                    let writer = self.asyncChannel.outbound
+                    try await self.transportMessage(
+                        writer,
+                        origin: self.origin ?? "",
+                        type: type
+                    )
+                }
+        }
+        if !task.isCancelled {
+            task.cancel()
         }
     }
     
@@ -458,7 +457,13 @@ extension NeedleTailTransport {
             
             try await processMultipartMediaMessage(multipartData)
             multipartData.removeAll()
+           await stopAnimatingProgress()
         }
+    }
+    
+    @MainActor
+    func stopAnimatingProgress() async {
+        messenger.emitter.stopAnimatingProgress = true
     }
     
     public func doListBucket(_ packet: [String]) async throws {

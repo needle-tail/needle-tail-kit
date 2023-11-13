@@ -58,14 +58,14 @@ public final class NeedleTailMessenger {
     let needletailCrypto = NeedleTailCrypto()
 #endif
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
-    let sortChats: @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
     
     
     public init(
         emitter: NeedleTailEmitter,
         networkMonitor: NetworkMonitor,
-        sortChats: @escaping @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
-    ) {
+        sortChats: @Sendable @MainActor @escaping (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    ) async {
         self.emitter = emitter
         self.networkMonitor = networkMonitor
         self.sortChats = sortChats
@@ -75,7 +75,7 @@ public final class NeedleTailMessenger {
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
     /// - Parameter code: The **QR Code** scanned from the **Master Device**
     public func waitForApproval(_ code: String) async throws {
-        guard let transportBridge = await cypherTransport?.transportBridge else { throw NeedleTailError.messengerNotIntitialized }
+        guard let transportBridge = await cypherTransport?.transportBridge else { throw NeedleTailError.transportNotIntitialized }
         let approved = try await transportBridge.processApproval(code)
         registrationApproved = approved
     }
@@ -100,14 +100,15 @@ public final class NeedleTailMessenger {
         plugin = NeedleTailPlugin(messenger: self)
         guard let plugin = plugin else { return }
         
-        let cypherTransport = try await createMessenger(
+        let cypherTransport = try await createTransport(
             serverInfo: serverInfo,
             plugin: plugin,
             messenger: messenger,
             nameToVerify: username
         )
+        let asyncChannel = try await self.resumeService(cypherTransport, nameToVerify: username)
         do {
-            if await emitter.channelIsActive {
+            if asyncChannel?.channel.isActive == true {
                 let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
                 for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                     guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
@@ -130,10 +131,10 @@ public final class NeedleTailMessenger {
                     throw NeedleTailError.cannotRegisterNewDevice
                 }
                 
-                
-                
                 try await serviceInterupted(true,  cypherTransport: cypherTransport)
                 await removeCypherTransport()
+                await setRegistrationState(.deregistered)
+                
                 self.cypher = try await registerNeedleTail(
                     appleToken: appleToken,
                     username: username,
@@ -154,6 +155,8 @@ public final class NeedleTailMessenger {
                 print("User Does not exist,  proceed...", nterror)
                 try await self.serviceInterupted(true, cypherTransport: cypherTransport)
                 await removeCypherTransport()
+                await setRegistrationState(.deregistered)
+                
                 do {
                     self.cypher = try await registerNeedleTail(
                         appleToken: appleToken,
@@ -215,17 +218,21 @@ public final class NeedleTailMessenger {
             //Create plugin here
             plugin = NeedleTailPlugin(messenger: self)
             guard let plugin = plugin else { return nil }
-            self.cypher = try await CypherMessenger.registerMessenger(
+            self.cypher = try! await CypherMessenger.registerMessenger(
                 username: Username(username),
                 appPassword: serverInfo.password,
-                usingTransport: { transportRequest async throws -> NeedleTailCypherTransport in
-                    return try await self.createMessenger(
+                usingTransport: { [weak self] transportRequest async throws in
+                    guard let self else { fatalError() }
+                    let transport = try await self.createTransport(
                         serverInfo: serverInfo,
                         plugin: plugin,
                         messenger: messenger,
                         transportRequest: transportRequest,
                         addChildDevice: addChildDevice
                     )
+                    await self.setTransport(transport: transport)
+                    _ = try await self.resumeService(transport, nameToVerify: username)
+                    return transport
                 },
                 p2pFactories: p2pFactories,
                 database: store,
@@ -236,7 +243,7 @@ public final class NeedleTailMessenger {
     }
     
     @NeedleTailTransportActor
-    private func createMessenger(
+    private func createTransport(
         serverInfo: ClientContext.ServerClientInfo,
         plugin: NeedleTailPlugin,
         messenger: NeedleTailMessenger,
@@ -244,44 +251,15 @@ public final class NeedleTailMessenger {
         nameToVerify: String = "",
         addChildDevice: Bool = false
     ) async throws -> NeedleTailCypherTransport {
-        if self.cypherTransport == nil {
-            //We also need to pass the plugin to our transport
-            self.cypherTransport = NeedleTailCypherTransport.authenticate(
-                transportRequest: transportRequest,
-                serverInfo: serverInfo,
-                plugin: plugin,
-                messenger: messenger
-            )
-        }
-        self.cypherTransport?.configuration.addChildDevice = addChildDevice
-        guard let cypherTransport = self.cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
+        let cypherTransport = NeedleTailCypherTransport.authenticate(
+            transportRequest: transportRequest,
+            serverInfo: serverInfo,
+            plugin: plugin,
+            messenger: messenger
+        )
+        cypherTransport.configuration.addChildDevice = addChildDevice
         if !nameToVerify.isEmpty {
             cypherTransport.configuration.registrationState = .temp
-        }
-        do {
-            let task = Task { @NeedleTailTransportActor in
-                try await withThrowingTaskGroup(of: Void.self, body: { group in
-                    try! Task.checkCancellation()
-                    group.addTask { @NeedleTailTransportActor [weak self] in
-                        guard let self else { return }
-                        //We need to make sure we have internet before we try this
-                        for try await status in self.networkMonitor.$currentStatus.values {
-                            if status == .satisfied {
-                                if cypherTransport.isConnected == false {
-                                    try await self.resumeService(nameToVerify)
-                                }
-                                return
-                            }
-                        }
-                    }
-                    _ = try await group.next()
-                    group.cancelAll()
-                })
-            }
-            _ = try await task.value
-        } catch {
-            //TODO: TEAR DOWN REGISTRATION PROCESS AND NOTIFY ERROR
-            print("ERROR RESULT_____", error)
         }
         return cypherTransport
     }
@@ -302,7 +280,7 @@ public final class NeedleTailMessenger {
         self.cypher = try await CypherMessenger.resumeMessenger(
             appPassword: serverInfo.password,
             usingTransport: { transportRequest -> NeedleTailCypherTransport in
-                return try await self.createMessenger(
+                return try await self.createTransport(
                     serverInfo: serverInfo,
                     plugin: plugin,
                     messenger: messenger,
@@ -313,8 +291,16 @@ public final class NeedleTailMessenger {
             database: store,
             eventHandler: eventHandler ?? self.makeEventHandler(plugin)
         )
+        let cypherTransport = self.cypher?.transport as! NeedleTailCypherTransport
+        await setTransport(transport: cypherTransport)
+        _ = try await self.resumeService(cypherTransport)
         await self.setNick()
         return self.cypher
+    }
+    
+    @NeedleTailTransportActor
+    func setTransport(transport: NeedleTailCypherTransport) async {
+        self.cypherTransport = transport
     }
     
     @MainActor
@@ -334,8 +320,11 @@ public final class NeedleTailMessenger {
     
     @MainActor
     func setRegistrationState(_ state: ServerConnectionState) async {
+#if (os(macOS) || os(iOS))
         emitter.connectionState = state
+#endif
     }
+    
     
     @NeedleTailTransportActor
     public func resumeService(_
@@ -343,38 +332,118 @@ public final class NeedleTailMessenger {
                               appleToken: String = "",
                               newHost: String = "")
     async throws {
+        if let cypherTransport = self.cypherTransport {
+            await networkServiceResumer(
+                cypherTransport,
+                nameToVerify: nameToVerify,
+                appleToken: appleToken,
+                newHost: newHost
+            )
+        }
+    }
+    
+    @NeedleTailTransportActor
+    internal func resumeService(_
+                                cypherTransport: NeedleTailCypherTransport,
+                                nameToVerify: String = "",
+                                appleToken: String = "",
+                                newHost: String = ""
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer>? {
         switch await emitter.connectionState {
         case .deregistered, .shouldRegister:
-            guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
             await setRegistrationState(.registering)
-            try await cypherTransport.createClient(nameToVerify, newHost: newHost)
+            let asyncChannel = try await cypherTransport.createClient(
+                cypherTransport,
+                nameToVerify: nameToVerify,
+                newHost: newHost
+            )
+            try await monitorClientConnection(cypherTransport)
+#if (os(macOS) || os(iOS))
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.emitter.channelIsActive = asyncChannel.channel.isActive
+            }
+#endif
+            return asyncChannel
         case .deregistering:
             await setRegistrationState(.shouldRegister)
+            try await monitorClientConnection(cypherTransport)
         default:
             print("Trying to resume service during a \(await emitter.connectionState) state")
         }
-        try await monitorClientConnection()
+        return nil
     }
-    @NeedleTailTransportActor
-    var canReregister = false
+    
+    private func networkServiceResumer(_
+                                       cypherTransport: NeedleTailCypherTransport,
+                                       nameToVerify: String = "",
+                                       appleToken: String = "",
+                                       newHost: String = ""
+    ) async {
+        let networkServiceResumerTask = Task { @NeedleTailTransportActor in
+            return try await withThrowingTaskGroup(of: Void.self, body: { group in
+                //We need to make sure we have internet before we try this
+                for try await status in self.networkMonitor.$currentStatus.values {
+                    try Task.checkCancellation()
+                    group.addTask { @NeedleTailTransportActor [weak self] in
+                        guard let self else { return }
+                        if status == .satisfied {
+                            if cypherTransport.isConnected == false {
+                                _ = try await self.resumeService(
+                                    cypherTransport,
+                                    nameToVerify: nameToVerify,
+                                    appleToken: appleToken,
+                                    newHost: newHost
+                                )
+                            }
+                            return
+                        }
+                    }
+                }
+                _ = try await group.next()
+                group.cancelAll()
+            })
+        }
+        
+        do {
+            try await networkServiceResumerTask.value
+        } catch {
+            print("ERROR RESULT_____", error)
+            if !networkServiceResumerTask.isCancelled {
+                networkServiceResumerTask.cancel()
+            }
+        }
+    }
     
     @NeedleTailTransportActor
-    func monitorClientConnection() async throws {
-        for await state in await emitter.$connectionState.values {
-            switch state {
-            case .shouldRegister:
-                canReregister = true
-            case .registered:
-                self.cypherTransport?.isConnected = true
-                self.cypherTransport?.authenticated = .authenticated
-                if self.cypherTransport?.isConnected == true { return }
-            case .deregistered:
-                self.cypherTransport?.isConnected = false
-                self.cypherTransport?.authenticated = .unauthenticated
-                if canReregister {
-                    try await resumeService()
+    var canReregister = false
+    @NeedleTailTransportActor
+    func monitorClientConnection(_ cypherTransport: NeedleTailCypherTransport) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for await state in await self.emitter.$connectionState.values {
+                try Task.checkCancellation()
+                group.addTask { @NeedleTailTransportActor [weak self] in
+                    guard let self else { return }
+                    switch state {
+                    case .shouldRegister:
+                        self.canReregister = true
+                    case .registered:
+                        await self.setNick()
+                        cypherTransport.isConnected = true
+                        cypherTransport.authenticated = .authenticated
+                        if self.cypherTransport?.isConnected == true { return }
+                    case .deregistered:
+                        cypherTransport.isConnected = false
+                        cypherTransport.authenticated = .unauthenticated
+                        if self.canReregister {
+                            _ = try await self.resumeService(cypherTransport)
+                        }
+                    default:
+                        ()
+                    }
                 }
-            default: break
+                _ = try await group.next()
+                group.cancelAll()
             }
         }
     }
@@ -790,6 +859,7 @@ extension NeedleTailMessenger {
             destructionTimer: destructionTimer,
             preferredPushType: .message
         )
+        
         return ThumbnailToMultipart(
             dtfp: dtfp,
             symmetricKey: symmetricKey
@@ -877,8 +947,10 @@ extension NeedleTailMessenger {
             switch conversation {
             case .privateChat(let privateChat):
                 let allMessages = try await privateChat.allMessages(sortedBy: .ascending)
-                if let message = await allMessages.async.first(where: { await $0.metadata["mediaId"] as? String == mediaId }) {
-                    return message
+                for message in allMessages {
+                    if await message.metadata["mediaId"] as! String == mediaId {
+                        return message
+                    }
                 }
                 break
             case .groupChat(_):
@@ -918,12 +990,12 @@ extension NeedleTailMessenger {
     //MARK: Inbound
     public func fetchConversations(_
                                    cypher: CypherMessenger
-    ) async throws {
+    ) async throws -> [TargetConversation.Resolved] {
         let conversations = try await cypher.listConversations(
-            includingInternalConversation: true,
+            includingInternalConversation: false,
             increasingOrder: sortChats
         )
-        await consumer.feedConsumer(conversations)
+        return conversations
     }
     
     public func fetchContacts(_ cypher: CypherMessenger) async throws -> [Contact] {
@@ -934,7 +1006,6 @@ extension NeedleTailMessenger {
         return await emitter.groupChats
     }
     
-    @MainActor
     /// `fetchChats()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
     /// that this device has knowledge of. We then can use them in our NeedleTailKit Transport Mechanism.
     /// - Parameters:
@@ -946,53 +1017,40 @@ extension NeedleTailMessenger {
         contact: Contact? = nil
     ) async {
         do {
-            try await fetchConversations(cypher)
-            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
+            let results = try await fetchConversations(cypher)
+            for result in results {
                 switch result {
-                case .success(let result):
-                    switch result {
-                    case .privateChat(let privateChat):
+                case .privateChat(let privateChat):
+                    var messages: [NeedleTailMessage] = []
+                    
+                    guard let username = await contact?.username else { return }
+                    if await privateChat.conversation.members.contains(username) {
+                        let cursor = try await privateChat.cursor(sortedBy: .descending)
+                        let nextBatch = try await cursor.getMore(50)
                         
-                        var messages: [NeedleTailMessage] = []
+                        for message in nextBatch {
+                            messages.append(NeedleTailMessage(message: message))
+                        }
                         
-                        guard let username = contact?.username else { return }
-                        if privateChat.conversation.members.contains(username) {
-                            let cursor = try await privateChat.cursor(sortedBy: .descending)
-                            let nextBatch = try await cursor.getMore(50)
-                            
-                            for message in nextBatch {
-                                messages.append(NeedleTailMessage(message: message))
-                            }
-                            
-                            guard let contact = contact else { return }
-                            let bundle = ContactsBundle.ContactBundle(
-                                contact: contact,
-                                privateChat: privateChat,
-                                groupChats: [],
-                                cursor: cursor,
-                                messages: messages,
-                                mostRecentMessage: try await MostRecentMessage(
-                                    chat: privateChat
-                                )
+                        guard let contact = contact else { return }
+                        let bundle = ContactsBundle.ContactBundle(
+                            contact: contact,
+                            privateChat: privateChat,
+                            groupChats: [],
+                            cursor: cursor,
+                            messages: messages,
+                            mostRecentMessage: try await MostRecentMessage(
+                                chat: privateChat
                             )
-                            
-                            if emitter.bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username }) {
-                                guard let index = emitter.bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return }
-                                emitter.bundles.contactBundleViewModel[index] = bundle
-                            } else {
-                                emitter.bundles.contactBundleViewModel.append(bundle)
-                            }
-                            emitter.bundles.arrangeBundle()
-                        }
-                    case .groupChat(let groupChat):
-                        if !emitter.groupChats.contains(groupChat) {
-                            emitter.groupChats.append(groupChat)
-                        }
-                    case .internalChat(_):
-                        return
+                        )
+                        
+                        await handleBundle(bundle: bundle)
                     }
-                    break
-                case .finished:
+                case .groupChat(let groupChat):
+                    if await !emitter.groupChats.contains(groupChat) {
+                        //                            emitter.groupChats.append(groupChat)
+                    }
+                case .internalChat(_):
                     return
                 }
             }
@@ -1000,6 +1058,28 @@ extension NeedleTailMessenger {
             print(error)
         }
         return
+    }
+    
+    @MainActor
+    func handleBundle(bundle: ContactsBundle.ContactBundle) async {
+        if await containsUsername(bundle: bundle) {
+            let index = await firstIndex(bundle: bundle)
+            emitter.bundles.contactBundleViewModel[index] = bundle
+        } else {
+            emitter.bundles.contactBundleViewModel.append(bundle)
+        }
+        await emitter.bundles.arrangeBundle()
+    }
+    
+    @MainActor
+    func containsUsername(bundle: ContactsBundle.ContactBundle) async -> Bool {
+        emitter.bundles.contactBundleViewModel.contains(where: { $0.contact.username == bundle.contact.username })
+    }
+    
+    @MainActor
+    func firstIndex(bundle: ContactsBundle.ContactBundle) async -> Array.Index {
+        guard let index = emitter.bundles.contactBundleViewModel.firstIndex(where: { $0.contact.username == bundle.contact.username }) else { return 0 }
+        return index
     }
     
     public func removeMessages(from contact: Contact) async throws {
@@ -1058,8 +1138,9 @@ extension NeedleTailMessenger {
     }
 }
 
-@MainActor public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
-    switch (lhs.isPinned, rhs.isPinned) {
+@MainActor
+public func sortConversations(lhs: TargetConversation.Resolved, rhs: TargetConversation.Resolved) -> Bool {
+    switch (lhs.isPinned(), rhs.isPinned()) {
     case (true, true), (false, false):
         ()
     case (true, false):

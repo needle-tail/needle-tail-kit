@@ -20,8 +20,9 @@ protocol TransportBridge: AnyObject {
         ntkBundle: NTKClientBundle,
         transportState: TransportState,
         clientContext: ClientContext,
-        messenger: NeedleTailMessenger
-    ) async throws
+        messenger: NeedleTailMessenger,
+        cypherTransport: NeedleTailCypherTransport
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer>
     func resumeClient(
         type: RegistrationType,
         state: RegistrationState?
@@ -295,8 +296,9 @@ extension NeedleTailClient: TransportBridge {
         ntkBundle: NTKClientBundle,
         transportState: TransportState,
         clientContext: ClientContext,
-        messenger: NeedleTailMessenger
-    ) async throws {
+        messenger: NeedleTailMessenger,
+        cypherTransport: NeedleTailCypherTransport
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
         try await attemptConnection(
             serverInfo: serverInfo,
             groupManager: groupManager,
@@ -304,7 +306,8 @@ extension NeedleTailClient: TransportBridge {
             ntkBundle: ntkBundle,
             transportState: transportState,
             clientContext: clientContext,
-            messenger: messenger
+            messenger: messenger,
+            cypherTransport: cypherTransport
         )
     }
     
@@ -362,11 +365,11 @@ extension NeedleTailClient: TransportBridge {
         case .full:
             let regObject = regRequest(with: appleToken)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try await transport?.registerNeedletailSession(packet)
+            try! await transport?.registerNeedletailSession(packet)
         case .temp:
             let regObject = regRequest(true)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try await transport?.registerNeedletailSession(packet, true)
+            try! await transport?.registerNeedletailSession(packet, true)
         }
     }
     

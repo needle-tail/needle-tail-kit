@@ -61,6 +61,7 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var readReceipts = false
     @Published public var salt = ""
     @Published public var destructionTime: DestructionMetadata?
+    @Published public var stopAnimatingProgress = false
     //    = UserDefaults.standard.integer(forKey: "destructionTime"
 #endif
 }

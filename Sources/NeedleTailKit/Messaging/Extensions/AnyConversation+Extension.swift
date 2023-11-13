@@ -25,13 +25,30 @@ struct PinnedChatsPlugin: Plugin {
 extension AnyConversation {
 
     @MainActor
-    public var isPinned: Bool {
-        (try? self.conversation.getProp(
-            ofType: ChatMetadata.self,
-            forPlugin: PinnedChatsPlugin.self,
-            run: \.isPinned
-        )) ?? false
+    func isPinned() -> Bool {
+        do {
+            guard let isPinned = try self.conversation.getProp(
+                ofType: ChatMetadata.self,
+                forPlugin: PinnedChatsPlugin.self,
+                run: \.isPinned
+            ) else {
+                return false
+            }
+            return isPinned
+        } catch {
+            print(error)
+            return false
+        }
     }
+    
+//    @MainActor
+//    public var isPinned: Bool {
+//        (try? self.conversation.getProp(
+//            ofType: ChatMetadata.self,
+//            forPlugin: PinnedChatsPlugin.self,
+//            run: \.isPinned
+//        )) ?? false
+//    }
 
     @MainActor
     public var isMarkedUnread: Bool {

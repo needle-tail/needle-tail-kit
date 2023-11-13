@@ -75,12 +75,7 @@ public class TransportState: StateMachine {
             logger.info("We are de-registering Session")
         case .transportOffline:
             logger.info("Successfully de-registerd Session")
-#if (os(macOS) || os(iOS))
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                messenger.emitter.connectionState = .deregistered
-            }
-#endif
+            await messenger.setRegistrationState(.deregistered)
         case .clientDisconnected:
             logger.info("Client has disconnected")
         }

@@ -6,7 +6,7 @@
 //
 
 //
-import CypherMessaging
+@preconcurrency import CypherMessaging
 
 public enum MessageSubType: String, Sendable {
     case text, audio, image, doc, videoThumbnail, video, group, none

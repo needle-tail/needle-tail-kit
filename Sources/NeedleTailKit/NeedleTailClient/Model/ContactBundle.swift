@@ -52,7 +52,7 @@ public final class ContactsBundle: ObservableObject {
         
         @MainActor
         public func isPinned() -> Bool {
-            privateChat.isPinned
+            privateChat.isPinned()
         }
         
         @MainActor
@@ -68,7 +68,7 @@ public final class ContactsBundle: ObservableObject {
     
     
     @MainActor
-    public func arrangeBundle() {
+    public func arrangeBundle() async {
         var storedContacts = contactBundleViewModel
         contactBundleViewModel.removeAll()
         
