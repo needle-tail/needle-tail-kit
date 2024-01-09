@@ -7,8 +7,8 @@
 
 import CypherMessaging
 import NeedleTailHelpers
- import NeedleTailProtocol
- import NIOCore
+import NeedleTailProtocol
+import NIOCore
 #if os(macOS)
 import AppKit
 #endif
@@ -95,12 +95,12 @@ extension NeedleTailTransport {
             )
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let type = TransportMessageType.private(.PRIVMSG([.nick(nick)], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outbound
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
+            guard let writer = await writer else { return }
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: type
+                )
         }
     }
     
@@ -167,35 +167,35 @@ extension NeedleTailTransport {
                     case .registered(let bool):
                         guard bool == "true" else { return }
                         await self.transportState.transition(to: .transportRegistered(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
-                                let type = TransportMessageType.standard(.USER(clientContext.userInfo))
-                                let writer = self.asyncChannel.outbound
-                                try await self.transportMessage(
-                                    writer,
-                                    origin: self.origin ?? "",
-                                    type: type
-                                )
+                        let type = TransportMessageType.standard(.USER(clientContext.userInfo))
+                        guard let writer = writer else { return }
+                            try await self.transportMessage(
+                                writer,
+                                origin: self.origin ?? "",
+                                type: type
+                            )
                     case .isOnline:
                         await transportState.transition(to: .transportOnline(isActive: asyncChannel.channel.isActive, clientContext: clientContext))
-                   
                     case .quited:
                         quiting = false
-                        await ctDelegate?.shutdown()
+                        await ctDelegate!.shutdown()
                         await transportState.transition(to: .transportOffline)
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
                     case .multipartUploadComplete(let packet):
 #if (os(macOS) || os(iOS))
+                        //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
-                                let data = try BSONEncoder().encode([packet.name]).makeData()
-                                let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-                                let writer = self.asyncChannel.outbound
+                            let data = try BSONEncoder().encode([packet.name]).makeData()
+                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+                            guard let writer = writer else { return }
                                 try await self.transportMessage(
                                     writer,
                                     origin: self.origin ?? "",
                                     type: type
                                 )
-                        }
+                            }
                         
                         Task { @MainActor [weak self] in
                             guard let self else { return }
@@ -274,9 +274,16 @@ extension NeedleTailTransport {
                                ackType: Acknowledgment.AckType,
                                messagePacket: MultipartMessagePacket? = nil
     ) async throws {
-        guard let message = packet.message else { throw NeedleTailError.messageReceivedError }
-        guard let deviceId = packet.sender else { throw NeedleTailError.senderNil }
-        guard let sender = sender?.nick.name else { throw NeedleTailError.nilNickName }
+        guard let message = packet.message else {
+            throw NeedleTailError.messageReceivedError
+        }
+        guard let deviceId = packet.sender else {
+            throw NeedleTailError.senderNil
+        }
+        guard let sender = sender?.nick.name else {
+            throw NeedleTailError.nilNickName
+        }
+        
         do {
             try await ctcDelegate?.receiveServerEvent(
                 .messageSent(
@@ -290,20 +297,16 @@ extension NeedleTailTransport {
             logger.error("\(error.localizedDescription)")
             return
         }
-        
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let acknowledgement = try await self.createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
-            let ackMessage = acknowledgement.base64EncodedString()
-            let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-            let writer = await self.asyncChannel.outbound
+        let acknowledgement = try await self.createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
+        let ackMessage = acknowledgement.base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
+        guard let writer = writer else { return }
             try await self.transportMessage(
                 writer,
                 origin: self.origin ?? "",
                 type: type
             )
         }
-    }
     
     private func createAcknowledgment(_
                                       ackType: Acknowledgment.AckType,
@@ -384,24 +387,20 @@ extension NeedleTailTransport {
     
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
-    
     public func doPong(_ origin: String, origin2: String? = nil) async throws {
-            let task = Task { @NeedleTailTransportActor [weak self] in
-                guard let self else { return }
-                try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-                let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-                if self.asyncChannel.channel.isActive {
-                    let writer = self.asyncChannel.outbound
+        Task { @NeedleTailTransportActor [weak self] in
+            guard let self else { return }
+            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+            let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
+            if self.asyncChannel.channel.isActive {
+                guard let writer = writer else { fatalError("writer is nil") }
                     try await self.transportMessage(
                         writer,
                         origin: self.origin ?? "",
                         type: type
                     )
                 }
-        }
-        if !task.isCancelled {
-            task.cancel()
-        }
+            }
     }
     
     public func respondToTransportState() async {
@@ -421,6 +420,8 @@ extension NeedleTailTransport {
         case .transportOffline:
             break
         case .clientDisconnected:
+            break
+        case .shouldCloseChannel:
             break
         case .transportRegistered:
             break
@@ -457,7 +458,7 @@ extension NeedleTailTransport {
             
             try await processMultipartMediaMessage(multipartData)
             multipartData.removeAll()
-           await stopAnimatingProgress()
+            await stopAnimatingProgress()
         }
     }
     
@@ -483,65 +484,73 @@ extension NeedleTailTransport {
     
     private func processMultipartMediaMessage(_ multipartData: Data) async throws {
         let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
-        guard let cypher = await messenger.cypher else { return }
+        guard let cypher = await messenger.cypher else { throw NeedleTailError.cypherMessengerNotSet }
         //1. Look up message by Id
         if let message = try await messenger.findMessage(from: decodedData.mediaId, cypher: cypher) {
             try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
         } else {
+            //QUEUE Until message creation occurs
+            await multipartMessageConsumer.feedConsumer([decodedData])
             logger.info("Couldn't find message in order to process media")
         }
     }
     
-    private func processDownload(message: AnyChatMessage, decodedData: FilePacket, cypher: CypherMessenger) async throws {
+    //TODO: Clean up and refacator i.e. remove fatal errors
+    internal func processDownload(
+        message: AnyChatMessage,
+        decodedData: FilePacket,
+        cypher: CypherMessenger
+    ) async throws {
         let mediaId = await message.metadata["mediaId"] as? String
         if mediaId == decodedData.mediaId {
-            guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { return }
-            let symmetricKey = try BSONDecoder().decode(SymmetricKey.self, from: Document(data: keyBinary.data))
-            try await message.setMetadata(cypher, sortChats: sortConversations, run: { [weak self] props in
-                let document = props.message.metadata
-                var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
-                guard let self else { return try BSONEncoder().encode(dtfp) }
-                guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { return try BSONEncoder().encode(dtfp) }
-                guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { return try BSONEncoder().encode(dtfp) }
-
-                switch decodedData.mediaType {
-                case .file:
-                    let fileLocation = try DataToFile.shared.generateFile(
-                        data: fileBoxData,
-                        fileName: dtfp.fileName,
-                        fileType: dtfp.fileType
-                    )
-                    dtfp.fileLocation = fileLocation
-                    dtfp.fileSize = fileBoxData.count
-                case .thumbnail:
-                    let fileLocation = try DataToFile.shared.generateFile(
-                        data: fileBoxData,
-                        fileName: dtfp.thumbnailName,
-                        fileType: dtfp.thumbnailType
-                    )
-                    dtfp.thumbnailLocation = fileLocation
-                    dtfp.thumbnailSize = fileBoxData.count
-                }
-                
-                dtfp.fileBlob = nil
-                dtfp.thumbnailBlob = nil
-                return try BSONEncoder().encode(dtfp)
-            })
-            await updateMetadata(message)
-
+            guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { fatalError() }
+            try await message.setMetadata(
+                cypher,
+                emitter: messenger.emitter,
+                sortChats: sortConversations,
+                run: { [weak self] props in
+                    guard let self else { fatalError() }
+                    let document = props.message.metadata
+                    var dtfp = try! BSONDecoder().decode(DataToFilePacket.self, from: document)
+                    let symmetricKey = try! BSONDecoder().decode(SymmetricKey.self, from: Document(data: keyBinary.data))
+                    guard let fileData = try! self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { fatalError() }
+                    guard let fileBoxData = try! cypher.encryptLocalFile(fileData).combined else { fatalError() }
+                    
+                    switch decodedData.mediaType {
+                    case .file:
+                        let fileLocation = try! DataToFile.shared.generateFile(
+                            data: fileBoxData,
+                            fileName: dtfp.fileName,
+                            fileType: dtfp.fileType
+                        )
+                        dtfp.fileLocation = fileLocation
+                        dtfp.fileSize = fileBoxData.count
+                    case .thumbnail:
+                        let thumbnailLocation = try! DataToFile.shared.generateFile(
+                            data: fileBoxData,
+                            fileName: dtfp.thumbnailName,
+                            fileType: dtfp.thumbnailType
+                        )
+                        dtfp.thumbnailLocation = thumbnailLocation
+                        dtfp.thumbnailSize = fileBoxData.count
+                    }
+                    dtfp.fileBlob = nil
+                    dtfp.thumbnailBlob = nil
+                    return try! BSONEncoder().encode(dtfp)
+                })
+            
             var fileName = ""
             var fileType = ""
             switch decodedData.mediaType {
             case .file:
-               fileName = await message.metadata["fileName"] as? String ?? ""
-               fileType = await message.metadata["fileType"] as? String ?? ""
+                fileName = await message.metadata["fileName"] as? String ?? ""
+                fileType = await message.metadata["fileType"] as? String ?? ""
             case .thumbnail:
                 fileName = await message.metadata["thumbnailName"] as? String ?? ""
                 fileType = await message.metadata["thumbnailType"] as? String ?? ""
             }
-         
-           
-            guard let senderDeviceId = await messenger.cypher?.deviceId else { return }
+            
+            guard let senderDeviceId = await self.messenger.cypher?.deviceId else { fatalError() }
             var packet = MessagePacket(
                 id: UUID().uuidString,
                 pushType: .none,
@@ -551,7 +560,7 @@ extension NeedleTailTransport {
                 recipient: nil,
                 multipartMessage: MultipartMessagePacket(
                     id: "\(fileName)_\(senderDeviceId.raw).\(fileType)",
-                    sender: clientContext.nickname
+                    sender: self.clientContext.nickname
                 )
             )
             
@@ -559,18 +568,15 @@ extension NeedleTailTransport {
             packet.type = .ack(acknowledgement)
             let ackMessage = acknowledgement.base64EncodedString()
             let type = TransportMessageType.private(.PRIVMSG([IRCMessageRecipient.nick(clientContext.nickname)], ackMessage))
-            let writer = self.asyncChannel.outbound
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )   
+            guard let writer = writer else { return }
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: type
+                )
+        } else {
+            fatalError()
         }
-    }
-    
-    @MainActor
-    func updateMetadata(_ message: AnyChatMessage?) async {
-        messenger.emitter.metadataChanged = message
     }
 }
 

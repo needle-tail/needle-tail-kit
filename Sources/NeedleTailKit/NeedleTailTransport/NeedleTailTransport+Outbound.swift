@@ -32,37 +32,37 @@ extension NeedleTailTransport {
         )
         guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
-        let writer = asyncChannel.outbound
-        guard temp == false else {
-            let tag = IRCTags(key: "tempRegPacket", value: value)
+        guard let writer = writer else { fatalError("writer is nil") }
+            guard temp == false else {
+                let tag = IRCTags(key: "tempRegPacket", value: value)
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: .standard(.NICK(clientContext.nickname)),
+                    tags: [tag]
+                )
+                return
+            }
+            
             try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: .standard(.otherCommand("PASS", [""]))
+            )
+            
+            let tag = IRCTags(key: "registrationPacket", value: value)
+            try await transportMessage(
                 writer,
                 origin: self.origin ?? "",
                 type: .standard(.NICK(clientContext.nickname)),
                 tags: [tag]
             )
-            return
-        }
-        
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: .standard(.otherCommand("PASS", [""]))
-        )
-        
-        let tag = IRCTags(key: "registrationPacket", value: value)
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: .standard(.NICK(clientContext.nickname)),
-            tags: [tag]
-        )
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
         logger.info("Sending Quit Message")
         quiting = true
-        let writer = self.asyncChannel.outbound
+        
         let authObject = AuthPacket(
             ntkUser: NTKUser(
                 username: username,
@@ -71,20 +71,21 @@ extension NeedleTailTransport {
             tempRegister: false
         )
         let packet = try BSONEncoder().encode(authObject).makeData()
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: .standard(.QUIT(packet.base64EncodedString()))
-        )
-    }
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: .standard(.QUIT(packet.base64EncodedString()))
+            )
+        }
     
     func publishBlob(_ packet: String) async throws {
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: .standard(.otherCommand("BLOBS", [packet]))
-        )
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: .standard(.otherCommand("BLOBS", [packet]))
+            )
         try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
@@ -97,14 +98,14 @@ extension NeedleTailTransport {
     
     func requestOfflineMessages() async throws {
         if !quiting {
-            let writer = self.asyncChannel.outbound
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: .standard(.otherCommand(Constants.offlineMessages.rawValue, [""]))
-            )
+            guard let writer = writer else { return }
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: .standard(.otherCommand(Constants.offlineMessages.rawValue, [""]))
+                )
+            }
         }
-    }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
     public func recipient(
@@ -141,14 +142,14 @@ extension NeedleTailTransport {
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
         let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type,
-            tags: [tag]
-        )
-    }
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type,
+                tags: [tag]
+            )
+        }
     
     func partNeedleTailChannel(
         name: String,
@@ -173,14 +174,14 @@ extension NeedleTailTransport {
         let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
         guard let channelName = IRCChannelName(name) else { return }
         let type = TransportMessageType.standard(.PART(channels: [channelName]))
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type,
-            tags: [tag]
-        )
-    }
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type,
+                tags: [tag]
+            )
+        }
     
     func createPrivateMessage(
         messageId: String,
@@ -215,13 +216,13 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: type, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], data.base64EncodedString()))
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-    }
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     
     func parseFilename(_ name: String) -> MessageSubType? {
         let components = name.components(separatedBy: "_")
@@ -250,13 +251,13 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-    }
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     
     func createGroupMessage(
         messageId: String,
@@ -286,11 +287,11 @@ extension NeedleTailTransport {
             //Channel Recipient
             let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = self.asyncChannel.outbound
-            try await self.transportMessage(
-                writer,
-                type: type
-            )
+            guard let writer = writer else { return }
+                try await self.transportMessage(
+                    writer,
+                    type: type
+                )
         } catch {
             logger.error("\(error)")
         }
@@ -319,14 +320,14 @@ extension NeedleTailTransport {
             guard let self else { return }
             let encodedData = try BSONEncoder().encode(packet).makeData()
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            let writer = await self.asyncChannel.outbound
-            try await transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
+            guard let writer = await writer else { return }
+                try await self.transportMessage(
+                    writer,
+                    origin: self.origin ?? "",
+                    type: type
+                )
+            }
         }
-    }
     
     func sendChildDeviceConfig(_ masterNick: NeedleTailNick, config: UserDeviceConfig) async throws {
         let recipient = IRCMessageRecipient.nick(masterNick)
@@ -347,35 +348,35 @@ extension NeedleTailTransport {
         self.registryRequestId = packet.id
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        let writer = self.asyncChannel.outbound
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-    }
+        guard let writer = writer else { return }
+            try await transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
     func changeNick(_ nick: NeedleTailNick) async throws {
         let type = TransportMessageType.standard(.NICK(nick))
-        let writer = self.asyncChannel.outbound
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-    }
+        guard let writer = writer else { return }
+            try await transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     
     func deleteOfflineMessages(from contact: String) async throws {
         let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
-        let writer = self.asyncChannel.outbound
-        try await transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
-    }
+        guard let writer = writer else { return }
+            try await transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     
     /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws {
@@ -400,14 +401,14 @@ extension NeedleTailTransport {
         // The recipient is ourself
         let recipient = try await self.recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        let writer = self.asyncChannel.outbound
-        try await self.transportMessage(
-            writer,
-            origin: self.origin ?? "",
-            type: type
-        )
+        guard let writer = writer else { return }
+            try await self.transportMessage(
+                writer,
+                origin: self.origin ?? "",
+                type: type
+            )
+        }
     }
-}
 
 struct MultipartObject: Sendable, Codable {
     var partNumber: String

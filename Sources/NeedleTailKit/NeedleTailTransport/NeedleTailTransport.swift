@@ -32,8 +32,9 @@ protocol ClientTransportDelegate: AnyObject {
 @NeedleTailTransportActor
 public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTransportBridge {
     
-    
     public var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    @NeedleTailTransportActor
+    var writer: NIOAsyncChannelOutboundWriter<ByteBuffer>?
     var userMode = IRCUserMode()
     @NeedleTailClientActor
     let logger = Logger(label: "Transport")
@@ -67,6 +68,7 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
     var plugin: NeedleTailPlugin?
     let messenger: NeedleTailMessenger
     var quiting = false
+    let multipartMessageConsumer = NeedleTailAsyncConsumer<FilePacket>()
 #if canImport(Combine)
     private var statusCancellable: Cancellable?
 #endif
@@ -76,6 +78,7 @@ public final class NeedleTailTransport: NeedleTailClientDelegate, MessengerTrans
 #if canImport(Crypto)
     let needleTailCrypto = NeedleTailCrypto()
 #endif
+    
     init(
         ntkBundle: NTKClientBundle,
         asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,

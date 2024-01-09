@@ -45,6 +45,7 @@ public class TransportState: StateMachine {
             clientContext: ClientContext)
         case transportDeregistering
         case transportOffline
+        case shouldCloseChannel
         case clientDisconnected
     }
     
@@ -76,6 +77,8 @@ public class TransportState: StateMachine {
         case .transportOffline:
             logger.info("Successfully de-registerd Session")
             await messenger.setRegistrationState(.deregistered)
+        case .shouldCloseChannel:
+            logger.info("Should close channel")
         case .clientDisconnected:
             logger.info("Client has disconnected")
         }

@@ -170,7 +170,7 @@ extension EventLoopGroupManager {
                     )
                 ], position: .first)
                 return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
-                    synchronouslyWrapping: channel,
+                    wrappingChannelSynchronously: channel,
                     configuration: .init()
                 )
             }

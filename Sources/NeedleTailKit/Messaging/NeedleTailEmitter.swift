@@ -28,12 +28,13 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var messageReceived: AnyChatMessage?
     @Published public var messageRemoved: AnyChatMessage?
     @Published public var messageChanged: AnyChatMessage?
-    @Published public var metadataChanged: AnyChatMessage?
+    @Published public var shouldRefreshView = false
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
     @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
     @Published public var listedFilenames = [Filename]()
     
+    @Published public var conversationToDelete: DecryptedModel<ConversationModel>?
     @Published public var contactChanged: Contact?
     @Published public var registered = false
     @Published public var contactAdded: Contact?
@@ -57,8 +58,9 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var deleteContactAlert: Bool = false
     @Published public var clearChatAlert: Bool = false
     @Published public var groupChats = [GroupChat]()
-    @Published public var bundles = ContactsBundle()
-    @Published public var readReceipts = false
+    
+    @Published public var isReadReceiptsOn = false
+    @Published public var canSendReadReceipt = false
     @Published public var salt = ""
     @Published public var destructionTime: DestructionMetadata?
     @Published public var stopAnimatingProgress = false

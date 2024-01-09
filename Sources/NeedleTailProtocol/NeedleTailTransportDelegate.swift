@@ -28,8 +28,13 @@ extension NeedleTailWriterDelegate {
                                     writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                     message: IRCMessage
     ) async throws {
-        let buffer = await NeedleTailEncoder.encode(value: message)
-        try await writer.write(buffer)
+        do {
+            let buffer = await NeedleTailEncoder.encode(value: message)
+            try await writer.write(buffer)
+        } catch {
+            print(error)
+            throw error
+        }
     }
 }
 
