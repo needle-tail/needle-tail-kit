@@ -30,7 +30,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMajor(from: "1.2.0")),
         .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.2.0")),
-        .package(url: "https://github.com/needle-tail/swift-data-t o-file.git", branch: "main"),
+        .package(url: "https://github.com/needle-tail/swift-data-to-file.git", branch: "main"),
         .package(url: "https://github.com/needle-tail/needletail-media-kit.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-crypto.git", "2.6.0"..."3.1.0"),
     ],
