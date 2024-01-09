@@ -9,11 +9,14 @@
 import SwiftUI
 
 public struct AsyncView<T, V: View>: View {
+    
+    var shouldDisplayProgress: Bool
     @State var result: Result<T, Error>?
     let run: () async throws -> T
     let build: (T) -> V
     
-    public init(run: @escaping () async throws -> T, @ViewBuilder build: @escaping (T) -> V) {
+    public init(shouldDisplayProgress: Bool = true, run: @escaping () async throws -> T, @ViewBuilder build: @escaping (T) -> V) {
+        self.shouldDisplayProgress = shouldDisplayProgress
         self.run = run
         self.build = build
     }
@@ -26,7 +29,7 @@ public struct AsyncView<T, V: View>: View {
             case .some(.failure(let error)):
                 ErrorView(error: error)
             case .none:
-                NeedleTailProgressView()
+                NeedleTailProgressView(shouldDisplayProgress: shouldDisplayProgress)
                     .task {
                         do {
                             self.result = .success(try await run())

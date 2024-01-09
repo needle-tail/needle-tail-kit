@@ -15,6 +15,10 @@ struct NTKClientBundle: Sendable {
 }
 
 actor NeedleTailClient {
+    @NeedleTailTransportActor
+    var continuation: AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>>.Continuation?
+    @NeedleTailTransportActor
+    var inboundContinuation: AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>>.Continuation?
     let messageParser = MessageParser()
     let logger = Logger(label: "Client")
     let ntkBundle: NTKClientBundle
@@ -24,14 +28,21 @@ actor NeedleTailClient {
     let serverInfo: ClientContext.ServerClientInfo
     let ntkUser: NTKUser
     let messenger: NeedleTailMessenger
+    @NeedleTailTransportActor
     var transport: NeedleTailTransport?
     @KeyBundleMechanismActor
     var mechanism: KeyBundleMechanism?
     @KeyBundleMechanismActor
     var store: TransportStore?
     var childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
+    var channelIsActive = false
+    @NeedleTailTransportActor
+    var writer: NIOAsyncChannelOutboundWriter<ByteBuffer>? {
+        didSet {
+            self.transport?.writer = writer
+        }
+    }
     var registrationState: RegistrationState = .full
-    var childChannelTasks = [Task<Void, Error>]()
     
     @NeedleTailTransportActor
     func setDelegates(_
@@ -81,9 +92,14 @@ actor NeedleTailClient {
     }
     
     func teardownClient() async {
-        transport = nil
         childChannel = nil
+        await teardownTransport()
         await tearDownKeyMech()
+    }
+    
+    @NeedleTailTransportActor
+    func teardownTransport() async {
+        transport = nil
     }
     
     @KeyBundleMechanismActor

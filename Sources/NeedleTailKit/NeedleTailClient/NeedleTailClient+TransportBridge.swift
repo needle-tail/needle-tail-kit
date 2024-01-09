@@ -8,21 +8,13 @@
 import NeedleTailHelpers
 import CypherMessaging
 import JWTKit
- import NeedleTailProtocol
- import NIOCore
+import NeedleTailProtocol
+import NIOCore
 
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 protocol TransportBridge: AnyObject {
     
-    func connectClient(
-        serverInfo: ClientContext.ServerClientInfo,
-        groupManager: EventLoopGroupManager,
-        ntkBundle: NTKClientBundle,
-        transportState: TransportState,
-        clientContext: ClientContext,
-        messenger: NeedleTailMessenger,
-        cypherTransport: NeedleTailCypherTransport
-    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    func processStream(childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws
     func resumeClient(
         type: RegistrationType,
         state: RegistrationState?
@@ -77,9 +69,9 @@ extension NeedleTailClient: TransportBridge {
     
     @NeedleTailTransportActor
     func addNewDevice(_ config: UserDeviceConfig, cypher: CypherMessenger) async throws {
-      
-      
-       
+        
+        
+        
         //set the recipient Device Id so that the server knows which device is requesting this addition
         ntkBundle.cypherTransport.configuration.recipientDeviceId = config.deviceId
         try await cypher.addDevice(config)
@@ -117,7 +109,7 @@ extension NeedleTailClient: TransportBridge {
         type: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws {
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         switch type {
         case .groupMessage(let name):
             try await transport.createGroupMessage(
@@ -183,7 +175,7 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         let blobString = try BSONEncoder().encode(blob).makeData()
         try await transport.publishBlob(blobString.base64EncodedString())
         
@@ -219,7 +211,7 @@ extension NeedleTailClient: TransportBridge {
             for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                 guard let nick = NeedleTailNick(name: ntkUser.username.raw, deviceId: validatedMaster.deviceId) else { continue }
                 
-                guard let transport = transport else { return }
+                guard let transport = await transport else { return }
                 try await transport.sendChildDeviceConfig(nick, config: newMaster)
             }
         } else {
@@ -289,34 +281,15 @@ extension NeedleTailClient: TransportBridge {
     }
     
     
-    @NeedleTailTransportActor
-    func connectClient(
-        serverInfo: ClientContext.ServerClientInfo,
-        groupManager: EventLoopGroupManager,
-        ntkBundle: NTKClientBundle,
-        transportState: TransportState,
-        clientContext: ClientContext,
-        messenger: NeedleTailMessenger,
-        cypherTransport: NeedleTailCypherTransport
-    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
-        try await attemptConnection(
-            serverInfo: serverInfo,
-            groupManager: groupManager,
-            eventLoopGroup: groupManager.groupWrapper.group,
-            ntkBundle: ntkBundle,
-            transportState: transportState,
-            clientContext: clientContext,
-            messenger: messenger,
-            cypherTransport: cypherTransport
-        )
-    }
-    
-    
     func suspendClient(_ isSuspending: Bool = false) async throws {
         do {
             try await attemptDisconnect(isSuspending)
         } catch {
-            await shutdownClient()
+            await transportState.transition(to: .clientOffline)
+            logger.error("Could not gracefully shutdown, Forcing the exit (\(error.localizedDescription))")
+            if error.localizedDescription != "alreadyClosed" {
+                exit(0)
+            }
         }
     }
     
@@ -365,11 +338,11 @@ extension NeedleTailClient: TransportBridge {
         case .full:
             let regObject = regRequest(with: appleToken)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try! await transport?.registerNeedletailSession(packet)
+            try await transport?.registerNeedletailSession(packet)
         case .temp:
             let regObject = regRequest(true)
             let packet = try BSONEncoder().encode(regObject).makeData()
-            try! await transport?.registerNeedletailSession(packet, true)
+            try await transport?.registerNeedletailSession(packet, true)
         }
     }
     
@@ -471,47 +444,45 @@ extension NeedleTailClient: TransportBridge {
     /// Request a **QRCode** to be generated on the **Master Device** for new Device Registration
     /// - Parameter nick: The **Master Device's** **NeedleTailNick**
     public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         try await transport.sendDeviceRegistryRequest(nick)
     }
     
     public func processApproval(_ code: String) async throws -> Bool {
-        guard let transport = transport else { throw NeedleTailError.transportNotIntitialized }
+        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         return await transport.computeApproval(code)
     }
     
     
     public func registerAPNSToken(_ token: Data) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let jwt = try await makeToken(ntkUser.username)
-            let apnObject = await apnRequest(jwt, apnToken: token.hexString, deviceId: ntkUser.deviceId)
-            let payload = try BSONEncoder().encode(apnObject).makeData()
-            guard let transport = await self.transport else { throw NeedleTailError.transportNotIntitialized }
-            let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ntkUser.username.raw)")
-            
-            let packet = MessagePacket(
-                id: UUID().uuidString,
-                pushType: .none,
-                type: .registerAPN(payload),
-                createdAt: Date(),
-                sender: nil,
-                recipient: nil,
-                message: nil,
-                readReceipt: .none
-            )
-            
-            let encodedData = try BSONEncoder().encode(packet).makeData()
-            let encodedString = encodedData.base64EncodedString()
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-            let writer = await transport.asyncChannel.outbound
-            try await transport.transportMessage(
-                writer,
-                origin: transport.origin ?? "",
-                type: type
-            )
-        }
+        let jwt = try await makeToken(ntkUser.username)
+        let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: ntkUser.deviceId)
+        let payload = try BSONEncoder().encode(apnObject).makeData()
+        guard let transport = await self.transport else { throw NeedleTailError.transportNotIntitialized }
+        let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ntkUser.username.raw)")
+        
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .registerAPN(payload),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let encodedString = encodedData.base64EncodedString()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
+        guard let writer = await writer else { return }
+        try await transport.transportMessage(
+            writer,
+            origin: transport.origin ?? "",
+            type: type
+        )
     }
+    
     
     @KeyBundleMechanismActor
     func makeToken(_ username: Username) throws -> String {
@@ -616,85 +587,55 @@ extension NeedleTailClient: TransportBridge {
         store.keyBundle = nil
     }
     
-    
     public func sendReadMessages(count: Int) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
-            guard let writer = await self.transport?.asyncChannel.outbound else { return }
-            try await self.transport?.transportMessage(
-                writer,
-                origin: self.transport?.origin ?? "",
-                type: type
-            )
-        }
+        guard let writer = await writer else { return }
+        let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
+        try await self.transport?.transportMessage(
+            writer,
+            origin: self.transport?.origin ?? "",
+            type: type
+        )
     }
-    
     
     public func downloadMultipart(_ metadata: [String]) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let data = try BSONEncoder().encode(metadata).makeData()
-            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
-            guard let writer = await self.transport?.asyncChannel.outbound else { return }
-            try await self.transport?.transportMessage(
-                writer,
-                origin: self.transport?.origin ?? "",
-                type: type
-            )
-        }
+        guard let writer = await writer else { return }
+        let data = try BSONEncoder().encode(metadata).makeData()
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+        
+        try await self.transport?.transportMessage(
+            writer,
+            origin: self.transport?.origin ?? "",
+            type: type
+        )
     }
-    
     
     public func uploadMultipart(_ packet: MultipartMessagePacket) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let messagePacket = MessagePacket(
-                id: packet.id,
-                pushType: .none,
-                type: .multiRecipientMessage,
-                createdAt: Date(),
-                sender: packet.sender.deviceId,
-                recipient: packet.recipient?.deviceId,
-                readReceipt: .none,
-                multipartMessage: packet
-            )
-            let data = try BSONEncoder().encode(messagePacket).makeData()
-            
-            var packetCount = 0
-            let packets = data.chunks(ofCount: 10777216)
-            guard let writer = await transport?.asyncChannel.outbound else { return }
-            
-            for packet in packets {
-                
-                packetCount += 1
-                self.logger.info("Uploading Multipart... Packet \(packetCount) of \(packets.map{$0}.count)")
-                let type = TransportMessageType.standard(.otherCommand(
-                    Constants.multipartMediaUpload.rawValue,
-                    [
-                        String(packetCount),
-                        String(packets.map{$0}.count),
-                        packet.base64EncodedString()
-                    ]
-                ))
-                try await self.transport?.transportMessage(
-                    writer,
-                    origin: self.transport?.origin ?? "",
-                    type: type
-                )
-            }
-        }
-    }
-    
-    
-    public func requestBucketContents(_ bucket: String) async throws {
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            guard let writer = await self.transport?.asyncChannel.outbound else { return }
-            let data = try BSONEncoder().encode([bucket]).makeData()
+        guard let writer = await writer else { return }
+        let messagePacket = MessagePacket(
+            id: packet.id,
+            pushType: .none,
+            type: .multiRecipientMessage,
+            createdAt: Date(),
+            sender: packet.sender.deviceId,
+            recipient: packet.recipient?.deviceId,
+            readReceipt: .none,
+            multipartMessage: packet
+        )
+        let data = try BSONEncoder().encode(messagePacket).makeData()
+        var packetCount = 0
+        let chunks = data.chunks(ofCount: 10777216)
+        
+        for chunk in chunks {
+            packetCount += 1
+            self.logger.info("Uploading Multipart... Packet \(packetCount) of \(chunks.map{$0}.count)")
             let type = TransportMessageType.standard(.otherCommand(
-                Constants.listBucket.rawValue,
-                [data.base64EncodedString()]
+                Constants.multipartMediaUpload.rawValue,
+                [
+                    packet.id,
+                    String(packetCount),
+                    String(chunks.map{$0}.count),
+                    chunk.base64EncodedString()
+                ]
             ))
             try await self.transport?.transportMessage(
                 writer,
@@ -702,6 +643,21 @@ extension NeedleTailClient: TransportBridge {
                 type: type
             )
         }
+    }
+    
+    public func requestBucketContents(_ bucket: String) async throws {
+        
+        let data = try BSONEncoder().encode([bucket]).makeData()
+        let type = TransportMessageType.standard(.otherCommand(
+            Constants.listBucket.rawValue,
+            [data.base64EncodedString()]
+        ))
+        guard let writer = await writer else { return }
+        try await self.transport?.transportMessage(
+            writer,
+            origin: self.transport?.origin ?? "",
+            type: type
+        )
     }
 }
 #endif

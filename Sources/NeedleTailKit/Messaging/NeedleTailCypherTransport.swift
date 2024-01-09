@@ -38,18 +38,17 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     public func setDelegate(to delegate: CypherMessaging.CypherTransportClientDelegate) async throws {
         self.delegate = delegate
-        await setTransportDelegate(delegate)
     }
     
     public func reconnect() async throws {
 #if os(macOS) || os(iOS)
         guard let messenger = configuration.messenger else { return }
         switch NetworkMonitor.shared.currentStatus {
-            case .satisfied:
-                try await messenger.resumeService()
-            default:
-                return
-            }
+        case .satisfied:
+            try await messenger.resumeService()
+        default:
+            return
+        }
 #endif
     }
     
@@ -57,11 +56,11 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
 #if os(macOS) || os(iOS)
         guard let messenger = configuration.messenger else { return }
         switch NetworkMonitor.shared.currentStatus {
-            case .satisfied:
-                try await messenger.serviceInterupted(true)
-            default:
-                return
-            }
+        case .satisfied:
+            try await messenger.serviceInterupted(true)
+        default:
+            return
+        }
 #endif
     }
     
@@ -114,7 +113,6 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
                 type: .privateMessage,
                 readReceipt: receipt
             )
-            
             //Result contains a tuple, a bool value indicating if we received the ACK back and the readReceipt.state(Check if the readReceipt state is set to received; if it is we then can mark it as read). We then add the item to an array of read receipts that need to be marked as displayed. We later use this array of receipts to notify conversation partner that we have read the message if the receiver of the message has readReceipts turned on.
             if let result = result {
                 await configuration.readMessagesConsumer.feedConsumer([
@@ -124,8 +122,14 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
                         deliveryResult: result
                     )
                 ])
+                await setCanSendReadReceipt(!configuration.readMessagesConsumer.deque.isEmpty)
             }
         }
+    }
+    
+    @MainActor
+    internal func setCanSendReadReceipt(_ canRead: Bool) {
+        configuration.messenger?.emitter.canSendReadReceipt = canRead
     }
     
     public func requestDeviceRegistery(_ config: CypherMessaging.UserDeviceConfig) async throws {
@@ -165,7 +169,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     public func sendMultiRecipientMessage(_ message: CypherProtocol.MultiRecipientCypherMessage, pushType: CypherMessaging.PushType, messageId: String) async throws {
         fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
     }
-  
+    
     @NeedleTailClientActor
     internal func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
 #if os(macOS) || os(iOS)
@@ -321,7 +325,7 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
                       nameToVerify: String? = nil,
                       newHost: String = "",
                       tls: Bool = true
-    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+    ) async throws {
         if !newHost.isEmpty {
             configuration.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
         }
@@ -367,25 +371,63 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
             ),
             messenger: messenger
         )
-
+        
         configuration.client = client
         self.transportBridge = client
-
-        guard let channel = try await self.transportBridge?.connectClient(
-            serverInfo: client.serverInfo,
-            groupManager: client.groupManager,
-            ntkBundle: client.ntkBundle,
-            transportState: client.transportState,
-            clientContext: client.clientContext,
-            messenger: client.messenger,
-            cypherTransport: cypherTransport
-        ) else { throw NeedleTailError.transportBridgeDelegateNotSet }
         
-        try await self.transportBridge?.resumeClient(
-            type: configuration.appleToken != "" ? .siwa(configuration.appleToken!) : .plain(name),
-            state: configuration.registrationState
-        )
-        return channel
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            try Task.checkCancellation()
+            
+            //Create Channel
+            switch client.transportState.current {
+            case .clientOffline, .transportOffline:
+                await client.transportState.transition(to: .clientConnecting)
+                
+                let childChannel = try await client.createChannel(
+                    host: client.serverInfo.hostname,
+                    port: client.serverInfo.port,
+                    enableTLS: client.serverInfo.tls,
+                    groupManager: client.groupManager,
+                    group: client.groupManager.groupWrapper.group
+                )
+                await client.setChildChannel(childChannel)
+                
+                let handlers = try await client.createHandlers(
+                    childChannel,
+                    ntkBundle: client.ntkBundle,
+                    transportState: client.transportState,
+                    clientContext: clientContext,
+                    messenger: messenger
+                )
+                
+                try await client.setMechanisim(handlers.0)
+
+                if let delegate = delegate {
+                    await setTransportDelegate(delegate)
+                }
+                try await client.setTransport(
+                    handlers.1,
+                    cypherTransport: cypherTransport
+                )
+                
+                await client.transportState.transition(to: .clientConnected)
+                
+                // Create long running task to handle streams of data
+                group.addTask {
+                    try await self.transportBridge?.processStream(childChannel: childChannel)
+                }
+                
+                // Register User
+                group.addTask {
+                    try await self.transportBridge?.resumeClient(
+                        type: self.configuration.appleToken != "" ? .siwa(self.configuration.appleToken!) : .plain(name),
+                        state: self.configuration.registrationState
+                    )
+                }
+            default:
+                throw NeedleTailError.couldNotConnectToNetwork
+            }
+        }
 #endif
     }
     
@@ -541,7 +583,7 @@ extension NeedleTailCypherTransport {
         }
         
         config.blob.metadata = meta
-    }    
+    }
     fileprivate struct MultipartQueuedPacket: Sendable {
         var packet: MultipartMessagePacket
         var message: RatchetedCypherMessage
@@ -550,40 +592,53 @@ extension NeedleTailCypherTransport {
     }
     
     internal func sendMessageReadReceipt() async throws {
-        for try await result in NeedleTailAsyncSequence<MessageToRead>(consumer: configuration.readMessagesConsumer) {
-            switch result {
-            case .success(let message):
-                //Only read if the message is in view
+        try await withThrowingTaskGroup(of: Void.self) { [weak self] group in
+            guard let self else { return }
+            for try await result in NeedleTailAsyncSequence<MessageToRead>(consumer: self.configuration.readMessagesConsumer) {
+                try Task.checkCancellation()
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    switch result {
+                    case .success(let message):
+                        //Only read if the message is in view
 #if (os(macOS) || os(iOS))
-                guard let messenger = configuration.messenger else { return }
-                if await messenger.emitter.readReceipts == true {
-                    if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
-                        //Send to the message sender sender,
-                        let recipient = NTKUser(username: message.ntkUser.username, deviceId: message.ntkUser.deviceId)
-                        guard let sender = configuration.username else { return }
-                        guard let deviceId = configuration.deviceId else { return }
-                        let receipt = ReadReceipt(
-                            messageId: message.remoteId,
-                            state: .displayed,
-                            sender:  NTKUser(username: sender, deviceId: deviceId),
-                            recipient: recipient,
-                            receivedAt: Date()
-                        )
-                        _ = try await transportBridge?.sendReadReceiptMessage(
-                            recipient: recipient,
-                            pushType: .none,
-                            type: .privateMessage,
-                            readReceipt: receipt
-                        )
+                        guard let messenger = configuration.messenger else { return }
+                        if await messenger.emitter.isReadReceiptsOn == true {
+                            if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
+                                //Send to the message sender sender,
+                                let recipient = NTKUser(username: message.ntkUser.username, deviceId: message.ntkUser.deviceId)
+                                guard let sender = configuration.username else { return }
+                                guard let deviceId = configuration.deviceId else { return }
+                                let receipt = ReadReceipt(
+                                    messageId: message.remoteId,
+                                    state: .displayed,
+                                    sender:  NTKUser(username: sender, deviceId: deviceId),
+                                    recipient: recipient,
+                                    receivedAt: Date()
+                                )
+                                _ = try await transportBridge?.sendReadReceiptMessage(
+                                    recipient: recipient,
+                                    pushType: .none,
+                                    type: .privateMessage,
+                                    readReceipt: receipt
+                                )
+                                return
+                            }
+                        } else {
+                            return
+                        }
+#else
+                        return
+#endif
+                    case .consumed:
+                        return
                     }
                 }
-#else
-                return
-#endif
-            default:
-                return
+                _ = try await group.next()
+                group.cancelAll()
             }
         }
+        await setCanSendReadReceipt(!configuration.readMessagesConsumer.deque.isEmpty)
     }
     
     public func sendReadMessages(count: Int) async throws {

@@ -13,34 +13,32 @@ public struct NeedleTailProgressView: View {
     @State private var statements = ["Keeping Confidence...", "Somethings are no ones business...", "🤫"]
     @State private var index = 0
     @State private var fade = false
+    public var shouldDisplayProgress: Bool
     
-    public init() {}
+    public init(shouldDisplayProgress: Bool = true) {
+        self.shouldDisplayProgress = shouldDisplayProgress
+    }
     
         public var body: some View {
             VStack {
-                Spacer()
-                ProgressView(value: 0) {
-                    Text(statements[index])
-                        .onReceive(timer) { input in
-                            if index >= statements.count - 1 {
-                                index = 0
-                            } else {
-                            index += 1
+                if shouldDisplayProgress == true {
+                    Spacer()
+                    ProgressView(value: 0) {
+                        Text(statements[index])
+                            .onReceive(timer) { input in
+                                if index >= statements.count - 1 {
+                                    index = 0
+                                } else {
+                                    index += 1
+                                }
                             }
-                        }
+                    }
+                    .progressViewStyle(.circular)
+                    Spacer()
                 }
-                .progressViewStyle(.circular)
-                Spacer()
             }
-            .tint(.orange)
-            .padding()
+                .tint(.orange)
+                .padding()
         }
     }
-
-
-struct NeedleTailProgressView_Previews: PreviewProvider {
-    static var previews: some View {
-        NeedleTailProgressView()
-    }
-}
 #endif

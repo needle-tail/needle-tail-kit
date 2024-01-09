@@ -10,16 +10,24 @@ import CypherMessaging
 
 #if (os(macOS) || os(iOS))
 public final class ContactsBundle: ObservableObject {
+    public static let shared = ContactsBundle()
     
     @Published public var contactListBundle: ContactBundle?
     @Published public var contactBundle: ContactBundle?
     @Published public var contactBundleViewModel = [ContactBundle]()
     @Published public var scrollToBottom: UUID?
     
+    public init(contactListBundle: ContactBundle? = nil, contactBundle: ContactBundle? = nil, contactBundleViewModel: [ContactBundle] = [ContactBundle](), scrollToBottom: UUID? = nil) {
+        self.contactListBundle = contactListBundle
+        self.contactBundle = contactBundle
+        self.contactBundleViewModel = contactBundleViewModel
+        self.scrollToBottom = scrollToBottom
+    }
+    
     public struct ContactBundle: Equatable, Hashable, Identifiable {
-        public let id = UUID()
-        public var contact: Contact
-        public var privateChat: PrivateChat
+        public var id = UUID()
+        public var contact: Contact?
+        public var chat: AnyConversation
         public var groupChats: [GroupChat]
         public var cursor: AnyChatMessageCursor
         public var messages: [NeedleTailMessage]
@@ -27,15 +35,15 @@ public final class ContactsBundle: ObservableObject {
         internal var sortedBy: ContactListSorted = .unPinRead
         
         public init(
-            contact: Contact,
-            privateChat: PrivateChat,
+            contact: Contact? = nil,
+            chat: AnyConversation,
             groupChats: [GroupChat],
             cursor: AnyChatMessageCursor,
             messages: [NeedleTailMessage],
             mostRecentMessage: MostRecentMessage<PrivateChat>? = nil
         ) {
             self.contact = contact
-            self.privateChat = privateChat
+            self.chat = chat
             self.groupChats = groupChats
             self.cursor = cursor
             self.messages = messages
@@ -52,12 +60,27 @@ public final class ContactsBundle: ObservableObject {
         
         @MainActor
         public func isPinned() -> Bool {
-            privateChat.isPinned()
+            chat.isPinned()
         }
         
         @MainActor
         public func isMarkedUnread() -> Bool {
-            privateChat.isMarkedUnread
+            chat.isMarkedUnread
+        }
+        
+        @MainActor
+        public func isPrivate() -> Bool {
+            chat is PrivateChat
+        }
+        
+        @MainActor
+        public func isInternal() -> Bool {
+            chat is InternalConversation
+        }
+        
+        @MainActor
+        public func isGroup() -> Bool {
+            chat is GroupChat
         }
     }
     
@@ -69,10 +92,7 @@ public final class ContactsBundle: ObservableObject {
     
     @MainActor
     public func arrangeBundle() async {
-        var storedContacts = contactBundleViewModel
-        contactBundleViewModel.removeAll()
-        
-        for bundle in storedContacts {
+        for bundle in contactBundleViewModel {
             var bundle = bundle
             if bundle.isPinned() && !bundle.isMarkedUnread() {
                 bundle.sortedBy = .pinned
@@ -83,14 +103,13 @@ public final class ContactsBundle: ObservableObject {
             } else if !bundle.isPinned() && !bundle.isMarkedUnread() {
                 bundle.sortedBy = .unPinRead
             }
-            contactBundleViewModel.append(bundle)
         }
         
         var indexOfUnread = 0
         var lastUnread = 0
         
         for setBundle in contactBundleViewModel {
-            guard let index = contactBundleViewModel.firstIndex(where: { $0.contact.username == setBundle.contact.username }) else { return }
+            guard let index = contactBundleViewModel.firstIndex(where: { $0.contact?.username == setBundle.contact?.username }) else { return }
             switch setBundle.sortedBy {
             case .unRead:
                 contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: indexOfUnread)
@@ -102,7 +121,6 @@ public final class ContactsBundle: ObservableObject {
                 contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: contactBundleViewModel.count)
             }
         }
-        storedContacts.removeAll()
     }
 }
 #endif

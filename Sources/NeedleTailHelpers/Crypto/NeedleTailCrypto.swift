@@ -13,6 +13,10 @@ import SwiftDTF
 
 public struct NeedleTailCrypto: Sendable {
     
+    enum Errors: Error {
+        case combinedDataNil
+    }
+    
     public init() {}
     
     //Any string we can use to generate a SymmetricKey it should be unique to a client/app
@@ -83,14 +87,14 @@ extension NeedleTailCrypto {
     }
     
     public func decrypt(data: Data, symmetricKey: SymmetricKey) throws -> Data? {
-            let sealedBox = try AES.GCM.SealedBox(combined: data)
+            let sealedBox = try! AES.GCM.SealedBox(combined: data)
             return try AES.GCM.open(sealedBox, using: symmetricKey)
     }
     
     public func encryptText(text: String, symmetricKey: SymmetricKey) throws -> String {
         let textData = text.data(using: .utf8)!
-        let encrypted = try AES.GCM.seal(textData, using: symmetricKey)
-        return encrypted.combined!.base64EncodedString()
+        guard let encrypted = try! AES.GCM.seal(textData, using: symmetricKey).combined else { throw Errors.combinedDataNil }
+        return encrypted.base64EncodedString()
     }
     
     public func decryptText(text: String, symmetricKey: SymmetricKey) throws -> String {

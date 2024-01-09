@@ -23,7 +23,7 @@ public final class NeedleTailPlugin: Plugin, Sendable {
     public static let pluginIdentifier = "@/needletail"
     
     let messenger: NeedleTailMessenger
-    
+    let priorityActor = PriorityActor()
     public init(messenger: NeedleTailMessenger) {
         self.messenger = messenger
     }
@@ -39,24 +39,63 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #if (os(macOS) || os(iOS))
         print("CREATED MESSAGE", message.text)
         self.messenger.emitter.messageReceived = message
+        Task {
+            await priorityActor.queueThrowingAction(with: .background) { [weak self] in
+                guard let self else { return }
+                try await updateDeliveryStatus(message: message)
+            }
+            if let transport = await self.messenger.cypherTransport?.configuration.client?.transport {
+                for try await result in NeedleTailAsyncSequence(consumer: transport.multipartMessageConsumer) {
+                    switch result {
+                    case .success(let filePacket):
+                        if let cypher = await self.messenger.cypher, let message = try await self.messenger.findMessage(from: filePacket.mediaId, cypher: cypher) {
+                            try await transport.processDownload(message: message, decodedData: filePacket, cypher: cypher)
+                        } else {
+                            print("Tried Queued Message, but still cannot find message in order to process download, we will erase the message from chat")
+                        }
+                    case .consumed:
+                        return
+                    }
+                }
+            }
+        }
 #endif
     }
     
     @MainActor
     public func onRemoveChatMessage(_ message: AnyChatMessage) {
+        print("REMOVED MESSAGE", message.text)
 #if (os(macOS) || os(iOS))
         messenger.emitter.messageRemoved = message
 #endif
     }
     
     @MainActor
+    func updateDeliveryStatus(message: AnyChatMessage) async throws {
+        switch message.raw.deliveryState {
+        case .none:
+            break
+        case .read:
+            break
+        case .revoked:
+            break
+        case .received:
+            await priorityActor.queueThrowingAction(with: .background) { [weak self] in
+                guard let self else { return }
+                try await self.messenger.sendReadMessages(count: 1)
+            }
+        case .undelivered:
+         break
+        }
+    }
+    
+    @MainActor
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
-        //        Task { @MainActor in
-        //            if message.raw.deliveryState == .read {
-        //                UIApplication.shared.applicationIconBadgeNumber -= 1
-        //            }
-        //        }
+        Task { @PriorityActor [weak self] in
+            guard let self else { return }
+            try await self.updateDeliveryStatus(message: message)
+        }
 #elseif os(macOS)
 #endif
         
@@ -84,6 +123,21 @@ public final class NeedleTailPlugin: Plugin, Sendable {
     @MainActor public func onRemoveContact(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
         print("REMOVED CONTACT")
+        Task {
+            let conversations = try await messenger.fetchConversations(messenger.cypher!)
+            for conversation in conversations {
+                switch conversation {
+                case .privateChat(let privateChat):
+                    if privateChat.conversationPartner == contact.username {
+                        messenger.emitter.conversationToDelete = privateChat.conversation
+                    }
+                case .groupChat(let groupChat):
+                    try await groupChat.kickMember(contact.username)
+                case .internalChat(_):
+                    ()
+                }
+            }
+        }
         deleteOfflineMessage(contact, removedContact: true)
         //Tell other devieces we want to delete the contact
         notifyContactRemoved(contact)
@@ -94,14 +148,17 @@ public final class NeedleTailPlugin: Plugin, Sendable {
     //If a user is not friends, we blocked them, or we deleted them as a contact we will delete all the stored messages that maybe online. Since we no long want to communicate with them.
     func deleteOfflineMessage(_ contact: Contact, removedContact: Bool = false) {
 #if (os(macOS) || os(iOS))
-        Task.detached { [weak self] in
+        Task { @PriorityActor [weak self] in
             guard let self else { return }
-            let blocked = await contact.ourFriendshipState == .blocked
-            let notFriend = await contact.ourFriendshipState == .notFriend
-            if blocked || notFriend {
-                try await messenger.deleteOfflineMessages(from: contact.username.raw)
-            } else if removedContact {
-                try await messenger.deleteOfflineMessages(from: contact.username.raw)
+            await self.priorityActor.queueThrowingAction(with: .background) { [weak self] in
+                guard let self else { return }
+                let blocked = await contact.ourFriendshipState == .blocked
+                let notFriend = await contact.ourFriendshipState == .notFriend
+                if blocked || notFriend {
+                    try await messenger.deleteOfflineMessages(from: contact.username.raw)
+                } else if removedContact {
+                    try await messenger.deleteOfflineMessages(from: contact.username.raw)
+                }
             }
         }
 #endif
@@ -109,9 +166,12 @@ public final class NeedleTailPlugin: Plugin, Sendable {
     
     func notifyContactRemoved(_ contact: Contact) {
 #if (os(macOS) || os(iOS))
-        Task.detached { [weak self] in
+        Task { @PriorityActor [weak self] in
             guard let self else { return }
-            try await self.messenger.notifyContactRemoved(contact.username)
+            await self.priorityActor.queueThrowingAction(with: .background) { [weak self] in
+                guard let self else { return }
+                try await self.messenger.notifyContactRemoved(contact.username)
+            }
         }
 #endif
     }

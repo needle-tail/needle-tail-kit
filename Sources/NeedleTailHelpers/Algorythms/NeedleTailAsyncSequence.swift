@@ -43,8 +43,8 @@ extension NeedleTailAsyncSequence {
                 switch result {
                 case .ready(let sequence):
                    return .success(sequence)
-                case .finished:
-                   return .finished
+                case .consumed:
+                    return nil
                 }
             } onCancel: {
                 stateMachine.cancel()
@@ -67,14 +67,19 @@ public actor NeedleTailAsyncConsumer<T> {
     }
     
     public func next() async -> NTASequenceStateMachine.NextNTAResult<T> {
+        if !deque.isEmpty {
+            stateMachine.ready()
+        } else {
+            stateMachine.cancel()
+        }
         switch stateMachine.state {
         case 0:
-            guard let item = deque.popFirst() else { return .finished }
-            return .ready(item)
+            return .consumed
         case 1:
-            return .finished
+            guard let item = deque.popFirst() else { return .consumed }
+            return .ready(item)
         default:
-            return .finished
+            return .consumed
         }
     }
 }
@@ -89,9 +94,11 @@ public final class NTASequenceStateMachine: Sendable {
         public var description: String {
                 switch self.rawValue {
                 case 0:
+                    //Empty consumer
                     return "consumed"
                 case 1:
-                    return "waiting"
+                    //Non Empty consumer
+                    return "ready"
                 default:
                     return ""
                 }
@@ -99,11 +106,11 @@ public final class NTASequenceStateMachine: Sendable {
         }
     
     public enum NTASequenceResult<T: Sendable>: Sendable {
-        case success(T), finished
+        case success(T), consumed
     }
 
     public enum NextNTAResult<T: Sendable>: Sendable {
-        case ready(T), finished
+        case ready(T), consumed
     }
     
     private let protectedState = ManagedAtomic<Int>(NTAConsumedState.consumed.rawValue)
@@ -111,6 +118,10 @@ public final class NTASequenceStateMachine: Sendable {
     public var state: NTAConsumedState.RawValue {
         get { protectedState.load(ordering: .acquiring) }
         set { protectedState.store(newValue, ordering: .relaxed) }
+    }
+    
+    func ready() {
+        state = 1
     }
 
     func cancel() {
