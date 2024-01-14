@@ -19,6 +19,8 @@ actor NeedleTailClient {
     var continuation: AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>>.Continuation?
     @NeedleTailTransportActor
     var inboundContinuation: AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>>.Continuation?
+    @NeedleTailTransportActor
+    var cancelStream = false
     let messageParser = MessageParser()
     let logger = Logger(label: "Client")
     let ntkBundle: NTKClientBundle

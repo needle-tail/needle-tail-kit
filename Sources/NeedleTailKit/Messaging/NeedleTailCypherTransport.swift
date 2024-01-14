@@ -383,7 +383,7 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
             case .clientOffline, .transportOffline:
                 await client.transportState.transition(to: .clientConnecting)
                 
-                let childChannel = try await client.createChannel(
+                let childChannel = try! await client.createChannel(
                     host: client.serverInfo.hostname,
                     port: client.serverInfo.port,
                     enableTLS: client.serverInfo.tls,
@@ -400,13 +400,14 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
                     messenger: messenger
                 )
                 
-                try await client.setMechanisim(handlers.0)
+                try await client.setStore(handlers.0)
+                try await client.setMechanisim(handlers.1)
 
                 if let delegate = delegate {
                     await setTransportDelegate(delegate)
                 }
                 try await client.setTransport(
-                    handlers.1,
+                    handlers.2,
                     cypherTransport: cypherTransport
                 )
                 

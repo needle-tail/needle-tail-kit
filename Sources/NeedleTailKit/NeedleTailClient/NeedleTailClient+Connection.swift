@@ -27,9 +27,11 @@ extension NeedleTailClient: ClientTransportDelegate {
     func processStream(childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws {
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
+                try Task.checkCancellation()
                 try await childChannel.executeThenClose { inbound, outbound in
                     switch transportState.current {
                     case .clientConnected:
+                      
                         // set up async streams and handle data
                         let _outbound = AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>> { continuation in
                             continuation.yield(outbound)
@@ -38,7 +40,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                                 print("Writer Stream Terminated with status:", status)
                             }
                         }
-                        
+                      
                         let _inbound = AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>> { continuation in
                             continuation.yield(inbound)
                             self.inboundContinuation = continuation
@@ -53,23 +55,30 @@ extension NeedleTailClient: ClientTransportDelegate {
                             }
                         }
                         
-                        for await inbound in _inbound {
-                            for try await buffer in inbound {
-                                group.addTask {
-                                    var buffer = buffer
-                                    guard let message = buffer.readString(length: buffer.readableBytes) else { fatalError() }
-                                    guard !message.isEmpty else { fatalError() }
-                                    let messages = message.components(separatedBy: Constants.cLF.rawValue)
-                                        .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
-                                        .filter { !$0.isEmpty }
-                                    
-                                    for message in messages {
-                                        guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
-                                        self.logger.trace("Message Parsed \(parsedMessage)")
-                                        await self.mechanism?.processKeyBundle(parsedMessage)
-                                        await self.transport?.processReceivedMessages(parsedMessage)
+                        for await stream in _inbound {
+                            do {
+                                for try await buffer in stream {
+                                    group.addTask {
+                                        var buffer = buffer
+                                        guard let message = buffer.readString(length: buffer.readableBytes) else { fatalError() }
+                                        guard !message.isEmpty else { fatalError() }
+                                        let messages = message.components(separatedBy: Constants.cLF.rawValue)
+                                            .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
+                                            .filter { !$0.isEmpty }
+                                        
+                                        for message in messages {
+                                            guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
+                                            self.logger.trace("Message Parsed \(parsedMessage)")
+                                            await self.mechanism?.processKeyBundle(parsedMessage)
+                                            await self.transport?.processReceivedMessages(parsedMessage)
+                                        }
+                                    }
+                                    if cancelStream {
+                                        return
                                     }
                                 }
+                            } catch {
+                                print(error)
                             }
                         }
                         return
@@ -94,10 +103,8 @@ extension NeedleTailClient: ClientTransportDelegate {
     }
     
     @KeyBundleMechanismActor
-    func setStore(_ store: TransportStore?) async throws -> TransportStore {
+    func setStore(_ store: TransportStore?) async throws {
         self.store = store
-        guard let store = self.store else { throw NeedleTailError.storeNotIntitialized }
-        return store
     }
     
     @KeyBundleMechanismActor
@@ -162,7 +169,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                         transportState: TransportState,
                         clientContext: ClientContext,
                         messenger: NeedleTailMessenger
-    ) async throws -> (KeyBundleMechanism, NeedleTailTransport, TransportStore) {
+    ) async throws -> (TransportStore, KeyBundleMechanism, NeedleTailTransport) {
         let store = await createStore()
         async let mechanism = try await createMechanism(channel, store: store)
         async let transport = await createTransport(
@@ -173,7 +180,7 @@ extension NeedleTailClient: ClientTransportDelegate {
             clientContext: clientContext,
             messenger: messenger
         )
-        return try await (mechanism, transport, store)
+        return try await (store, mechanism, transport)
     }
     
     func createStore() async -> TransportStore {
@@ -212,9 +219,15 @@ extension NeedleTailClient: ClientTransportDelegate {
         await transport?.transportState.transition(to: .shouldCloseChannel)
         await continuation?.finish()
         await inboundContinuation?.finish()
+        await cancelInboundStream()
         await groupManager.shutdown()
         await ntkBundle.cypherTransport.configuration.client?.teardownClient()
         await transportState.transition(to: .clientOffline)
+    }
+    
+    @NeedleTailTransportActor
+    func cancelInboundStream() {
+        cancelStream = true
     }
     
     /// We send the disconnect message and wait for the ACK before shutting down the connection to the server

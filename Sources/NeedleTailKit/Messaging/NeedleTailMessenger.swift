@@ -16,7 +16,7 @@ import Cocoa
 #endif
 import DequeModule
 #if canImport(Crypto)
-import Crypto
+@preconcurrency import Crypto
 #endif
 import SwiftDTF
 #if os(iOS) || os(macOS)

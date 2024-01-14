@@ -109,10 +109,10 @@ extension NeedleTailClient: TransportBridge {
         type: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws {
-        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
+//        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         switch type {
         case .groupMessage(let name):
-            try await transport.createGroupMessage(
+            try await transport!.createGroupMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
@@ -127,7 +127,7 @@ extension NeedleTailClient: TransportBridge {
                 readReceipt: readReceipt
             )
         case .privateMessage:
-            try await transport.createPrivateMessage(
+            try await transport!.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
@@ -175,11 +175,11 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {
-        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
+//        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
         let blobString = try BSONEncoder().encode(blob).makeData()
-        try await transport.publishBlob(blobString.base64EncodedString())
+        try await transport!.publishBlob(blobString.base64EncodedString())
         
-        guard let channelBlob = await transport.channelBlob else { throw NeedleTailError.nilBlob }
+        guard let channelBlob = await transport!.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
         let blob = try BSONDecoder().decode(NeedleTailHelpers.Blob<C>.self, from: Document(data: data))
         return ReferencedBlob(id: blob._id, blob: blob.document)
@@ -236,14 +236,14 @@ extension NeedleTailClient: TransportBridge {
     @KeyBundleMechanismActor
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
         let task = Task {
-            guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
-            guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+//            guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
+//            guard let store = store else { throw NeedleTailError.transportNotIntitialized }
             try await clearUserConfig()
             
             let jwt = try self.makeToken(ntkUser.username)
             let readBundleObject = self.readBundleRequest(jwt, for: username)
             let packet = try BSONEncoder().encode(readBundleObject).makeData()
-            try await mechanism.readKeyBundle(packet.base64EncodedString())
+            try await mechanism!.readKeyBundle(packet.base64EncodedString())
             
             let result = try await withThrowingTaskGroup(of: UserConfig?.self) { @KeyBundleMechanismActor group in
                 try Task.checkCancellation()
@@ -251,7 +251,7 @@ extension NeedleTailClient: TransportBridge {
                     try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) { @KeyBundleMechanismActor in
                         var bundle: UserConfig?
                         var canRun = true
-                        if let keyBundle = store.keyBundle {
+                        if let keyBundle = self.store!.keyBundle {
                             canRun = false
                             bundle = keyBundle
                         }
@@ -287,6 +287,7 @@ extension NeedleTailClient: TransportBridge {
         } catch {
             await transportState.transition(to: .clientOffline)
             logger.error("Could not gracefully shutdown, Forcing the exit (\(error.localizedDescription))")
+            //This probably means that the server is down
             if error.localizedDescription != "alreadyClosed" {
                 exit(0)
             }
@@ -349,11 +350,11 @@ extension NeedleTailClient: TransportBridge {
     
     @KeyBundleMechanismActor
     public func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
-        guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+//        guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
+//        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
-        let updateKeyBundle = mechanism.updateKeyBundle
+        let updateKeyBundle = mechanism!.updateKeyBundle
         
         var contacts: [NTKContact]?
         if updateKeyBundle {
@@ -381,7 +382,7 @@ extension NeedleTailClient: TransportBridge {
         try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
-            if store.acknowledgment == .registered("true") {
+            if await self?.store!.acknowledgment == .registered("true") {
                 running = false
             }
             switch await strongSelf.transportState.current {
@@ -402,8 +403,8 @@ extension NeedleTailClient: TransportBridge {
                                   updateKeyBundle: Bool,
                                   recipientDeviceId: DeviceId?
     ) async throws {
-        guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+//        guard let mechanism = mechanism else { throw NeedleTailError.transportNotIntitialized }
+//        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
         
         let jwt = try makeToken(ntkUser.username)
         let configObject = configRequest(jwt, config: data, recipientDeviceId: recipientDeviceId)
@@ -425,17 +426,17 @@ extension NeedleTailClient: TransportBridge {
         
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        try await mechanism.keyBundleMessage(type)
+        try await mechanism!.keyBundleMessage(type)
         
         try await RunLoop.run(20, sleep: 1, stopRunning: { @TransportStoreActor in
             var running = true
-            if store.acknowledgment == .publishedKeyBundle("true") {
+            if await self.store!.acknowledgment == .publishedKeyBundle("true") {
                 running = false
             }
             return running
         })
         
-        if store.acknowledgment != .publishedKeyBundle("true") {
+        if store!.acknowledgment != .publishedKeyBundle("true") {
             throw NeedleTailError.cannotPublishKeyBundle
         }
     }
@@ -444,13 +445,13 @@ extension NeedleTailClient: TransportBridge {
     /// Request a **QRCode** to be generated on the **Master Device** for new Device Registration
     /// - Parameter nick: The **Master Device's** **NeedleTailNick**
     public func requestDeviceRegistration(_ nick: NeedleTailNick) async throws {
-        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
-        try await transport.sendDeviceRegistryRequest(nick)
+//        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
+        try await transport!.sendDeviceRegistryRequest(nick)
     }
     
     public func processApproval(_ code: String) async throws -> Bool {
-        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
-        return await transport.computeApproval(code)
+//        guard let transport = await transport else { throw NeedleTailError.transportNotIntitialized }
+        return await transport!.computeApproval(code)
     }
     
     
@@ -458,7 +459,7 @@ extension NeedleTailClient: TransportBridge {
         let jwt = try await makeToken(ntkUser.username)
         let apnObject = apnRequest(jwt, apnToken: token.hexString, deviceId: ntkUser.deviceId)
         let payload = try BSONEncoder().encode(apnObject).makeData()
-        guard let transport = await self.transport else { throw NeedleTailError.transportNotIntitialized }
+//        guard let transport = await self.transport else { throw NeedleTailError.transportNotIntitialized }
         let recipient = try await recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ntkUser.username.raw)")
         
         let packet = MessagePacket(
@@ -476,9 +477,9 @@ extension NeedleTailClient: TransportBridge {
         let encodedString = encodedData.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         guard let writer = await writer else { return }
-        try await transport.transportMessage(
+        try await transport!.transportMessage(
             writer,
-            origin: transport.origin ?? "",
+            origin: transport!.origin ?? "",
             type: type
         )
     }
@@ -583,8 +584,8 @@ extension NeedleTailClient: TransportBridge {
     
     @KeyBundleMechanismActor
     func clearUserConfig() async throws {
-        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
-        store.keyBundle = nil
+//        guard let store = store else { throw NeedleTailError.transportNotIntitialized }
+        store!.keyBundle = nil
     }
     
     public func sendReadMessages(count: Int) async throws {
