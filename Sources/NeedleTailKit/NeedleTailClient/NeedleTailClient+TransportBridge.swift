@@ -14,7 +14,10 @@ import NIOCore
 #if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 protocol TransportBridge: AnyObject {
     
-    func processStream(childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws
+    func processStream(
+        childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
+        store: TransportStore
+    ) async throws
     func resumeClient(
         writer: NeedleTailWriter,
         type: RegistrationType,
@@ -100,10 +103,10 @@ extension NeedleTailClient: TransportBridge {
         type: ConversationType,
         readReceipt: ReadReceipt?
     ) async throws {
-
+        guard let writer = writer else { throw NeedleTailError.writerNotSet }
         switch type {
         case .groupMessage(let name):
-            try await writer?.createGroupMessage(
+            try await writer.createGroupMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
@@ -118,7 +121,7 @@ extension NeedleTailClient: TransportBridge {
                 readReceipt: readReceipt
             )
         case .privateMessage:
-            try await writer!.createPrivateMessage(
+            try await writer.createPrivateMessage(
                 messageId: messageId,
                 pushType: pushType,
                 message: message,
@@ -169,8 +172,8 @@ extension NeedleTailClient: TransportBridge {
     func publishBlob<C>(_ blob: C) async throws -> CypherMessaging.ReferencedBlob<C> where C : Decodable, C : Encodable, C : Sendable {
         let blobString = try BSONEncoder().encodeString(blob)
         try await writer?.publishBlob(blobString)
-        
-        guard let channelBlob = await stream!.channelBlob else { throw NeedleTailError.nilBlob }
+        guard let stream = stream else { throw NeedleTailError.streamNotSet }
+        guard let channelBlob = await stream.channelBlob else { throw NeedleTailError.nilBlob }
         guard let data = Data(base64Encoded: channelBlob) else { throw NeedleTailError.nilData }
         let blob = try BSONDecoder().decodeData(NeedleTailHelpers.Blob<C>.self, from: data)
         return ReferencedBlob(id: blob._id, blob: blob.document)
@@ -226,12 +229,14 @@ extension NeedleTailClient: TransportBridge {
     
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
         let task = Task {
-            await store!.clearUserConfig()
+            guard let store = store else { throw NeedleTailError.storeNotIntitialized }
+            guard let stream = stream else { throw NeedleTailError.streamNotSet }
+            await store.clearUserConfig()
             
             let jwt = try self.makeToken(configuration.ntkUser.username)
             let readBundleObject = await self.readBundleRequest(jwt, for: username)
             let packet = try BSONEncoder().encodeString(readBundleObject)
-            try await stream!.readKeyBundle(packet)
+            try await stream.readKeyBundle(packet)
             
             let result = try await withThrowingTaskGroup(of: UserConfig?.self) { group in
                 try Task.checkCancellation()
@@ -239,10 +244,10 @@ extension NeedleTailClient: TransportBridge {
                     try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) {
                         var bundle: UserConfig?
                         var canRun = true
-                        if let keyBundle = await self.store!.keyBundle {
-                            canRun = false
-                            bundle = keyBundle
-                        }
+                            if let store = await self.store, let keyBundle = await store.keyBundle {
+                                canRun = false
+                                bundle = keyBundle
+                            }
                         return (canRun, bundle)
                     }
                 }
@@ -339,7 +344,8 @@ extension NeedleTailClient: TransportBridge {
     
     public func registerForBundle(_ appleToken: String, nameToVerify: String) async throws -> ([NTKContact]?, Bool) {
         // We want to set a recipient if we are adding a new device and we want to set a tag indicating we are registering a new device
-        let updateKeyBundle = await stream!.updateKeyBundle
+        guard let stream = stream else { throw NeedleTailError.streamNotSet }
+        let updateKeyBundle = await stream.updateKeyBundle
         
         var contacts: [NTKContact]?
         if updateKeyBundle {
@@ -356,7 +362,7 @@ extension NeedleTailClient: TransportBridge {
         
         switch await transportConfiguration.transportState.current {
         case .transportOffline:
-            guard let writer = writer else { fatalError() }
+            guard let writer = writer else { throw NeedleTailError.writerNotSet }
             try await startSession(
                 writer: writer,
                 type: registrationType(appleToken, nameToVerify: nameToVerify),
@@ -367,12 +373,13 @@ extension NeedleTailClient: TransportBridge {
         }
         
         try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
-            guard let strongSelf = self else { return false }
+            guard let  self else { return false }
             var running = true
-            if await self?.store!.acknowledgment == .registered("true") {
+            guard let store = await store else { throw NeedleTailError.storeNotIntitialized }
+            if await store.acknowledgment == .registered("true") {
                 running = false
             }
-            switch await strongSelf.transportConfiguration.transportState.current {
+            switch await transportConfiguration.transportState.current {
             case .transportOnline(clientContext: _):
                 running = false
             default:
@@ -410,17 +417,20 @@ extension NeedleTailClient: TransportBridge {
         
         let encodedString = try BSONEncoder().encodeString(packet)
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await writer?.transportMessage(type: type)
+        guard let writer = self.writer else { throw NeedleTailError.writerNotSet }
+        guard let store = self.store else { throw NeedleTailError.storeNotIntitialized }
+        
+        try await writer.transportMessage(type: type)
         
         try await RunLoop.run(20, sleep: 1, stopRunning: {
             var running = true
-            if await self.store!.acknowledgment == .publishedKeyBundle("true") {
+            if await store.acknowledgment == .publishedKeyBundle("true") {
                 running = false
             }
             return running
         })
         
-        if await store!.acknowledgment != .publishedKeyBundle("true") {
+        if await store.acknowledgment != .publishedKeyBundle("true") {
             throw NeedleTailError.cannotPublishKeyBundle
         }
     }
@@ -433,7 +443,8 @@ extension NeedleTailClient: TransportBridge {
     }
     
     public func processApproval(_ code: String) async throws -> Bool {
-        return await stream!.computeApproval(code)
+        guard let stream = stream else { throw NeedleTailError.streamNotSet }
+        return await stream.computeApproval(code)
     }
     
     
@@ -565,8 +576,9 @@ extension NeedleTailClient: TransportBridge {
     }
     
     public func downloadMultipart(_ metadata: [String]) async throws {
-        let encodedString = try BSONEncoder().encodeString(metadata)
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
+        let encodedString = try BSONEncoder().encodeString(metadata.first)
+        let encodedMediaId = try BSONEncoder().encodeString([metadata.last])
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString, encodedMediaId]))
         try await writer?.transportMessage(type: type)
     }
     

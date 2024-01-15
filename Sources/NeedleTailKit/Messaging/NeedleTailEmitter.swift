@@ -30,7 +30,7 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var shouldRefreshView = false
     @Published public var multipartReceived: Data?
     @Published public var multipartUploadComplete: Bool?
-    @Published public var multipartDownloadFailed: MultipartDownloadFailed = MultipartDownloadFailed(status: false, error: "")
+    @Published public var multipartDownloadFailed: MultipartDownloadFailed?
     @Published public var listedFilenames = [Filename]()
     
     @Published public var conversationToDelete: DecryptedModel<ConversationModel>?

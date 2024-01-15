@@ -24,7 +24,7 @@ public struct Acknowledgment: Codable, Sendable {
         case readReceipt
         case multipartReceived
         case multipartUploadComplete(MultipartUploadAckPacket)
-        case multipartDownloadFailed(String)
+        case multipartDownloadFailed(String, String)
     }
 
     public var acknowledgment: AckType
@@ -38,13 +38,16 @@ public struct Acknowledgment: Codable, Sendable {
 
 public struct MultipartUploadAckPacket: Sendable, Codable, Equatable {
     public var name: String
+    public var mediaId: String
     public var size: Int
     
     public init(
         name: String,
+        mediaId: String,
         size: Int
     ) {
         self.name = name
+        self.mediaId = mediaId
         self.size = size
     }
 }

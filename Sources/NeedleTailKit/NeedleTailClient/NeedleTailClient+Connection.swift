@@ -22,7 +22,10 @@ extension NeedleTailClient: ClientTransportDelegate {
     //2. once connected and we call executeAndClose we need to set up inbound and outbound AsyncStreams that allow us to send the logic over to another method that handles the inbound and outbound logic whenever it needs to send events or receives data.
     // As long as we can do this we can keep the channel open and send and receive data.
     // The challenge will be keeping the long running task open and iterate over the outbound writer
-    func processStream(childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>) async throws {
+    func processStream(
+        childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>,
+        store: TransportStore
+    ) async throws {
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 try Task.checkCancellation()
@@ -62,7 +65,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                                         writer: writer,
                                         ntkBundle: self.configuration.ntkBundle,
                                         clientContext: self.configuration.clientContext,
-                                        store: self.store!,
+                                        store: store,
                                         messenger: self.configuration.messenger,
                                         transportState: self.transportConfiguration.transportState)
                             )
@@ -75,8 +78,8 @@ extension NeedleTailClient: ClientTransportDelegate {
                                 for try await buffer in stream {
                                     group.addTask {
                                         var buffer = buffer
-                                        guard let message = buffer.readString(length: buffer.readableBytes) else { fatalError() }
-                                        guard !message.isEmpty else { fatalError() }
+                                        guard let message = buffer.readString(length: buffer.readableBytes) else { return }
+                                        guard !message.isEmpty else { return }
                                         let messages = message.components(separatedBy: Constants.cLF.rawValue)
                                             .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
                                             .filter { !$0.isEmpty }

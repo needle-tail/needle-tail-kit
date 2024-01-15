@@ -145,10 +145,10 @@ actor NeedleTailStream: IRCDispatcher {
                 try await configuration.delegate?.doListBucket(packet)
             case .numeric(.replyMotDStart, _):
                 guard let arguments = message.arguments else { return }
-                await motdBuilder.createInitial(message: "\(arguments.last!)\n")
+                await motdBuilder.createInitial(message: "\(String(describing: arguments.last))\n")
             case .numeric(.replyMotD, _):
                 guard let arguments = message.arguments else { return }
-                await motdBuilder.createBody(message: "\(arguments.last!)\n")
+                await motdBuilder.createBody(message: "\(String(describing: arguments.last))\n")
             case .numeric(.replyEndOfMotD, _):
                 let messageOfTheDay = await motdBuilder.createFinalMessage()
                 await self.handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
@@ -259,23 +259,23 @@ actor NeedleTailStream: IRCDispatcher {
                         //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
                             let encodedString = try BSONEncoder().encodeString([packet.name])
-                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
+                            let encodedMessageId = try BSONEncoder().encodeString([packet.mediaId])
+                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString, encodedMessageId]))
                             try await configuration.writer.transportMessage(type: type)
                             }
                         
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            await configuration.messenger.emitter.multipartUploadComplete = true
-                        }
+                            await setUploadSuccess()
                             hasStarted = false
 #else
                         break
 #endif
-                    case .multipartDownloadFailed(let error):
+                    case .multipartDownloadFailed(let error, let mediaId):
 #if (os(macOS) || os(iOS))
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            await configuration.messenger.emitter.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
+                        if error == "Could not find multipart messges" {
+                            //Find Message and resize the thumbail because it does not exist on the server
+                            
+                        } else {
+                            await setDownloadError(error: error)
                         }
 #else
                         break
@@ -326,6 +326,16 @@ actor NeedleTailStream: IRCDispatcher {
                 }
             }
         }
+    }
+    
+    @MainActor
+    private func setDownloadError(error: String) async {
+        await configuration.messenger.emitter.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
+    }
+    
+    @MainActor
+    private func setUploadSuccess() async {
+        await configuration.messenger.emitter.multipartUploadComplete = true
     }
     
     public func processMessage(_
@@ -543,7 +553,6 @@ actor NeedleTailStream: IRCDispatcher {
         }
     }
     
-    //TODO: Clean up and refacator i.e. remove fatal errors
     internal func processDownload(
         message: AnyChatMessage,
         decodedData: FilePacket,
@@ -551,18 +560,18 @@ actor NeedleTailStream: IRCDispatcher {
     ) async throws {
         let mediaId = await message.metadata["mediaId"] as? String
         if mediaId == decodedData.mediaId {
-            guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { fatalError() }
+            guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { throw NeedleTailError.symmetricKeyDoesNotExist }
             try await message.setMetadata(
                 cypher,
                 emitter: configuration.messenger.emitter,
                 sortChats: sortConversations,
                 run: { [weak self] props in
-                    guard let self else { fatalError() }
+                    guard let self else { fatalError("Reference to self") }
                     let document = props.message.metadata
                     var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
                     let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
-                    guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { fatalError() }
-                    guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { fatalError() }
+                    guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { throw NeedleTailError.nilData }
+                    guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { throw NeedleTailError.nilData }
                     
                     switch decodedData.mediaType {
                     case .file:
@@ -598,7 +607,7 @@ actor NeedleTailStream: IRCDispatcher {
                 fileType = await message.metadata["thumbnailType"] as? String ?? ""
             }
             
-            guard let senderDeviceId = await configuration.messenger.cypher?.deviceId else { fatalError() }
+            guard let senderDeviceId = await configuration.messenger.cypher?.deviceId else { throw NeedleTailError.deviceIdNil }
             var packet = MessagePacket(
                 id: UUID().uuidString,
                 pushType: .none,
@@ -618,7 +627,7 @@ actor NeedleTailStream: IRCDispatcher {
             let type = TransportMessageType.private(.PRIVMSG([IRCMessageRecipient.nick(configuration.clientContext.nickname)], ackMessage))
             try await configuration.writer.transportMessage(type: type)
         } else {
-            fatalError()
+            throw NeedleTailError.mediaIdNil
         }
     }
 }

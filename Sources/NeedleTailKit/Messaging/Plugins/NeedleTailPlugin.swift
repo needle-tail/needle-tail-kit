@@ -124,18 +124,23 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #if (os(macOS) || os(iOS))
         print("REMOVED CONTACT")
         Task {
-            let conversations = try await messenger.fetchConversations(messenger.cypher!)
-            for conversation in conversations {
-                switch conversation {
-                case .privateChat(let privateChat):
-                    if privateChat.conversationPartner == contact.username {
-                        messenger.emitter.conversationToDelete = privateChat.conversation
+            do {
+                guard let cypher = await messenger.cypher else { throw NeedleTailError.cypherMessengerNotSet }
+                let conversations = try await messenger.fetchConversations(cypher)
+                for conversation in conversations {
+                    switch conversation {
+                    case .privateChat(let privateChat):
+                        if privateChat.conversationPartner == contact.username {
+                            messenger.emitter.conversationToDelete = privateChat.conversation
+                        }
+                    case .groupChat(let groupChat):
+                        try await groupChat.kickMember(contact.username)
+                    case .internalChat(_):
+                        ()
                     }
-                case .groupChat(let groupChat):
-                    try await groupChat.kickMember(contact.username)
-                case .internalChat(_):
-                    ()
                 }
+            } catch {
+                print(error)
             }
         }
         deleteOfflineMessage(contact, removedContact: true)

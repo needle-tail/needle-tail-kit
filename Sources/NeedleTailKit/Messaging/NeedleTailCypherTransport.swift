@@ -148,7 +148,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     }
     
     public func readPublishedBlob<C>(byId id: String, as type: C.Type) async throws -> CypherMessaging.ReferencedBlob<C>? where C : Decodable, C : Encodable, C : Sendable {
-        fatalError()
+        fatalError("NeedleTailKit Doesn't support readPublishedBlob() in this manner")
     }
     
     public func sendMessage(_ message: CypherProtocol.RatchetedCypherMessage, toUser username: CypherProtocol.Username, otherUserDeviceId: CypherProtocol.DeviceId, pushType: CypherMessaging.PushType, messageId: String) async throws {
@@ -318,13 +318,17 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
                     group: client.groupManager.groupWrapper.group
                 )
                 await client.setChildChannel(childChannel)
-                try await client.setStore(TransportStore())
+                let store = TransportStore()
+                try await client.setStore(store)
 
                 await transportState.transition(to: .clientConnected)
                 
                 // Create long running task to handle streams of data
                 group.addTask {
-                    try await self.transportBridge?.processStream(childChannel: childChannel)
+                    try await self.transportBridge?.processStream(
+                        childChannel: childChannel,
+                        store: store
+                    )
                 }
             default:
                 throw NeedleTailError.couldNotConnectToNetwork

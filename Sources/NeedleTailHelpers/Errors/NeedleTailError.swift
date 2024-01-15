@@ -3,6 +3,7 @@ public enum NeedleTailError: String, Error {
     case nilBSONResponse
     case nilUserConfig
     case nilToken
+    case urlNil
     case urlResponseNil
     case nilClient
     case clientExists
@@ -46,4 +47,8 @@ public enum NeedleTailError: String, Error {
     case mediaIdNil
     case payloadTooLarge
     case couldNotConnectToNetwork
+    case writerNotSet
+    case streamNotSet
+    case filePathDoesntExist
+    case symmetricKeyDoesNotExist
 }

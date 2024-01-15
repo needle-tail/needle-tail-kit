@@ -239,7 +239,7 @@ public final class NeedleTailMessenger {
                 username: Username(username),
                 appPassword: serverInfo.password,
                 usingTransport: { [weak self] transportRequest async throws in
-                    guard let self else { fatalError() }
+                    guard let self else { fatalError("Reference to self") }
                     let transport = try await self.createTransport(
                         serverInfo: serverInfo,
                         plugin: plugin,
@@ -960,6 +960,10 @@ extension NeedleTailMessenger {
     }
     public func findMessage(with messageId: UUID) async throws -> AnyChatMessage? {
         return try await contactsBundle.contactBundle?.chat.allMessages(sortedBy: .ascending).async.first(where: { $0.id == messageId })
+    }
+    
+    public func findMessage(with string: String) async throws -> AnyChatMessage? {
+        return try await contactsBundle.contactBundle?.chat.allMessages(sortedBy: .ascending).async.first(where: { await $0.metadata[""] as? String == string })
     }
     
     public func findAllMessages(with mediaId: String) async throws -> [AnyChatMessage] {

@@ -41,10 +41,10 @@ public struct NeedleTailCrypto: Sendable {
         return try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: rawPrivateKey)
     }
     
-    public func exportPrivateKey(_ privateKey: Curve25519.KeyAgreement.PrivateKey) -> String {
+    public func exportPrivateKey(_ privateKey: Curve25519.KeyAgreement.PrivateKey) throws -> String {
         let rawPrivateKey = privateKey.rawRepresentation
         let privateKeyBase64 = rawPrivateKey.base64EncodedString()
-        let percentEncodedPrivateKey = privateKeyBase64.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
+        guard let percentEncodedPrivateKey = privateKeyBase64.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else  { throw Errors.couldntAddPercentEncoding }
         return percentEncodedPrivateKey
     }
     
@@ -129,8 +129,8 @@ extension NeedleTailCrypto {
 
 extension NeedleTailCrypto {
     private func createData(message: SingleCypherMessage, cypher: CypherMessenger) async throws -> Data {
-        guard let filePath = message.metadata["filePath"] as? String else { fatalError("Could not generate blob") }
-        guard let blob = try DataToFile.shared.generateData(from: filePath) else { fatalError("Could not generate blob") }
+        guard let filePath = message.metadata["filePath"] as? String else { throw NeedleTailError.filePathDoesntExist }
+        guard let blob = try DataToFile.shared.generateData(from: filePath) else { throw NeedleTailError.nilData }
         let fileComponents = filePath.components(separatedBy: ".")
         try DataToFile.shared.removeItem(fileName: fileComponents[0], fileType: fileComponents[1])
         //Decrypt
@@ -138,8 +138,8 @@ extension NeedleTailCrypto {
     }
     
     public func decryptFileData(_ fileData: Data, cypher: CypherMessenger) async throws -> Data {
-        guard let fileName = String(data: fileData, encoding: .utf8) else { fatalError("Could not generate blob") }
-        guard let blob = try DataToFile.shared.generateData(from: fileName) else { fatalError("Could not generate blob") }
+        guard let fileName = String(data: fileData, encoding: .utf8) else { throw NeedleTailError.nilData }
+        guard let blob = try DataToFile.shared.generateData(from: fileName) else { throw NeedleTailError.nilData }
         let fileComponents = fileName.components(separatedBy: ".")
         try DataToFile.shared.removeItem(fileName: fileComponents[0], fileType: fileComponents[1])
         let data = try cypher.decryptLocalFile(AES.GCM.SealedBox(combined: blob))
@@ -148,7 +148,7 @@ extension NeedleTailCrypto {
     
     public func decryptFile(from path: String, cypher: CypherMessenger, shouldRemove: Bool = false) async throws -> Data {
         var path = path
-        guard let blob = try DataToFile.shared.generateData(from: path) else { fatalError("Could not generate blob") }
+        guard let blob = try DataToFile.shared.generateData(from: path) else { throw NeedleTailError.nilData }
         if path.contains("/") {
             path = path.components(separatedBy: "/").last ?? ""
         }

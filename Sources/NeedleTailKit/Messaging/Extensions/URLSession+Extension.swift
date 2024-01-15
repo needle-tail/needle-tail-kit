@@ -29,8 +29,8 @@ extension URLSession {
         deviceId: DeviceId,
         token: String? = nil
     ) async throws -> (Data, URLResponse) {
-        
-        var request = URLRequest(url: URL(string: "\(httpHost)/\(urlPath)")!)
+        guard let url = URL(string: "\(httpHost)/\(urlPath)") else { throw NeedleTailError.urlNil }
+        var request = URLRequest(url: url)
         request.httpMethod = httpMethod
         request.addValue("application/bson", forHTTPHeaderField: "Content-Type")
         request.addValue(username.raw, forHTTPHeaderField: "X-API-User")

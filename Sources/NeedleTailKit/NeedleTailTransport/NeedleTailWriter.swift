@@ -98,7 +98,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         )
         
         //TODO: AVOID LOOP
-        try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
+        try await RunLoop.run(20, sleep: 1) { [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
             if await strongSelf.channelBlob != nil {
