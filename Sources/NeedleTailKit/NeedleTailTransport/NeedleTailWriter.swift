@@ -14,54 +14,69 @@ import DequeModule
 import SwiftDTF
 import Crypto
 import NIOCore
+import Logging
 
 #if (os(macOS) || os(iOS))
-@NeedleTailTransportActor
-extension NeedleTailTransport {
+
+actor NeedleTailWriter: NeedleTailClientDelegate {
+    
+    let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+    let writer: NIOAsyncChannelOutboundWriter<ByteBuffer>
+    let transportState: TransportState
+    let clientContext: ClientContext
+    let origin: String
+    let logger = Logger(label: "NeedleTailWriter")
+    var quiting = false
+    var channelBlob: String?
+    var registryRequestId = ""
+    
+    init(asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, writer: NIOAsyncChannelOutboundWriter<ByteBuffer>, transportState: TransportState, clientContext: ClientContext) throws {
+        self.asyncChannel = asyncChannel
+        self.writer = writer
+        self.transportState = transportState
+        self.clientContext = clientContext
+        self.origin = try BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
+    }
     
     /// This is where we register the transport session
     /// - Parameter regPacket: Our Registration Packet
-    
     public func registerNeedletailSession(_ regPacket: Data, _ temp: Bool = false) async throws {
-        let isActive = asyncChannel.channel.isActive
-        await transportState.transition(to:
-                .transportRegistering(
-                    isActive: isActive,
-                    clientContext: clientContext
-                )
-        )
-        guard case .transportRegistering(_, let clientContext) = transportState.current else { throw NeedleTailError.transportationStateError }
+        await transportState.transition(to: .transportRegistering(clientContext: clientContext))
+        guard case .transportRegistering(let clientContext) = await transportState.current else { throw NeedleTailError.transportationStateError }
         let value = regPacket.base64EncodedString()
-        guard let writer = writer else { fatalError("writer is nil") }
-            guard temp == false else {
-                let tag = IRCTags(key: "tempRegPacket", value: value)
-                try await self.transportMessage(
-                    writer,
-                    origin: self.origin ?? "",
-                    type: .standard(.NICK(clientContext.nickname)),
-                    tags: [tag]
-                )
-                return
-            }
-            
+        guard temp == false else {
+            let tag = IRCTags(key: "tempRegPacket", value: value)
             try await self.transportMessage(
                 writer,
-                origin: self.origin ?? "",
-                type: .standard(.otherCommand("PASS", [""]))
-            )
-            
-            let tag = IRCTags(key: "registrationPacket", value: value)
-            try await transportMessage(
-                writer,
-                origin: self.origin ?? "",
+                origin: self.origin,
                 type: .standard(.NICK(clientContext.nickname)),
                 tags: [tag]
             )
+            return
+        }
+        
+        try await self.transportMessage(
+            writer,
+            origin: self.origin,
+            type: .standard(.otherCommand("PASS", [""]))
+        )
+
+        let tag = IRCTags(key: "registrationPacket", value: value)
+        try await transportMessage(
+            writer,
+            origin: self.origin,
+            type: .standard(.NICK(clientContext.nickname)),
+            tags: [tag]
+        )
+    }
+    
+    func setQuiting(_ quiting: Bool) async {
+        self.quiting = quiting
     }
     
     func sendQuit(_ username: Username, deviceId: DeviceId) async throws {
         logger.info("Sending Quit Message")
-        quiting = true
+        await setQuiting(true)
         
         let authObject = AuthPacket(
             ntkUser: NTKUser(
@@ -71,21 +86,18 @@ extension NeedleTailTransport {
             tempRegister: false
         )
         let packet = try BSONEncoder().encode(authObject).makeData()
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: .standard(.QUIT(packet.base64EncodedString()))
-            )
-        }
+        try await self.transportMessage(type: .standard(.QUIT(packet.base64EncodedString())))
+    }
     
     func publishBlob(_ packet: String) async throws {
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: .standard(.otherCommand("BLOBS", [packet]))
-            )
+        
+        try await self.transportMessage(
+            writer,
+            origin: self.origin,
+            type: .standard(.otherCommand("BLOBS", [packet]))
+        )
+        
+        //TODO: AVOID LOOP
         try await RunLoop.run(20, sleep: 1) { @BlobActor [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
@@ -98,14 +110,9 @@ extension NeedleTailTransport {
     
     func requestOfflineMessages() async throws {
         if !quiting {
-            guard let writer = writer else { return }
-                try await self.transportMessage(
-                    writer,
-                    origin: self.origin ?? "",
-                    type: .standard(.otherCommand(Constants.offlineMessages.rawValue, [""]))
-                )
-            }
+            try await self.transportMessage(type: .standard(.otherCommand(Constants.offlineMessages.rawValue, [""])))
         }
+    }
     
     //I think we want a recipient to be an object representing NeedleTailChannel not the name of that channel. That way we can send the members with the channel.
     public func recipient(
@@ -142,14 +149,14 @@ extension NeedleTailTransport {
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
         let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type,
-                tags: [tag]
-            )
-        }
+        
+        try await self.transportMessage(
+            writer,
+            origin: self.origin,
+            type: type,
+            tags: [tag]
+        )
+    }
     
     func partNeedleTailChannel(
         name: String,
@@ -174,14 +181,14 @@ extension NeedleTailTransport {
         let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
         guard let channelName = IRCChannelName(name) else { return }
         let type = TransportMessageType.standard(.PART(channels: [channelName]))
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type,
-                tags: [tag]
-            )
-        }
+        
+        try await self.transportMessage(
+            writer,
+            origin: self.origin,
+            type: type,
+            tags: [tag]
+        )
+    }
     
     func createPrivateMessage(
         messageId: String,
@@ -216,13 +223,8 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: type, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], data.base64EncodedString()))
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        try await self.transportMessage(type: type)
+    }
     
     func parseFilename(_ name: String) -> MessageSubType? {
         let components = name.components(separatedBy: "_")
@@ -251,13 +253,8 @@ extension NeedleTailTransport {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        try await self.transportMessage(type: type)
+    }
     
     func createGroupMessage(
         messageId: String,
@@ -287,11 +284,7 @@ extension NeedleTailTransport {
             //Channel Recipient
             let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
             let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            guard let writer = writer else { return }
-                try await self.transportMessage(
-                    writer,
-                    type: type
-                )
+            try await self.transportMessage(type: type)
         } catch {
             logger.error("\(error)")
         }
@@ -316,18 +309,10 @@ extension NeedleTailTransport {
         //Store UUID Temporarily
         self.registryRequestId = packet.id
         
-        try await ThrowingTaskGroup<Void, Error>.executeChildTask { [weak self] in
-            guard let self else { return }
-            let encodedData = try BSONEncoder().encode(packet).makeData()
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-            guard let writer = await writer else { return }
-                try await self.transportMessage(
-                    writer,
-                    origin: self.origin ?? "",
-                    type: type
-                )
-            }
-        }
+        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        try await self.transportMessage(type: type)
+    }
     
     func sendChildDeviceConfig(_ masterNick: NeedleTailNick, config: UserDeviceConfig) async throws {
         let recipient = IRCMessageRecipient.nick(masterNick)
@@ -348,35 +333,20 @@ extension NeedleTailTransport {
         self.registryRequestId = packet.id
         let encodedData = try BSONEncoder().encode(packet).makeData()
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        guard let writer = writer else { return }
-            try await transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        try await self.transportMessage(type: type)
+    }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
     func changeNick(_ nick: NeedleTailNick) async throws {
         let type = TransportMessageType.standard(.NICK(nick))
-        guard let writer = writer else { return }
-            try await transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        try await self.transportMessage(type: type)
+    }
     
     func deleteOfflineMessages(from contact: String) async throws {
         let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
-        guard let writer = writer else { return }
-            try await transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        try await self.transportMessage(type: type)
+    }
     
     /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
     func notifyContactRemoved(_ ntkUser: NTKUser, removed contact: Username) async throws {
@@ -401,14 +371,18 @@ extension NeedleTailTransport {
         // The recipient is ourself
         let recipient = try await self.recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
         let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
-        guard let writer = writer else { return }
-            try await self.transportMessage(
-                writer,
-                origin: self.origin ?? "",
-                type: type
-            )
-        }
+        
+        try await self.transportMessage(type: type)
     }
+    
+    func transportMessage(type: TransportMessageType) async throws {
+        try await transportMessage(
+            self.writer,
+            origin: self.origin,
+            type: type
+        )
+    }
+}
 
 struct MultipartObject: Sendable, Codable {
     var partNumber: String
@@ -416,30 +390,3 @@ struct MultipartObject: Sendable, Codable {
     var data: Data
 }
 #endif
-
-extension ThrowingTaskGroup {
-    
-    public static func executeChildTask(work: @Sendable @escaping () async throws -> Void) async throws {
-        try await withThrowingTaskGroup(of: Void.self, body: { group in
-            try Task.checkCancellation()
-            group.addTask {
-                try await work()
-            }
-            _ = try await group.next()
-            group.cancelAll()
-        })
-    }
-    
-    public static func executeReturningChildTask<T>(work: @Sendable @escaping () async throws -> T) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self, body: { group in
-            try Task.checkCancellation()
-            group.addTask {
-                try await work()
-            }
-            guard let work = try await group.next() else { fatalError("Cannot be nil") }
-            group.cancelAll()
-            return work
-        })
-    }
-    
-}

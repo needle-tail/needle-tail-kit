@@ -8,9 +8,8 @@
 import Foundation
 import NeedleTailHelpers
 
-@NeedleTailTransportActor
-public protocol StateMachine {
+public protocol StateMachine: AnyObject, Sendable {
     associatedtype State
-    var current: State { get }
+    var current: State { get set }
     func transition(to nextState: State) async
 }

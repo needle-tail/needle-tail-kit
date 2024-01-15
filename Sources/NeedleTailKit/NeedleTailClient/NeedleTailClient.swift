@@ -15,63 +15,34 @@ struct NTKClientBundle: Sendable {
 }
 
 actor NeedleTailClient {
-    @NeedleTailTransportActor
     var continuation: AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>>.Continuation?
-    @NeedleTailTransportActor
     var inboundContinuation: AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>>.Continuation?
-    @NeedleTailTransportActor
-    var cancelStream = false
     let messageParser = MessageParser()
     let logger = Logger(label: "Client")
-    let ntkBundle: NTKClientBundle
+    var cancelStream = false
+    
+    struct Configuration: Sendable {
+        let ntkBundle: NTKClientBundle
+        var transportState: TransportState
+        let clientContext: ClientContext
+        let serverInfo: ClientContext.ServerClientInfo
+        let ntkUser: NTKUser
+        let messenger: NeedleTailMessenger
+    }
+    
+    var configuration: Configuration
+    var transportConfiguration: NeedleTailCypherTransport.Configuration
     let groupManager: EventLoopGroupManager
-    let transportState: TransportState
-    let clientContext: ClientContext
-    let serverInfo: ClientContext.ServerClientInfo
-    let ntkUser: NTKUser
-    let messenger: NeedleTailMessenger
-    @NeedleTailTransportActor
-    var transport: NeedleTailTransport?
-    @KeyBundleMechanismActor
-    var mechanism: KeyBundleMechanism?
-    @KeyBundleMechanismActor
     var store: TransportStore?
     var childChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     var channelIsActive = false
-    @NeedleTailTransportActor
-    var writer: NIOAsyncChannelOutboundWriter<ByteBuffer>? {
-        didSet {
-            self.transport?.writer = writer
-        }
-    }
     var registrationState: RegistrationState = .full
-    
-    @NeedleTailTransportActor
-    func setDelegates(_
-                      transport: NeedleTailTransport,
-                      delegate: CypherTransportClientDelegate,
-                      plugin: NeedleTailPlugin,
-                      messenger: NeedleTailMessenger
-    ) async -> NeedleTailTransport {
-        transport.ctcDelegate = delegate
-        transport.ctDelegate = self
-        transport.plugin = plugin
-        return transport
-    }
+    var writer: NeedleTailWriter?
+    var stream: NeedleTailStream?
 
-    init(
-        ntkBundle: NTKClientBundle,
-        transportState: TransportState,
-        clientContext: ClientContext,
-        ntkUser: NTKUser,
-        messenger: NeedleTailMessenger
-    ) {
-        self.ntkBundle = ntkBundle
-        self.clientContext = clientContext
-        self.serverInfo = clientContext.serverInfo
-        self.ntkUser = ntkUser
-        self.transportState = transportState
-        self.messenger = messenger
+    init(configuration: Configuration) {
+        self.configuration = configuration
+        self.transportConfiguration = configuration.ntkBundle.cypherTransport.configuration
         var group: EventLoopGroup?
         var usingNetwork = false
 #if canImport(Network)
@@ -95,19 +66,32 @@ actor NeedleTailClient {
     
     func teardownClient() async {
         childChannel = nil
-        await teardownTransport()
-        await tearDownKeyMech()
     }
     
-    @NeedleTailTransportActor
-    func teardownTransport() async {
-        transport = nil
-    }
-    
-    @KeyBundleMechanismActor
-    func tearDownKeyMech() async {
-        mechanism = nil
-        store = nil
+    func finishRegistering(with stream: NeedleTailStream, and writer: NeedleTailWriter) async throws {
+        self.stream = stream
+        self.writer = writer
+        
+        if let delegate = configuration.ntkBundle.cypherTransport.delegate {
+            await stream.setDelegates(
+                self,
+                delegate: delegate,
+                plugin: transportConfiguration.plugin,
+                messenger: transportConfiguration.messenger
+            )
+        }
+        
+        let appleToken = transportConfiguration.appleToken ?? ""
+        let hasAppleToken = (appleToken != "")
+        let name = transportConfiguration.nameToVerify ?? ""
+        let registrationState = transportConfiguration.registrationState
+        
+        // Register User
+            try await self.resumeClient(
+                writer: writer,
+                type: hasAppleToken ? .siwa(appleToken) : .plain(name),
+                state: registrationState
+            )
     }
 }
 

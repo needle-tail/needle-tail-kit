@@ -26,7 +26,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     }
     
     weak var transportBridge: TransportBridge?
-    weak var mtDelegate: MessengerTransportBridge?
+    var mtDelegate: MessengerTransportBridge?
     
     //MARK: CTK protocol properties
     public var isConnected: Bool = false
@@ -34,7 +34,6 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     /// A **CypherServerTransportClient** property for setting`true` when logged in, `false` on incorrect login, `nil` when no server request has been executed yet
     public internal(set) var authenticated = AuthenticationState.unauthenticated
     public var supportsMultiRecipientMessages = false
-    let delegateJob = JobQueue<NeedleTailCypherTransport.DelegateJob>()
     
     public func setDelegate(to delegate: CypherMessaging.CypherTransportClientDelegate) async throws {
         self.delegate = delegate
@@ -42,10 +41,9 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     public func reconnect() async throws {
 #if os(macOS) || os(iOS)
-        guard let messenger = configuration.messenger else { return }
         switch NetworkMonitor.shared.currentStatus {
         case .satisfied:
-            try await messenger.resumeService()
+            try await configuration.messenger.resumeService()
         default:
             return
         }
@@ -54,10 +52,9 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     public func disconnect() async throws {
 #if os(macOS) || os(iOS)
-        guard let messenger = configuration.messenger else { return }
         switch NetworkMonitor.shared.currentStatus {
         case .satisfied:
-            try await messenger.serviceInterupted(true)
+            try await configuration.messenger.serviceInterupted(true)
         default:
             return
         }
@@ -129,7 +126,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     @MainActor
     internal func setCanSendReadReceipt(_ canRead: Bool) {
-        configuration.messenger?.emitter.canSendReadReceipt = canRead
+        configuration.messenger.emitter.canSendReadReceipt = canRead
     }
     
     public func requestDeviceRegistery(_ config: CypherMessaging.UserDeviceConfig) async throws {
@@ -169,109 +166,35 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     public func sendMultiRecipientMessage(_ message: CypherProtocol.MultiRecipientCypherMessage, pushType: CypherMessaging.PushType, messageId: String) async throws {
         fatalError("NeedleTailKit Doesn't support sendMultiRecipientMessage() in this manner")
     }
-    
-    @NeedleTailClientActor
-    internal func setTransportDelegate(_ delegate: CypherTransportClientDelegate) async {
-#if os(macOS) || os(iOS)
-        guard let messenger = configuration.messenger else { return }
-        let plugin = configuration.plugin
-        await self.delegateJob.addJob(
-            NeedleTailCypherTransport.DelegateJob(
-                transport: nil,
-                delegate: delegate,
-                mtDelegate: mtDelegate,
-                plugin: plugin,
-                messenger: messenger
-            )
-        )
-#endif
-    }
 }
 
-@NeedleTailTransportActor
 public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
-    
-    struct DelegateJob {
-        var transport: NeedleTailTransport?
-        var delegate: CypherTransportClientDelegate
-        var mtDelegate: MessengerTransportBridge?
-        var plugin: NeedleTailPlugin
-        var messenger: NeedleTailMessenger
-    }
-    
+
     public struct Configuration: Sendable {
-        internal var needleTailNick: NeedleTailNick?
-        internal var nameToVerify: String?
-        internal var keyBundle: String
-        internal var recipientDeviceId: DeviceId?
-        internal var username: Username?
-        internal var deviceId: DeviceId?
-        internal var registrationState: RegistrationState
+        internal var needleTailNick: NeedleTailNick? = nil
+        internal var nameToVerify: String? = nil
+        internal var keyBundle: String = ""
+        internal var recipientDeviceId: DeviceId? = nil
+        internal var username: Username? = nil
+        internal var deviceId: DeviceId? = nil
+        internal var registrationState: RegistrationState = .full
         internal var addChildDevice = false
-        internal var client: NeedleTailClient?
-        public internal(set) var signer: TransportCreationRequest?
+        internal var client: NeedleTailClient? = nil
+        public internal(set) var signer: TransportCreationRequest? = nil
         
-        public var supportsDelayedRegistration: Bool
-        public var conversationType: ConversationType
-        public var appleToken: String?
+        public var supportsDelayedRegistration: Bool = false
+        public var conversationType: ConversationType = .privateMessage
+        public var appleToken: String? = nil
         public var transportState: TransportState
         public var serverInfo: ClientContext.ServerClientInfo
-        public var messenger: NeedleTailMessenger?
+        public var messenger: NeedleTailMessenger
         public let plugin: NeedleTailPlugin
         
         internal var messageType = MessageType.message
-        internal var readReceipt: ReadReceipt?
-        internal var needleTailChannelMetaData: NeedleTailChannelPacket?
+        internal var readReceipt: ReadReceipt? = nil
+        internal var needleTailChannelMetaData: NeedleTailChannelPacket? = nil
         internal var messagesToRead = Deque<MessageToRead>()
         internal var readMessagesConsumer = NeedleTailAsyncConsumer<MessageToRead>()
-        
-        init(
-            needleTailNick: NeedleTailNick? = nil,
-            nameToVerify: String? = nil,
-            keyBundle: String = "",
-            recipientDeviceId: DeviceId? = nil,
-            username: Username? = nil,
-            deviceId: DeviceId? = nil,
-            registrationState: RegistrationState = .full,
-            addChildDevice: Bool = false,
-            client: NeedleTailClient? = nil,
-            signer: TransportCreationRequest? = nil,
-            supportsDelayedRegistration: Bool = false,
-            conversationType: ConversationType = .privateMessage,
-            appleToken: String? = nil,
-            transportState: TransportState,
-            serverInfo: ClientContext.ServerClientInfo,
-            messenger: NeedleTailMessenger? = nil,
-            plugin: NeedleTailPlugin,
-            messageType: MessageType = MessageType.message,
-            readReceipt: ReadReceipt? = nil,
-            needleTailChannelMetaData: NeedleTailChannelPacket? = nil,
-            messagesToRead: Deque<MessageToRead> = Deque<MessageToRead>(),
-            readMessagesConsumer: NeedleTailAsyncConsumer<MessageToRead> = NeedleTailAsyncConsumer<MessageToRead>()
-        ) {
-            self.needleTailNick = needleTailNick
-            self.nameToVerify = nameToVerify
-            self.keyBundle = keyBundle
-            self.recipientDeviceId = recipientDeviceId
-            self.username = username
-            self.deviceId = deviceId
-            self.registrationState = registrationState
-            self.addChildDevice = addChildDevice
-            self.client = client
-            self.signer = signer
-            self.supportsDelayedRegistration = supportsDelayedRegistration
-            self.conversationType = conversationType
-            self.appleToken = appleToken
-            self.transportState = transportState
-            self.serverInfo = serverInfo
-            self.messenger = messenger
-            self.plugin = plugin
-            self.messageType = messageType
-            self.readReceipt = readReceipt
-            self.needleTailChannelMetaData = needleTailChannelMetaData
-            self.messagesToRead = messagesToRead
-            self.readMessagesConsumer = readMessagesConsumer
-        }
     }
     
     struct MessageToRead: Sendable {
@@ -355,21 +278,23 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
 #if os(macOS) || os(iOS)
         let username = Username(name)
-        guard let messenger = configuration.messenger else { throw NeedleTailError.messengerNotIntitialized }
-        let cypher = await messenger.cypher
+        let cypher = await configuration.messenger.cypher
         let client = NeedleTailClient(
-            ntkBundle: NTKClientBundle(
-                signer: configuration.signer,
-                cypher: cypher,
-                cypherTransport: self
-            ),
-            transportState: configuration.transportState,
-            clientContext: clientContext,
-            ntkUser: NTKUser(
-                username: username,
-                deviceId: deviceId
-            ),
-            messenger: messenger
+            configuration: NeedleTailClient.Configuration(
+                ntkBundle:  NTKClientBundle(
+                    signer: configuration.signer,
+                    cypher: cypher,
+                    cypherTransport: self
+                ),
+                transportState: configuration.transportState,
+                clientContext: clientContext,
+                serverInfo: clientContext.serverInfo,
+                ntkUser: NTKUser(
+                    username: username,
+                    deviceId: deviceId
+                ),
+                messenger: configuration.messenger
+            )
         )
         
         configuration.client = client
@@ -379,51 +304,27 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
             try Task.checkCancellation()
             
             //Create Channel
-            switch client.transportState.current {
+            let transportState = await client.configuration.transportState
+            let serverInfo = await client.configuration.serverInfo
+            switch await transportState.current {
             case .clientOffline, .transportOffline:
-                await client.transportState.transition(to: .clientConnecting)
+                await transportState.transition(to: .clientConnecting)
                 
-                let childChannel = try! await client.createChannel(
-                    host: client.serverInfo.hostname,
-                    port: client.serverInfo.port,
-                    enableTLS: client.serverInfo.tls,
+                let childChannel = try await client.createChannel(
+                    host: serverInfo.hostname,
+                    port: serverInfo.port,
+                    enableTLS: serverInfo.tls,
                     groupManager: client.groupManager,
                     group: client.groupManager.groupWrapper.group
                 )
                 await client.setChildChannel(childChannel)
-                
-                let handlers = try await client.createHandlers(
-                    childChannel,
-                    ntkBundle: client.ntkBundle,
-                    transportState: client.transportState,
-                    clientContext: clientContext,
-                    messenger: messenger
-                )
-                
-                try await client.setStore(handlers.0)
-                try await client.setMechanisim(handlers.1)
+                try await client.setStore(TransportStore())
 
-                if let delegate = delegate {
-                    await setTransportDelegate(delegate)
-                }
-                try await client.setTransport(
-                    handlers.2,
-                    cypherTransport: cypherTransport
-                )
-                
-                await client.transportState.transition(to: .clientConnected)
+                await transportState.transition(to: .clientConnected)
                 
                 // Create long running task to handle streams of data
                 group.addTask {
                     try await self.transportBridge?.processStream(childChannel: childChannel)
-                }
-                
-                // Register User
-                group.addTask {
-                    try await self.transportBridge?.resumeClient(
-                        type: self.configuration.appleToken != "" ? .siwa(self.configuration.appleToken!) : .plain(name),
-                        state: self.configuration.registrationState
-                    )
                 }
             default:
                 throw NeedleTailError.couldNotConnectToNetwork
@@ -452,11 +353,10 @@ extension NeedleTailCypherTransport {
     @MainActor
     func updateEmitter(_ data: Data?) async {
 #if (os(macOS) || os(iOS))
-        guard let messenger = configuration.messenger else { return }
-        messenger.emitter.showScanner = true
+        configuration.messenger.emitter.showScanner = true
         /// Send **User Config** data to generate a QRCode in the **Child Device**
-        messenger.emitter.requestMessageId = nil
-        messenger.emitter.qrCodeData = data
+        configuration.messenger.emitter.requestMessageId = nil
+        configuration.messenger.emitter.qrCodeData = data
 #endif
     }
     
@@ -497,7 +397,7 @@ extension NeedleTailCypherTransport {
         
         var cypher: CypherMessenger?
 #if os(macOS) || os(iOS)
-        cypher = await configuration.messenger?.cypher
+        cypher = await configuration.messenger.cypher
 #endif
         let metaDoc = try BSONEncoder().encode(configuration.needleTailChannelMetaData)
         
@@ -542,12 +442,10 @@ extension NeedleTailCypherTransport {
     }
     
     ///We want to first make sure that a channel doesn't exist with the and ID
-    @NeedleTailTransportActor
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
 #if (os(macOS) || os(iOS))
-        guard let messenger = configuration.messenger else { return .none }
-        _ = await messenger.fetchChats(cypher: cypher)
-        let groupChats = try await messenger.fetchGroupChats(cypher)
+        _ = await configuration.messenger.fetchChats(cypher: cypher)
+        let groupChats = try await configuration.messenger.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in
             let metaDoc = await chat.conversation.metadata
             let meta = try BSONDecoder().decode(GroupMetadata.self, from: metaDoc)
@@ -562,7 +460,6 @@ extension NeedleTailCypherTransport {
 #endif
     }
     
-    @NeedleTailTransportActor
     func updateGroupChats(_
                           group: GroupChat,
                           organizers: Set<Username>,
@@ -603,8 +500,7 @@ extension NeedleTailCypherTransport {
                     case .success(let message):
                         //Only read if the message is in view
 #if (os(macOS) || os(iOS))
-                        guard let messenger = configuration.messenger else { return }
-                        if await messenger.emitter.isReadReceiptsOn == true {
+                        if await configuration.messenger.emitter.isReadReceiptsOn == true {
                             if message.deliveryResult.0 == true && message.deliveryResult.1 == .received {
                                 //Send to the message sender sender,
                                 let recipient = NTKUser(username: message.ntkUser.username, deviceId: message.ntkUser.deviceId)
@@ -662,11 +558,6 @@ extension NeedleTailCypherTransport {
     }
 }
 
-protocol IRCMessageDelegate {
-    func passSendMessage(_ text: Data, to recipients: IRCMessageRecipient, tags: [IRCTags]?) async
-}
-
-
 let charA = UInt8(UnicodeScalar("a").value)
 let char0 = UInt8(UnicodeScalar("0").value)
 
@@ -707,13 +598,8 @@ extension Array {
     }
 }
 
-@globalActor actor TransportStoreActor {
-    static var shared = TransportStoreActor()
-    internal init() {}
-}
-
-final class TransportStore {
-    @KeyBundleMechanismActor
+actor TransportStore {
+    
     var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var setAcknowledgement: Acknowledgment.AckType = .none {
@@ -727,9 +613,12 @@ final class TransportStore {
         Logger(label: "Transport Store").info("INFO RECEIVED - ACK: - \(acknowledgment)")
     }
     
-    @KeyBundleMechanismActor
     func setKeyBundle(_ config: UserConfig) {
         keyBundle = config
+    }
+    
+    func clearUserConfig() {
+        keyBundle = nil
     }
 }
 #endif

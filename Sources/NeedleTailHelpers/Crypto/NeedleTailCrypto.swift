@@ -10,6 +10,7 @@ import Foundation
 import Crypto
 import CypherMessaging
 import SwiftDTF
+import BSON
 
 public struct NeedleTailCrypto: Sendable {
     
@@ -87,13 +88,13 @@ extension NeedleTailCrypto {
     }
     
     public func decrypt(data: Data, symmetricKey: SymmetricKey) throws -> Data? {
-            let sealedBox = try! AES.GCM.SealedBox(combined: data)
+            let sealedBox = try AES.GCM.SealedBox(combined: data)
             return try AES.GCM.open(sealedBox, using: symmetricKey)
     }
     
     public func encryptText(text: String, symmetricKey: SymmetricKey) throws -> String {
         let textData = text.data(using: .utf8)!
-        guard let encrypted = try! AES.GCM.seal(textData, using: symmetricKey).combined else { throw Errors.combinedDataNil }
+        guard let encrypted = try AES.GCM.seal(textData, using: symmetricKey).combined else { throw Errors.combinedDataNil }
         return encrypted.base64EncodedString()
     }
     
@@ -110,8 +111,7 @@ extension NeedleTailCrypto {
     }
     
     public func encryptCodableObject<T: Codable>(_ object: T, usingKey key: SymmetricKey) throws -> Data? {
-        let encoder = JSONEncoder()
-        let userData = try encoder.encode(object)
+        let userData = try BSONEncoder().encode(object).makeData()
         let encryptedData = try AES.GCM.seal(userData, using: key)
         return encryptedData.combined
     }
@@ -120,9 +120,7 @@ extension NeedleTailCrypto {
         let data = Data(base64Encoded: string)!
         let box = try AES.GCM.SealedBox(combined: data)
         let decryptData = try AES.GCM.open(box, using: key)
-        let decoder = JSONDecoder()
-        let object = try decoder.decode(type, from: decryptData)
-        return object
+        return try BSONDecoder().decode(type, from: Document(data: decryptData))
     }
 }
 

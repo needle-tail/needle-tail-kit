@@ -44,12 +44,12 @@ public final class NeedleTailPlugin: Plugin, Sendable {
                 guard let self else { return }
                 try await updateDeliveryStatus(message: message)
             }
-            if let transport = await self.messenger.cypherTransport?.configuration.client?.transport {
-                for try await result in NeedleTailAsyncSequence(consumer: transport.multipartMessageConsumer) {
+            if let stream = await self.messenger.cypherTransport?.configuration.client?.stream {
+                for try await result in NeedleTailAsyncSequence(consumer: stream.multipartMessageConsumer) {
                     switch result {
                     case .success(let filePacket):
                         if let cypher = await self.messenger.cypher, let message = try await self.messenger.findMessage(from: filePacket.mediaId, cypher: cypher) {
-                            try await transport.processDownload(message: message, decodedData: filePacket, cypher: cypher)
+                            try await stream.processDownload(message: message, decodedData: filePacket, cypher: cypher)
                         } else {
                             print("Tried Queued Message, but still cannot find message in order to process download, we will erase the message from chat")
                         }

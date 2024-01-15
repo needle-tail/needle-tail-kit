@@ -11,10 +11,6 @@
     private init() {}
 }
 
-@globalActor public final actor NeedleTailTransportActor {
-    public static let shared = NeedleTailTransportActor()
-}
-
 @globalActor public final actor NeedleTailClientActor {
     public static let shared = NeedleTailClientActor()
 }

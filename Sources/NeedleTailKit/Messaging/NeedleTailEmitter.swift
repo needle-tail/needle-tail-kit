@@ -8,7 +8,6 @@
 import CypherMessaging
  import NeedleTailHelpers
 
-@NeedleTailTransportActor
 public enum ServerConnectionState {
     case shouldRegister, registering, registered, deregistering, deregistered
 }
