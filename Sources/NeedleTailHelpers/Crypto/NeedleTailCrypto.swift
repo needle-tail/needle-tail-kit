@@ -15,18 +15,19 @@ import BSON
 public struct NeedleTailCrypto: Sendable {
     
     enum Errors: Error {
-        case combinedDataNil
+        case combinedDataNil, saltDataNil, keyDataNil, symmetricKeyDataNil, couldntRemovePercentEncoding, couldntAddPercentEncoding, dataIsNil
     }
     
     public init() {}
     
     //Any string we can use to generate a SymmetricKey it should be unique to a client/app
-    public func userInfoKey(_ key: String) -> SymmetricKey {
-        let hash = SHA256.hash(data: key.data(using: .utf8)!)
+    public func userInfoKey(_ key: String) throws -> SymmetricKey {
+        guard let keyData = key.data(using: .utf8) else { throw Errors.keyDataNil }
+        let hash = SHA256.hash(data: keyData)
         let hashString = hash.map { String(format: "%02hhx", $0)}.joined()
         let subString = String(hashString.prefix(32))
-        let keyData = subString.data(using: .utf8)!
-        return SymmetricKey(data: keyData)
+        guard let symmetricKeyData = subString.data(using: .utf8) else { throw Errors.symmetricKeyDataNil }
+        return SymmetricKey(data: symmetricKeyData)
     }
     
     public func generatePrivateKey() -> Curve25519.KeyAgreement.PrivateKey {
@@ -35,8 +36,8 @@ public struct NeedleTailCrypto: Sendable {
     }
     
     public func importPrivateKey(_ privateKey: String) throws -> Curve25519.KeyAgreement.PrivateKey {
-        let privateKeyBase64 = privateKey.removingPercentEncoding!
-        let rawPrivateKey = Data(base64Encoded: privateKeyBase64)!
+        guard let privateKeyBase64 = privateKey.removingPercentEncoding else { throw Errors.couldntRemovePercentEncoding }
+        guard let rawPrivateKey = Data(base64Encoded: privateKeyBase64) else { throw Errors.dataIsNil }
         return try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: rawPrivateKey)
     }
     
@@ -58,15 +59,16 @@ public struct NeedleTailCrypto: Sendable {
     }
     
     private func importPublicKey(_ publicKey: String) throws -> Curve25519.KeyAgreement.PublicKey {
-        let base64PublicKey = publicKey.removingPercentEncoding!
-        let rawPublicKey = Data(base64Encoded: base64PublicKey)!
+        guard let base64PublicKey = publicKey.removingPercentEncoding else { throw Errors.couldntRemovePercentEncoding }
+        guard let rawPublicKey = Data(base64Encoded: base64PublicKey) else { throw Errors.dataIsNil }
         return try Curve25519.KeyAgreement.PublicKey(rawRepresentation: rawPublicKey)
     }
     
-    private func exportPublicKey(_ publicKey: Curve25519.KeyAgreement.PublicKey) -> String {
+    private func exportPublicKey(_ publicKey: Curve25519.KeyAgreement.PublicKey) throws -> String {
         let rawPublicKey = publicKey.rawRepresentation
         let base64PublicKey = rawPublicKey.base64EncodedString()
-        return base64PublicKey.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
+        guard let encodedPublicKey = base64PublicKey.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { throw Errors.couldntAddPercentEncoding }
+        return encodedPublicKey
     }
     
     private func deriveSymmetricKey(
@@ -75,7 +77,8 @@ public struct NeedleTailCrypto: Sendable {
         publicKey: Curve25519.KeyAgreement.PublicKey
     ) throws -> SymmetricKey {
         let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: publicKey)
-        return sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self, salt: salt.data(using: .utf8)!, sharedInfo: Data(), outputByteCount: 32)
+        guard let salt = salt.data(using: .utf8) else { throw Errors.saltDataNil }
+        return sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self, salt: salt, sharedInfo: Data(), outputByteCount: 32)
     }
 }
 
@@ -111,7 +114,7 @@ extension NeedleTailCrypto {
     }
     
     public func encryptCodableObject<T: Codable>(_ object: T, usingKey key: SymmetricKey) throws -> Data? {
-        let userData = try BSONEncoder().encode(object).makeData()
+        let userData = try BSONEncoder().encodeData(object)
         let encryptedData = try AES.GCM.seal(userData, using: key)
         return encryptedData.combined
     }
@@ -120,7 +123,7 @@ extension NeedleTailCrypto {
         let data = Data(base64Encoded: string)!
         let box = try AES.GCM.SealedBox(combined: data)
         let decryptData = try AES.GCM.open(box, using: key)
-        return try BSONDecoder().decode(type, from: Document(data: decryptData))
+        return try BSONDecoder().decodeData(type, from: decryptData)
     }
 }
 

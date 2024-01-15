@@ -76,9 +76,7 @@ actor NeedleTailStream: IRCDispatcher {
     
     func getSender(_ origin: String) async throws -> IRCUserID {
         guard let data = Data(base64Encoded: origin) else { throw NeedleTailError.nilData }
-        let buffer = ByteBuffer(data: data)
-        let userId = try BSONDecoder().decode(IRCUserID.self, from: Document(buffer: buffer))
-        return userId
+        return try BSONDecoder().decodeData(IRCUserID.self, from: data)
     }
     
     /// This is the client side message command processor. We decide what to do with each IRCMessage here
@@ -192,8 +190,7 @@ actor NeedleTailStream: IRCDispatcher {
         tags: [IRCTags]?
     ) async throws {
         guard let data = Data(base64Encoded: message) else { return }
-        let buffer = ByteBuffer(data: data)
-        let packet = try BSONDecoder().decode(MessagePacket.self, from: Document(buffer: buffer))
+        let packet = try BSONDecoder().decodeData(MessagePacket.self, from: data)
         for recipient in recipients {
             switch recipient {
             case .everything:
@@ -240,9 +237,8 @@ actor NeedleTailStream: IRCDispatcher {
                         break
                     }
                 case .ack(let ack):
-                    let buffer = ByteBuffer(data: ack)
-                    let ack = try BSONDecoder().decode(Acknowledgment.self, from: Document(buffer: buffer))
-                    await configuration.store.setAck(ack.acknowledgment)
+                    let packet = try BSONDecoder().decodeData(Acknowledgment.self, from: ack)
+                    await configuration.store.setAck(packet.acknowledgment)
                     switch await configuration.store.acknowledgment {
                     case .registered(let bool):
                         guard bool == "true" else { return }
@@ -262,8 +258,8 @@ actor NeedleTailStream: IRCDispatcher {
 #if (os(macOS) || os(iOS))
                         //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
-                            let data = try BSONEncoder().encode([packet.name]).makeData()
-                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [data.base64EncodedString()]))
+                            let encodedString = try BSONEncoder().encodeString([packet.name])
+                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
                             try await configuration.writer.transportMessage(type: type)
                             }
                         
@@ -376,8 +372,7 @@ actor NeedleTailStream: IRCDispatcher {
     ) async throws -> Data {
         //Send message ack
         let received = Acknowledgment(acknowledgment: ackType)
-        let ack = try BSONEncoder().encode(received).makeData()
-        
+        let ack = try BSONEncoder().encodeData(received)
         let packet = MessagePacket(
             id: id ?? UUID().uuidString,
             pushType: .none,
@@ -390,7 +385,7 @@ actor NeedleTailStream: IRCDispatcher {
             multipartMessage: messagePacket
         )
         
-        return try BSONEncoder().encode(packet).makeData()
+        return try BSONEncoder().encodeData(packet)
     }
     
     
@@ -422,9 +417,8 @@ actor NeedleTailStream: IRCDispatcher {
         self.channelBlob = tag
         
         guard let data = Data(base64Encoded: tag) else  { return }
-        
-        let onlineNicks = try BSONDecoder().decode([NeedleTailNick].self, from: Document(data: data))
-        await configuration.plugin?.onMembersOnline(onlineNicks)
+        let packet = try BSONDecoder().decodeData([NeedleTailNick].self, from: data)
+        await configuration.plugin?.onMembersOnline(packet)
     }
     
     public func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
@@ -432,8 +426,8 @@ actor NeedleTailStream: IRCDispatcher {
         
         guard let tag = tags?.first?.value else { return }
         guard let data = Data(base64Encoded: tag) else  { return }
-        let channelPacket = try BSONDecoder().decode(NeedleTailChannelPacket.self, from: Document(data: data))
-        await configuration.plugin?.onPartMessage(channelPacket.partMessage ?? "No Message Specified")
+        let packet = try BSONDecoder().decodeData(NeedleTailChannelPacket.self, from: data)
+        await configuration.plugin?.onPartMessage(packet.partMessage ?? "No Message Specified")
     }
     
     public func doIsOnline(_ nicks: [NeedleTailNick]) async throws {
@@ -523,9 +517,9 @@ actor NeedleTailStream: IRCDispatcher {
     
     public func doListBucket(_ packet: [String]) async throws {
         guard let data = Data(base64Encoded: packet[0]) else { return }
-        let nameList = try BSONDecoder().decode([String].self, from: Document(data: data))
+        let packet = try BSONDecoder().decodeData([String].self, from: data)
         var filenames = [Filename]()
-        for name in nameList {
+        for name in packet {
             filenames.append(Filename(name))
         }
         await setFileNames(filenames)
@@ -537,14 +531,14 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     private func processMultipartMediaMessage(_ multipartData: Data) async throws {
-        let decodedData = try BSONDecoder().decode(FilePacket.self, from: Document(data: multipartData))
+        let packet = try BSONDecoder().decodeData(FilePacket.self, from: multipartData)
         guard let cypher = await configuration.messenger.cypher else { throw NeedleTailError.cypherMessengerNotSet }
         //1. Look up message by Id
-        if let message = try await configuration.messenger.findMessage(from: decodedData.mediaId, cypher: cypher) {
-            try await processDownload(message: message, decodedData: decodedData, cypher: cypher)
+        if let message = try await configuration.messenger.findMessage(from: packet.mediaId, cypher: cypher) {
+            try await processDownload(message: message, decodedData: packet, cypher: cypher)
         } else {
             //QUEUE Until message creation occurs
-            await multipartMessageConsumer.feedConsumer([decodedData])
+            await multipartMessageConsumer.feedConsumer([packet])
             logger.info("Couldn't find message in order to process media")
         }
     }
@@ -565,14 +559,14 @@ actor NeedleTailStream: IRCDispatcher {
                 run: { [weak self] props in
                     guard let self else { fatalError() }
                     let document = props.message.metadata
-                    var dtfp = try! BSONDecoder().decode(DataToFilePacket.self, from: document)
-                    let symmetricKey = try! BSONDecoder().decode(SymmetricKey.self, from: Document(data: keyBinary.data))
-                    guard let fileData = try! self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { fatalError() }
-                    guard let fileBoxData = try! cypher.encryptLocalFile(fileData).combined else { fatalError() }
+                    var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
+                    let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
+                    guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { fatalError() }
+                    guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { fatalError() }
                     
                     switch decodedData.mediaType {
                     case .file:
-                        let fileLocation = try! DataToFile.shared.generateFile(
+                        let fileLocation = try DataToFile.shared.generateFile(
                             data: fileBoxData,
                             fileName: dtfp.fileName,
                             fileType: dtfp.fileType
@@ -580,7 +574,7 @@ actor NeedleTailStream: IRCDispatcher {
                         dtfp.fileLocation = fileLocation
                         dtfp.fileSize = fileBoxData.count
                     case .thumbnail:
-                        let thumbnailLocation = try! DataToFile.shared.generateFile(
+                        let thumbnailLocation = try DataToFile.shared.generateFile(
                             data: fileBoxData,
                             fileName: dtfp.thumbnailName,
                             fileType: dtfp.thumbnailType
@@ -590,7 +584,7 @@ actor NeedleTailStream: IRCDispatcher {
                     }
                     dtfp.fileBlob = nil
                     dtfp.thumbnailBlob = nil
-                    return try! BSONEncoder().encode(dtfp)
+                    return try BSONEncoder().encode(dtfp)
                 })
             
             var fileName = ""

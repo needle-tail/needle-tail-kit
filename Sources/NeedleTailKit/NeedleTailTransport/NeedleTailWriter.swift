@@ -35,7 +35,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         self.writer = writer
         self.transportState = transportState
         self.clientContext = clientContext
-        self.origin = try BSONEncoder().encode(clientContext.nickname).makeData().base64EncodedString()
+        self.origin = try BSONEncoder().encodeString(clientContext.nickname)
     }
     
     /// This is where we register the transport session
@@ -85,8 +85,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             ),
             tempRegister: false
         )
-        let packet = try BSONEncoder().encode(authObject).makeData()
-        try await self.transportMessage(type: .standard(.QUIT(packet.base64EncodedString())))
+        let encodedString = try BSONEncoder().encodeString(authObject)
+        try await self.transportMessage(type: .standard(.QUIT(encodedString)))
     }
     
     func publishBlob(_ packet: String) async throws {
@@ -144,8 +144,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             members: members,
             permissions: permissions
         )
-        let data = try BSONEncoder().encode(packet).makeData()
-        let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
+        let encodedString = try BSONEncoder().encodeString(packet)
+        let tag = IRCTags(key: "channelPacket", value: encodedString)
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
         let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
@@ -177,8 +177,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             partMessage: message,
             blobId: blobId
         )
-        let data = try BSONEncoder().encode(packet).makeData()
-        let tag = IRCTags(key: "channelPacket", value: data.base64EncodedString())
+        let encodedString = try BSONEncoder().encodeString(packet)
+        let tag = IRCTags(key: "channelPacket", value: encodedString)
         guard let channelName = IRCChannelName(name) else { return }
         let type = TransportMessageType.standard(.PART(channels: [channelName]))
         
@@ -213,7 +213,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             readReceipt: readReceipt
         )
         
-        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let encodedData = try BSONEncoder().encodeData(packet)
         try await sendPrivateMessage(toUser: toUser, type: conversationType, data: encodedData)
 #endif
     }
@@ -249,10 +249,10 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             message: nil,
             readReceipt: readReceipt
         )
-        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let encodedString = try BSONEncoder().encodeString(packet)
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         try await self.transportMessage(type: type)
     }
     
@@ -279,11 +279,11 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             readReceipt: readReceipt,
             channelName: channelName
         )
-        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let encodedString = try BSONEncoder().encodeString(packet)
         do {
             //Channel Recipient
             let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
             try await self.transportMessage(type: type)
         } catch {
             logger.error("\(error)")
@@ -309,8 +309,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         //Store UUID Temporarily
         self.registryRequestId = packet.id
         
-        let encodedData = try BSONEncoder().encode(packet).makeData()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        let encodedString = try BSONEncoder().encodeString(packet)
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         try await self.transportMessage(type: type)
     }
     
@@ -331,8 +331,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         
         //Store UUID Temporarily
         self.registryRequestId = packet.id
-        let encodedData = try BSONEncoder().encode(packet).makeData()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        let encodedString = try BSONEncoder().encodeString(packet)
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         try await self.transportMessage(type: type)
     }
     
@@ -366,11 +366,11 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
                 )
             ]
         )
-        let encodedData = try BSONEncoder().encode(packet).makeData()
+        let encodedString = try BSONEncoder().encodeString(packet)
         let ircUser = ntkUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         // The recipient is ourself
         let recipient = try await self.recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedData.base64EncodedString()))
+        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         
         try await self.transportMessage(type: type)
     }

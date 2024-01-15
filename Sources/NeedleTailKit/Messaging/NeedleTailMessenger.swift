@@ -813,8 +813,8 @@ extension NeedleTailMessenger {
     
     public func encodeDTFP(dtfp: DataToFilePacket) async throws -> ThumbnailToMultipart {
         // Generate the symmetric key for us and the other users to decrypt the blob later
-        let symmetricKey = needletailCrypto.userInfoKey(UUID().uuidString)
-        let encodedKey = try BSONEncoder().encode(symmetricKey).makeData()
+        let symmetricKey = try needletailCrypto.userInfoKey(UUID().uuidString)
+        let encodedKey = try BSONEncoder().encodeData(symmetricKey)
         
         var dtfp = dtfp
         dtfp.symmetricKey = encodedKey

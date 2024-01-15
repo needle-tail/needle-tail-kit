@@ -43,7 +43,7 @@ extension URLSession {
         do {
             
             if httpMethod == Network.post.rawValue || httpMethod == Network.put.rawValue {
-                let data = try BSONEncoder().encode(httpBody).makeData()
+                let data = try BSONEncoder().encodeData(httpBody)
                 
                 if data.count > maxBodySize {
 #if canImport(FoundationNetworking)
