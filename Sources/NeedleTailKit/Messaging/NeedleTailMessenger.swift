@@ -9,6 +9,8 @@ import CypherMessaging
 import MessagingHelpers
 import SwiftUI
 import NeedleTailHelpers
+import NeedletailMediaKit
+import NeedleTailCrypto
 //import SpineTailedKit
 //import SpineTailedProtocol
 #if os(macOS)
@@ -57,7 +59,7 @@ public final class NeedleTailMessenger {
         }
     }
 #if canImport(Crypto)
-    let needletailCrypto = NeedleTailCrypto()
+    public let needletailCrypto = NeedleTailCrypto()
 #endif
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
     let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
@@ -124,7 +126,15 @@ public final class NeedleTailMessenger {
             messenger: messenger,
             nameToVerify: username
         )
-        try await self.resumeService(cypherTransport, nameToVerify: username)
+        let clientInfo = try await setUpClientInfo(
+            cypherTransport: cypherTransport,
+            nameToVerify: username,
+            newHost: ""
+        )
+        await self.resumeService(
+            cypherTransport: cypherTransport,
+            clientInfo: clientInfo
+        )
         do {
             if await self.emitter.channelIsActive {
                 let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
@@ -248,7 +258,15 @@ public final class NeedleTailMessenger {
                         addChildDevice: addChildDevice
                     )
                     await self.setTransport(transport: transport)
-                    try await self.resumeService(transport, nameToVerify: username)
+                    let clientInfo = try await setUpClientInfo(
+                        cypherTransport: transport,
+                        nameToVerify: username,
+                        newHost: ""
+                    )
+                    await self.resumeService(
+                        cypherTransport: transport,
+                        clientInfo: clientInfo
+                    )
                     return transport
                 },
                 p2pFactories: p2pFactories,
@@ -280,7 +298,6 @@ public final class NeedleTailMessenger {
         return cypherTransport
     }
     
-    @discardableResult
     public func spoolService(
         appleToken: String,
         store: CypherMessengerStore,
@@ -288,12 +305,12 @@ public final class NeedleTailMessenger {
         eventHandler: PluginEventHandler? = nil,
         p2pFactories: [P2PTransportClientFactory],
         messenger: NeedleTailMessenger
-    ) async throws -> CypherMessenger? {
+    ) async throws -> CypherMessenger {
         //Create plugin here
         self.plugin = NeedleTailPlugin(messenger: messenger)
         
-        guard let plugin = self.plugin else { return nil }
-        self.cypher = try await CypherMessenger.resumeMessenger(
+        guard let plugin = self.plugin else { fatalError() }
+        let cypher = try await CypherMessenger.resumeMessenger(
             appPassword: serverInfo.password,
             usingTransport: { transportRequest -> NeedleTailCypherTransport in
                 return try await self.createTransport(
@@ -307,11 +324,9 @@ public final class NeedleTailMessenger {
             database: store,
             eventHandler: eventHandler ?? self.makeEventHandler(plugin)
         )
-        let cypherTransport = self.cypher?.transport as! NeedleTailCypherTransport
+        let cypherTransport = cypher.transport as! NeedleTailCypherTransport
         await setTransport(transport: cypherTransport)
-        try await self.resumeService(cypherTransport)
-        await self.setNick()
-        return self.cypher
+        return cypher
     }
     
     func setTransport(transport: NeedleTailCypherTransport) async {
@@ -319,8 +334,8 @@ public final class NeedleTailMessenger {
     }
     
     @MainActor
-    func setNick() async {
-        emitter.needleTailNick = await cypherTransport?.configuration.needleTailNick
+    func setNick(transport: NeedleTailCypherTransport) async {
+        emitter.needleTailNick = transport.configuration.needleTailNick
     }
     
     public func connectionAvailability() -> Bool {
@@ -338,28 +353,40 @@ public final class NeedleTailMessenger {
         emitter.connectionState = state
 #endif
     }
-    
-    public func resumeService(_
-                              nameToVerify: String = "",
-                              appleToken: String = "",
-                              newHost: String = "")
-    async throws {
+
+    public func resumeService() async throws {
         if let cypherTransport = self.cypherTransport {
+            let configuration = cypherTransport.configuration
+            guard let nick = configuration.needleTailNick else { return }
+            guard let username = configuration.username else { return }
+            guard let deviceId = configuration.deviceId else { return }
             await networkServiceResumer(
                 cypherTransport,
-                nameToVerify: nameToVerify,
-                appleToken: appleToken,
-                newHost: newHost
+                clientInfo: NeedleTailCypherTransport.ClientInfo(
+                    clientContext:    
+                        ClientContext(
+                        serverInfo: configuration.serverInfo,
+                        nickname: nick
+                    ),
+                    username: username,
+                    deviceId: deviceId
+                )
             )
         }
     }
+
+    internal func setUpClientInfo(
+        cypherTransport: NeedleTailCypherTransport,
+        nameToVerify: String = "",
+        newHost: String = ""
+    ) async throws -> NeedleTailCypherTransport.ClientInfo {
+        let info = try await cypherTransport.setUpClientInfo(nameToVerify: nameToVerify, newHost: newHost)
+        await setNick(transport: cypherTransport)
+        return info
+    }
     
-    internal func resumeService(_
-                                cypherTransport: NeedleTailCypherTransport,
-                                nameToVerify: String = "",
-                                appleToken: String = "",
-                                newHost: String = ""
-    ) async throws {
+    internal func resumeService(cypherTransport: NeedleTailCypherTransport, clientInfo: NeedleTailCypherTransport.ClientInfo) async {
+        do {
         switch await emitter.connectionState {
         case .deregistered, .shouldRegister:
             await setRegistrationState(.registering)
@@ -368,10 +395,10 @@ public final class NeedleTailMessenger {
                 group.addTask {
                     try await cypherTransport.createClient(
                         cypherTransport,
-                        nameToVerify: nameToVerify,
-                        newHost: newHost
+                        clientInfo: clientInfo
                     )
                 }
+                _ = try await group.next()
                 try await self.monitorClientConnection(cypherTransport)
 #if (os(macOS) || os(iOS))
                 Task { @MainActor in
@@ -388,27 +415,28 @@ public final class NeedleTailMessenger {
         default:
             print("Trying to resume service during a \(await emitter.connectionState) state")
         }
+        } catch let error as NIOCore.ChannelError {
+            await setErrorReporter(error: error.description)
+        } catch {
+            await setErrorReporter(error: error.localizedDescription)
+        }
     }
     
     private func networkServiceResumer(_
                                        cypherTransport: NeedleTailCypherTransport,
-                                       nameToVerify: String = "",
-                                       appleToken: String = "",
-                                       newHost: String = ""
+                                       clientInfo: NeedleTailCypherTransport.ClientInfo
     ) async {
         let networkServiceResumerTask = Task {
             return try await withThrowingTaskGroup(of: Void.self, body: { group in
                 //We need to make sure we have internet before we try this
                 for try await status in self.networkMonitor.$currentStatus.values {
                     try Task.checkCancellation()
-                    group.addTask { 
+                    group.addTask {
                         if status == .satisfied {
                             if cypherTransport.isConnected == false {
-                                try await self.resumeService(
-                                    cypherTransport,
-                                    nameToVerify: nameToVerify,
-                                    appleToken: appleToken,
-                                    newHost: newHost
+                                await self.resumeService(
+                                    cypherTransport: cypherTransport,
+                                    clientInfo: clientInfo
                                 )
                             }
                             return
@@ -442,7 +470,7 @@ public final class NeedleTailMessenger {
                     case .shouldRegister:
                         await self.setCanRegister(canRegister: true)
                     case .registered:
-                        await self.setNick()
+                        await self.setNick(transport: cypherTransport)
                         cypherTransport.isConnected = true
                         cypherTransport.authenticated = .authenticated
                         if await self.cypherTransport?.isConnected == true { return }
@@ -450,7 +478,15 @@ public final class NeedleTailMessenger {
                         cypherTransport.isConnected = false
                         cypherTransport.authenticated = .unauthenticated
                         if await self.canReregister {
-                            _ = try await self.resumeService(cypherTransport)
+                            let clientInfo = try await self.setUpClientInfo(
+                                cypherTransport: cypherTransport,
+                                nameToVerify: cypherTransport.configuration.username?.raw ?? "",
+                                newHost: ""
+                            )
+                            await self.resumeService(
+                                cypherTransport: cypherTransport,
+                                clientInfo: clientInfo
+                            )
                         }
                     default:
                         ()
@@ -461,7 +497,7 @@ public final class NeedleTailMessenger {
             }
         }
     }
-
+    
     public func serviceInterupted(_ isSuspending: Bool = false) async throws {
         guard let cypherTransport = cypherTransport else { throw NeedleTailError.messengerNotIntitialized }
         try await serviceInterupted(isSuspending, cypherTransport: cypherTransport)
@@ -477,7 +513,7 @@ public final class NeedleTailMessenger {
             break
         }
     }
-
+    
     func removeClient() async {
         cypherTransport?.configuration.client = nil
     }
@@ -674,9 +710,23 @@ extension NeedleTailMessenger {
                 p2pFactories: makeP2PFactories(),
                 messenger: messenger
             )
+            guard let cypherTransport = cypherTransport else { return }
+            let clientInfo = try await self.setUpClientInfo(
+                cypherTransport: cypherTransport,
+                nameToVerify: cypherTransport.configuration.username?.raw ?? "",
+                newHost: ""
+            )
+                await self.resumeService(
+                    cypherTransport: cypherTransport,
+                    clientInfo: clientInfo
+                )
         }
     }
     
+    @MainActor
+    private func setErrorReporter(error description: String) {
+        emitter.errorReporter = ErrorReporter(status: true, error: description)
+    }
     
     public struct RegisterOrAddButton: View {
         public var exists: Bool = true
@@ -813,7 +863,7 @@ extension NeedleTailMessenger {
     
     public func encodeDTFP(dtfp: DataToFilePacket) async throws -> ThumbnailToMultipart {
         // Generate the symmetric key for us and the other users to decrypt the blob later
-        let symmetricKey = try needletailCrypto.userInfoKey(UUID().uuidString)
+        let symmetricKey = try await needletailCrypto.userInfoKey(UUID().uuidString)
         let encodedKey = try BSONEncoder().encodeData(symmetricKey)
         
         var dtfp = dtfp
@@ -846,7 +896,6 @@ extension NeedleTailMessenger {
         )
     }
     
-    //TODO: THROW ERRORS, REWORK ERROR HANDLING AND UNWRAPPING OF NIL VALUES
     public func sendMultipartMessage(
         dtfp: DataToFilePacket,
         conversationPartner: Username,
@@ -860,8 +909,8 @@ extension NeedleTailMessenger {
             let thumbnailBlob = try await needletailCrypto.decryptFile(from: dtfp.thumbnailLocation, cypher: cypher)
             
             //        2. Encrypt with our symmetric key for share
-            let sharedFileBlob = try needletailCrypto.encrypt(data: fileBlob, symmetricKey: symmetricKey)
-            let sharedThumbnailBlob = try needletailCrypto.encrypt(data: thumbnailBlob, symmetricKey: symmetricKey)
+            let sharedFileBlob = try await needletailCrypto.encrypt(data: fileBlob, symmetricKey: symmetricKey)
+            let sharedThumbnailBlob = try await needletailCrypto.encrypt(data: thumbnailBlob, symmetricKey: symmetricKey)
             var dtfp = dtfp
             dtfp.fileBlob = sharedFileBlob
             dtfp.thumbnailBlob = sharedThumbnailBlob
@@ -962,10 +1011,6 @@ extension NeedleTailMessenger {
         return try await contactsBundle.contactBundle?.chat.allMessages(sortedBy: .ascending).async.first(where: { $0.id == messageId })
     }
     
-    public func findMessage(with string: String) async throws -> AnyChatMessage? {
-        return try await contactsBundle.contactBundle?.chat.allMessages(sortedBy: .ascending).async.first(where: { await $0.metadata[""] as? String == string })
-    }
-    
     public func findAllMessages(with mediaId: String) async throws -> [AnyChatMessage] {
         var messages = [AnyChatMessage]()
         guard let contactBundle = contactsBundle.contactBundle else { return [] }
@@ -976,6 +1021,49 @@ extension NeedleTailMessenger {
             }
         }
         return messages
+    }
+    
+    public func recreateOrRemoveFile(from mediaId: String) async throws {
+        if let privateMessage = try await findPrivateMessage(by: mediaId) {
+            do {
+                guard let thumbnailLocation = await privateMessage.metadata["thumbnailLocation"] as? String else { return }
+                guard let keyBinary = await privateMessage.metadata["symmetricKey"] as? Binary else { return }
+                let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
+                guard let cypher = cypher else { return }
+                let thumbnailBlob = try await needletailCrypto.decryptFile(from: thumbnailLocation, cypher: cypher)
+                let newSize = try await ImageProcessor.getNewSize(data: thumbnailBlob, desiredSize: CGSize(width: 600, height: 600), isThumbnail: false)
+                let newImage = try await ImageProcessor.resize(thumbnailBlob, to: newSize, isThumbnail: false)
+#if os(iOS)
+                guard let data = UIImage(cgImage: newImage).jpegData(compressionQuality: 1.0) else { return }
+#endif
+                guard let sharedFileBlob = try await needletailCrypto.encrypt(data: data, symmetricKey: symmetricKey) else { return }
+                let fileType = thumbnailLocation.components(separatedBy: ".").first ?? "jpg"
+                
+                let fileLocation = try DataToFile.shared.generateFile(
+                    data: sharedFileBlob,
+                    fileName: "\(UUID().uuidString)_\(cypher.deviceId.raw)",
+                    fileType: fileType
+                )
+                
+                let document = await privateMessage.metadata
+                var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
+                try await privateMessage.setMetadata(
+                    cypher,
+                    emitter: emitter,
+                    sortChats: sortConversations,
+                    run: { props in
+                        dtfp.fileLocation = fileLocation
+                        return try BSONEncoder().encode(dtfp)
+                    })
+                
+            } catch {
+                try await privateMessage.remove()
+            }
+        } else {
+            for message in try await findAllMessages(with: mediaId) {
+                try await message.remove()
+            }
+        }
     }
     
     //MARK: Inbound
@@ -1104,11 +1192,26 @@ extension NeedleTailMessenger {
         )
         
         for conversation in conversations {
+            print("START LOOP")
             switch conversation {
             case .privateChat(let privateChat):
                 let conversationPartner = await privateChat.conversation.members.contains(contact.username)
                 if await privateChat.conversation.members.contains(cypher.username) && conversationPartner {
                     for message in try await privateChat.allMessages(sortedBy: .descending) {
+                        let fileLocation = await message.metadata["fileLocation"] as? String
+                        let thumbnailLocation = await message.metadata["thumbnailLocation"] as? String
+                        
+                        if let seperatedFileLocation = fileLocation?.components(separatedBy: "/").last {
+                            guard let fileName = seperatedFileLocation.components(separatedBy: ".").first else { fatalError() }
+                            guard let fileNameType = seperatedFileLocation.components(separatedBy: ".").last else { fatalError() }
+                            try DataToFile.shared.removeItem(fileName: fileName, fileType: fileNameType)
+                        }
+                        if let seperatedThumbnailLocation = thumbnailLocation?.components(separatedBy: "/").last {
+                            guard let thumbnailName = seperatedThumbnailLocation.components(separatedBy: ".").first else { fatalError() }
+                            guard let thumbnailNameType = seperatedThumbnailLocation.components(separatedBy: ".").last else { fatalError() }
+                            try DataToFile.shared.removeItem(fileName: thumbnailName, fileType: thumbnailNameType)
+                        }
+                        
                         if shouldRevoke {
                             try await message.revoke()
                         } else {
@@ -1120,6 +1223,7 @@ extension NeedleTailMessenger {
                 break
             }
         }
+        await fetchChats(cypher: cypher, contact: contact)
         await fetchChats(cypher: cypher, contact: contact)
     }
     
@@ -1312,3 +1416,45 @@ extension EnvironmentValues {
 
 #endif
 #endif
+
+extension NIOCore.ChannelError {
+    
+    var description: String {
+        switch self {
+        case .connectPending:
+            return "connectPending"
+        case .connectTimeout(let timeout):
+            return "connectTimeout: \(timeout)"
+        case .operationUnsupported:
+            return "operationUnsupported"
+        case .ioOnClosedChannel:
+            return "ioOnClosedChannel"
+        case .alreadyClosed:
+            return "alreadyClosed"
+        case .outputClosed:
+            return "outputClosed"
+        case .inputClosed:
+            return "inputClosed"
+        case .eof:
+            return "eof"
+        case .writeMessageTooLarge:
+            return "writeMessageTooLarge"
+        case .writeHostUnreachable:
+            return "writeHostUnreachable"
+        case .unknownLocalAddress:
+            return "unknownLocalAddress"
+        case .badMulticastGroupAddressFamily:
+            return "badMulticastGroupAddressFamily"
+        case .badInterfaceAddressFamily:
+            return "badInterfaceAddressFamily"
+        case .illegalMulticastAddress(let address):
+            return "illegalMulticastAddress: \(address)"
+        case .multicastNotSupported(let interface):
+            return "multicastNotSupported, Interface is: \(interface)"
+        case .inappropriateOperationForState:
+            return "inappropriateOperationForState"
+        case .unremovableHandler:
+            return "unremovableHandler"
+        }
+    }
+}

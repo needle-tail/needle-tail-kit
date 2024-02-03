@@ -228,41 +228,43 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
-        let task = Task {
-            guard let store = store else { throw NeedleTailError.storeNotIntitialized }
+//        let task = Task {
             guard let stream = stream else { throw NeedleTailError.streamNotSet }
+            let store = await stream.configuration.store
             await store.clearUserConfig()
-            
+
             let jwt = try self.makeToken(configuration.ntkUser.username)
             let readBundleObject = await self.readBundleRequest(jwt, for: username)
             let packet = try BSONEncoder().encodeString(readBundleObject)
             try await stream.readKeyBundle(packet)
             
-            let result = try await withThrowingTaskGroup(of: UserConfig?.self) { group in
-                try Task.checkCancellation()
-                group.addTask {
-                    try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) {
+//            let result = try await withThrowingTaskGroup(of: UserConfig?.self) { group in
+//                try Task.checkCancellation()
+print("__________READING BUNDLE___________")
+                   let result = try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) {
                         var bundle: UserConfig?
                         var canRun = true
-                            if let store = await self.store, let keyBundle = await store.keyBundle {
+                            if let keyBundle = await store.keyBundle {
                                 canRun = false
                                 bundle = keyBundle
                             }
                         return (canRun, bundle)
                     }
-                }
-                return try await group.next()
-            }
-            return result
-        }
+//                }
+        print("__________READ BUNDLE___________")
+            return result!
+//                return try await group.next()
+//            }
+//        return try await task.value!
+//        }
         
-        guard let unwrapedTaskValue = try await task.value else {
-            throw NeedleTailError.nilUserConfig
-        }
-        guard let userConfig = unwrapedTaskValue else {
-            throw NeedleTailError.nilUserConfig
-        }
-        return userConfig
+//        guard let unwrapedTaskValue = try await task.value else {
+//            throw NeedleTailError.nilUserConfig
+//        }
+//        guard let userConfig = unwrapedTaskValue else {
+//            throw NeedleTailError.nilUserConfig
+//        }
+//        return try await task.value
     }
     
     
@@ -576,9 +578,9 @@ extension NeedleTailClient: TransportBridge {
     }
     
     public func downloadMultipart(_ metadata: [String]) async throws {
-        let encodedString = try BSONEncoder().encodeString(metadata.first)
-        let encodedMediaId = try BSONEncoder().encodeString([metadata.last])
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString, encodedMediaId]))
+        let encoder = BSONEncoder()
+        let encodedString = try encoder.encodeString(metadata)
+        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
         try await writer?.transportMessage(type: type)
     }
     

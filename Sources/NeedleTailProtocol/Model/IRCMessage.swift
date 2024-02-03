@@ -73,7 +73,7 @@ public struct IRCMessage: Codable, Sendable {
         case origin, target, arguments, command, tags
     }
 
-//    // MARK: - Codable
+    // MARK: - Codable
     public init(from decoder: Decoder) async throws {
         let containter = try decoder.container(keyedBy: CodingKeys.self)
         self.origin = try containter.decodeIfPresent(String.self, forKey: .origin)

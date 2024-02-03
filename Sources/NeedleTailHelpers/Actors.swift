@@ -14,6 +14,11 @@
     private init() {}
 }
 
+@globalActor public actor NTCryptoActor {
+    public static let shared = NTCryptoActor()
+    private init() {}
+}
+
 @globalActor public actor PriorityActor {
     
     public static let shared = PriorityActor()

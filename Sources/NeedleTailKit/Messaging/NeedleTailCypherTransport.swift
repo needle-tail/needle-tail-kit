@@ -126,7 +126,9 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     @MainActor
     internal func setCanSendReadReceipt(_ canRead: Bool) {
+#if (os(macOS) || os(iOS))
         configuration.messenger.emitter.canSendReadReceipt = canRead
+#endif
     }
     
     public func requestDeviceRegistery(_ config: CypherMessaging.UserDeviceConfig) async throws {
@@ -243,12 +245,17 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
     }
 #endif
     
-    func createClient(_
-                      cypherTransport: NeedleTailCypherTransport,
-                      nameToVerify: String? = nil,
-                      newHost: String = "",
-                      tls: Bool = true
-    ) async throws {
+    public struct ClientInfo: Sendable {
+        var clientContext: ClientContext
+        var username: Username
+        var deviceId: DeviceId
+    }
+    
+    func setUpClientInfo(
+        nameToVerify: String? = nil,
+        newHost: String = "",
+        tls: Bool = true
+    ) async throws -> ClientInfo {
         if !newHost.isEmpty {
             configuration.serverInfo = ClientContext.ServerClientInfo(hostname: newHost, tls: tls)
         }
@@ -276,8 +283,19 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
             nickname: nick
         )
         guard let deviceId = deviceId else { throw NeedleTailError.deviceIdNil }
-#if os(macOS) || os(iOS)
         let username = Username(name)
+        return ClientInfo(
+            clientContext: clientContext,
+            username: username,
+            deviceId: deviceId
+        )
+    }
+    
+    func createClient(_
+                      cypherTransport: NeedleTailCypherTransport,
+                      clientInfo: ClientInfo
+    ) async throws {
+#if os(macOS) || os(iOS)
         let cypher = await configuration.messenger.cypher
         let client = NeedleTailClient(
             configuration: NeedleTailClient.Configuration(
@@ -287,11 +305,11 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
                     cypherTransport: self
                 ),
                 transportState: configuration.transportState,
-                clientContext: clientContext,
-                serverInfo: clientContext.serverInfo,
+                clientContext: clientInfo.clientContext,
+                serverInfo: clientInfo.clientContext.serverInfo,
                 ntkUser: NTKUser(
-                    username: username,
-                    deviceId: deviceId
+                    username: clientInfo.username,
+                    deviceId: clientInfo.deviceId
                 ),
                 messenger: configuration.messenger
             )
@@ -604,7 +622,11 @@ extension Array {
 
 actor TransportStore {
     
-    var keyBundle: UserConfig?
+    var keyBundle: UserConfig? {
+        didSet {
+            print("DID_SET", keyBundle)
+        }
+    }
     var acknowledgment: Acknowledgment.AckType = .none
     var setAcknowledgement: Acknowledgment.AckType = .none {
         didSet {
@@ -619,6 +641,7 @@ actor TransportStore {
     
     func setKeyBundle(_ config: UserConfig) {
         keyBundle = config
+        print("SET_____", keyBundle)
     }
     
     func clearUserConfig() {

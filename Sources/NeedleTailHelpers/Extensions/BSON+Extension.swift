@@ -30,7 +30,7 @@ extension BSONEncoder {
     public func encodeString<T: Codable>(_ encodable: T) throws -> String {
         try encode(encodable).makeData().base64EncodedString()
     }
-    
+
     public func encodeData<T: Codable>(_ encodable: T) throws -> Data {
         try encode(encodable).makeData()
     }

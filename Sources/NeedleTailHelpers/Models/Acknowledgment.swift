@@ -38,12 +38,12 @@ public struct Acknowledgment: Codable, Sendable {
 
 public struct MultipartUploadAckPacket: Sendable, Codable, Equatable {
     public var name: String
-    public var mediaId: String
+    public var mediaId: String?
     public var size: Int
     
     public init(
         name: String,
-        mediaId: String,
+        mediaId: String?,
         size: Int
     ) {
         self.name = name

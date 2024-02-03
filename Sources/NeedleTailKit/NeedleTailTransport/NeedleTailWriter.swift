@@ -382,6 +382,12 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             type: type
         )
     }
+    
+    func requestOnlineNicks(_ nicks: [NeedleTailNick]) async throws {
+        let type = TransportMessageType.private(.ISON(nicks))
+        print("SENDING REQUEST", type)
+        try await self.transportMessage(type: type)
+    }
 }
 
 struct MultipartObject: Sendable, Codable {

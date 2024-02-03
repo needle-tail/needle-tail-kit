@@ -28,6 +28,7 @@ public final class EventLoopGroupManager: @unchecked Sendable {
     private let provider: Provider
     private let lock = NIOLock()
     public let groupWrapper: GroupWrapper
+    fileprivate var asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
     
     public struct GroupWrapper: Sendable {
         public var group: EventLoopGroup
@@ -65,6 +66,10 @@ public final class EventLoopGroupManager: @unchecked Sendable {
     
     deinit {
         //        assert(self.group == nil, "Please call EventLoopGroupManager.shutdown .")
+    }
+    
+    @Sendable private func setChannel(_ asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>?) {
+        self.asyncChannel = asyncChannel
     }
 }
 
@@ -115,7 +120,7 @@ extension EventLoopGroupManager {
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
                 .connect(host: host, port: port) { channel in
-                        return createHandlers(channel)
+                    return createHandlers(channel)
                 }
             
             let bootstrap = try NIOClientTCPBootstrap(
@@ -142,17 +147,24 @@ extension EventLoopGroupManager {
                 let tlsOptions = NWProtocolTLS.Options()
                 connection = connection.tlsOptions(tlsOptions)
             }
-
-            let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer> = try await connection
+            
+            let c = connection
                 .connectTimeout(.seconds(10))
                 .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET),SO_REUSEADDR), value: 1)
-                .connect(
+            
+            do {
+                return try await c.connect(
                     host: host,
                     port: port
                 ) { channel in
                     return createHandlers(channel)
                 }
-            return asyncChannel
+            } catch {
+                try await asyncChannel?.executeThenClose({ inbound, outbound in
+                    outbound.finish()
+                })
+                throw error
+            }
         } else {
             // We're on Darwin but not new enough for Network.framework, so we fall back on NIO on BSD sockets.
             return try await socketChannelCreator()
@@ -169,10 +181,12 @@ extension EventLoopGroupManager {
                         LineBasedFrameDecoder()
                     )
                 ], position: .first)
-                return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
+                let asyncChannel = try NIOAsyncChannel<ByteBuffer, ByteBuffer>(
                     wrappingChannelSynchronously: channel,
                     configuration: .init()
                 )
+                setChannel(asyncChannel)
+                return asyncChannel
             }
         }
     }

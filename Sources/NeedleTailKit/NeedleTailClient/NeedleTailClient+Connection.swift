@@ -76,9 +76,9 @@ extension NeedleTailClient: ClientTransportDelegate {
                         for await stream in _inbound {
                             do {
                                 for try await buffer in stream {
-                                    group.addTask {
                                         var buffer = buffer
                                         guard let message = buffer.readString(length: buffer.readableBytes) else { return }
+                                    print("RECEIVED_MESSAGE______", message)
                                         guard !message.isEmpty else { return }
                                         let messages = message.components(separatedBy: Constants.cLF.rawValue)
                                             .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
@@ -89,7 +89,6 @@ extension NeedleTailClient: ClientTransportDelegate {
                                             self.logger.trace("Message Parsed \(parsedMessage)")
                                             await self.stream?.processReceivedMessage(parsedMessage)
                                         }
-                                    }
                                     if cancelStream {
                                         return
                                     }

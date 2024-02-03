@@ -8,10 +8,16 @@
 @preconcurrency import CypherMessaging
 import NeedleTailHelpers
 import NeedleTailProtocol
+import NeedletailMediaKit
+import NeedleTailCrypto
 import NIOCore
 import Logging
+import DequeModule
 #if os(macOS)
 import AppKit
+#endif
+#if os(iOS)
+import UIKit
 #endif
 #if canImport(Crypto)
 import Crypto
@@ -49,14 +55,21 @@ actor NeedleTailStream: IRCDispatcher {
     let logger = Logger(label: "NeedleTailStream")
     let motdBuilder = MOTDBuilder()
     var userMode = IRCUserMode()
-    var multipartData = Data()
+    var downloadChunks = NeedleTailAsyncConsumer<MultipartChunk>()
     let multipartMessageConsumer = NeedleTailAsyncConsumer<FilePacket>()
-    let needleTailCrypto = NeedleTailCrypto()
     var registryRequestId = ""
     var channelBlob: String?
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     var hasStarted = false
     var updateKeyBundle = false
+    var clientsKnownAquaintances = ClientsKnownAquaintances()
+    
+    struct MultipartChunk: Sendable {
+        var id: String
+        var partNumber: String
+        var totalParts: String
+        var chunk: Data
+    }
     
     init(configuration: Configuration) {
         self.configuration = configuration
@@ -93,9 +106,9 @@ actor NeedleTailStream: IRCDispatcher {
                 guard let origin = message.origin else { return }
                 let sender = try await self.getSender(origin)
                 try await configuration.delegate?.doMessage(sender: sender,
-                                                   recipients: recipients,
-                                                   message: payload,
-                                                   tags: tags)
+                                                            recipients: recipients,
+                                                            message: payload,
+                                                            tags: tags)
             case .NOTICE(let recipients, let message):
                 try await configuration.delegate?.doNotice(recipients: recipients, message: message)
             case .NICK(let nickName):
@@ -105,7 +118,8 @@ actor NeedleTailStream: IRCDispatcher {
             case .USER(let info):
                 try await configuration.delegate?.doUserInfo(info, tags: message.tags)
             case .ISON(let nicks):
-                try await configuration.delegate?.doIsOnline(nicks)
+                //Server-Side
+                break
             case .MODEGET(let nickName):
                 try await configuration.delegate?.doModeGet(nick: nickName)
             case .CAP(let subcmd, let capIDs):
@@ -169,6 +183,8 @@ actor NeedleTailStream: IRCDispatcher {
                     return self.logger.error("ERROR: topic args incomplete: \(message)")
                 }
                 self.handleTopic(args[2], on: channel)
+            case .numeric(.replyISON, let nicksAsString):
+                try await handleIsOnReply(nicks: nicksAsString)
             case .otherNumeric(let code, let args):
                 self.logger.trace("otherNumeric Code: - \(code)")
                 self.logger.trace("otherNumeric Args: - \(args)")
@@ -245,6 +261,27 @@ actor NeedleTailStream: IRCDispatcher {
                         await configuration.transportState.transition(to: .transportRegistered(clientContext: configuration.clientContext))
                         let type = TransportMessageType.standard(.USER(configuration.clientContext.userInfo))
                         try await configuration.writer.transportMessage(type: type)
+                        
+                        
+                        //Create request for online nicks for all of our friends
+                        var nicks = [NeedleTailNick]()
+                        guard let cypher = await configuration.messenger.cypher else { return }
+                        let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
+                        for await username in usernames {
+                            print("REQUESTING BUNDLE FOR USERNAME \(username)___________")
+                            guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { return }
+                            print("GOT BUNDLE FOR - BUNDLE: \(masterKeyBundle)___________")
+                            for devices in try masterKeyBundle.readAndValidateDevices() {
+                                guard let nick = NeedleTailNick(
+                                    name: username.raw,
+                                    deviceId: devices.deviceId
+                                ) else { continue }
+                                nicks.append(nick)
+                            }
+                        }
+                        
+                        //Send Request
+                        try await configuration.writer.requestOnlineNicks(nicks)
                     case .isOnline:
                         await configuration.transportState.transition(to: .transportOnline(clientContext: configuration.clientContext))
                     case .quited:
@@ -258,25 +295,27 @@ actor NeedleTailStream: IRCDispatcher {
 #if (os(macOS) || os(iOS))
                         //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
-                            let encodedString = try BSONEncoder().encodeString([packet.name])
-                            let encodedMessageId = try BSONEncoder().encodeString([packet.mediaId])
-                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString, encodedMessageId]))
+                            let encodedString = try BSONEncoder().encodeString([packet.name, packet.mediaId])
+                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
                             try await configuration.writer.transportMessage(type: type)
-                            }
+                        }
                         
-                            await setUploadSuccess()
-                            hasStarted = false
+                        await setUploadSuccess()
+                        hasStarted = false
 #else
                         break
 #endif
                     case .multipartDownloadFailed(let error, let mediaId):
 #if (os(macOS) || os(iOS))
-                        if error == "Could not find multipart messges" {
-                            //Find Message and resize the thumbail because it does not exist on the server
-                            
+                    Task { @MainActor in
+                        if error == "Could not find multipart message" {
+                            //Find Message and resize the thumbnail because it does not exist on the server
+                                try await configuration.messenger.recreateOrRemoveFile(from: mediaId)
                         } else {
-                            await setDownloadError(error: error)
+                            await setError(error: error)
                         }
+                        await stopAnimatingProgress()
+                    }
 #else
                         break
 #endif
@@ -329,13 +368,17 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     @MainActor
-    private func setDownloadError(error: String) async {
-        await configuration.messenger.emitter.multipartDownloadFailed = MultipartDownloadFailed(status: true, error: error)
+    private func setError(error: String) async {
+#if (os(macOS) || os(iOS))
+        await configuration.messenger.emitter.errorReporter = ErrorReporter(status: true, error: error)
+#endif
     }
     
     @MainActor
     private func setUploadSuccess() async {
+#if (os(macOS) || os(iOS))
         await configuration.messenger.emitter.multipartUploadComplete = true
+#endif
     }
     
     public func processMessage(_
@@ -373,7 +416,7 @@ actor NeedleTailStream: IRCDispatcher {
         let ackMessage = acknowledgement.base64EncodedString()
         let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
         try await configuration.writer.transportMessage(type: type)
-        }
+    }
     
     private func createAcknowledgment(_
                                       ackType: Acknowledgment.AckType,
@@ -440,12 +483,6 @@ actor NeedleTailStream: IRCDispatcher {
         await configuration.plugin?.onPartMessage(packet.partMessage ?? "No Message Specified")
     }
     
-    public func doIsOnline(_ nicks: [NeedleTailNick]) async throws {
-        for nick in nicks {
-            print("IS ONLINE", nick)
-        }
-    }
-    
     public func doModeGet(nick: NeedleTailNick) async throws {
         await respondToTransportState()
     }
@@ -455,10 +492,15 @@ actor NeedleTailStream: IRCDispatcher {
     public func doPong(_ origin: String, origin2: String? = nil) async throws {
         Task { [weak self] in
             guard let self else { return }
-            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-            let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-            try await configuration.writer.transportMessage(type: type)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            try Task.checkCancellation()
+            group.addTask {
+                try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+                let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
+                try await self.configuration.writer.transportMessage(type: type)
             }
+        }
+        }
     }
     
     public func respondToTransportState() async {
@@ -500,29 +542,70 @@ actor NeedleTailStream: IRCDispatcher {
         logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
     }
     
+    func handleIsOnReply(nicks: [String]) async throws {
+        print("RECEIVED NICKS IS ON", nicks)
+        for nick in nicks {
+            let split = nick.components(separatedBy: Constants.colon.rawValue)
+            guard let name = split.first else { continue }
+            guard let deviceId = split.last else { continue }
+            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { continue }
+            clientsKnownAquaintances.contacts.append(nick)
+        }
+    }
+    
+    var multipartData = Data()
     public func doMultipartMessageDownload(_ packet: [String]) async throws {
         logger.info("Received multipart packet: \(packet[0]) of: \(packet[1])")
         precondition(packet.count == 4)
         let partNumber = packet[0]
         let totalParts = packet[1]
+        let name = packet[2]
         let chunk = packet[3]
+        
         guard let data = Data(base64Encoded: chunk) else { return }
+        await downloadChunks.feedConsumer([
+            MultipartChunk(
+                id: name,
+                partNumber: partNumber,
+                totalParts: totalParts,
+                chunk: data
+            )
+        ])
         
-        multipartData.append(data)
-        
-        if Int(partNumber) == Int(totalParts) {
-            logger.info("Finished receiving parts...")
-            logger.info("Starting to process multipart packet...")
-            
-            try await processMultipartMediaMessage(multipartData)
-            multipartData.removeAll()
-            await stopAnimatingProgress()
+        let totalPartsInFile = await self.downloadChunks.deque.filter({ $0.id == name && $0.partNumber <= $0.totalParts })
+        if totalPartsInFile.count == Int(totalPartsInFile.first?.totalParts ?? "") {
+            self.logger.info("Finished receiving parts...")
+            self.logger.info("Starting to process multipart packet...")
+            for try await result in NeedleTailAsyncSequence(consumer: self.downloadChunks) {
+                switch result {
+                case .success(let chunk):
+                    await self.addChunkData(data: chunk.chunk)
+                    if chunk.partNumber == chunk.totalParts {
+                        try await self.processMultipartMediaMessage(self.multipartData)
+                        await self.removeMultipartData()
+                        await self.stopAnimatingProgress()
+                        return
+                    }
+                case .consumed:
+                    return
+                }
+            }
         }
+    }
+    
+    func addChunkData(data: Data) async {
+        self.multipartData.append(data)
+    }
+    
+    func removeMultipartData() async {
+        self.multipartData.removeAll()
     }
     
     @MainActor
     func stopAnimatingProgress() async {
+#if (os(macOS) || os(iOS))
         await configuration.messenger.emitter.stopAnimatingProgress = true
+#endif
     }
     
     public func doListBucket(_ packet: [String]) async throws {
@@ -537,7 +620,9 @@ actor NeedleTailStream: IRCDispatcher {
     
     @MainActor
     private func setFileNames(_ filenames: [Filename]) async {
+#if (os(macOS) || os(iOS))
         await configuration.messenger.emitter.listedFilenames = filenames
+#endif
     }
     
     private func processMultipartMediaMessage(_ multipartData: Data) async throws {
@@ -561,16 +646,16 @@ actor NeedleTailStream: IRCDispatcher {
         let mediaId = await message.metadata["mediaId"] as? String
         if mediaId == decodedData.mediaId {
             guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { throw NeedleTailError.symmetricKeyDoesNotExist }
+            let ntc = configuration.messenger.needletailCrypto
             try await message.setMetadata(
                 cypher,
                 emitter: configuration.messenger.emitter,
                 sortChats: sortConversations,
-                run: { [weak self] props in
-                    guard let self else { fatalError("Reference to self") }
+                run: { props in
                     let document = props.message.metadata
                     var dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: document)
                     let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
-                    guard let fileData = try self.needleTailCrypto.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { throw NeedleTailError.nilData }
+                    guard let fileData = try ntc.decrypt(data: decodedData.data, symmetricKey: symmetricKey) else { throw NeedleTailError.nilData }
                     guard let fileBoxData = try cypher.encryptLocalFile(fileData).combined else { throw NeedleTailError.nilData }
                     
                     switch decodedData.mediaType {

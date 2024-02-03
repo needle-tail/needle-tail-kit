@@ -72,6 +72,7 @@ public class RunLoop {
             canRun = try await stopRunning()
         }
     }
+    static var loopTasks = [Task<UserConfig?, Error>]()
     
     public static func runKeyRequestLoop(_
                           expiresIn: TimeInterval,
@@ -79,18 +80,32 @@ public class RunLoop {
                           sleep: UInt64,
                           stopRunning: @Sendable @escaping () async throws -> (Bool, UserConfig?)
     ) async throws -> UserConfig? {
-        let date = RunLoop.timeInterval(expiresIn)
-        var userConfig: UserConfig?
-        var canRun = canRun
-        while await RunLoop.execute(date, canRun: canRun) {
-            try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
-            let stoppedRunning = try await stopRunning()
-            canRun = stoppedRunning.0
-            if !canRun {
-                userConfig = stoppedRunning.1
+        let task: Task<UserConfig?, Error> = Task {
+        try await withThrowingTaskGroup(of: UserConfig?.self) { group in
+            try Task.checkCancellation()
+            let date = RunLoop.timeInterval(expiresIn)
+            while await RunLoop.execute(date, canRun: canRun) {
+                try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
+                group.addTask {
+                    let stoppedRunning = try await stopRunning()
+                    if !stoppedRunning.0 {
+                        return stoppedRunning.1
+                    } else {
+                        return nil
+                    }
+                }
             }
+            return try await group.next()!
         }
-        return userConfig
+    }
+        loopTasks.append(task)
+        let configuration = try await task.value
+        let taskToCancel = loopTasks.first(where: { $0 == task })
+        if taskToCancel?.isCancelled == false {
+            taskToCancel?.cancel()
+        }
+        loopTasks.removeAll(where: { $0 == task })
+        return configuration
     }
     
 
