@@ -1,6 +1,6 @@
 //
 //  ContactsBundle.swift
-//  
+//
 //
 //  Created by Cole M on 9/4/23.
 //
@@ -11,10 +11,17 @@ import NeedleTailHelpers
 public final class ContactsBundle {
     public static let shared = ContactsBundle()
     
+#if (os(macOS) || os(iOS))
     @Published public var contactListBundle: ContactBundle?
     @Published public var contactBundle: ContactBundle?
     @Published public var contactBundleViewModel = [ContactBundle]()
     @Published public var scrollToBottom: UUID?
+#else
+    public var contactListBundle: ContactBundle?
+    public var contactBundle: ContactBundle?
+    public var contactBundleViewModel = [ContactBundle]()
+    public var scrollToBottom: UUID?
+#endif
     
     public init(contactListBundle: ContactBundle? = nil, contactBundle: ContactBundle? = nil, contactBundleViewModel: [ContactBundle] = [ContactBundle](), scrollToBottom: UUID? = nil) {
         self.contactListBundle = contactListBundle
@@ -111,15 +118,21 @@ public final class ContactsBundle {
             guard let index = contactBundleViewModel.firstIndex(where: { $0.contact?.username == setBundle.contact?.username }) else { return }
             switch setBundle.sortedBy {
             case .unRead:
-                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: indexOfUnread)
+                movePosition(index: index, offset: indexOfUnread)
                 indexOfUnread += 1
                 lastUnread = indexOfUnread
             case .pinned:
-                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset:lastUnread + 1)
+                movePosition(index: index, offset: lastUnread + 1)
             case .unPinRead:
-                contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: contactBundleViewModel.count)
+                movePosition(index: index, offset: contactBundleViewModel.count)
             }
         }
+    }
+    
+    private func movePosition(index: Int, offset: Int) {
+#if (os(macOS) || os(iOS))
+        contactBundleViewModel.move(fromOffsets: IndexSet(integer: index), toOffset: offset)
+#endif
     }
 }
 

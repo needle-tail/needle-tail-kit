@@ -10,7 +10,11 @@ import NeedleTailHelpers
 
 public final class MostRecentMessage<Chat: AnyConversation> {
     
+#if (os(macOS) || os(iOS))
     @Published public var message: AnyChatMessage?
+#else
+    public var message: AnyChatMessage?
+#endif
     let chat: Chat
     
     public init(chat: Chat) async throws {

@@ -5,43 +5,62 @@
 //  Created by Cole M on 4/26/22.
 //
 
-#if canImport(Network) && canImport(Combine)
+#if canImport(Network)
 import Network
-import Combine
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
-public final class NetworkMonitor: NSObject, ObservableObject {
+public final class NetworkMonitor {
     public static let shared = NetworkMonitor()
     private let monitorPath = NWPathMonitor()
-    private var statusCancellable: Cancellable?
     private var isSet = false
-    @Published public var currentStatus: NWPath.Status = .unsatisfied
     
-    public override init() {
-        super.init()
-        statusCancellable = self.publisher(for: \.currentStatus) as? Cancellable
-    }
+#if (os(macOS) || os(iOS))
+    @Published public var currentStatus: NWPath.Status = .unsatisfied
+#endif
+    
+    public var currentStatusStream: AsyncStream<NWPath.Status>?
+    public init() {}
 
 
     public func startMonitor() async {
         if !isSet {
             let queue = DispatchQueue(label: "network-monitor")
             monitorPath.start(queue: queue)
-            monitor()
+            await monitor()
         }
     }
     
-    public func monitor() {
-        monitorPath.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.currentStatus = path.status
+    public func monitor() async {
+        let currentStatusStream = AsyncStream<NWPath.Status> { continuation in
+            monitorPath.pathUpdateHandler = { path in
+                continuation.yield(path.status)
             }
+            continuation.onTermination = { status in
+                print("Monitor Stream Terminated with status:", status)
+            }
+        }
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                try Task.checkCancellation()
+                for await status in currentStatusStream {
+                    group.addTask {
+                        self.currentStatus = status
+                    }
+                }
+                group.cancelAll()
+            }
+        } catch {
+            print(error)
         }
     }
     
     public func cancelMonitor() {
         monitorPath.cancel()
-        statusCancellable = nil
     }
 }
+#if (os(macOS) || os(iOS))
+extension NetworkMonitor: ObservableObject {}
+#endif
 #endif

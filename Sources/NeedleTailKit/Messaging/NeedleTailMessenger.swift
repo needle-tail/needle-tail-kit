@@ -7,22 +7,22 @@
 
 import CypherMessaging
 import MessagingHelpers
-#if canImport(SwiftUI)
-import SwiftUI
-#endif
 import NeedleTailHelpers
 import NeedletailMediaKit
 import NeedleTailCrypto
+import SwiftDTF
+import DequeModule
 //import SpineTailedKit
 //import SpineTailedProtocol
 #if os(macOS)
 import Cocoa
 #endif
-import DequeModule
 #if canImport(Crypto)
 @preconcurrency import Crypto
 #endif
-import SwiftDTF
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 @NeedleTailMessengerActor
 public final class NeedleTailMessenger {
@@ -31,7 +31,9 @@ public final class NeedleTailMessenger {
     public let emitter: NeedleTailEmitter
     @MainActor
     public let contactsBundle: ContactsBundle
+#if canImport(Network)
     public let networkMonitor: NetworkMonitor
+#endif
     public typealias NTAnyChatMessage = AnyChatMessage
     public typealias NTContact = Contact
     public typealias NTPrivateChat = PrivateChat
@@ -50,11 +52,13 @@ public final class NeedleTailMessenger {
     public var cypher: CypherMessenger? {
         didSet {
             if let cypher = cypher {
+#if (os(macOS) || os(iOS))
                 Task { @MainActor in
                     emitter.cypher = cypher
                     emitter.username = cypher.username
                     emitter.deviceId = cypher.deviceId
                 }
+#endif
             }
         }
     }
@@ -79,6 +83,7 @@ public final class NeedleTailMessenger {
         }
     }
     
+#if canImport(Network)
     public init(
         emitter: NeedleTailEmitter,
         contactsBundle: ContactsBundle,
@@ -90,6 +95,18 @@ public final class NeedleTailMessenger {
         self.networkMonitor = networkMonitor
         self.sortChats = sortChats
     }
+#else
+    public init(
+        emitter: NeedleTailEmitter,
+        contactsBundle: ContactsBundle,
+        sortChats: @Sendable @MainActor @escaping (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
+    ) async {
+        self.emitter = emitter
+        self.contactsBundle = contactsBundle
+        self.sortChats = sortChats
+    }
+#endif
+    
     
     
     /// We are going to run a loop on this actor until the **Child Device** scans the **Master Device's** approval **QRCode**. We then complete the loop in **onBoardAccount()**, finish registering this device locally and then we request the **Master Device** to add the new device to the remote DB before we are allowed spool up an NTK Session.
@@ -136,7 +153,7 @@ public final class NeedleTailMessenger {
             clientInfo: clientInfo
         )
         do {
-            if await self.emitter.channelIsActive {
+//            if await self.emitter.channelIsActive {
                 let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
                 for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                     guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
@@ -173,10 +190,12 @@ public final class NeedleTailMessenger {
                     addChildDevice: withChildDevice,
                     messenger: messenger
                 )
+#if (os(macOS) || os(iOS))
                 Task { @MainActor in
                     emitter.needleTailNick = cypherTransport.configuration.needleTailNick
                 }
-            }
+#endif
+//            }
         } catch let nterror as NeedleTailError {
             switch nterror {
             case .nilUserConfig:
@@ -195,11 +214,12 @@ public final class NeedleTailMessenger {
                         eventHandler: eventHandler,
                         messenger: messenger
                     )
-                    
+#if (os(macOS) || os(iOS))
                     Task { @MainActor in
                         emitter.needleTailNick = cypherTransport.configuration.needleTailNick
                         dismissUI()
                     }
+#endif
                 } catch {
                     print("ERROR REGISTERING", error)
                 }
@@ -218,7 +238,9 @@ public final class NeedleTailMessenger {
     
     @MainActor
     private func displayScanner() {
+#if (os(macOS) || os(iOS))
         emitter.showScanner = true
+#endif
     }
     
     @MainActor
@@ -335,7 +357,9 @@ public final class NeedleTailMessenger {
     
     @MainActor
     func setNick(transport: NeedleTailCypherTransport) async {
+#if (os(macOS) || os(iOS))
         emitter.needleTailNick = transport.configuration.needleTailNick
+#endif
     }
     
     public func connectionAvailability() -> Bool {
@@ -375,6 +399,10 @@ public final class NeedleTailMessenger {
         }
     }
 
+    private func getConnectionState() async -> ServerConnectionState {
+        await emitter.connectionState
+    }
+    
     internal func setUpClientInfo(
         cypherTransport: NeedleTailCypherTransport,
         nameToVerify: String = "",
@@ -387,7 +415,7 @@ public final class NeedleTailMessenger {
     
     internal func resumeService(cypherTransport: NeedleTailCypherTransport, clientInfo: NeedleTailCypherTransport.ClientInfo) async {
         do {
-        switch await emitter.connectionState {
+        switch await getConnectionState() {
         case .deregistered, .shouldRegister:
             await setRegistrationState(.registering)
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -400,13 +428,13 @@ public final class NeedleTailMessenger {
                 }
                 _ = try await group.next()
                 try await self.monitorClientConnection(cypherTransport)
-#if (os(macOS) || os(iOS))
                 Task { @MainActor in
                     if let client = cypherTransport.configuration.client {
+#if (os(macOS) || os(iOS))
                         self.emitter.channelIsActive = await client.channelIsActive
+#endif
                     }
                 }
-#endif
                 group.cancelAll()
             }
         case .deregistering:
@@ -426,6 +454,7 @@ public final class NeedleTailMessenger {
                                        cypherTransport: NeedleTailCypherTransport,
                                        clientInfo: NeedleTailCypherTransport.ClientInfo
     ) async {
+#if (os(macOS) || os(iOS))
         let networkServiceResumerTask = Task {
             return try await withThrowingTaskGroup(of: Void.self, body: { group in
                 //We need to make sure we have internet before we try this
@@ -455,6 +484,7 @@ public final class NeedleTailMessenger {
                 networkServiceResumerTask.cancel()
             }
         }
+#endif
     }
     
     private func setCanRegister(canRegister: Bool) async {
@@ -462,6 +492,7 @@ public final class NeedleTailMessenger {
     }
     var canReregister = false
     func monitorClientConnection(_ cypherTransport: NeedleTailCypherTransport) async throws {
+#if (os(macOS) || os(iOS))
         try await withThrowingTaskGroup(of: Void.self) { group in
             for await state in await self.emitter.$connectionState.values {
                 try Task.checkCancellation()
@@ -496,6 +527,7 @@ public final class NeedleTailMessenger {
                 group.cancelAll()
             }
         }
+#endif
     }
     
     public func serviceInterupted(_ isSuspending: Bool = false) async throws {
@@ -665,7 +697,7 @@ public final class NeedleTailMessenger {
 
 //SwiftUI Stuff
 extension NeedleTailMessenger {
-    
+#if (canImport(SwiftUI) && canImport(Network))
     public struct SkeletonView<Content>: View where Content: View {
         
         @StateObject var emitter = NeedleTailEmitter.shared
@@ -695,7 +727,7 @@ extension NeedleTailMessenger {
             }
         }
     }
-    
+#endif
     
     public func spoolService(
         with serverInfo: ClientContext.ServerClientInfo,
@@ -725,9 +757,13 @@ extension NeedleTailMessenger {
     
     @MainActor
     private func setErrorReporter(error description: String) {
+#if (os(macOS) || os(iOS))
         emitter.errorReporter = ErrorReporter(status: true, error: description)
+#endif
     }
     
+    
+#if canImport(SwiftUI)
     public struct RegisterOrAddButton: View {
         public var exists: Bool = true
         public var createContact: Bool = true
@@ -747,7 +783,7 @@ extension NeedleTailMessenger {
         @State var buttonTask: Task<(), Error>? = nil
         @Environment(\.messenger) var messenger
         @EnvironmentObject var emitter: NeedleTailEmitter
-        
+
         public init(
             exists: Bool,
             createContact: Bool,
@@ -843,6 +879,7 @@ extension NeedleTailMessenger {
             }
         }
     }
+#endif
     
     public struct ThumbnailToMultipart: Sendable {
         public var dtfp: DataToFilePacket
@@ -1031,8 +1068,10 @@ extension NeedleTailMessenger {
                 let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
                 guard let cypher = cypher else { return }
                 let thumbnailBlob = try await needletailCrypto.decryptFile(from: thumbnailLocation, cypher: cypher)
+#if (os(macOS) || os(iOS))
                 let newSize = try await ImageProcessor.getNewSize(data: thumbnailBlob, desiredSize: CGSize(width: 600, height: 600), isThumbnail: false)
                 let newImage: CGImage = try await ImageProcessor.resize(thumbnailBlob, to: newSize, isThumbnail: false)
+#endif
                 var data: Data?
 #if os(iOS)
                 data = UIImage(cgImage: newImage).jpegData(compressionQuality: 1.0)
@@ -1087,7 +1126,11 @@ extension NeedleTailMessenger {
     }
     
     public func fetchGroupChats(_ cypher: CypherMessenger) async throws -> [GroupChat] {
+#if (os(macOS) || os(iOS))
         return await emitter.groupChats
+#else
+        return []
+#endif
     }
     
     /// `fetchChats()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
@@ -1107,8 +1150,10 @@ extension NeedleTailMessenger {
                 case .privateChat(let chat):
                     try await getChats(chat: chat, contact: contact)
                 case .groupChat(let groupChat):
+#if (os(macOS) || os(iOS))
                     if await !emitter.groupChats.contains(groupChat) {
                     }
+#endif
                 case .internalChat(let chat):
                     try await getChats(chat: chat)
                 }
@@ -1288,7 +1333,6 @@ extension NeedleTailMessenger {
             type: type,
             messageSubtype: messageSubtype,
             text: text,
-            //            metadata: metadata,
             destructionTimer: destructionTimer,
             preferredPushType: pushType
         )
@@ -1303,6 +1347,7 @@ extension NeedleTailMessenger {
             for try await result in NeedleTailAsyncSequence(consumer: self.mediaConsumer) {
                 switch result {
                 case .success(var packet):
+#if (os(macOS) || os(iOS))
                     packet.packet.metadata = nil
                     let thumbnailBox = try await self.emitter.cypher?.encryptLocalFile(packet.thumbnailData)
                     guard let thumbnailBoxData = thumbnailBox?.combined else { return }
@@ -1349,6 +1394,7 @@ extension NeedleTailMessenger {
                             symmetricKey: symmetricKey
                         )
                     }
+#endif
                 case .consumed:
                     print("PACKET_CONSUMED")
                     return
@@ -1392,6 +1438,7 @@ public func makeP2PFactories() -> [P2PTransportClientFactory] {
     ]
 }
 
+#if (os(macOS) || os(iOS))
 extension EnvironmentValues {
     private struct NeedleTailMessengerKey: EnvironmentKey {
         typealias Value = NeedleTailMessenger?
@@ -1417,6 +1464,7 @@ extension EnvironmentValues {
     }
     
 }
+#endif
 
 extension NIOCore.ChannelError {
     

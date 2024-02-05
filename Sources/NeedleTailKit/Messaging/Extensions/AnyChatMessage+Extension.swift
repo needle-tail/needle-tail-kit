@@ -22,11 +22,11 @@ extension AnyChatMessage {
             let doc = try run(&props)
             props.message.metadata = doc
         }
-
+#if (os(macOS) || os(iOS))
         await MainActor.run {
             emitter.shouldRefreshView = true
         }
-        
+#endif
         try await cypher.updateChatMessage(self.raw)
     }
 }

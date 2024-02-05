@@ -9,7 +9,7 @@ struct ClientsKnownAquaintances {
     }
 }
 
-final class AquaintanceInfo: ObservableObject {
+final class AquaintanceInfo {
 
     var aquaintances: ClientsKnownAquaintances?
     
@@ -110,3 +110,7 @@ final class AquaintanceInfo: ObservableObject {
 ////        }
 //    }
 }
+
+#if os(iOS) || os(macOS)
+extension AquaintanceInfo: ObservableObject {}
+#endif

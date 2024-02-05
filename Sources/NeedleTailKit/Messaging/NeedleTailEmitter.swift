@@ -15,6 +15,7 @@ public enum ServerConnectionState {
 @MainActor
 public final class NeedleTailEmitter: NSObject {
     public static let shared = NeedleTailEmitter()
+    
 #if (os(macOS) || os(iOS))
     
     @Published public var cypher: CypherMessenger?
@@ -64,7 +65,11 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var destructionTime: DestructionMetadata?
     @Published public var stopAnimatingProgress = false
     //    = UserDefaults.standard.integer(forKey: "destructionTime"
+#else
+    public var connectionState = ServerConnectionState.deregistered
 #endif
 }
 
+#if (os(macOS) || os(iOS))
 extension NeedleTailEmitter: ObservableObject {}
+#endif
