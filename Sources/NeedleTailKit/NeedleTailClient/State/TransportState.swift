@@ -11,7 +11,6 @@ import NeedleTailHelpers
 import NeedleTailProtocol
 import NIOCore
 
-#if os(iOS) || os(macOS)
 public actor TransportState {
     
     public let identifier: UUID
@@ -93,4 +92,3 @@ public actor TransportState {
 #endif
     }
 }
-#endif

@@ -4,10 +4,12 @@
 //
 //  Created by Cole M on 4/17/22.
 //
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+
 import CypherMessaging
 import MessagingHelpers
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 import NeedleTailHelpers
 import NeedletailMediaKit
 import NeedleTailCrypto
@@ -21,8 +23,6 @@ import DequeModule
 @preconcurrency import Crypto
 #endif
 import SwiftDTF
-#if os(iOS) || os(macOS)
-
 
 @NeedleTailMessengerActor
 public final class NeedleTailMessenger {
@@ -1417,10 +1417,6 @@ extension EnvironmentValues {
     }
     
 }
-
-
-#endif
-#endif
 
 extension NIOCore.ChannelError {
     

@@ -7,7 +7,6 @@
 
 import Foundation
 
-#if (os(macOS) || os(iOS))
 public struct Filename: Codable, Sendable, Equatable, Hashable, CustomStringConvertible {
     
     public var description: String { raw }
@@ -33,4 +32,4 @@ public struct Filename: Codable, Sendable, Equatable, Hashable, CustomStringConv
         try raw.encode(to: encoder)
     }
 }
-#endif
+
