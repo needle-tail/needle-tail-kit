@@ -26,7 +26,7 @@ import Crypto
 import SwiftDTF
 #endif
 
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
+#if (os(macOS) || os(iOS))
 extension NeedleTailStream {
     public func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
@@ -34,7 +34,6 @@ extension NeedleTailStream {
 }
 #endif
 
-#if (os(macOS) || os(iOS))
 actor NeedleTailStream: IRCDispatcher {
     
     struct Configuration: Sendable, MessengerTransportBridge {
@@ -717,7 +716,6 @@ actor NeedleTailStream: IRCDispatcher {
     }
 }
 
-
 struct FilePacket: Sendable, Codable {
     var mediaId: String
     var mediaType: MediaType
@@ -728,4 +726,3 @@ struct FilePacket: Sendable, Codable {
 enum MediaType: Sendable, Codable {
     case thumbnail, file
 }
-#endif
