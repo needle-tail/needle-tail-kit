@@ -1032,10 +1032,15 @@ extension NeedleTailMessenger {
                 guard let cypher = cypher else { return }
                 let thumbnailBlob = try await needletailCrypto.decryptFile(from: thumbnailLocation, cypher: cypher)
                 let newSize = try await ImageProcessor.getNewSize(data: thumbnailBlob, desiredSize: CGSize(width: 600, height: 600), isThumbnail: false)
-                let newImage = try await ImageProcessor.resize(thumbnailBlob, to: newSize, isThumbnail: false)
+                let newImage: CGImage = try await ImageProcessor.resize(thumbnailBlob, to: newSize, isThumbnail: false)
+                var data: Data?
 #if os(iOS)
-                guard let data = UIImage(cgImage: newImage).jpegData(compressionQuality: 1.0) else { return }
+                data = UIImage(cgImage: newImage).jpegData(compressionQuality: 1.0)
+                
+#elseif os(macOS)
+                data = NSImage(cgImage: newImage, size: newSize).jpegData(size: newSize)
 #endif
+                guard let data = data else { return }
                 guard let sharedFileBlob = try await needletailCrypto.encrypt(data: data, symmetricKey: symmetricKey) else { return }
                 let fileType = thumbnailLocation.components(separatedBy: ".").first ?? "jpg"
                 

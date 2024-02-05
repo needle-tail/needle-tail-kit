@@ -14,7 +14,6 @@ import DequeModule
 import NIOCore
 import NeedleTailProtocol
 
-#if (os(macOS) || os(iOS))
 extension NeedleTailClient: ClientTransportDelegate {
     
     // Due to NIOAsyncChannels new API we need to redesign the creation of connection and redirecting the stream of data. Do the following
@@ -195,4 +194,3 @@ extension NeedleTailClient: ClientTransportDelegate {
         try await self.writer?.notifyContactRemoved(ntkUser, removed: contact)
     }
 }
-#endif

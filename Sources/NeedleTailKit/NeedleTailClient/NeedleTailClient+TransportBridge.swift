@@ -11,7 +11,6 @@ import JWTKit
 import NeedleTailProtocol
 import NIOCore
 
-#if canImport(SwiftUI) && canImport(Combine) && (os(macOS) || os(iOS))
 protocol TransportBridge: AnyObject {
     
     func processStream(
@@ -625,4 +624,3 @@ print("__________READING BUNDLE___________")
         try await writer?.transportMessage(type: type)
     }
 }
-#endif

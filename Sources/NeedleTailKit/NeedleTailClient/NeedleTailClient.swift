@@ -7,7 +7,6 @@ import CypherMessaging
 import NIOTransportServices
 #endif
 
-#if (os(macOS) || os(iOS))
 struct NTKClientBundle: Sendable {
     let signer: TransportCreationRequest?
     var cypher: CypherMessenger?
@@ -100,5 +99,3 @@ extension NeedleTailClient: Equatable {
         return lhs === rhs
     }
 }
-
-#endif
