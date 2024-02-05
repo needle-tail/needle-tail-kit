@@ -7,8 +7,6 @@
 
 import Foundation
 
-#if (os(macOS) || os(iOS))
 protocol ClientTransportDelegate: AnyObject, Sendable {
     func shutdown() async
 }
-#endif

@@ -6,10 +6,9 @@
 //
 
 import CypherMessaging
- import NeedleTailHelpers
+import NeedleTailHelpers
 
-#if (os(macOS) || os(iOS))
-public final class ContactsBundle: ObservableObject {
+public final class ContactsBundle {
     public static let shared = ContactsBundle()
     
     @Published public var contactListBundle: ContactBundle?
@@ -123,4 +122,7 @@ public final class ContactsBundle: ObservableObject {
         }
     }
 }
+
+#if (os(macOS) || os(iOS))
+extension ContactsBundle: ObservableObject {}
 #endif

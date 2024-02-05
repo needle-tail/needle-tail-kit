@@ -7,7 +7,6 @@
 
 import CypherMessaging
 
-#if (os(macOS) || os(iOS))
 // I don't know Why CTK start Decrypting Props from the MainActor, I should put in a PR One day and fix this.
 extension AnyChatMessage {
     
@@ -31,4 +30,3 @@ extension AnyChatMessage {
         try await cypher.updateChatMessage(self.raw)
     }
 }
-#endif

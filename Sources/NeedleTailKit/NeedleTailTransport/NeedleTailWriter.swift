@@ -16,8 +16,6 @@ import Crypto
 import NIOCore
 import Logging
 
-#if (os(macOS) || os(iOS))
-
 actor NeedleTailWriter: NeedleTailClientDelegate {
     
     let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
@@ -395,4 +393,3 @@ struct MultipartObject: Sendable, Codable {
     var totalParts: String
     var data: Data
 }
-#endif

@@ -17,7 +17,6 @@ import FoundationNetworking
 import NIOTransportServices
 #endif
 
-#if os(iOS) || os(macOS)
 public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     internal var configuration: NeedleTailCypherTransport.Configuration
@@ -218,7 +217,6 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
         case clientRegistering, lockState
     }
     
-#if os(macOS) || os(iOS)
     public class func authenticate(
         appleToken: String? = "",
         transportRequest: TransportCreationRequest?,
@@ -243,7 +241,6 @@ public class NeedleTailCypherTransport: CypherServerTransportClientBridge {
                 )
         )
     }
-#endif
     
     public struct ClientInfo: Sendable {
         var clientContext: ClientContext
@@ -622,11 +619,7 @@ extension Array {
 
 actor TransportStore {
     
-    var keyBundle: UserConfig? {
-        didSet {
-            print("DID_SET", keyBundle)
-        }
-    }
+    var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var setAcknowledgement: Acknowledgment.AckType = .none {
         didSet {
@@ -641,11 +634,9 @@ actor TransportStore {
     
     func setKeyBundle(_ config: UserConfig) {
         keyBundle = config
-        print("SET_____", keyBundle)
     }
     
     func clearUserConfig() {
         keyBundle = nil
     }
 }
-#endif

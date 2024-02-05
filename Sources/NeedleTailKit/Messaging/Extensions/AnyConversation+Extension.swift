@@ -5,7 +5,6 @@
 //  Created by Cole M on 9/2/23.
 //
 
-#if os(iOS) || os(macOS)
 import CypherMessaging
 import MessagingHelpers
 
@@ -141,4 +140,3 @@ public struct ModifyMessagePlugin: Plugin {
         return .send
     }
 }
-#endif

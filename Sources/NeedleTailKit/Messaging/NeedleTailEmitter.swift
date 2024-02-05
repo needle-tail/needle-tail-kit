@@ -67,6 +67,4 @@ public final class NeedleTailEmitter: NSObject {
 #endif
 }
 
-#if (os(macOS) || os(iOS))
 extension NeedleTailEmitter: ObservableObject {}
-#endif

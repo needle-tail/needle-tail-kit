@@ -7,7 +7,6 @@
 
 import CypherMessaging
 
-#if (os(macOS) || os(iOS))
 public struct NeedleTailMessage: Equatable, Hashable, Identifiable {
     public var id = UUID()
     public var message: AnyChatMessage
@@ -17,4 +16,3 @@ public struct NeedleTailMessage: Equatable, Hashable, Identifiable {
         self.message = message
     }
 }
-#endif

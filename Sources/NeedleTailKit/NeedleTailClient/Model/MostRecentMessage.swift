@@ -6,10 +6,9 @@
 //
 
 import CypherMessaging
- import NeedleTailHelpers
+import NeedleTailHelpers
 
-#if (os(macOS) || os(iOS))
-public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
+public final class MostRecentMessage<Chat: AnyConversation> {
     
     @Published public var message: AnyChatMessage?
     let chat: Chat
@@ -24,4 +23,7 @@ public final class MostRecentMessage<Chat: AnyConversation>: ObservableObject {
         }
     }
 }
+
+#if (os(macOS) || os(iOS))
+extension MostRecentMessage: ObservableObject {}
 #endif

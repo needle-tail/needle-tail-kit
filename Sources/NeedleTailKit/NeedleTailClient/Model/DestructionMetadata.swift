@@ -7,7 +7,6 @@
 
 import Foundation
 
-#if (os(macOS) || os(iOS))
 public struct DestructionMetadata: Identifiable {
     
     public let id = UUID()
@@ -31,4 +30,3 @@ public enum DestructiveMessageTimes: String {
     case oneWeek = "1 Week"
     case fourWeeks = "4 Weeks"
 }
-#endif

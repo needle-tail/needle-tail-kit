@@ -26,13 +26,11 @@ import Crypto
 import SwiftDTF
 #endif
 
-#if (os(macOS) || os(iOS))
 extension NeedleTailStream {
     public func doNotice(recipients: [IRCMessageRecipient], message: String) async throws {
         await respondToTransportState()
     }
 }
-#endif
 
 actor NeedleTailStream: IRCDispatcher {
     

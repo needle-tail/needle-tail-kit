@@ -7,7 +7,6 @@
 
 import Foundation
 
-#if (os(macOS) || os(iOS))
 public struct ErrorReporter {
     public var status: Bool
     public var error: String
@@ -17,4 +16,3 @@ public struct ErrorReporter {
         self.error = error
     }
 }
-#endif
