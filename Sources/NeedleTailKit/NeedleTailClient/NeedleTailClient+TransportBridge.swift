@@ -251,6 +251,7 @@ print("__________READING BUNDLE___________")
                     }
 //                }
         print("__________READ BUNDLE___________")
+//        guard let result = result else { throw NeedleTailError.emitterIsNil }
             return result!
 //                return try await group.next()
 //            }

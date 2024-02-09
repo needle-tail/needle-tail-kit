@@ -78,6 +78,6 @@ let package = Package(
             ]),
         .testTarget(
             name: "NeedleTailKitTests",
-            dependencies: ["NeedleTailKit"]),
+            dependencies: ["NeedleTailKit", "NeedleTailProtocol"]),
     ]
 )

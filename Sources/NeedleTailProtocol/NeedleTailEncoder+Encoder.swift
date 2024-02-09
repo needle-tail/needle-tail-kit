@@ -43,8 +43,9 @@ public final class NeedleTailEncoder {
             }
             newString += Constants.space.rawValue + Constants.colon.rawValue + userInfo.realname
         case .ISON(let nicks):
-            newString += base + Constants.space.rawValue + arguments(nicks.lazy.map({ $0.stringValue }))
-            
+            print(nicks)
+            newString += base + arguments(nicks.lazy.map({ $0.stringValue }))
+            print(newString)
         case .QUIT(.none):
             break
         case .QUIT(.some(let value)):

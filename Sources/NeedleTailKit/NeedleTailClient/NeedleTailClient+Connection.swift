@@ -77,7 +77,6 @@ extension NeedleTailClient: ClientTransportDelegate {
                                 for try await buffer in stream {
                                         var buffer = buffer
                                         guard let message = buffer.readString(length: buffer.readableBytes) else { return }
-                                    print("RECEIVED_MESSAGE______", message)
                                         guard !message.isEmpty else { return }
                                         let messages = message.components(separatedBy: Constants.cLF.rawValue)
                                             .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }

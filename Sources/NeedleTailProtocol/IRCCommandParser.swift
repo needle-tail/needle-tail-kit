@@ -225,12 +225,14 @@ public extension IRCCommand {
             try expect(min: 1)
             var nicks = [NeedleTailNick]()
             for arg in arguments {
-                nicks += try arg.split(separator: Character(Constants.space.rawValue)).map(String.init).map {
-                    guard let nick = NeedleTailNick(name: $0, deviceId: nil) else {
-                        throw Error.invalidNickName($0)
-                    }
-                    return nick
+                let splitNick = arg.split(separator: Character(Constants.colon.rawValue))
+                guard let nick = splitNick.first else { throw Error.invalidNickName(arg) }
+                guard let deviceId = splitNick.last else { throw Error.invalidNickName(arg) }
+                guard let nick = NeedleTailNick(name: String(nick), deviceId: DeviceId(String(deviceId))) else {
+                    throw Error.invalidNickName(arg)
                 }
+                
+                nicks.append(nick)
             }
             self = .ISON(nicks)
             

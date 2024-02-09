@@ -187,6 +187,7 @@ actor NeedleTailStream: IRCDispatcher {
                 self.logger.trace("otherNumeric Args: - \(args)")
                 await self.handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
             case .otherCommand(Constants.readKeyBundle.rawValue, let keyBundle):
+                print("RECEIVED KB____")
                 try await doReadKeyBundle(keyBundle)
             default:
                 await self.handleInfo(message.command.arguments)
@@ -260,27 +261,33 @@ actor NeedleTailStream: IRCDispatcher {
                         try await configuration.writer.transportMessage(type: type)
                         
                         
-                        //Create request for online nicks for all of our friends
-                        var nicks = [NeedleTailNick]()
-                        guard let cypher = await configuration.messenger.cypher else { return }
-                        let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
-                        for await username in usernames {
-                            print("REQUESTING BUNDLE FOR USERNAME \(username)___________")
-                            guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { return }
-                            print("GOT BUNDLE FOR - BUNDLE: \(masterKeyBundle)___________")
-                            for devices in try masterKeyBundle.readAndValidateDevices() {
-                                guard let nick = NeedleTailNick(
-                                    name: username.raw,
-                                    deviceId: devices.deviceId
-                                ) else { continue }
-                                nicks.append(nick)
-                            }
-                        }
                         
-                        //Send Request
-                        try await configuration.writer.requestOnlineNicks(nicks)
+                        
+
                     case .isOnline:
                         await configuration.transportState.transition(to: .transportOnline(clientContext: configuration.clientContext))
+                        Task {
+                            //Create request for online nicks for all of our friends
+                            var nicks = [NeedleTailNick]()
+                            guard let cypher = await configuration.messenger.cypher else { return }
+                            let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
+                            print("USERNAMES_TO_GET_KB", try await cypher.listContacts())
+                            for await username in usernames {
+                                print("REQUESTING BUNDLE FOR USERNAME \(username)___________")
+                                guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { fatalError() }
+                                print("GOT BUNDLE FOR - BUNDLE: \(masterKeyBundle)___________")
+                                for devices in try masterKeyBundle.readAndValidateDevices() {
+                                    guard let nick = NeedleTailNick(
+                                        name: username.raw,
+                                        deviceId: devices.deviceId
+                                    ) else { continue }
+                                    nicks.append(nick)
+                                }
+                            }
+                            
+                            //Send Request
+                            try await configuration.writer.requestOnlineNicks(nicks)
+                        }
                     case .quited:
                         await configuration.writer.setQuiting(false)
                         await configuration.ctDelegate!.shutdown()

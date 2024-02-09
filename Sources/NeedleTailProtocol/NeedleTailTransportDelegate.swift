@@ -60,7 +60,9 @@ extension NeedleTailClientDelegate {
                     let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
                     try await sendAndFlushMessage(writer, message: message)
                 }
-                
+            case .ISON(let nicks):
+                let message = IRCMessage(origin: origin, command: .ISON(nicks), tags: tags)
+                try await sendAndFlushMessage(writer, message: message)
             case .NOTICE(let recipients, let messageLines):
                 let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
                     .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }

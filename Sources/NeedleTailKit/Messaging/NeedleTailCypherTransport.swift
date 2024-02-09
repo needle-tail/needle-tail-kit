@@ -633,6 +633,8 @@ actor TransportStore {
     }
     
     func setKeyBundle(_ config: UserConfig) {
+        print("SET_STORE", config)
+        //TODO: ONCE WE SET STORE WE NEED TO IMMEDIATELY FINISH READ BUNDLE. WE HAVE A BOTTLE NECK HERE
         keyBundle = config
     }
     

@@ -76,7 +76,7 @@ public struct MessageParser: Sendable {
             parameter: parameter,
             origin: origin
         )
-        
+
         var tags: [IRCTags]?
         if seperatedTags != [] {
             tags = try parseTags(
@@ -158,6 +158,7 @@ public struct MessageParser: Sendable {
         switch commandKey {
         case .int(let int):
             //            :localhost 332 Guest31 #NIO :Welcome to #nio!
+            
             var spread = message.components(separatedBy: Constants.space.rawValue)
             guard spread.count >= 4 else { return [] }
             let right = spread[4...]
@@ -170,7 +171,7 @@ public struct MessageParser: Sendable {
             args.append(
                 createArgFromIntCommand(newArray, command: int)
             )
-            
+ 
         case .string(let commandKey):
             if commandKey.hasPrefix(Constants.nick.rawValue) ||
                 commandKey.hasPrefix(Constants.join.rawValue) ||
@@ -270,6 +271,15 @@ public struct MessageParser: Sendable {
                             .trimmingCharacters(in: .whitespaces)
                         let arguments = message.components(separatedBy: Constants.space.rawValue)
                         args.append(contentsOf: arguments)
+            } else if commandKey.hasPrefix(Constants.isOn.rawValue) {
+                var stripedMessage = stripedMessage
+                if let origin = origin {
+                    stripedMessage = stripedMessage.replacingOccurrences(of: origin, with: Constants.none.rawValue)
+                }
+                stripedMessage = stripedMessage.replacingOccurrences(of: Constants.isOn.rawValue, with: Constants.none.rawValue)
+                stripedMessage = stripedMessage.trimmingCharacters(in: .whitespaces)
+                let arguments = stripedMessage.components(separatedBy: Constants.space.rawValue)
+                args.append(contentsOf: arguments)
             }
         }
         return args
