@@ -25,8 +25,7 @@ extension NeedleTailStream {
     /// Request from the server a users key bundle
     /// - Parameter packet: Our Authentication Packet
     func readKeyBundle(_ packet: String) async throws {
-        let type = TransportMessageType.standard(.otherCommand(Constants.readKeyBundle.rawValue, [packet]))
-        try await configuration.writer.transportMessage(type: type)
+        try await configuration.writer.transportMessage(command: .otherCommand(Constants.readKeyBundle.rawValue, [packet]))
     }
     
     enum KeyBundleErrors: Error {

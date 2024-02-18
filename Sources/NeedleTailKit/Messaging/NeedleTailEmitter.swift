@@ -6,7 +6,7 @@
 //
 
 import CypherMessaging
- import NeedleTailHelpers
+import NeedleTailHelpers
 
 public enum ServerConnectionState {
     case shouldRegister, registering, registered, deregistering, deregistered
@@ -39,7 +39,7 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var registered = false
     @Published public var contactAdded: Contact?
     @Published public var contactRemoved: Contact?
-    @Published public var nicksOnline: [NeedleTailNick] = []
+//    @Published public var nicksOnline: [NeedleTailNick] = []
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
     @Published public var needleTailNick: NeedleTailNick?
@@ -64,6 +64,7 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var salt = ""
     @Published public var destructionTime: DestructionMetadata?
     @Published public var stopAnimatingProgress = false
+    @Published public var nicksOnline = [NickOnline]()
     //    = UserDefaults.standard.integer(forKey: "destructionTime"
 #else
     public var connectionState = ServerConnectionState.deregistered

@@ -14,6 +14,7 @@ struct NTKClientBundle: Sendable {
 }
 
 actor NeedleTailClient {
+
     var continuation: AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>>.Continuation?
     var inboundContinuation: AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>>.Continuation?
     let messageParser = MessageParser()

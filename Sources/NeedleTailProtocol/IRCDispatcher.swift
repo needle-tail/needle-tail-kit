@@ -78,6 +78,7 @@ public protocol IRCDispatcher: AnyObject, Sendable {
     func doMultipartMessageUpload(_ packet: [String]) async throws
     func doListBucket(_ packet: [String]) async throws
     func badgeCountUpdate(_ count: Int) async throws
+    func doIsTyping(_ packet: [String]) async throws
 }
 
 public extension IRCDispatcher {
@@ -194,6 +195,9 @@ public extension IRCDispatcher {
         throw InternalDispatchError.notImplemented(function: #function)
     }
     func badgeCountUpdate(_ count: Int) async throws {
+        throw InternalDispatchError.notImplemented(function: #function)
+    }
+    func doIsTyping(_ packet: [String]) async throws {
         throw InternalDispatchError.notImplemented(function: #function)
     }
 }

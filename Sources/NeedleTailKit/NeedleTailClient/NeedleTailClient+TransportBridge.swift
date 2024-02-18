@@ -65,6 +65,7 @@ protocol TransportBridge: AnyObject {
     func downloadMultipart(_ metadata: [String]) async throws
     func uploadMultipart(_ packet: MultipartMessagePacket) async throws
     func requestBucketContents(_ bucket: String) async throws
+    func sendTyping(_ status: TypingStatus, nick: NeedleTailNick) async throws
 }
 
 
@@ -154,9 +155,7 @@ extension NeedleTailClient: TransportBridge {
         default:
             break
         }
-        
-        //ACK
-        //TODO: LETS NOT RUNLOOP
+
         try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
@@ -227,46 +226,27 @@ extension NeedleTailClient: TransportBridge {
     }
     
     func readKeyBundle(_ username: Username) async throws -> UserConfig {
-//        let task = Task {
-            guard let stream = stream else { throw NeedleTailError.streamNotSet }
-            let store = await stream.configuration.store
-            await store.clearUserConfig()
-
-            let jwt = try self.makeToken(configuration.ntkUser.username)
-            let readBundleObject = await self.readBundleRequest(jwt, for: username)
-            let packet = try BSONEncoder().encodeString(readBundleObject)
-            try await stream.readKeyBundle(packet)
-            
-//            let result = try await withThrowingTaskGroup(of: UserConfig?.self) { group in
-//                try Task.checkCancellation()
-print("__________READING BUNDLE___________")
-                   let result = try await RunLoop.runKeyRequestLoop(15,canRun: true, sleep: 1) {
-                        var bundle: UserConfig?
-                        var canRun = true
-                            if let keyBundle = await store.keyBundle {
-                                canRun = false
-                                bundle = keyBundle
-                            }
-                        return (canRun, bundle)
-                    }
-//                }
-        print("__________READ BUNDLE___________")
-//        guard let result = result else { throw NeedleTailError.emitterIsNil }
-            return result!
-//                return try await group.next()
-//            }
-//        return try await task.value!
-//        }
+        guard let stream = stream else { throw NeedleTailError.streamNotSet }
+        let store = await stream.configuration.store
+        await store.clearUserConfig()
         
-//        guard let unwrapedTaskValue = try await task.value else {
-//            throw NeedleTailError.nilUserConfig
-//        }
-//        guard let userConfig = unwrapedTaskValue else {
-//            throw NeedleTailError.nilUserConfig
-//        }
-//        return try await task.value
+        let jwt = try self.makeToken(configuration.ntkUser.username)
+        let readBundleObject = await self.readBundleRequest(jwt, for: username)
+        let packet = try BSONEncoder().encodeString(readBundleObject)
+        try await stream.readKeyBundle(packet)
+
+        let result = try await RunLoop.runReturningLoop(expiresIn: 15, seconds: 1) {
+            var bundle: UserConfig?
+            var canRun = true
+            if let keyBundle = await store.keyBundle {
+                bundle = keyBundle
+                canRun = false
+            }
+            return (canRun, bundle)
+        }
+        guard let result = result else { throw NeedleTailError.emitterIsNil }
+        return result
     }
-    
     
     func resumeClient(
         writer: NeedleTailWriter,
@@ -418,11 +398,10 @@ print("__________READING BUNDLE___________")
         )
         
         let encodedString = try BSONEncoder().encodeString(packet)
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
         guard let writer = self.writer else { throw NeedleTailError.writerNotSet }
         guard let store = self.store else { throw NeedleTailError.storeNotIntitialized }
         
-        try await writer.transportMessage(type: type)
+        try await writer.transportMessage(command: .PRIVMSG([recipient], encodedString))
         
         try await RunLoop.run(20, sleep: 1, stopRunning: {
             var running = true
@@ -469,8 +448,7 @@ print("__________READING BUNDLE___________")
         )
         
         let encodedString = try BSONEncoder().encodeString(packet)
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await writer?.transportMessage(type: type)
+        try await writer?.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
 
@@ -572,16 +550,34 @@ print("__________READING BUNDLE___________")
         }
     }
     
+    func sendTyping(_ status: TypingStatus, nick: NeedleTailNick) async throws {
+        let encoder = BSONEncoder()
+        let nick = self.configuration.clientContext.nickname
+        let encodedData = try encoder.encodeData(NickOnline(nick: nick, isTyping: status))
+        
+        let packet = MessagePacket(
+            id: UUID().uuidString,
+            pushType: .none,
+            type: .isTypingStatus(encodedData),
+            createdAt: Date(),
+            sender: nil,
+            recipient: nil,
+            message: nil,
+            readReceipt: .none
+        )
+        let encodedString = try encoder.encodeString(packet)
+        let recipient = try await recipient(conversationType: .privateMessage, deviceId: nick.deviceId, name: "\(nick.name)")
+        try await writer?.transportMessage(command: .PRIVMSG([recipient], encodedString))
+    }
+    
     public func sendReadMessages(count: Int) async throws {
-        let type = TransportMessageType.standard(.otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
-        try await writer?.transportMessage(type: type)
+        try await writer?.transportMessage(command: .otherCommand(Constants.badgeUpdate.rawValue, ["\(count)"]))
     }
     
     public func downloadMultipart(_ metadata: [String]) async throws {
         let encoder = BSONEncoder()
         let encodedString = try encoder.encodeString(metadata)
-        let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
-        try await writer?.transportMessage(type: type)
+        try await writer?.transportMessage(command: .otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
     }
     
     public func uploadMultipart(_ packet: MultipartMessagePacket) async throws {
@@ -602,7 +598,7 @@ print("__________READING BUNDLE___________")
         for chunk in chunks {
             packetCount += 1
             self.logger.info("Uploading Multipart... Packet \(packetCount) of \(chunks.map{$0}.count)")
-            let type = TransportMessageType.standard(.otherCommand(
+            try await writer?.transportMessage(command: .otherCommand(
                 Constants.multipartMediaUpload.rawValue,
                 [
                     packet.id,
@@ -611,17 +607,17 @@ print("__________READING BUNDLE___________")
                     chunk.base64EncodedString()
                 ]
             ))
-            try await writer?.transportMessage(type: type)
         }
     }
     
     public func requestBucketContents(_ bucket: String) async throws {
         
         let encodedString = try BSONEncoder().encodeString([bucket])
-        let type = TransportMessageType.standard(.otherCommand(
+        try await writer?.transportMessage(command: .otherCommand(
             Constants.listBucket.rawValue,
             [encodedString]
         ))
-        try await writer?.transportMessage(type: type)
     }
 }
+
+extension UserConfig: TaskObjectProtocol {}

@@ -19,7 +19,7 @@ final class MessageParserTests: XCTestCase {
     }
     
     func testParseISON() throws {
-        let isonMessage = ":TQAAAAJuYW1lAAsAAABuZWVkbGV0YWlsAAJkZXZpY2VJZAAlAAAANjk3Njg4YjQtNDc0Zi00YWViLWIwYjMtZWQzYjAwNGUyY2YyAAA= ISON snackerhacker:ad86f9ed-7191-490a-90a2-9b1628711f28 cartisim:175dbc25-811a-4f05-ba10-4e6d3e966aba"
+        let isonMessage = ":abcdefghi123456789= ISON user1:123456 user2:78910"
         let parser = MessageParser()
         XCTAssertNoThrow(try parser.parseMessage(isonMessage))
     }

@@ -8,7 +8,7 @@ public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWr
     func transportMessage(_
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
-                          type: TransportMessageType,
+                          command: IRCCommand,
                           tags: [IRCTags]?
     ) async throws
 }
@@ -32,7 +32,6 @@ extension NeedleTailWriterDelegate {
             let buffer = await NeedleTailEncoder.encode(value: message)
             try await writer.write(buffer)
         } catch {
-            print(error)
             throw error
         }
     }
@@ -44,14 +43,9 @@ extension NeedleTailClientDelegate {
     public func transportMessage(_
                                  writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                  origin: String = "",
-                                 type: TransportMessageType,
+                                 command: IRCCommand,
                                  tags: [IRCTags]? = nil
     ) async throws {
-        switch type {
-        case .standard(let command):
-            let message = IRCMessage(origin: origin, command: command, tags: tags)
-            try await sendAndFlushMessage(writer, message: message)
-        case .private(let command), .notice(let command):
             switch command {
             case .PRIVMSG(let recipients, let messageLines):
                 let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
@@ -71,8 +65,8 @@ extension NeedleTailClientDelegate {
                     try await sendAndFlushMessage(writer, message: message)
                 }
             default:
-                break
-            }
+                let message = IRCMessage(origin: origin, command: command, tags: tags)
+                try await sendAndFlushMessage(writer, message: message)
         }
     }
 }
@@ -159,10 +153,3 @@ extension NeedleTailServerMessageDelegate {
         )
     }
 }
-
-public enum TransportMessageType: Sendable {
-    case standard(IRCCommand)
-    case `private`(IRCCommand)
-    case notice(IRCCommand)
-}
-

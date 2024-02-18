@@ -180,12 +180,6 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
     }
     
-    @MainActor public func onMembersOnline(_ nick: [NeedleTailNick]) {
-#if (os(macOS) || os(iOS))
-        messenger.emitter.nicksOnline = nick
-#endif
-    }
-    
     @MainActor public func onPartMessage(_ message: String) {
 #if (os(macOS) || os(iOS))
         messenger.emitter.partMessage = message

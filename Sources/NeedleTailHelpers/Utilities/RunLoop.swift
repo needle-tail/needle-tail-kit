@@ -8,11 +8,15 @@
 import Foundation
 import CypherMessaging
 
-
+public protocol TaskObjectProtocol {}
 public class RunLoop {
     
     public enum LoopResult {
         case finished, runnning
+    }
+    
+    public enum Errors: Error {
+        case cannotGetReturnable
     }
     
     /// This class method sets the date for the time interval to stop execution on
@@ -31,8 +35,8 @@ public class RunLoop {
     ///   - canRun: A Bool value we can customize property values in the caller
     /// - Returns: A Boolean value that indicates whether or not the loop should run
     public static func execute(_
-                       expriedDate: Date,
-                       canRun: Bool
+                               expriedDate: Date,
+                               canRun: Bool
     ) async -> Bool {
         func runTask() async -> LoopResult {
             let runningDate = Date()
@@ -53,7 +57,9 @@ public class RunLoop {
         }
     }
     
-
+    static var loopTasks = [Task<TaskObjectProtocol?, Error>]()
+    static var voidTasks = [Task<Void, Error>]()
+    
     
     /// Runs the loop
     /// - Parameters:
@@ -61,54 +67,71 @@ public class RunLoop {
     ///   - sleep: The length we want to sleep the loop
     ///   - stopRunning: a custom callback to indicate when we should call canRun = false
     public static func run(_
-                          expiresIn: TimeInterval,
-                          sleep: UInt64,
-                          stopRunning: @Sendable @escaping () async throws -> Bool
+                           expiresIn: TimeInterval,
+                           sleep: UInt64,
+                           stopRunning: @Sendable @escaping () async throws -> Bool
     ) async throws {
-        let date = RunLoop.timeInterval(expiresIn)
-        var canRun = true
-        while await RunLoop.execute(date, canRun: canRun) {
-            try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
-            canRun = try await stopRunning()
+        let task: Task<Void, Error> = Task {
+            try await withThrowingTaskGroup(of: Bool.self) { group in
+                try Task.checkCancellation()
+                let date = RunLoop.timeInterval(expiresIn)
+                var canRun = true
+                while await RunLoop.execute(date, canRun: canRun) {
+                    try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
+                    group.addTask {
+                        return try await stopRunning()
+                    }
+                    guard let isRunning = try await group.next() else { return }
+                    canRun = isRunning
+                }
+            }
         }
+        voidTasks.append(task)
+        _ = try await task.value
+        let taskToCancel = voidTasks.first(where: { $0 == task })
+        if taskToCancel?.isCancelled == false {
+            taskToCancel?.cancel()
+        }
+        voidTasks.removeAll(where: { $0 == task })
     }
-    static var loopTasks = [Task<UserConfig?, Error>]()
     
-    public static func runKeyRequestLoop(_
-                          expiresIn: TimeInterval,
-                           canRun: Bool,
-                          sleep: UInt64,
-                          stopRunning: @Sendable @escaping () async throws -> (Bool, UserConfig?)
-    ) async throws -> UserConfig? {
-        let task: Task<UserConfig?, Error> = Task {
-        try await withThrowingTaskGroup(of: UserConfig?.self) { group in
-            try Task.checkCancellation()
-            let date = RunLoop.timeInterval(expiresIn)
-            while await RunLoop.execute(date, canRun: canRun) {
-                try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
-                group.addTask {
-                    let stoppedRunning = try await stopRunning()
-                    if !stoppedRunning.0 {
-                        return stoppedRunning.1
+    public static func runReturningLoop<T: TaskObjectProtocol>(
+        expiresIn: TimeInterval,
+        seconds toSleep: UInt64,
+        stopRunning: @Sendable @escaping () async throws -> (Bool, T?)
+    ) async throws -> T? {
+        let task: Task<TaskObjectProtocol?, Error> = Task {
+            try await withThrowingTaskGroup(of: T?.self) { group in
+                try Task.checkCancellation()
+                let date = RunLoop.timeInterval(expiresIn)
+                var canRun = true
+                while await RunLoop.execute(date, canRun: canRun) {
+                    try await Task.sleep(until: .now + .seconds(toSleep), tolerance: .zero, clock: .continuous)
+                    let (isRunning, bundle) = try await stopRunning()
+                    canRun = isRunning
+                    if !isRunning {
+                        group.addTask {
+                            return bundle
+                        }
                     } else {
                         return nil
                     }
                 }
+                guard let next = try await group.next() else { throw Errors.cannotGetReturnable }
+                return next
             }
-            return try await group.next()!
         }
-    }
         loopTasks.append(task)
-        let configuration = try await task.value
+        let value = try await task.value
         let taskToCancel = loopTasks.first(where: { $0 == task })
         if taskToCancel?.isCancelled == false {
             taskToCancel?.cancel()
         }
         loopTasks.removeAll(where: { $0 == task })
-        return configuration
+        return value as? T
     }
     
-
+    
 }
 
 public class RunSyncLoop {
@@ -133,8 +156,8 @@ public class RunSyncLoop {
     ///   - canRun: A Bool value we can customize property values in the caller
     /// - Returns: A Boolean value that indicates whether or not the loop should run
     public static func executeSynchronously(_
-                       expriedDate: Date,
-                       canRun: Bool
+                                            expriedDate: Date,
+                                            canRun: Bool
     ) -> Bool {
         func runSyncTask() -> LoopResult {
             let runningDate = Date()
@@ -161,8 +184,8 @@ public class RunSyncLoop {
     ///   - sleep: The length we want to sleep the loop
     ///   - stopRunning: a custom callback to indicate when we should call canRun = false
     public static func runSync(_
-                          expiresIn: TimeInterval,
-                          stopRunning: @Sendable @escaping () throws -> Bool
+                               expiresIn: TimeInterval,
+                               stopRunning: @Sendable @escaping () throws -> Bool
     ) throws {
         let date = RunSyncLoop.timeInterval(expiresIn)
         var canRun = true

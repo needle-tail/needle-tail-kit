@@ -692,6 +692,14 @@ public final class NeedleTailMessenger {
     public func requestBucketContents(_ bucket: String = "MediaBucket") async throws {
         try await cypherTransport?.requestBucketContents(bucket)
     }
+    
+    public func sendTypingStatus(_ bool: Bool, username: Username) async throws {
+        guard let bundle = try await cypherTransport?.readKeyBundle(forUsername: username) else { return }
+        for validatedBundle in try bundle.readAndValidateDevices() {
+            guard let nick = NeedleTailNick(name: username.raw, deviceId: validatedBundle.deviceId) else { return }
+            try await cypherTransport?.sendTyping(status: bool ? .isTyping : .isNotTyping, nick: nick)
+        }
+    }
 }
 
 

@@ -59,7 +59,7 @@ actor NeedleTailStream: IRCDispatcher {
     var receivedNewDeviceAdded: NewDeviceState = .waiting
     var hasStarted = false
     var updateKeyBundle = false
-    var clientsKnownAquaintances = ClientsKnownAquaintances()
+    var aquaintanceInfo: AquaintanceInfo
     
     struct MultipartChunk: Sendable {
         var id: String
@@ -70,6 +70,7 @@ actor NeedleTailStream: IRCDispatcher {
     
     init(configuration: Configuration) {
         self.configuration = configuration
+        self.aquaintanceInfo = AquaintanceInfo(emitter: configuration.messenger.emitter)
     }
     
     func setDelegates(_
@@ -114,7 +115,7 @@ actor NeedleTailStream: IRCDispatcher {
                 try await configuration.delegate?.doNick(sender, nick: nickName, tags: message.tags)
             case .USER(let info):
                 try await configuration.delegate?.doUserInfo(info, tags: message.tags)
-            case .ISON(let nicks):
+            case .ISON(_):
                 //Server-Side
                 break
             case .MODEGET(let nickName):
@@ -187,7 +188,6 @@ actor NeedleTailStream: IRCDispatcher {
                 self.logger.trace("otherNumeric Args: - \(args)")
                 await self.handleServerMessages(args, type: IRCCommandCode(rawValue: code)!)
             case .otherCommand(Constants.readKeyBundle.rawValue, let keyBundle):
-                print("RECEIVED KB____")
                 try await doReadKeyBundle(keyBundle)
             default:
                 await self.handleInfo(message.command.arguments)
@@ -257,25 +257,18 @@ actor NeedleTailStream: IRCDispatcher {
                     case .registered(let bool):
                         guard bool == "true" else { return }
                         await configuration.transportState.transition(to: .transportRegistered(clientContext: configuration.clientContext))
-                        let type = TransportMessageType.standard(.USER(configuration.clientContext.userInfo))
-                        try await configuration.writer.transportMessage(type: type)
-                        
-                        
-                        
-                        
+                        try await configuration.writer.transportMessage(command: .USER(configuration.clientContext.userInfo))
 
                     case .isOnline:
                         await configuration.transportState.transition(to: .transportOnline(clientContext: configuration.clientContext))
+                        //TODO: Get rid of this some how
                         Task {
                             //Create request for online nicks for all of our friends
                             var nicks = [NeedleTailNick]()
                             guard let cypher = await configuration.messenger.cypher else { return }
                             let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
-                            print("USERNAMES_TO_GET_KB", try await cypher.listContacts())
                             for await username in usernames {
-                                print("REQUESTING BUNDLE FOR USERNAME \(username)___________")
                                 guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { fatalError() }
-                                print("GOT BUNDLE FOR - BUNDLE: \(masterKeyBundle)___________")
                                 for devices in try masterKeyBundle.readAndValidateDevices() {
                                     guard let nick = NeedleTailNick(
                                         name: username.raw,
@@ -290,7 +283,7 @@ actor NeedleTailStream: IRCDispatcher {
                         }
                     case .quited:
                         await configuration.writer.setQuiting(false)
-                        await configuration.ctDelegate!.shutdown()
+                        await configuration.ctDelegate?.shutdown()
                         await configuration.transportState.transition(to: .transportOffline)
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
@@ -300,8 +293,7 @@ actor NeedleTailStream: IRCDispatcher {
                         //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
                             let encodedString = try BSONEncoder().encodeString([packet.name, packet.mediaId])
-                            let type = TransportMessageType.standard(.otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
-                            try await configuration.writer.transportMessage(type: type)
+                            try await configuration.writer.transportMessage(command: .otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
                         }
                         
                         await setUploadSuccess()
@@ -350,6 +342,9 @@ actor NeedleTailStream: IRCDispatcher {
 #else
                     return
 #endif
+                case .isTypingStatus(let data):
+                    let nickOnline = try BSONDecoder().decodeData(NickOnline.self, from: data)
+                    await aquaintanceInfo.receivedIsTyping(nickOnline)
                 default:
                     return
                 }
@@ -418,8 +413,7 @@ actor NeedleTailStream: IRCDispatcher {
         }
         let acknowledgement = try await self.createAcknowledgment(ackType, id: packet.id, messagePacket: messagePacket)
         let ackMessage = acknowledgement.base64EncodedString()
-        let type = TransportMessageType.private(.PRIVMSG([recipient], ackMessage))
-        try await configuration.writer.transportMessage(type: type)
+        try await configuration.writer.transportMessage(command: .PRIVMSG([recipient], ackMessage))
     }
     
     private func createAcknowledgment(_
@@ -474,8 +468,9 @@ actor NeedleTailStream: IRCDispatcher {
         self.channelBlob = tag
         
         guard let data = Data(base64Encoded: tag) else  { return }
-        let packet = try BSONDecoder().decodeData([NeedleTailNick].self, from: data)
-        await configuration.plugin?.onMembersOnline(packet)
+        
+        let nicks = try BSONDecoder().decodeData([NeedleTailNick].self, from: data)
+        await aquaintanceInfo.recievedIsOnline(nicks)
     }
     
     public func doPart(_ channels: [IRCChannelName], tags: [IRCTags]?) async throws {
@@ -496,14 +491,13 @@ actor NeedleTailStream: IRCDispatcher {
     public func doPong(_ origin: String, origin2: String? = nil) async throws {
         Task { [weak self] in
             guard let self else { return }
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            try Task.checkCancellation()
-            group.addTask {
-                try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-                let type = TransportMessageType.standard(.PONG(server: origin, server2: origin2))
-                try await self.configuration.writer.transportMessage(type: type)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                try Task.checkCancellation()
+                group.addTask {
+                    try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+                    try await self.configuration.writer.transportMessage(command: .PONG(server: origin, server2: origin2))
+                }
             }
-        }
         }
     }
     
@@ -547,14 +541,15 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     func handleIsOnReply(nicks: [String]) async throws {
-        print("RECEIVED NICKS IS ON", nicks)
-        for nick in nicks {
+        let builtNicks: [NeedleTailNick] = await nicks.asyncCompactMap { nick in
             let split = nick.components(separatedBy: Constants.colon.rawValue)
-            guard let name = split.first else { continue }
-            guard let deviceId = split.last else { continue }
-            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { continue }
-            clientsKnownAquaintances.contacts.append(nick)
+            guard let name = split.first else { return nil}
+            guard let deviceId = split.last else { return nil}
+            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { return nil}
+            return nick
         }
+        logger.info("Aquaintances online \(builtNicks.map({ $0.description }))")
+        await aquaintanceInfo.recievedIsOnline(builtNicks)
     }
     
     var multipartData = Data()
@@ -713,8 +708,7 @@ actor NeedleTailStream: IRCDispatcher {
             let acknowledgement = try await self.createAcknowledgment(.multipartReceived, id: packet.id, messagePacket: packet.multipartMessage)
             packet.type = .ack(acknowledgement)
             let ackMessage = acknowledgement.base64EncodedString()
-            let type = TransportMessageType.private(.PRIVMSG([IRCMessageRecipient.nick(configuration.clientContext.nickname)], ackMessage))
-            try await configuration.writer.transportMessage(type: type)
+            try await configuration.writer.transportMessage(command: .PRIVMSG([IRCMessageRecipient.nick(configuration.clientContext.nickname)], ackMessage))
         } else {
             throw NeedleTailError.mediaIdNil
         }

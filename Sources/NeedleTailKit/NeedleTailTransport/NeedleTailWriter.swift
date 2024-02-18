@@ -17,7 +17,7 @@ import NIOCore
 import Logging
 
 actor NeedleTailWriter: NeedleTailClientDelegate {
-    
+
     let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
     let writer: NIOAsyncChannelOutboundWriter<ByteBuffer>
     let transportState: TransportState
@@ -47,7 +47,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             try await self.transportMessage(
                 writer,
                 origin: self.origin,
-                type: .standard(.NICK(clientContext.nickname)),
+                command: .NICK(clientContext.nickname),
                 tags: [tag]
             )
             return
@@ -56,14 +56,14 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         try await self.transportMessage(
             writer,
             origin: self.origin,
-            type: .standard(.otherCommand("PASS", [""]))
+            command: .otherCommand("PASS", [""])
         )
 
         let tag = IRCTags(key: "registrationPacket", value: value)
         try await transportMessage(
             writer,
             origin: self.origin,
-            type: .standard(.NICK(clientContext.nickname)),
+            command: .NICK(clientContext.nickname),
             tags: [tag]
         )
     }
@@ -84,7 +84,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             tempRegister: false
         )
         let encodedString = try BSONEncoder().encodeString(authObject)
-        try await self.transportMessage(type: .standard(.QUIT(encodedString)))
+        try await self.transportMessage(command: .QUIT(encodedString))
     }
     
     func publishBlob(_ packet: String) async throws {
@@ -92,7 +92,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         try await self.transportMessage(
             writer,
             origin: self.origin,
-            type: .standard(.otherCommand("BLOBS", [packet]))
+            command: .otherCommand("BLOBS", [packet])
         )
         
         //TODO: AVOID LOOP
@@ -108,7 +108,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
     
     func requestOfflineMessages() async throws {
         if !quiting {
-            try await self.transportMessage(type: .standard(.otherCommand(Constants.offlineMessages.rawValue, [""])))
+            try await self.transportMessage(command: .otherCommand(Constants.offlineMessages.rawValue, [""]))
         }
     }
     
@@ -146,12 +146,10 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         let tag = IRCTags(key: "channelPacket", value: encodedString)
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
-        let type = TransportMessageType.standard(.JOIN(channels: [channelName], keys: nil))
-        
         try await self.transportMessage(
             writer,
             origin: self.origin,
-            type: type,
+            command: .JOIN(channels: [channelName], keys: nil),
             tags: [tag]
         )
     }
@@ -178,12 +176,10 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         let encodedString = try BSONEncoder().encodeString(packet)
         let tag = IRCTags(key: "channelPacket", value: encodedString)
         guard let channelName = IRCChannelName(name) else { return }
-        let type = TransportMessageType.standard(.PART(channels: [channelName]))
-        
         try await self.transportMessage(
             writer,
             origin: self.origin,
-            type: type,
+            command: .PART(channels: [channelName]),
             tags: [tag]
         )
     }
@@ -220,8 +216,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
     private func sendPrivateMessage(toUser: NTKUser, type: ConversationType, data: Data) async throws {
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: type, deviceId: toUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], data.base64EncodedString()))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .PRIVMSG([recipient], data.base64EncodedString()))
     }
     
     func parseFilename(_ name: String) -> MessageSubType? {
@@ -250,8 +245,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         let encodedString = try BSONEncoder().encodeString(packet)
         let ircUser = toUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
     func createGroupMessage(
@@ -281,8 +275,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         do {
             //Channel Recipient
             let recipient = try await self.recipient(conversationType: conversationType, deviceId: toUser.deviceId, name: channelName)
-            let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-            try await self.transportMessage(type: type)
+            try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
         } catch {
             logger.error("\(error)")
         }
@@ -308,8 +301,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         self.registryRequestId = packet.id
         
         let encodedString = try BSONEncoder().encodeString(packet)
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
     func sendChildDeviceConfig(_ masterNick: NeedleTailNick, config: UserDeviceConfig) async throws {
@@ -330,20 +322,17 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         //Store UUID Temporarily
         self.registryRequestId = packet.id
         let encodedString = try BSONEncoder().encodeString(packet)
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
     /// Sends a ``NeedleTailNick`` to the server in order to update a users nick name
     /// - Parameter nick: A Nick
     func changeNick(_ nick: NeedleTailNick) async throws {
-        let type = TransportMessageType.standard(.NICK(nick))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .NICK(nick))
     }
     
     func deleteOfflineMessages(from contact: String) async throws {
-        let type = TransportMessageType.standard(.otherCommand("DELETEOFFLINEMESSAGE", [contact]))
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .otherCommand("DELETEOFFLINEMESSAGE", [contact]))
     }
     
     /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
@@ -368,23 +357,19 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         let ircUser = ntkUser.username.raw.replacingOccurrences(of: " ", with: "").lowercased()
         // The recipient is ourself
         let recipient = try await self.recipient(conversationType: .privateMessage, deviceId: ntkUser.deviceId, name: "\(ircUser)")
-        let type = TransportMessageType.private(.PRIVMSG([recipient], encodedString))
-        
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
-    func transportMessage(type: TransportMessageType) async throws {
+    func transportMessage(command: IRCCommand) async throws {
         try await transportMessage(
             self.writer,
             origin: self.origin,
-            type: type
+            command: command
         )
     }
     
     func requestOnlineNicks(_ nicks: [NeedleTailNick]) async throws {
-        let type = TransportMessageType.private(.ISON(nicks))
-        print("SENDING REQUEST", type)
-        try await self.transportMessage(type: type)
+        try await self.transportMessage(command: .ISON(nicks))
     }
 }
 

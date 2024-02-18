@@ -210,7 +210,6 @@ public struct MessageParser: Sendable {
                 args.append(contentsOf: [spread[0], spread.dropFirst().joined(separator: Constants.space.rawValue)])
             } else if commandKey.hasPrefix(Constants.kick.rawValue) {
                 //TODO:
-                //               print(stripedMessage)
                 break
             } else if commandKey.hasPrefix(Constants.registryRequest.rawValue) ||
                         commandKey.hasPrefix(Constants.registryResponse.rawValue) ||

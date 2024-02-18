@@ -561,6 +561,10 @@ extension NeedleTailCypherTransport {
         try await transportBridge?.sendReadMessages(count: count)
     }
     
+    func sendTyping(status: TypingStatus, nick: NeedleTailNick) async throws {
+        try await transportBridge?.sendTyping(status, nick: nick)
+    }
+    
     @MultipartActor
     public func downloadMultipart(_ metadata: [String]) async throws {
         try await transportBridge?.downloadMultipart(metadata)
@@ -618,7 +622,6 @@ extension Array {
 }
 
 actor TransportStore {
-    
     var keyBundle: UserConfig?
     var acknowledgment: Acknowledgment.AckType = .none
     var setAcknowledgement: Acknowledgment.AckType = .none {
@@ -633,8 +636,6 @@ actor TransportStore {
     }
     
     func setKeyBundle(_ config: UserConfig) {
-        print("SET_STORE", config)
-        //TODO: ONCE WE SET STORE WE NEED TO IMMEDIATELY FINISH READ BUNDLE. WE HAVE A BOTTLE NECK HERE
         keyBundle = config
     }
     
