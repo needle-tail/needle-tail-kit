@@ -40,9 +40,11 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     public func reconnect() async throws {
 #if os(macOS) || os(iOS)
-        switch NetworkMonitor.shared.currentStatus {
+        switch await NetworkMonitor.shared.status {
         case .satisfied:
-            try await configuration.messenger.resumeService()
+            if await NeedleTailEmitter.shared.connectionState != .registered {
+                try await configuration.messenger.resumeService()
+            }
         default:
             return
         }
@@ -51,7 +53,7 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
     
     public func disconnect() async throws {
 #if os(macOS) || os(iOS)
-        switch NetworkMonitor.shared.currentStatus {
+        switch await NetworkMonitor.shared.status {
         case .satisfied:
             try await configuration.messenger.serviceInterupted(true)
         default:
@@ -463,7 +465,7 @@ extension NeedleTailCypherTransport {
     ///We want to first make sure that a channel doesn't exist with the and ID
     func searchChannels(_ cypher: CypherMessenger, channelName: String) async throws -> SearchResult {
 #if (os(macOS) || os(iOS))
-        _ = await configuration.messenger.fetchChats(cypher: cypher)
+        try await configuration.messenger.loadContactBundle(cypher: cypher)
         let groupChats = try await configuration.messenger.fetchGroupChats(cypher)
         let channel = try await groupChats.asyncFirstThrowing { chat in
             let metaDoc = await chat.conversation.metadata

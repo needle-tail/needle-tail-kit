@@ -92,7 +92,7 @@ extension NeedleTailServerMessageDelegate {
                           target: String,
                           code: IRCCommandCode,
                           message: String? = nil,
-                          args: String...
+                          args: [String]
     ) async throws {
         let enrichedArgs = args + [ message ?? code.errorMessage ]
         let message = IRCMessage(origin: origin,
@@ -108,7 +108,7 @@ extension NeedleTailServerMessageDelegate {
                           origin: String,
                           target: String,
                           code: IRCCommandCode,
-                          args: String...
+                          args: [String]
     ) async throws {
         let message = IRCMessage(origin: origin,
                                  target: target,
@@ -131,7 +131,7 @@ extension NeedleTailServerMessageDelegate {
             origin: origin,
             target: target,
             code: .replyMotDStart,
-            args: "- Message of the Day -"
+            args: ["- Message of the Day -"]
         )
         
         let lines = message.components(separatedBy: Constants.cLF.rawValue)
@@ -149,7 +149,7 @@ extension NeedleTailServerMessageDelegate {
             origin: origin,
             target: target,
             code: .replyEndOfMotD,
-            args:"End of /MOTD command."
+            args: ["End of /MOTD command."]
         )
     }
 }

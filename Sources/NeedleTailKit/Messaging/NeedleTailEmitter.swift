@@ -7,7 +7,7 @@
 
 import CypherMessaging
 import NeedleTailHelpers
-
+import Network
 public enum ServerConnectionState {
     case shouldRegister, registering, registered, deregistering, deregistered
 }
@@ -39,7 +39,6 @@ public final class NeedleTailEmitter: NSObject {
     @Published public var registered = false
     @Published public var contactAdded: Contact?
     @Published public var contactRemoved: Contact?
-//    @Published public var nicksOnline: [NeedleTailNick] = []
     @Published public var partMessage = ""
     @Published public var chatMessageChanged: AnyChatMessage?
     @Published public var needleTailNick: NeedleTailNick?

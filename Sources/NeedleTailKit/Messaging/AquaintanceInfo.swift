@@ -14,7 +14,19 @@ struct AquaintanceInfo {
     
     let emitter: NeedleTailEmitter
     
+    @MainActor
+    private func updateNicksOnline(_ nicks: [NeedleTailNick]) {
+        emitter.nicksOnline = emitter.nicksOnline.filter({ nicks.contains($0.nick) })
+    }
+    
+    @MainActor
+    private func updateNickOnline(_ nick: NickOnline) async {
+        guard let index = emitter.nicksOnline.firstIndex(where: {$0.nick == nick.nick}) else { return }
+        emitter.nicksOnline[index] = nick
+    }
+    
     func recievedIsOnline(_ nicks: [NeedleTailNick]) async {
+        await updateNicksOnline(nicks)
         for nick in nicks {
             if var emitterNick = await emitter.nicksOnline.first(where: { $0.nick == nick }) {
                 emitterNick.nick = nick
@@ -34,6 +46,8 @@ struct AquaintanceInfo {
     func receivedIsTyping(_ nickOnline: NickOnline) async {
         guard var emitterNick = await emitter.nicksOnline.first(where: {$0.nick == nickOnline.nick}) else { return }
         emitterNick.isTyping = nickOnline.isTyping
+        await updateNickOnline(emitterNick)
+
     }
     
 }

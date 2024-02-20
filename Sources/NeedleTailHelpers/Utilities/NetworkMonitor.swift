@@ -11,19 +11,16 @@ import Network
 import SwiftUI
 #endif
 
-public final class NetworkMonitor {
-    public static let shared = NetworkMonitor()
+public actor NetworkMonitor {
+    static public let shared = NetworkMonitor()
     private let monitorPath = NWPathMonitor()
     private var isSet = false
-    
-#if (os(macOS) || os(iOS))
-    @Published public var currentStatus: NWPath.Status = .unsatisfied
-#endif
     
     public var currentStatusStream: AsyncStream<NWPath.Status>?
     public init() {}
 
-
+    @MainActor
+    public var status: NWPath.Status = .unsatisfied
     public func startMonitor() async {
         if !isSet {
             let queue = DispatchQueue(label: "network-monitor")
@@ -31,7 +28,10 @@ public final class NetworkMonitor {
             await monitor()
         }
     }
-    
+    @MainActor
+    func setTask(status: NWPath.Status ) {
+        self.status = status
+    }
     public func monitor() async {
         let currentStatusStream = AsyncStream<NWPath.Status> { continuation in
             monitorPath.pathUpdateHandler = { path in
@@ -41,12 +41,13 @@ public final class NetworkMonitor {
                 print("Monitor Stream Terminated with status:", status)
             }
         }
+        self.currentStatusStream = currentStatusStream
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 try Task.checkCancellation()
-                for await status in currentStatusStream {
+                for await s in currentStatusStream {
                     group.addTask {
-                        self.currentStatus = status
+                        await self.setTask(status: s)
                     }
                 }
                 group.cancelAll()
@@ -60,7 +61,4 @@ public final class NetworkMonitor {
         monitorPath.cancel()
     }
 }
-#if (os(macOS) || os(iOS))
-extension NetworkMonitor: ObservableObject {}
-#endif
 #endif

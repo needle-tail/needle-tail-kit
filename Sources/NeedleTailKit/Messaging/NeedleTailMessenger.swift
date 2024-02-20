@@ -22,6 +22,7 @@ import Cocoa
 #endif
 #if canImport(SwiftUI)
 import SwiftUI
+import AsyncAlgorithms
 #endif
 
 @NeedleTailMessengerActor
@@ -153,7 +154,6 @@ public final class NeedleTailMessenger {
             clientInfo: clientInfo
         )
         do {
-//            if await self.emitter.channelIsActive {
                 let masterKeyBundle = try await cypherTransport.readKeyBundle(forUsername: Username(username))
                 for validatedMaster in try masterKeyBundle.readAndValidateDevices() {
                     guard let nick = NeedleTailNick(name: username, deviceId: validatedMaster.deviceId) else { continue }
@@ -195,7 +195,6 @@ public final class NeedleTailMessenger {
                     emitter.needleTailNick = cypherTransport.configuration.needleTailNick
                 }
 #endif
-//            }
         } catch let nterror as NeedleTailError {
             switch nterror {
             case .nilUserConfig:
@@ -458,11 +457,14 @@ public final class NeedleTailMessenger {
         let networkServiceResumerTask = Task {
             return try await withThrowingTaskGroup(of: Void.self, body: { group in
                 //We need to make sure we have internet before we try this
-                for try await status in self.networkMonitor.$currentStatus.values {
+                guard let stream = await self.networkMonitor.currentStatusStream else { fatalError("Network Monitor never set the stream") }
+                for try await status in stream {
                     try Task.checkCancellation()
-                    group.addTask {
+                    group.addTask { [weak self] in
+                        guard let self else { return }
                         if status == .satisfied {
-                            if cypherTransport.isConnected == false {
+                            let notRegistered = await self.emitter.connectionState != .registered
+                            if cypherTransport.isConnected == false, notRegistered  {
                                 await self.resumeService(
                                     cypherTransport: cypherTransport,
                                     clientInfo: clientInfo
@@ -692,12 +694,14 @@ public final class NeedleTailMessenger {
     public func requestBucketContents(_ bucket: String = "MediaBucket") async throws {
         try await cypherTransport?.requestBucketContents(bucket)
     }
-    
-    public func sendTypingStatus(_ bool: Bool, username: Username) async throws {
+    private var isSendingTypingStatus = false
+    public func sendTypingStatus(_ isSending: Bool, username: Username) async throws {
+        guard isSendingTypingStatus != isSending else { return }
+        isSendingTypingStatus = isSending
         guard let bundle = try await cypherTransport?.readKeyBundle(forUsername: username) else { return }
         for validatedBundle in try bundle.readAndValidateDevices() {
             guard let nick = NeedleTailNick(name: username.raw, deviceId: validatedBundle.deviceId) else { return }
-            try await cypherTransport?.sendTyping(status: bool ? .isTyping : .isNotTyping, nick: nick)
+            try await cypherTransport?.sendTyping(status: isSending ? .isTyping : .isNotTyping, nick: nick)
         }
     }
 }
@@ -710,7 +714,7 @@ extension NeedleTailMessenger {
         
         @StateObject var emitter = NeedleTailEmitter.shared
         @StateObject var contactsBundle = ContactsBundle.shared
-        @StateObject var networkMonitor = NetworkMonitor.shared
+        var networkMonitor = NetworkMonitor.shared
         
         let content: Content
         
@@ -730,7 +734,6 @@ extension NeedleTailMessenger {
                 content
                     .environment(\.messenger, messenger)
                     .environmentObject(messenger.emitter)
-                    .environmentObject(networkMonitor)
                     .environmentObject(contactsBundle)
             }
         }
@@ -1068,13 +1071,14 @@ extension NeedleTailMessenger {
         return messages
     }
     
+    @NTCryptoActor
     public func recreateOrRemoveFile(from mediaId: String) async throws {
         if let privateMessage = try await findPrivateMessage(by: mediaId) {
             do {
                 guard let thumbnailLocation = await privateMessage.metadata["thumbnailLocation"] as? String else { return }
                 guard let keyBinary = await privateMessage.metadata["symmetricKey"] as? Binary else { return }
                 let symmetricKey = try BSONDecoder().decodeData(SymmetricKey.self, from: keyBinary.data)
-                guard let cypher = cypher else { return }
+                guard let cypher = await cypher else { return }
                 let thumbnailBlob = try await needletailCrypto.decryptFile(from: thumbnailLocation, cypher: cypher)
 #if (os(macOS) || os(iOS))
                 let newSize = try await ImageProcessor.getNewSize(data: thumbnailBlob, desiredSize: CGSize(width: 600, height: 600), isThumbnail: false)
@@ -1141,93 +1145,83 @@ extension NeedleTailMessenger {
 #endif
     }
     
-    /// `fetchChats()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
+    /// `loadContactBundle()` will fetch all CTK/NTK chats/chat types. That means when this method is called we will get all private chats for the CTK Instance which means all chats on our localDB
     /// that this device has knowledge of. We then can use them in our NeedleTailKit Transport Mechanism.
     /// - Parameters:
     ///   - cypher: **CTK**'s `CypherMessenger` for this Device.
-    ///   - contact: The opitional `Contact` we want to use to filter private chats on.
+    ///   - isPersonalNote: Indicated if we want to load personal notes intot the *contactBundleViewModel*
     /// - Returns: An `AnyChatMessageCursor` which references a point in memory of `CypherMessenger`'s `AnyChatMessage`
-    public func fetchChats(
-        cypher: CypherMessenger,
-        contact: Contact? = nil
-    ) async {
-        do {
-            let results = try await fetchConversations(cypher)
-            for result in results {
-                switch result {
-                case .privateChat(let chat):
-                    try await getChats(chat: chat, contact: contact)
-                case .groupChat(let groupChat):
-#if (os(macOS) || os(iOS))
-                    if await !emitter.groupChats.contains(groupChat) {
-                    }
-#endif
-                case .internalChat(let chat):
-                    try await getChats(chat: chat)
-                }
+    public func loadContactBundle(cypher: CypherMessenger, isPersonalNote: Bool = false) async throws {
+        let conversations = try await fetchConversations(cypher)
+        if isPersonalNote {
+            try await setContactBundle(
+                chat: try await cypher.getInternalConversation(),
+                contact: nil
+            )
+        } else {
+            for await contact in try await fetchContacts(cypher).async {
+                let filteredConversations = conversations.async.filter({ await $0.conversation.members.contains(contact.username) })
+                try await sort(
+                    conversations: filteredConversations,
+                    contact: contact
+                )
             }
-        } catch {
-            print(error)
         }
     }
     
-    @MainActor
-    func getChats<Chat: AnyConversation>(chat: Chat, contact: Contact? = nil) async throws {
+    private func sort(conversations: AsyncFilterSequence<AsyncSyncSequence<[TargetConversation.Resolved]>>, contact: Contact?) async throws {
+      
+        for await conversation in conversations {
+                switch conversation {
+                case .privateChat(let chat):
+                    try await setContactBundle(chat: chat, contact: contact)
+                case .internalChat(let chat):
+                    try await setContactBundle(chat: chat, contact: contact)
+                case .groupChat(let groupChat):
+                    print("SORTING GROUP CHAT", groupChat)
+                    break
+                }
+            }
+        }
+    
+    private func setContactBundle(chat: AnyConversation, contact: Contact?) async throws {
         var messages: [NeedleTailMessage] = []
-        let username = contact?.username
-        
         let cursor = try await chat.cursor(sortedBy: .descending)
         let nextBatch = try await cursor.getMore(50)
         
         for message in nextBatch {
             messages.append(NeedleTailMessage(message: message))
         }
-        //maps chat to contact that is in the chat
-        if chat is PrivateChat, let contact = contact {
-            guard let username = username else { return }
-            guard chat.conversation.members.contains(username) else { return }
-            
-            if let index = contactsBundle.contactBundleViewModel.firstIndex(where: { $0.chat.conversation.id == chat.conversation.id } ) {
-                contactsBundle.contactBundleViewModel[index].id = UUID()
-                contactsBundle.contactBundleViewModel[index].contact = contact
-                contactsBundle.contactBundleViewModel[index].chat = chat
-                contactsBundle.contactBundleViewModel[index].messages = messages
-                contactsBundle.contactBundleViewModel[index].mostRecentMessage = try await MostRecentMessage(
+
+        if var bundle = contactsBundle.contactBundleViewModel.first(where: { $0.chat.conversation.id == chat.conversation.id }) {
+            bundle.id = UUID()
+            bundle.contact = contact
+            bundle.chat = chat
+            bundle.messages = messages
+            if chat is PrivateChat {
+                bundle.mostRecentMessage = try await MostRecentMessage(
                     chat: chat as! PrivateChat
                 )
-                await contactsBundle.arrangeBundle()
-            } else {
-                let bundle = ContactsBundle.ContactBundle(
-                    contact: contact,
-                    chat: chat,
-                    groupChats: [],
-                    cursor: cursor,
-                    messages: messages,
-                    mostRecentMessage: try await MostRecentMessage(
-                        chat: chat as! PrivateChat
-                    )
-                )
-                contactsBundle.contactBundleViewModel.append(bundle)
-                await contactsBundle.arrangeBundle()
             }
-            
+            await contactsBundle.arrangeBundle()
         } else {
-            if let index = contactsBundle.contactBundleViewModel.firstIndex(where: { $0.chat.conversation.id == chat.conversation.id } ) {
-                contactsBundle.contactBundleViewModel[index].id = UUID()
-                contactsBundle.contactBundleViewModel[index].chat = chat
-                contactsBundle.contactBundleViewModel[index].messages = messages
-                await contactsBundle.arrangeBundle()
-            } else {
-                let bundle = ContactsBundle.ContactBundle(
-                    chat: chat,
-                    groupChats: [],
-                    cursor: cursor,
-                    messages: messages,
-                    mostRecentMessage: nil
+            var bundle = ContactsBundle.ContactBundle(
+                contact: contact,
+                chat: chat,
+                groupChats: [],
+                cursor: cursor,
+                messages: messages
                 )
-                contactsBundle.contactBundleViewModel.append(bundle)
-                await contactsBundle.arrangeBundle()
+            if chat is PrivateChat {
+                bundle.mostRecentMessage = try await MostRecentMessage(
+                    chat: chat as! PrivateChat
+                )
             }
+            let loadedBundle = bundle
+            await MainActor.run {
+                contactsBundle.contactBundleViewModel.append(loadedBundle)
+            }
+            await contactsBundle.arrangeBundle()
         }
     }
     
@@ -1250,7 +1244,6 @@ extension NeedleTailMessenger {
         )
         
         for conversation in conversations {
-            print("START LOOP")
             switch conversation {
             case .privateChat(let privateChat):
                 let conversationPartner = await privateChat.conversation.members.contains(contact.username)
@@ -1281,8 +1274,7 @@ extension NeedleTailMessenger {
                 break
             }
         }
-        await fetchChats(cypher: cypher, contact: contact)
-        await fetchChats(cypher: cypher, contact: contact)
+        try await loadContactBundle(cypher: cypher)
     }
     
     public func removeMessages(
@@ -1315,8 +1307,7 @@ extension NeedleTailMessenger {
         default:
             break
         }
-        
-        await fetchChats(cypher: cypher)
+        try await loadContactBundle(cypher: cypher)
     }
     
     

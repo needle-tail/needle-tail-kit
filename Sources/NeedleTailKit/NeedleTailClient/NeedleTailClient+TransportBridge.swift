@@ -552,15 +552,15 @@ extension NeedleTailClient: TransportBridge {
     
     func sendTyping(_ status: TypingStatus, nick: NeedleTailNick) async throws {
         let encoder = BSONEncoder()
-        let nick = self.configuration.clientContext.nickname
-        let encodedData = try encoder.encodeData(NickOnline(nick: nick, isTyping: status))
+        let senderNick = self.configuration.clientContext.nickname
+        let encodedData = try encoder.encodeData(NickOnline(nick: senderNick, isTyping: status))
         
         let packet = MessagePacket(
             id: UUID().uuidString,
             pushType: .none,
             type: .isTypingStatus(encodedData),
             createdAt: Date(),
-            sender: nil,
+            sender: senderNick.deviceId,
             recipient: nil,
             message: nil,
             readReceipt: .none

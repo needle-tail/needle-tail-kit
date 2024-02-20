@@ -13,6 +13,7 @@ import NeedleTailCrypto
 import NIOCore
 import Logging
 import DequeModule
+
 #if os(macOS)
 import AppKit
 #endif
@@ -541,15 +542,22 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     func handleIsOnReply(nicks: [String]) async throws {
-        let builtNicks: [NeedleTailNick] = await nicks.asyncCompactMap { nick in
+      //TODO: HANDLE REPLY AS STRING ARRAY NOT STRING... !!!
+        let nick = nicks.first?.trimmingCharacters(in: .whitespaces)
+        guard let new = nick?.components(separatedBy: Constants.comma.rawValue) else { return }
+        var onlineNicks = [NeedleTailNick]()
+        for await nick in new.async {
             let split = nick.components(separatedBy: Constants.colon.rawValue)
-            guard let name = split.first else { return nil}
-            guard let deviceId = split.last else { return nil}
-            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { return nil}
-            return nick
+            guard let name = split.first else { break }
+            guard let deviceId = split.last?.trimmingCharacters(in: .whitespaces) else { break }
+            guard let currentUserDeviceId = self.configuration.clientContext.nickname.deviceId?.raw else { break }
+            if deviceId != currentUserDeviceId {
+                guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { break }
+                logger.info("Aquaintances online \(nick.stringValue)")
+                onlineNicks.append(nick)
+            }
         }
-        logger.info("Aquaintances online \(builtNicks.map({ $0.description }))")
-        await aquaintanceInfo.recievedIsOnline(builtNicks)
+        await aquaintanceInfo.recievedIsOnline(onlineNicks)
     }
     
     var multipartData = Data()
