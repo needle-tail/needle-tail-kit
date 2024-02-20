@@ -92,7 +92,7 @@ extension NeedleTailServerMessageDelegate {
                           target: String,
                           code: IRCCommandCode,
                           message: String? = nil,
-                          args: [String]
+                          args: [String] = []
     ) async throws {
         let enrichedArgs = args + [ message ?? code.errorMessage ]
         let message = IRCMessage(origin: origin,
