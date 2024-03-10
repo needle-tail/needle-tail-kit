@@ -113,13 +113,13 @@ public class CypherServerTransportClientBridge: CypherServerTransportClient {
             )
             //Result contains a tuple, a bool value indicating if we received the ACK back and the readReceipt.state(Check if the readReceipt state is set to received; if it is we then can mark it as read). We then add the item to an array of read receipts that need to be marked as displayed. We later use this array of receipts to notify conversation partner that we have read the message if the receiver of the message has readReceipts turned on.
             if let result = result {
-                await configuration.readMessagesConsumer.feedConsumer([
+                await configuration.readMessagesConsumer.feedConsumer(
                     NeedleTailCypherTransport.MessageToRead(
                         remoteId: remoteId,
                         ntkUser: recipient,
                         deliveryResult: result
                     )
-                ])
+                )
                 await setCanSendReadReceipt(!configuration.readMessagesConsumer.deque.isEmpty)
             }
         }
@@ -405,7 +405,9 @@ extension NeedleTailCypherTransport {
         guard members.count > 1 else { throw NeedleTailError.membersCountInsufficient }
         
         let seperated = admin.description.components(separatedBy: ":")
-        guard let needleTailAdmin = NeedleTailNick(name: seperated[0], deviceId: DeviceId(seperated[1])) else { return }
+        guard let name = seperated.first else { return }
+        guard let id = seperated.last else { return }
+        guard let needleTailAdmin = NeedleTailNick(name: name, deviceId: DeviceId(id)) else { return }
         
         //Build our server message, we set the meta data variable here, this will give sendMessage the needed data by the time the sendMessage flow starts.
         configuration.needleTailChannelMetaData = NeedleTailChannelPacket(
@@ -567,19 +569,20 @@ extension NeedleTailCypherTransport {
         try await transportBridge?.sendTyping(status, nick: nick)
     }
     
-    @MultipartActor
     public func downloadMultipart(_ metadata: [String]) async throws {
         try await transportBridge?.downloadMultipart(metadata)
     }
     
-    @MultipartActor
     public func uploadMultipart(_ multipartPacket: MultipartMessagePacket) async throws {
         try await transportBridge?.uploadMultipart(multipartPacket)
     }
     
-    @MultipartActor
     public func requestBucketContents(_ bucket: String) async throws {
         try await transportBridge?.requestBucketContents(bucket)
+    }
+    
+    public func requestMediaDeletion(from contact: String, for mediaId: String) async throws {
+        try await transportBridge?.requestMediaDeletion(from: contact, for: mediaId)
     }
 }
 

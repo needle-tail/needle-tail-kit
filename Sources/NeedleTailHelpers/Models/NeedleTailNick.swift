@@ -8,29 +8,30 @@
 import CypherMessaging
 import NIOConcurrencyHelpers
 
-
 /// We are using classes because we want a reference to the object on the server, in order to use ObjectIdentifier to Cache the Object.
 /// This class can be Sendable because we are using a lock to protect any mutated state
-public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, Sendable {
-
+public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringConvertible, @unchecked Sendable {
+    
     private let lock = NIOLock()
     private static let staticLock = NIOLock()
     public var description: String {
-        lock.withSendableLock {
+        lock.withSendableLock { [weak self] in
+            guard let self else { return "" }
             let did = self.deviceId ?? DeviceId("")
             return "NeedleTailNick(name: \(self.name), deviceId: \(did))"
         }
     }
     
     public var stringValue: String {
-        lock.withSendableLock {
+        lock.withSendableLock { [weak self] in
+            guard let self else { return "" }
             guard let deviceId = deviceId else { return "" }
-            return "\(name):\(deviceId)"
+            return "\(name)_\(deviceId)"
         }
     }
     public let name: String
     public let deviceId: DeviceId?
-
+    
     
     public init?(
         name: String,
@@ -49,9 +50,7 @@ public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringCon
     }
     
     public static func ==(lhs: NeedleTailNick, rhs: NeedleTailNick) -> Bool {
-        staticLock.withSendableLock {
-            return lhs.deviceId == lhs.deviceId
-        }
+        return lhs.deviceId == lhs.deviceId
     }
     
     //We want to validate our Nick
@@ -60,25 +59,30 @@ public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringCon
     }
     public struct NameRules: Sendable {
         public var allowsStartingDigit: Bool = true
+        public var disallowsUnderScore: Bool = true
         public var lengthLimit: Int = 1024
         public init() {}
     }
     
     public static func validateName(_ name: String, nameRules: NameRules) -> ValidatedNameStatus {
         guard name.count > 1, name.count >= 1, name.count <= 1024 else { return .failedValidation }
-            
-            var firstCharacterSet: CharacterSet
-            if nameRules.allowsStartingDigit {
-                firstCharacterSet = CharacterSets.letterDigitOrSpecial
-            } else {
-                firstCharacterSet = CharacterSets.letterOrSpecial
-            }
-            let rest = CharacterSets.letterDigitSpecialOrDash
-            let scalars = name.unicodeScalars
-            guard firstCharacterSet.contains(scalars[scalars.startIndex]) else { return .failedValidation }
-            for scalar in scalars.dropFirst() {
-                guard rest.contains(scalar) else { return .failedValidation }
-            }
+        
+        if nameRules.disallowsUnderScore && name.contains("_") {
+            return .isValidated
+        }
+        
+        var firstCharacterSet: CharacterSet
+        if nameRules.allowsStartingDigit {
+            firstCharacterSet = CharacterSets.letterDigitOrSpecial
+        } else {
+            firstCharacterSet = CharacterSets.letterOrSpecial
+        }
+        let rest = CharacterSets.letterDigitSpecialOrDash
+        let scalars = name.unicodeScalars
+        guard firstCharacterSet.contains(scalars[scalars.startIndex]) else { return .failedValidation }
+        for scalar in scalars.dropFirst() {
+            guard rest.contains(scalar) else { return .failedValidation }
+        }
         return .isValidated
     }
     
@@ -108,11 +112,11 @@ public final class NeedleTailNick: Codable, Hashable, Equatable, CustomStringCon
 import struct Foundation.CharacterSet
 
 fileprivate enum CharacterSets: Sendable {
-  static let letter                   = CharacterSet.letters
-  static let digit                    = CharacterSet.decimalDigits
-  static let special                  = CharacterSet(charactersIn: "[]\\`_^{|}")
-  static let letterOrSpecial          = letter.union(special)
-  static let letterDigitOrSpecial     = letter.union(digit).union(special)
-  static let letterDigitSpecialOrDash = letterDigitOrSpecial
-                                        .union(CharacterSet(charactersIn: "-"))
+    static let letter                   = CharacterSet.letters
+    static let digit                    = CharacterSet.decimalDigits
+    static let special                  = CharacterSet(charactersIn: "[]\\`_^{|}")
+    static let letterOrSpecial          = letter.union(special)
+    static let letterDigitOrSpecial     = letter.union(digit).union(special)
+    static let letterDigitSpecialOrDash = letterDigitOrSpecial
+        .union(CharacterSet(charactersIn: "-"))
 }

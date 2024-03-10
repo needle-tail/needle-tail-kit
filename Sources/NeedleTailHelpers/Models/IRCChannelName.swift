@@ -37,7 +37,6 @@ public final class IRCChannelName: Codable, Hashable, CustomStringConvertible, S
     let storage: String
     let normalized: String
     private let lock = NIOLock()
-    private static let staticLock = NIOLock()
     
     public init?(_ s: String) {
         guard IRCChannelName.validate(string: s) else { return nil }
@@ -61,23 +60,23 @@ public final class IRCChannelName: Codable, Hashable, CustomStringConvertible, S
     
     
     public static func ==(lhs: IRCChannelName, rhs: IRCChannelName) -> Bool {
-        return IRCChannelName.staticLock.withSendableLock {
-            lhs.normalized == rhs.normalized
-        }
+        lhs.normalized == rhs.normalized
     }
     
     public var description: String {
-        return lock.withSendableLock {
             stringValue
-        }
     }
     
     public static func validate(string: String) -> Bool {
-        guard string.count > 1 && string.count <= 50 else { return false }
+        guard string.count > 1 && string.count <= 50 else {
+            return false
+        }
         
         switch string.first! {
-        case "&", "#", "+", "!": break
-        default: return false
+        case "&", "#", "+", "!": 
+            break
+        default:
+            return false
         }
         
         func isValidCharacter(_ c: UInt8) -> Bool {

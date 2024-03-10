@@ -32,7 +32,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                     
                     switch await transportConfiguration.transportState.current {
                     case .clientConnected:
-                      
+                        
                         // set up async streams and handle data
                         let _outbound = AsyncStream<NIOAsyncChannelOutboundWriter<ByteBuffer>> { continuation in
                             continuation.yield(outbound)
@@ -41,7 +41,7 @@ extension NeedleTailClient: ClientTransportDelegate {
                                 print("Writer Stream Terminated with status:", status)
                             }
                         }
-                      
+                        
                         let _inbound = AsyncStream<NIOAsyncChannelInboundStream<ByteBuffer>> { continuation in
                             continuation.yield(inbound)
                             self.inboundContinuation = continuation
@@ -67,11 +67,11 @@ extension NeedleTailClient: ClientTransportDelegate {
                                         store: store,
                                         messenger: self.configuration.messenger,
                                         transportState: self.transportConfiguration.transportState)
-                            )
-                            try await self.finishRegistering(with: stream, and: writer)
+                                )
+                                try await self.finishRegistering(with: stream, and: writer)
                             }
                         }
-
+                        
                         for await stream in _inbound {
                             do {
                                 for try await buffer in stream {
@@ -85,8 +85,22 @@ extension NeedleTailClient: ClientTransportDelegate {
                                         for message in messages {
                                             guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
                                             self.logger.trace("Message Parsed \(parsedMessage)")
+                                            
+                                            var priority: _Concurrency.TaskPriority = .medium
+                                            switch parsedMessage.command.commandAsString {
+                                            case Constants.multipartMediaUpload.rawValue, Constants.multipartMediaDownload.rawValue:
+                                                priority = .utility
+                                            case Constants.ping.rawValue, Constants.pong.rawValue:
+                                                priority = .background
+                                            default:
+                                                break
+                                            }
+                                            
+                                            group.addTask(priority: priority) { [weak self] in
+                                            guard let self else { return }
                                             await self.stream?.processReceivedMessage(parsedMessage)
                                         }
+                                    }
                                     if cancelStream {
                                         return
                                     }
@@ -110,7 +124,7 @@ extension NeedleTailClient: ClientTransportDelegate {
         }
         throw NeedleTailError.couldNotConnectToNetwork
     }
-
+    
     func setAuthenticationState(ntkBundle: NTKClientBundle) async {
         ntkBundle.cypherTransport.authenticated = .unauthenticated
     }

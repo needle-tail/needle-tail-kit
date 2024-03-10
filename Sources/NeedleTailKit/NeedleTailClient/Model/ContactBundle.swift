@@ -12,22 +12,26 @@ public final class ContactsBundle {
     public static let shared = ContactsBundle()
     
 #if (os(macOS) || os(iOS))
-    @Published public var contactListBundle: ContactBundle?
-    @Published public var contactBundle: ContactBundle?
     @Published public var contactBundleViewModel = [ContactBundle]()
     @Published public var scrollToBottom: UUID?
+    @Published public var contactBundle: ContactBundle?
 #else
-    public var contactListBundle: ContactBundle?
-    public var contactBundle: ContactBundle?
     public var contactBundleViewModel = [ContactBundle]()
     public var scrollToBottom: UUID?
 #endif
     
-    public init(contactListBundle: ContactBundle? = nil, contactBundle: ContactBundle? = nil, contactBundleViewModel: [ContactBundle] = [ContactBundle](), scrollToBottom: UUID? = nil) {
-        self.contactListBundle = contactListBundle
-        self.contactBundle = contactBundle
+    enum Errors: Error {
+        case cannotFindBundle
+    }
+    
+    public init(contactBundleViewModel: [ContactBundle] = [ContactBundle](), scrollToBottom: UUID? = nil) {
         self.contactBundleViewModel = contactBundleViewModel
         self.scrollToBottom = scrollToBottom
+    }
+    
+    public func findContactBundle(for username: String) async throws -> ContactBundle {
+        guard let contactBundle = await contactBundleViewModel.async.first(where: { await $0.contact?.username.raw == username }) else { throw Errors.cannotFindBundle }
+        return contactBundle
     }
     
     public struct ContactBundle: Equatable, Hashable, Identifiable {

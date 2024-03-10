@@ -66,6 +66,7 @@ protocol TransportBridge: AnyObject {
     func uploadMultipart(_ packet: MultipartMessagePacket) async throws
     func requestBucketContents(_ bucket: String) async throws
     func sendTyping(_ status: TypingStatus, nick: NeedleTailNick) async throws
+    func requestMediaDeletion(from contact: String, for mediaId: String) async throws
 }
 
 
@@ -155,15 +156,14 @@ extension NeedleTailClient: TransportBridge {
         default:
             break
         }
-
-        try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
+        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
             if await strongSelf.store?.acknowledgment == .readReceipt {
                 running = false
             }
             return running
-        })
+        }
         return await (store?.acknowledgment == .readReceipt ? true : false, readReceipt.state)
     }
     
@@ -212,7 +212,7 @@ extension NeedleTailClient: TransportBridge {
             let data = base64String.data(using: .ascii)
 #if (os(macOS) || os(iOS))
             await configuration.ntkBundle.cypherTransport.updateEmitter(data)
-            try await RunLoop.run(240, sleep: 1) { @MainActor [weak self] in
+            try await RunLoop.run(240, sleep: .seconds(1)) { @MainActor [weak self] in
                 guard let self else { return false }
                 var running = true
                 
@@ -234,7 +234,7 @@ extension NeedleTailClient: TransportBridge {
         let readBundleObject = await self.readBundleRequest(jwt, for: username)
         let packet = try BSONEncoder().encodeString(readBundleObject)
         try await stream.readKeyBundle(packet)
-
+        
         let result = try await RunLoop.runReturningLoop(expiresIn: 15, seconds: 1) {
             var bundle: UserConfig?
             var canRun = true
@@ -354,7 +354,7 @@ extension NeedleTailClient: TransportBridge {
             break
         }
         
-        try await RunLoop.run(20, sleep: 1, stopRunning: { [weak self] in
+        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
             guard let  self else { return false }
             var running = true
             guard let store = await store else { throw NeedleTailError.storeNotIntitialized }
@@ -368,7 +368,7 @@ extension NeedleTailClient: TransportBridge {
                 running = true
             }
             return running
-        })
+        }
         return (contacts, updateKeyBundle)
     }
     
@@ -403,13 +403,13 @@ extension NeedleTailClient: TransportBridge {
         
         try await writer.transportMessage(command: .PRIVMSG([recipient], encodedString))
         
-        try await RunLoop.run(20, sleep: 1, stopRunning: {
+        try await RunLoop.run(20, sleep: .seconds(1)) {
             var running = true
             if await store.acknowledgment == .publishedKeyBundle("true") {
                 running = false
             }
             return running
-        })
+        }
         
         if await store.acknowledgment != .publishedKeyBundle("true") {
             throw NeedleTailError.cannotPublishKeyBundle
@@ -451,7 +451,7 @@ extension NeedleTailClient: TransportBridge {
         try await writer?.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
-
+    
     func makeToken(_ username: Username) throws -> String {
         guard let signer = configuration.ntkBundle.signer else { return "" }
         var signerAlgorithm: JWTAlgorithm
@@ -567,7 +567,11 @@ extension NeedleTailClient: TransportBridge {
         )
         let encodedString = try encoder.encodeString(packet)
         let recipient = try await recipient(conversationType: .privateMessage, deviceId: nick.deviceId, name: "\(nick.name)")
-        try await writer?.transportMessage(command: .PRIVMSG([recipient], encodedString))
+        try await writer?.transportMessage(command: .PRIVMSG([recipient], encodedString), priority: .urgent)
+    }
+    
+    public func requestMediaDeletion(from contact: String, for mediaId: String) async throws {
+        try await writer?.transportMessage(command: .otherCommand(Constants.requestMediaDeletion.rawValue, [contact, mediaId]))
     }
     
     public func sendReadMessages(count: Int) async throws {
@@ -577,7 +581,10 @@ extension NeedleTailClient: TransportBridge {
     public func downloadMultipart(_ metadata: [String]) async throws {
         let encoder = BSONEncoder()
         let encodedString = try encoder.encodeString(metadata)
-        try await writer?.transportMessage(command: .otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
+        try await writer?.transportMessage(command: .otherCommand(
+            Constants.multipartMediaDownload.rawValue,
+            [encodedString]
+        ), priority: .utility)
     }
     
     public func uploadMultipart(_ packet: MultipartMessagePacket) async throws {
@@ -594,24 +601,23 @@ extension NeedleTailClient: TransportBridge {
         let data = try BSONEncoder().encodeData(messagePacket)
         var packetCount = 0
         let chunks = data.chunks(ofCount: 10777216)
-        
         for chunk in chunks {
             packetCount += 1
             self.logger.info("Uploading Multipart... Packet \(packetCount) of \(chunks.map{$0}.count)")
-            try await writer?.transportMessage(command: .otherCommand(
+            let count = packetCount
+            try await self.writer?.transportMessage(command: .otherCommand(
                 Constants.multipartMediaUpload.rawValue,
                 [
                     packet.id,
-                    String(packetCount),
+                    String(count),
                     String(chunks.map{$0}.count),
                     chunk.base64EncodedString()
                 ]
-            ))
+            ), priority: .utility)
         }
     }
     
     public func requestBucketContents(_ bucket: String) async throws {
-        
         let encodedString = try BSONEncoder().encodeString([bucket])
         try await writer?.transportMessage(command: .otherCommand(
             Constants.listBucket.rawValue,

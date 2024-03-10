@@ -158,10 +158,12 @@ actor NeedleTailStream: IRCDispatcher {
                 try await configuration.delegate?.doListBucket(packet)
             case .numeric(.replyMotDStart, _):
                 guard let arguments = message.arguments else { return }
-                await motdBuilder.createInitial(message: "\(String(describing: arguments.last))\n")
+                let message = arguments.joined(separator: Constants.space.rawValue).replacingOccurrences(of: Constants.comma.rawValue, with: Constants.none.rawValue)
+                await motdBuilder.createInitial(message: "\(message)\n")
             case .numeric(.replyMotD, _):
                 guard let arguments = message.arguments else { return }
-                await motdBuilder.createBody(message: "\(String(describing: arguments.last))\n")
+                let message = arguments.joined(separator: Constants.space.rawValue).replacingOccurrences(of: Constants.comma.rawValue, with: Constants.none.rawValue)
+                await motdBuilder.createBody(message: "\(message)\n")
             case .numeric(.replyEndOfMotD, _):
                 let messageOfTheDay = await motdBuilder.createFinalMessage()
                 await self.handleServerMessages([messageOfTheDay], type: .replyEndOfMotD)
@@ -259,29 +261,26 @@ actor NeedleTailStream: IRCDispatcher {
                         guard bool == "true" else { return }
                         await configuration.transportState.transition(to: .transportRegistered(clientContext: configuration.clientContext))
                         try await configuration.writer.transportMessage(command: .USER(configuration.clientContext.userInfo))
-
                     case .isOnline:
                         await configuration.transportState.transition(to: .transportOnline(clientContext: configuration.clientContext))
-                        //TODO: Get rid of this some how
-                        Task {
-                            //Create request for online nicks for all of our friends
-                            var nicks = [NeedleTailNick]()
-                            guard let cypher = await configuration.messenger.cypher else { return }
-                            let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
-                            for await username in usernames {
-                                guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { fatalError() }
-                                for devices in try masterKeyBundle.readAndValidateDevices() {
-                                    guard let nick = NeedleTailNick(
-                                        name: username.raw,
-                                        deviceId: devices.deviceId
-                                    ) else { continue }
-                                    nicks.append(nick)
-                                }
+                        
+                        //Create request for online nicks for all of our friends
+                        var nicks = [NeedleTailNick]()
+                        guard let cypher = await configuration.messenger.cypher else { return }
+                        let usernames = try await cypher.listContacts().async.compactMap({ await $0.username })
+                        for await username in usernames {
+                            guard let masterKeyBundle = try await configuration.messenger.cypherTransport?.readKeyBundle(forUsername: username) else { fatalError() }
+                            for devices in try masterKeyBundle.readAndValidateDevices() {
+                                guard let nick = NeedleTailNick(
+                                    name: username.raw,
+                                    deviceId: devices.deviceId
+                                ) else { continue }
+                                nicks.append(nick)
                             }
-                            
-                            //Send Request
-                            try await configuration.writer.requestOnlineNicks(nicks)
                         }
+                        
+                        //Send Request
+                        try await configuration.writer.requestOnlineNicks(nicks)
                     case .quited:
                         await configuration.writer.setQuiting(false)
                         await configuration.ctDelegate?.shutdown()
@@ -294,7 +293,10 @@ actor NeedleTailStream: IRCDispatcher {
                         //Thumbnails will always be small so the following code will always run and automatically download thumnbails.
                         if packet.size <= 10777216 && packet.size != 0 {
                             let encodedString = try BSONEncoder().encodeString([packet.name, packet.mediaId])
-                            try await configuration.writer.transportMessage(command: .otherCommand(Constants.multipartMediaDownload.rawValue, [encodedString]))
+                            try await configuration.writer.transportMessage(command: .otherCommand(
+                                Constants.multipartMediaDownload.rawValue,
+                                [encodedString]
+                            ), priority: .utility)
                         }
                         
                         await setUploadSuccess()
@@ -304,15 +306,7 @@ actor NeedleTailStream: IRCDispatcher {
 #endif
                     case .multipartDownloadFailed(let error, let mediaId):
 #if (os(macOS) || os(iOS))
-                    Task { @MainActor in
-                        if error == "Could not find multipart message" {
-                            //Find Message and resize the thumbnail because it does not exist on the server
-                                try await configuration.messenger.recreateOrRemoveFile(from: mediaId)
-                        } else {
-                            await setError(error: error)
-                        }
-                        await stopAnimatingProgress()
-                    }
+                        try await handleLostMedia(error: error, mediaId: mediaId)
 #else
                         break
 #endif
@@ -364,6 +358,28 @@ actor NeedleTailStream: IRCDispatcher {
                     return
                 }
             }
+        }
+    }
+    
+    private func handleLostMedia(error: String, mediaId: String) async throws {
+        do {
+            print(mediaId)
+            if error == "Could not find multipart message" {
+                //Find Message and resize the thumbnail because it does not exist on the server
+                //Look up a message in the Cache that contains this mediaID
+                let contactBundle = try await self.configuration.messenger.findBundle(by: mediaId)
+                try await configuration.messenger.recreateOrRemoveFile(from: mediaId, contactBundle: contactBundle)
+            } else {
+                await setError(error: error)
+            }
+            await stopAnimatingProgress()
+        } catch let error as NeedleTailError {
+            //If we do not have a contact bundle that contains a message with this media Id it means that the thumbnail never came, so we cannot do anything really. Just delete the offline message from the server. Remember this code only gets ran if we try to download a multipart message media from S3. Meaning if this happens it is probably because we receive an offline message, but something horrible happened in the transport or DB,so we never wrote anything with this mediaId to Disk.
+            if error == .contactBundleDoesNotExistForMediaId {
+                try await configuration.messenger.requestMediaDeletion(from: mediaId)
+            }
+        } catch {
+            logger.error("\(error)")
         }
     }
     
@@ -436,7 +452,6 @@ actor NeedleTailStream: IRCDispatcher {
             readReceipt: .none,
             multipartMessage: messagePacket
         )
-        
         return try BSONEncoder().encodeData(packet)
     }
     
@@ -487,19 +502,10 @@ actor NeedleTailStream: IRCDispatcher {
         await respondToTransportState()
     }
     
-    
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
     public func doPong(_ origin: String, origin2: String? = nil) async throws {
-        Task { [weak self] in
-            guard let self else { return }
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                try Task.checkCancellation()
-                group.addTask {
-                    try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-                    try await self.configuration.writer.transportMessage(command: .PONG(server: origin, server2: origin2))
-                }
-            }
-        }
+        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+        try await self.configuration.writer.transportMessage(command: .PONG(server: origin, server2: origin2), priority: .background)
     }
     
     public func respondToTransportState() async {
@@ -529,7 +535,7 @@ actor NeedleTailStream: IRCDispatcher {
     
     
     func handleInfo(_ info: [String]) async {
-        logger.info("Server information: \(info.joined())")
+        logger.info("Server information: \n\(info.joined(separator: Constants.space.rawValue).replacing(Constants.comma.rawValue, with: Constants.none.rawValue))")
     }
     
     
@@ -538,22 +544,22 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     func handleServerMessages(_ messages: [String], type: IRCCommandCode) async {
-        logger.info("Server Message: \n\(messages.joined(separator: "\n"))- type: \(type)")
+        let joindedMessage = messages.joined(separator: "\n")
+        logger.info("Server Message: \n- type: \(type) \n- message: \(joindedMessage)")
     }
     
     func handleIsOnReply(nicks: [String]) async throws {
-      //TODO: HANDLE REPLY AS STRING ARRAY NOT STRING... !!!
-        let nick = nicks.first?.trimmingCharacters(in: .whitespaces)
-        guard let new = nick?.components(separatedBy: Constants.comma.rawValue) else { return }
         var onlineNicks = [NeedleTailNick]()
-        for await nick in new.async {
-            let split = nick.components(separatedBy: Constants.colon.rawValue)
-            guard let name = split.first else { break }
+        for await nick in nicks.async {
+            var nick = nick
+            nick = nick.replacingOccurrences(of: Constants.comma.rawValue, with: Constants.none.rawValue)
+            let split = nick.components(separatedBy: Constants.underScore.rawValue)
+            guard let name = split.first?.trimmingCharacters(in: .whitespaces) else { break }
             guard let deviceId = split.last?.trimmingCharacters(in: .whitespaces) else { break }
             guard let currentUserDeviceId = self.configuration.clientContext.nickname.deviceId?.raw else { break }
             if deviceId != currentUserDeviceId {
                 guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { break }
-                logger.info("Aquaintances online \(nick.stringValue)")
+                logger.info("Aquaintance online \(nick.stringValue)")
                 onlineNicks.append(nick)
             }
         }
@@ -562,28 +568,28 @@ actor NeedleTailStream: IRCDispatcher {
     
     var multipartData = Data()
     public func doMultipartMessageDownload(_ packet: [String]) async throws {
-        logger.info("Received multipart packet: \(packet[0]) of: \(packet[1])")
         precondition(packet.count == 4)
         let partNumber = packet[0]
         let totalParts = packet[1]
         let name = packet[2]
         let chunk = packet[3]
-        
+        logger.info("Received multipart packet: \(partNumber) of: \(totalParts)")
         guard let data = Data(base64Encoded: chunk) else { return }
-        await downloadChunks.feedConsumer([
+        
+        await downloadChunks.feedConsumer(
             MultipartChunk(
                 id: name,
                 partNumber: partNumber,
                 totalParts: totalParts,
                 chunk: data
-            )
-        ])
+            ), priority: .background
+        )
         
-        let totalPartsInFile = await self.downloadChunks.deque.filter({ $0.id == name && $0.partNumber <= $0.totalParts })
-        if totalPartsInFile.count == Int(totalPartsInFile.first?.totalParts ?? "") {
+        let totalPartsInFile = await self.downloadChunks.deque.filter({ $0.item.id == name }).sorted(by: { $0.item.partNumber > $1.item.partNumber })
+        if totalPartsInFile.count == Int(totalPartsInFile.first?.item.totalParts ?? "") {
             self.logger.info("Finished receiving parts...")
             self.logger.info("Starting to process multipart packet...")
-            for try await result in NeedleTailAsyncSequence(consumer: self.downloadChunks) {
+            for try await result in await NeedleTailAsyncSequence(consumer: self.downloadChunks) {
                 switch result {
                 case .success(let chunk):
                     await self.addChunkData(data: chunk.chunk)
@@ -616,7 +622,8 @@ actor NeedleTailStream: IRCDispatcher {
     }
     
     public func doListBucket(_ packet: [String]) async throws {
-        guard let data = Data(base64Encoded: packet[0]) else { return }
+        guard let encodedString = packet.first else { return }
+        guard let data = Data(base64Encoded: encodedString) else { return }
         let packet = try BSONDecoder().decodeData([String].self, from: data)
         var filenames = [Filename]()
         for name in packet {
@@ -640,8 +647,15 @@ actor NeedleTailStream: IRCDispatcher {
             try await processDownload(message: message, decodedData: packet, cypher: cypher)
         } else {
             //QUEUE Until message creation occurs
-            await multipartMessageConsumer.feedConsumer([packet])
+            await multipartMessageConsumer.feedConsumer(packet, priority: .background)
             logger.info("Couldn't find message in order to process media")
+            var dateComponent = DateComponents()
+            dateComponent.day = 7
+            guard let aWeekLater = Calendar.current.date(byAdding: dateComponent, to: packet.createdOn) else { return }
+            if packet.createdOn < aWeekLater {
+                //Just Delete
+                try await handleLostMedia(error: "Could not find multipart message", mediaId: packet.mediaId)
+            }
         }
     }
     
@@ -650,6 +664,7 @@ actor NeedleTailStream: IRCDispatcher {
         decodedData: FilePacket,
         cypher: CypherMessenger
     ) async throws {
+        logger.info("Processing download...")
         let mediaId = await message.metadata["mediaId"] as? String
         if mediaId == decodedData.mediaId {
             guard let keyBinary = await message.metadata["symmetricKey"] as? Binary else { throw NeedleTailError.symmetricKeyDoesNotExist }
@@ -687,7 +702,7 @@ actor NeedleTailStream: IRCDispatcher {
                     dtfp.thumbnailBlob = nil
                     return try BSONEncoder().encode(dtfp)
                 })
-            
+            logger.info("Updated download metadata...")
             var fileName = ""
             var fileType = ""
             switch decodedData.mediaType {
@@ -728,6 +743,7 @@ struct FilePacket: Sendable, Codable {
     var mediaType: MediaType
     var name: String
     var data: Data
+    var createdOn: Date = Date()
 }
 
 enum MediaType: Sendable, Codable {

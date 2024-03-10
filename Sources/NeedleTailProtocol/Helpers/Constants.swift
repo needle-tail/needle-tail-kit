@@ -9,6 +9,7 @@ public enum Constants: String, Sendable {
     case cLF = "\n"
     case cCR = "\r"
     case space = " "
+    case hashTag = "#"
     case star = "*"
     case colon = ":"
     case comma = ","
@@ -22,6 +23,8 @@ public enum Constants: String, Sendable {
     case none = ""
     case semiColonSpace = "; "
     case exclamation = "!"
+    case underScore = "_"
+    case ampersand = "&"
     case keys = "keys:"
     case nick = "NICK"
     case join = "JOIN"
@@ -53,4 +56,5 @@ public enum Constants: String, Sendable {
     case multipartMediaDownload = "MULTIPARTMEDIADOWNLOAD"
     case multipartMediaUpload = "MULTIPARTMEDIAUPLOAD"
     case listBucket = "LISTBUCKET"
+    case requestMediaDeletion = "REQUESTMEDIADELETION"
 }

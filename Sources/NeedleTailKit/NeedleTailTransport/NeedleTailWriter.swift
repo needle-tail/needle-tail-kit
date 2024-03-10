@@ -27,6 +27,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
     var quiting = false
     var channelBlob: String?
     var registryRequestId = ""
+    let writerConsumer = NeedleTailAsyncConsumer<ByteBuffer>()
     
     init(asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, writer: NIOAsyncChannelOutboundWriter<ByteBuffer>, transportState: TransportState, clientContext: ClientContext) throws {
         self.asyncChannel = asyncChannel
@@ -45,7 +46,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         guard temp == false else {
             let tag = IRCTags(key: "tempRegPacket", value: value)
             try await self.transportMessage(
-                writer,
+                writerConsumer,
+                writer: writer,
                 origin: self.origin,
                 command: .NICK(clientContext.nickname),
                 tags: [tag]
@@ -54,14 +56,16 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         }
         
         try await self.transportMessage(
-            writer,
+            writerConsumer,
+            writer: writer,
             origin: self.origin,
-            command: .otherCommand("PASS", [""])
+            command: .otherCommand(Constants.pass.rawValue, [""])
         )
 
         let tag = IRCTags(key: "registrationPacket", value: value)
         try await transportMessage(
-            writer,
+            writerConsumer,
+            writer: writer,
             origin: self.origin,
             command: .NICK(clientContext.nickname),
             tags: [tag]
@@ -84,22 +88,22 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             tempRegister: false
         )
         let encodedString = try BSONEncoder().encodeString(authObject)
-        try await self.transportMessage(command: .QUIT(encodedString))
+        try await self.transportMessage(command: .QUIT(encodedString), priority: .urgent)
     }
     
     func publishBlob(_ packet: String) async throws {
         
         try await self.transportMessage(
-            writer,
+            writerConsumer,
+            writer: writer,
             origin: self.origin,
-            command: .otherCommand("BLOBS", [packet])
+            command: .otherCommand(Constants.blobs.rawValue, [packet])
         )
         
-        //TODO: AVOID LOOP
-        try await RunLoop.run(20, sleep: 1) { [weak self] in
-            guard let strongSelf = self else { return false }
+        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
+            guard let self else { return false }
             var running = true
-            if await strongSelf.channelBlob != nil {
+            if await self.channelBlob != nil {
                 running = false
             }
             return running
@@ -147,7 +151,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         guard let channelName = IRCChannelName(name) else { return }
         //Keys are Passwords for Channels
         try await self.transportMessage(
-            writer,
+            writerConsumer,
+            writer: writer,
             origin: self.origin,
             command: .JOIN(channels: [channelName], keys: nil),
             tags: [tag]
@@ -177,7 +182,8 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         let tag = IRCTags(key: "channelPacket", value: encodedString)
         guard let channelName = IRCChannelName(name) else { return }
         try await self.transportMessage(
-            writer,
+            writerConsumer,
+            writer: writer,
             origin: self.origin,
             command: .PART(channels: [channelName]),
             tags: [tag]
@@ -332,7 +338,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
     }
     
     func deleteOfflineMessages(from contact: String) async throws {
-        try await self.transportMessage(command: .otherCommand("DELETEOFFLINEMESSAGE", [contact]))
+        try await self.transportMessage(command: .otherCommand(Constants.deleteOfflineMessage.rawValue, [contact]))
     }
     
     /// We send contact removal notifications to our self on the server and then route them to the other devices if they are online
@@ -360,9 +366,11 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
         try await self.transportMessage(command: .PRIVMSG([recipient], encodedString))
     }
     
-    func transportMessage(command: IRCCommand) async throws {
+    func transportMessage(command: IRCCommand, priority: Priority = .standard) async throws {
         try await transportMessage(
-            self.writer,
+            writerConsumer,
+            priority: priority,
+            writer: writer,
             origin: self.origin,
             command: command
         )

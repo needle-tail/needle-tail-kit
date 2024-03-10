@@ -22,10 +22,14 @@ public class RunLoop {
     /// This class method sets the date for the time interval to stop execution on
     /// - Parameter timeInterval: A Double Value in seconds
     /// - Returns: The Date for the exectution to stop on
-    public static func timeInterval(_ timeInterval: TimeInterval) -> Date {
-        let timeInterval = TimeInterval(timeInterval)
-        let deadline = Date(timeIntervalSinceNow: Double(Double(1_000_000_000) * timeInterval) / Double(1_000_000_000)).timeIntervalSinceNow
-        return Date(timeIntervalSinceNow: deadline)
+    public static func timeInterval(_ timeInterval: TimeInterval?) -> Date? {
+        if let timeInterval = timeInterval {
+            let timeInterval = TimeInterval(timeInterval)
+            let deadline = Date(timeIntervalSinceNow: Double(Double(1_000_000_000) * timeInterval) / Double(1_000_000_000)).timeIntervalSinceNow
+            return Date(timeIntervalSinceNow: deadline)
+        } else {
+            return nil
+        }
     }
     
     ///  This method determines when the run loop should start and stop depending on the parameters value
@@ -35,13 +39,15 @@ public class RunLoop {
     ///   - canRun: A Bool value we can customize property values in the caller
     /// - Returns: A Boolean value that indicates whether or not the loop should run
     public static func execute(_
-                               expriedDate: Date,
+                               expriedDate: Date?,
                                canRun: Bool
     ) async -> Bool {
         func runTask() async -> LoopResult {
             let runningDate = Date()
             if canRun == true {
-                guard expriedDate >= runningDate else { return .finished }
+                if let expriedDate = expriedDate {
+                    guard expriedDate >= runningDate else { return .finished }
+                }
                 return .runnning
             } else {
                 return .finished
@@ -67,8 +73,10 @@ public class RunLoop {
     ///   - sleep: The length we want to sleep the loop
     ///   - stopRunning: a custom callback to indicate when we should call canRun = false
     public static func run(_
-                           expiresIn: TimeInterval,
-                           sleep: UInt64,
+                           expiresIn: TimeInterval?,
+                           sleep: Duration,
+                           tolerance: Duration = .zero,
+                           suspendingClock: Bool = false,
                            stopRunning: @Sendable @escaping () async throws -> Bool
     ) async throws {
         let task: Task<Void, Error> = Task {
@@ -77,7 +85,11 @@ public class RunLoop {
                 let date = RunLoop.timeInterval(expiresIn)
                 var canRun = true
                 while await RunLoop.execute(date, canRun: canRun) {
-                    try await Task.sleep(until: .now + .seconds(sleep), tolerance: .zero, clock: .continuous)
+                    if suspendingClock {
+                        try await Task.sleep(until: .now + sleep, tolerance: tolerance, clock: .suspending)
+                    } else {
+                        try await Task.sleep(until: .now + sleep, tolerance: tolerance, clock: .continuous)
+                    }
                     group.addTask {
                         return try await stopRunning()
                     }

@@ -24,6 +24,7 @@ public enum IRCCommandCode: Int, Codable, Sendable {
   
   case replyAway               = 301
   case replyUserhost           = 302
+// The argument list must be sent as a String list nested in an array
   case replyISON               = 303
   case replyUnAway             = 305
   case replyNowAway            = 306

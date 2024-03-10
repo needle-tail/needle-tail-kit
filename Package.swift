@@ -22,7 +22,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio-transport-services.git", .upToNextMajor(from: "1.20.0")),
-        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMajor(from: "2.62.0")),
+        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMajor(from: "2.64.0")),
         .package(url: "https://github.com/apple/swift-nio-extras.git", .upToNextMajor(from: "1.20.0")),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMajor(from: "2.25.0")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.3.0")),
@@ -78,6 +78,6 @@ let package = Package(
             ]),
         .testTarget(
             name: "NeedleTailKitTests",
-            dependencies: ["NeedleTailKit", "NeedleTailProtocol"]),
+            dependencies: ["NeedleTailKit", "NeedleTailProtocol"])
     ]
 )

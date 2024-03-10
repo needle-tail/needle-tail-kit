@@ -51,40 +51,42 @@ public extension IRCCommand {
         }
         
         func splitChannelsString() throws -> [ IRCChannelName ] {
-            return try arguments[0].split(separator: Character(Constants.comma.rawValue)).map {
-            guard let n =  IRCChannelName(String($0)) else {
-              throw Error.invalidChannelName(String($0))
-            }
-            return n
-          }
+            var arguments = arguments
+            return try arguments.removeFirst()
+                .components(separatedBy: Constants.comma.rawValue)
+                .compactMap { channel in
+                    guard let first = channel.first else { throw Error.invalidChannelName(channel) }
+                    guard let channel = IRCChannelName(first.isWhitespace ? String(channel.dropFirst()) : channel) else {
+                        throw Error.invalidChannelName(channel)
+                    }
+                    return channel
+                }
         }
 
         func splitRecipientString() throws -> [ IRCMessageRecipient ] {
-            return try arguments[0].split(separator: Character(Constants.comma.rawValue)).map {
-              guard let n = IRCMessageRecipient(String($0)) else {
-              throw Error.invalidMessageTarget(String($0))
+            guard let firstArgument = arguments.first else {  throw Error.invalidMessageTarget(arguments.first ?? "") }
+            return try firstArgument
+                .split(separator: Character(Constants.comma.rawValue)).map {
+                    guard let n = IRCMessageRecipient(String($0.trimmingCharacters(in: .whitespacesAndNewlines))) else {
+                throw Error.invalidMessageTarget(String($0))
+              }
+                return n
             }
-            return n
           }
-        }
-
-        func splitKillNick() throws -> NeedleTailNick {
-            let split = arguments[0].components(separatedBy: Constants.colon.rawValue)
-            let name = split[0]
-            let deviceId = split[1]
-            guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { throw NeedleTailError.nilNickName }
-            return nick
-        }
         
-        func splitKickNicks() throws -> [NeedleTailNick] {
+        func splitNicks() throws -> [NeedleTailNick] {
             var nicks = [NeedleTailNick]()
-            _ = try arguments[1].split(separator: Character(Constants.comma.rawValue)).map {
-                let split = $0.components(separatedBy: Constants.colon.rawValue)
-                let name = split[0]
-                let deviceId = split[1]
-                guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { throw NeedleTailError.nilNickName }
-                nicks.append(nick)
-            }
+            var arguments = arguments.dropLast()
+            _ = try arguments.removeLast()
+                .components(separatedBy: Constants.comma.rawValue)
+                .compactMap({ name in
+                    let seperated = String(name.trimmingCharacters(in: .whitespacesAndNewlines))
+                        .components(separatedBy: Constants.underScore.rawValue)
+                    guard let name = seperated.first else { return }
+                    guard let deviceId = seperated.last else { return }
+                    guard let nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId)) else { throw NeedleTailError.nilNickName }
+                    nicks.append(nick)
+                })
             return nicks
         }
         
@@ -98,46 +100,60 @@ public extension IRCCommand {
         
         switch command.uppercased() {
         case Constants.quit.rawValue:
-            try expect(max:  1); self = .QUIT(arguments.first)
+            try expect(max: 1); self = .QUIT(arguments.first)
         case Constants.ping.rawValue:
             try expect(min: 1, max: 2)
-            self = .PING(server: arguments[0],
-                         server2: arguments.count > 1 ? arguments[1] : nil)
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.firstArgumentIsMissing }
+            self = .PING(server: first,
+                         server2: arguments.count > 1 ? last : nil)
         case Constants.pong.rawValue:
             try expect(min: 1, max: 2)
-            self = .PONG(server: arguments[0],
-                         server2: arguments.count > 1 ? arguments[1] : nil)
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.firstArgumentIsMissing }
+            self = .PONG(server: first,
+                         server2: arguments.count > 1 ? last : nil)
             
         case Constants.nick.rawValue:
             try expect(argc: 1)
-            let splitNick = arguments[0].components(separatedBy: Constants.colon.rawValue)
-                let deviceId = DeviceId(splitNick[1])
-                guard let nick = NeedleTailNick(name: splitNick[0], deviceId: deviceId) else {
-                    throw Error.invalidNickName(arguments[0])
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            let splitNick = first.components(separatedBy: Constants.underScore.rawValue)
+            guard let name = splitNick.first else { throw Error.firstArgumentIsMissing }
+            guard let id = splitNick.last else { throw Error.firstArgumentIsMissing }
+                let deviceId = DeviceId(id)
+                guard let nick = NeedleTailNick(name: name, deviceId: deviceId) else {
+                    throw Error.invalidNickName(first)
                 }
                 self = .NICK(nick)
         case Constants.mode.rawValue:
             try expect(min: 1)
-            guard let recipient = IRCMessageRecipient(arguments[0]) else {
-                throw Error.invalidMessageTarget(arguments[0])
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let recipient = IRCMessageRecipient(first) else {
+                throw Error.invalidMessageTarget(first)
             }
             
             switch recipient {
             case .everything:
-                throw Error.invalidMessageTarget(arguments[0])
+                guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+                throw Error.invalidMessageTarget(first)
                 
             case .nick(let nick):
                 if arguments.count > 1 {
-                    var add    = IRCUserMode()
+                    var add = IRCUserMode()
                     var remove = IRCUserMode()
                     for arg in arguments.dropFirst() {
                         var isAdd = true
                         for c in arg {
-                            if      c == Character(Constants.plus.rawValue) { isAdd = true  }
-                            else if c == Character(Constants.minus.rawValue) { isAdd = false }
-                            else if let mode = IRCUserMode(String(c)) {
-                                if isAdd { add   .insert(mode) }
-                                else     { remove.insert(mode) }
+                            if c == Character(Constants.plus.rawValue) {
+                                isAdd = true
+                            } else if c == Character(Constants.minus.rawValue) {
+                                isAdd = false
+                            } else if let mode = IRCUserMode(String(c)) {
+                                if isAdd {
+                                    add.insert(mode)
+                                } else {
+                                    remove.insert(mode)
+                                }
                             } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
@@ -151,16 +167,21 @@ public extension IRCCommand {
                 
             case .channel(let channelName):
                 if arguments.count > 1 {
-                    var add    = IRCChannelMode()
+                    var add = IRCChannelMode()
                     var remove = IRCChannelMode()
                     for arg in arguments.dropFirst() {
                         var isAdd = true
                         for c in arg {
-                            if      c == Character(Constants.plus.rawValue) { isAdd = true  }
-                            else if c == Character(Constants.minus.rawValue) { isAdd = false }
-                            else if let mode = IRCChannelMode(String(c)) {
-                                if isAdd { add   .insert(mode) }
-                                else     { remove.insert(mode) }
+                            if c == Character(Constants.plus.rawValue) {
+                                isAdd = true
+                            } else if c == Character(Constants.minus.rawValue) {
+                                isAdd = false
+                            } else if let mode = IRCChannelMode(String(c)) {
+                                if isAdd {
+                                    add.insert(mode)
+                                } else {
+                                    remove.insert(mode)
+                                }
                             } else {
                                 // else: warn? throw?
                                 print("IRCParser: unexpected IRC mode: \(c) \(arg)")
@@ -169,8 +190,7 @@ public extension IRCCommand {
                     }
                     if add == IRCChannelMode.banMask && remove.isEmpty {
                         self = .CHANNELMODE_GET_BANMASK(channelName)
-                    }
-                    else {
+                    } else {
                         self = .CHANNELMODE(channelName, add: add, remove: remove)
                     }
                 }
@@ -198,12 +218,12 @@ public extension IRCCommand {
             
         case Constants.join.rawValue:
             try expect(min: 1, max: 2)
-            if arguments[0] == "0" {
+            if arguments.first == "0" {
                 self = .JOIN0
             } else {
                 let channels = try splitChannelsString()
                 let keys = arguments.count > 1
-                ? arguments[1].split(separator: Character(Constants.comma.rawValue)).map(String.init)
+                ? arguments.last?.split(separator: Character(Constants.comma.rawValue)).map(String.init)
                 : nil
                 self = .JOIN(channels: channels, keys: keys)
             }
@@ -218,14 +238,14 @@ public extension IRCCommand {
             
             let channels = arguments.count > 0
             ? try splitChannelsString() : nil
-            let target   = arguments.count > 1 ? arguments[1] : nil
+            let target   = arguments.count > 1 ? arguments.first : nil
             self = .LIST(channels: channels, target: target)
             
         case Constants.isOn.rawValue:
             try expect(min: 1)
             var nicks = [NeedleTailNick]()
             for arg in arguments {
-                let splitNick = arg.split(separator: Character(Constants.colon.rawValue))
+                let splitNick = arg.split(separator: Character(Constants.underScore.rawValue))
                 guard let nick = splitNick.first else { throw Error.invalidNickName(arg) }
                 guard let deviceId = splitNick.last else { throw Error.invalidNickName(arg) }
                 guard let nick = NeedleTailNick(name: String(nick), deviceId: DeviceId(String(deviceId))) else {
@@ -239,48 +259,58 @@ public extension IRCCommand {
         case Constants.privMsg.rawValue:
             try expect(argc: 2)
             let targets = try splitRecipientString()
-            self = .PRIVMSG(targets, arguments[1])
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
+            self = .PRIVMSG(targets, last)
             
         case Constants.notice.rawValue:
             try expect(argc: 2)
             let targets = try splitRecipientString()
-            self = .NOTICE(targets, arguments[1])
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
+            self = .NOTICE(targets, last)
             
         case Constants.cap.rawValue:
             try expect(min: 1, max: 2)
-            guard let subcmd = CAPSubCommand(rawValue: arguments[0]) else {
-                throw MessageParserError.invalidCAPCommand(arguments[0])
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
+            guard let subcmd = CAPSubCommand(rawValue: first) else {
+                throw MessageParserError.invalidCAPCommand(first)
             }
             let capIDs = arguments.count > 1
-            ? arguments[1].components(separatedBy: Constants.space.rawValue)
+            ? last.components(separatedBy: Constants.space.rawValue)
             : []
             self = .CAP(subcmd, capIDs)
             
         case Constants.whoIs.rawValue:
             try expect(min: 1, max: 2)
-            let maskArg = arguments.count == 1 ? arguments[0] : arguments[1]
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
+            let maskArg = arguments.count == 1 ? first : last
             let masks   = maskArg.split(separator: Character(Constants.comma.rawValue)).map(String.init)
-            self = .WHOIS(server: arguments.count == 1 ? nil : arguments[0],
+            self = .WHOIS(server: arguments.count == 1 ? nil : first,
                           usermasks: Array(masks))
             
         case Constants.who.rawValue:
             try expect(max: 2)
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
             switch arguments.count {
             case 0: self = .WHO(usermask: nil, onlyOperators: false)
-            case 1: self = .WHO(usermask: arguments[0], onlyOperators: false)
-            case 2: self = .WHO(usermask: arguments[0],
-                                onlyOperators: arguments[1] == Constants.oString.rawValue)
+            case 1: self = .WHO(usermask: first, onlyOperators: false)
+            case 2: self = .WHO(usermask: first,
+                                onlyOperators: last == Constants.oString.rawValue)
             default: fatalError("unexpected argument count \(arguments.count)")
             }
             //Other Command, can be something like PASS, KEYBUNDLE
         case Constants.kill.rawValue:
             try expect(argc: 2)
-            let nick = try splitKillNick()
-            self = .KILL(nick, arguments[1])
+            guard let first = arguments.first else { throw Error.firstArgumentIsMissing }
+            guard let last = arguments.last else { throw Error.lastArgumentIsMissing }
+            guard let nick = try splitNicks().first else { throw Error.invalidNickName(first) }
+            self = .KILL(nick, last)
         case Constants.kick.rawValue:
             try expect(argc: 3)
             let channels = try splitChannelsString()
-            let users = try splitKickNicks()
+            let users = try splitNicks()
             let comments = splitComments()
             self = .KICK(channels, users, comments)
         default:

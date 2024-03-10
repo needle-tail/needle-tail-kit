@@ -48,9 +48,11 @@ public extension IRCMessageRecipient {
   
   init?(_ s: String) {
       var nick: NeedleTailNick?
-      if s.contains(Constants.colon.rawValue) {
-          let split = s.components(separatedBy: Constants.colon.rawValue)
-          nick = NeedleTailNick(name: split[0], deviceId: DeviceId(split[1]))
+      if s.contains(Constants.underScore.rawValue) {
+          let split = s.components(separatedBy: Constants.underScore.rawValue)
+          guard let name = split.first else { return nil }
+          guard let deviceId = split.last else { return nil }
+          nick = NeedleTailNick(name: name, deviceId: DeviceId(deviceId))
       }
       if s == Constants.star.rawValue {
         self = .everything
@@ -81,7 +83,7 @@ extension IRCMessageRecipient : CustomStringConvertible {
     switch self {
       case .channel (let name) : return name.description
       case .nick(let name) : return name.description
-      case .everything         : return "<IRCRecipient: \(Constants.star)>"
+    case .everything :return "<IRCRecipient: \(Constants.star.rawValue)>"
     }
   }
 }

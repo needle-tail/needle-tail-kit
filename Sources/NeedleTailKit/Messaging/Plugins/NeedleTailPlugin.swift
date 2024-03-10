@@ -10,6 +10,7 @@ import CypherMessaging
 import NeedleTailHelpers
 import AsyncAlgorithms
 import SwiftDTF
+import NeedleTailCrypto
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -23,6 +24,7 @@ public final class NeedleTailPlugin: Plugin, Sendable {
     
     let messenger: NeedleTailMessenger
     let priorityActor = PriorityActor()
+    let needletailCrypto = NeedleTailCrypto()
     public init(messenger: NeedleTailMessenger) {
         self.messenger = messenger
     }
@@ -36,14 +38,51 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
         
 #if (os(macOS) || os(iOS))
-        print("CREATED MESSAGE", message.text)
-        self.messenger.emitter.messageReceived = message
-        Task {
-            await priorityActor.queueThrowingAction(with: .background) { [weak self] in
+        if message.messageSubtype == "requestMediaResend/*" {
+            Task { @PriorityActor [weak self] in
                 guard let self else { return }
-                try await updateDeliveryStatus(message: message)
+                if let mediaId = await message.metadata["mediaId"] as? String {
+                    guard let username = await messenger.cypher?.username.raw else { return }
+                    let contactBundle = try await messenger.findBundle(by: username)
+                    let oldMessage = try await messenger.findMessage(by: mediaId, contactBundle: contactBundle)
+                    
+                    guard var metadata = await oldMessage?.metadata else { return }
+                    metadata["resendMesage"] = "There was a problem getting the media. This is a new copy..."
+                    let dtfp = try BSONDecoder().decode(DataToFilePacket.self, from: metadata)
+                    
+                    guard let cypher = await self.messenger.cypher else { return }
+                    
+                    guard let chat = try await oldMessage?.target.resolve(in: cypher) else { return }
+                    guard let messageSubtype = await oldMessage?.messageSubtype else { return }
+                    
+                    
+                    try await messenger.sendMessageThumbnail(
+                        chat: chat,
+                        messageSubtype: messageSubtype,
+                        metadata: metadata
+                    )
+                    
+                    let fileBlob = try await needletailCrypto.decryptFile(from: dtfp.fileLocation, cypher: cypher)
+                    let thumbnailBlob = try await needletailCrypto.decryptFile(from: dtfp.thumbnailLocation, cypher: cypher)
+                    let packet = try await messenger.encodeDTFP(dtfp: dtfp)
+                    let mediaPacket = NeedleTailMessenger.MediaPacket(
+                        packet: packet,
+                        fileData: fileBlob,
+                        thumbnailData: thumbnailBlob
+                    )
+                    
+                    await messenger.mediaConsumer.feedConsumer(mediaPacket, priority: .background)
+                    try await oldMessage?.revoke()
+                }
             }
-            if let stream = await self.messenger.cypherTransport?.configuration.client?.stream {
+        }
+        
+        print("CREATED MESSAGE", message.text)
+       
+        self.messenger.emitter.messageReceived = message
+        Task { @PriorityActor in
+            try await updateDeliveryStatus(message: message)
+            if let stream = await self.messenger.cypherTransport!.configuration.client!.stream {
                 for try await result in NeedleTailAsyncSequence(consumer: stream.multipartMessageConsumer) {
                     switch result {
                     case .success(let filePacket):
@@ -69,9 +108,8 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
     }
     
-    @MainActor
     func updateDeliveryStatus(message: AnyChatMessage) async throws {
-        switch message.raw.deliveryState {
+        switch await message.raw.deliveryState {
         case .none:
             break
         case .read:
@@ -79,16 +117,12 @@ public final class NeedleTailPlugin: Plugin, Sendable {
         case .revoked:
             break
         case .received:
-            await priorityActor.queueThrowingAction(with: .background) { [weak self] in
-                guard let self else { return }
-                try await self.messenger.sendReadMessages(count: 1)
-            }
+            try await self.messenger.sendReadMessages(count: 1)
         case .undelivered:
          break
         }
     }
     
-    @MainActor
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
         Task { @PriorityActor [weak self] in
@@ -99,7 +133,9 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
         
 #if (os(macOS) || os(iOS))
-        messenger.emitter.messageChanged = message
+        Task { @MainActor in
+            messenger.emitter.messageChanged = message
+        }
 #endif
     }
     @MainActor

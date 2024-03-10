@@ -1,11 +1,13 @@
 import CypherMessaging
 import NeedleTailHelpers
- import NIOCore
+import NIOCore
 
 public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWriterDelegate {
     
     
     func transportMessage(_
+                          consumer: NeedleTailAsyncConsumer<ByteBuffer>,
+                          priority: Priority,
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
                           command: IRCCommand,
@@ -15,7 +17,10 @@ public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWr
 
 public protocol NeedleTailWriterDelegate: AnyObject {
     
+    
     func sendAndFlushMessage(_
+                             consumer: NeedleTailAsyncConsumer<ByteBuffer>,
+                             priority: Priority,
                              writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                              message: IRCMessage
     ) async throws
@@ -25,12 +30,28 @@ public protocol NeedleTailWriterDelegate: AnyObject {
 extension NeedleTailWriterDelegate {
     
     public func sendAndFlushMessage(_
+                                    consumer: NeedleTailAsyncConsumer<ByteBuffer>,
+                                    priority: Priority,
                                     writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                     message: IRCMessage
     ) async throws {
         do {
-            let buffer = await NeedleTailEncoder.encode(value: message)
-            try await writer.write(buffer)
+            await consumer.feedConsumer(
+                await NeedleTailEncoder.encode(value: message), priority: priority
+            )
+            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
+                switch result {
+                case .success(let buffer):
+                    do {
+                        try await writer.write(buffer)
+                    } catch {
+                        print(error)
+                        return
+                    }
+                case .consumed:
+                    return
+                }
+            }
         } catch {
             throw error
         }
@@ -41,32 +62,54 @@ extension NeedleTailWriterDelegate {
 extension NeedleTailClientDelegate {
     
     public func transportMessage(_
+                                 consumer: NeedleTailAsyncConsumer<ByteBuffer>,
+                                 priority: Priority = .standard,
                                  writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                  origin: String = "",
                                  command: IRCCommand,
                                  tags: [IRCTags]? = nil
     ) async throws {
-            switch command {
-            case .PRIVMSG(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
-                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
-                _ = try await lines.asyncMap {
-                    let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
-                    try await sendAndFlushMessage(writer, message: message)
-                }
-            case .ISON(let nicks):
-                let message = IRCMessage(origin: origin, command: .ISON(nicks), tags: tags)
-                try await sendAndFlushMessage(writer, message: message)
-            case .NOTICE(let recipients, let messageLines):
-                let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
-                    .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
-                _ = try await lines.asyncMap {
-                    let message = IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
-                    try await sendAndFlushMessage(writer, message: message)
-                }
-            default:
-                let message = IRCMessage(origin: origin, command: command, tags: tags)
-                try await sendAndFlushMessage(writer, message: message)
+        switch command {
+        case .PRIVMSG(let recipients, let messageLines):
+            let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
+            _ = try await lines.asyncMap {
+                let message = IRCMessage(origin: origin, command: .PRIVMSG(recipients, $0), tags: tags)
+                try await sendAndFlushMessage(
+                    consumer,
+                    priority: priority,
+                    writer: writer,
+                    message: message
+                )
+            }
+        case .ISON(let nicks):
+            let message = IRCMessage(origin: origin, command: .ISON(nicks), tags: tags)
+            try await sendAndFlushMessage(
+                consumer,
+                priority: priority,
+                writer: writer,
+                message: message
+            )
+        case .NOTICE(let recipients, let messageLines):
+            let lines = messageLines.components(separatedBy: Constants.cLF.rawValue)
+                .map { $0.replacingOccurrences(of: Constants.cCR.rawValue, with: Constants.space.rawValue) }
+            _ = try await lines.asyncMap {
+                let message = IRCMessage(origin: origin, command: .NOTICE(recipients, $0), tags: tags)
+                try await sendAndFlushMessage(
+                    consumer,
+                    priority: priority,
+                    writer: writer,
+                    message: message
+                )
+            }
+        default:
+            let message = IRCMessage(origin: origin, command: command, tags: tags)
+            try await sendAndFlushMessage(
+                consumer,
+                priority: priority,
+                writer: writer,
+                message: message
+            )
         }
     }
 }
@@ -78,15 +121,40 @@ extension NeedleTailServerMessageDelegate {
     
     
     public func sendAndFlushMessage(_
+                                    consumer: NeedleTailAsyncConsumer<ByteBuffer>,
+                                    priority: Priority = .standard,
                                     writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                                     message: IRCMessage
     ) async throws {
+        do {
+            await consumer.feedConsumer(
+                await NeedleTailEncoder.encode(value: message), priority: priority
+            )
+            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
+                switch result {
+                case .success(let buffer):
+                    do {
+                        try await writer.write(buffer)
+                    } catch {
+                        print(error)
+                        return
+                    }
+                case .consumed:
+                    return
+                }
+            }
+        } catch {
+            throw error
+        }
+        
+        
         let buffer = await NeedleTailEncoder.encode(value: message)
         try await writer.write(buffer)
     }
     
     
     public func sendError(_
+                          consumer: NeedleTailAsyncConsumer<ByteBuffer>,
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
                           target: String,
@@ -99,11 +167,16 @@ extension NeedleTailServerMessageDelegate {
                                  target: target,
                                  command: .numeric(code, enrichedArgs),
                                  tags: nil)
-        try await sendAndFlushMessage(writer, message: message)
+        try await sendAndFlushMessage(
+            consumer,
+            writer: writer,
+            message: message
+        )
     }
     
     
     public func sendReply(_
+                          consumer: NeedleTailAsyncConsumer<ByteBuffer>,
                           writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                           origin: String,
                           target: String,
@@ -114,11 +187,16 @@ extension NeedleTailServerMessageDelegate {
                                  target: target,
                                  command: .numeric(code, args),
                                  tags: nil)
-        try await sendAndFlushMessage(writer, message: message)
+        try await sendAndFlushMessage(
+            consumer,
+            writer: writer,
+            message: message
+        )
     }
     
     
     public func sendMotD(_
+                         consumer: NeedleTailAsyncConsumer<ByteBuffer>,
                          writer: NIOAsyncChannelOutboundWriter<ByteBuffer>,
                          origin: String,
                          target: String,
@@ -127,7 +205,8 @@ extension NeedleTailServerMessageDelegate {
         guard !message.isEmpty else { return }
         let origin = origin
         try await sendReply(
-            writer,
+            consumer,
+            writer: writer,
             origin: origin,
             target: target,
             code: .replyMotDStart,
@@ -140,12 +219,18 @@ extension NeedleTailServerMessageDelegate {
         
         _ = try await lines.asyncMap {
             let message = IRCMessage(origin: origin,
-                                     command: .numeric(.replyMotD, [ target, $0 ]),
+                                     target: target,
+                                     command: .numeric(.replyMotD, [ $0 ]),
                                      tags: nil)
-            try await sendAndFlushMessage(writer, message: message)
+            try await sendAndFlushMessage(
+                consumer,
+                writer: writer,
+                message: message
+            )
         }
         try await sendReply(
-            writer,
+            consumer,
+            writer: writer,
             origin: origin,
             target: target,
             code: .replyEndOfMotD,

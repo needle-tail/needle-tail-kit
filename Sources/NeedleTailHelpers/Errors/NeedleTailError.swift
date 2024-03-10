@@ -51,4 +51,5 @@ public enum NeedleTailError: String, Error {
     case streamNotSet
     case filePathDoesntExist
     case symmetricKeyDoesNotExist
+    case contactBundleDoesNotExistForMediaId
 }

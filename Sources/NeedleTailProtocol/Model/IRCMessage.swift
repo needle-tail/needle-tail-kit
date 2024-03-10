@@ -86,15 +86,6 @@ public struct IRCMessage: Codable, Sendable {
             self.command = try IRCCommand(cmd, arguments: arguments ?? [])
         }
         self.tags = try containter.decodeIfPresent([IRCTags].self, forKey: .tags)
-//        let cmd = try c.decode(String.self, forKey: .command)
-//        let arguments = try c.decodeIfPresent([ String ].self, forKey: .arguments)
-//        let command = try IRCCommand(cmd, arguments: arguments ?? [])
-//        let tags = try c.decodeIfPresent([IRCTags].self, forKey: .tags)
-//        self.init(origin: try c.decodeIfPresent(String.self, forKey: .origin),
-//                  target: try c.decodeIfPresent(String.self, forKey: .target),
-//                  command: command,
-//                  tags: tags
-//        )
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -102,8 +93,6 @@ public struct IRCMessage: Codable, Sendable {
         try containter.encodeIfPresent(origin, forKey: .origin)
         try containter.encodeIfPresent(target, forKey: .target)
         try containter.encode(command, forKey: .command)
-//        try containter.encode(command.commandAsString, forKey: .command)
-//        try containter.encode(command.arguments, forKey: .arguments)
         try containter.encodeIfPresent(tags, forKey: .tags)
     }
 }

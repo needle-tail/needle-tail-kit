@@ -9,7 +9,7 @@ import DequeModule
 import Atomics
 
 public struct NeedleTailAsyncSequence<ConsumerTypeValue>: AsyncSequence {
-
+    
     public typealias Element = NTASequenceStateMachine.NTASequenceResult<ConsumerTypeValue>
     
     public let consumer: NeedleTailAsyncConsumer<ConsumerTypeValue>
@@ -28,6 +28,7 @@ public struct NeedleTailAsyncSequence<ConsumerTypeValue>: AsyncSequence {
 extension NeedleTailAsyncSequence {
     public struct Iterator<T>: AsyncIteratorProtocol {
         
+        
         public typealias Element = NTASequenceStateMachine.NTASequenceResult<T>
         
         public let consumer: NeedleTailAsyncConsumer<T>
@@ -42,7 +43,7 @@ extension NeedleTailAsyncSequence {
                 let result = await consumer.next()
                 switch result {
                 case .ready(let sequence):
-                   return .success(sequence)
+                    return .success(sequence.item)
                 case .consumed:
                     return nil
                 }
@@ -52,21 +53,71 @@ extension NeedleTailAsyncSequence {
         }
     }
 }
-   
+public struct TaskJob<T> {
+    public var item: T
+    public var priority: Priority
+}
+public enum Priority: Int, Sendable {
+    case urgent, standard, background, utility
+}
 public actor NeedleTailAsyncConsumer<T> {
     
-    public var deque = Deque<T>()
+    public var deque = Deque<TaskJob<T>>()
     public var stateMachine = NTASequenceStateMachine()
     
-    public init(deque: Deque<T> = Deque<T>()) {
+    public init(deque: Deque<TaskJob<T>> = Deque<TaskJob<T>>()) {
         self.deque = deque
     }
     
-    public func feedConsumer(_ items: [T]) async {
-        deque.append(contentsOf: items)
+    public func feedConsumer(_ item: T, priority: Priority = .standard) async {
+        print("Fed task with priority: ", priority)
+        switch priority {
+        case .urgent:
+            deque.prepend(TaskJob(
+                item: item,
+                priority: priority
+            )
+            )
+        case .standard:
+            if let utilityIndex = deque.firstIndex(where: { $0.priority == .utility }) {
+                deque.insert(
+                    TaskJob(
+                        item: item,
+                        priority: priority
+                    )
+                    , at: utilityIndex)
+            } else {
+                deque.append(TaskJob(
+                    item: item,
+                    priority: priority
+                )
+                )
+            }
+        case .utility:
+            if let backgroundIndex = deque.firstIndex(where: { $0.priority == .background }) {
+                deque.insert(
+                    TaskJob(
+                        item: item,
+                        priority: priority
+                    )
+                    , at: backgroundIndex)
+            } else {
+                deque.append(TaskJob(
+                    item: item,
+                    priority: priority
+                )
+                )
+            }
+        case .background:
+            deque.append(TaskJob(
+                item: item,
+                priority: priority
+            )
+            )
+        }
     }
     
-    public func next() async -> NTASequenceStateMachine.NextNTAResult<T> {
+    public func next() async -> NTASequenceStateMachine.NextNTAResult<TaskJob<T>> {
         if !deque.isEmpty {
             stateMachine.ready()
         } else {
@@ -92,39 +143,39 @@ public final class NTASequenceStateMachine: Sendable {
         case consumed, waiting
         
         public var description: String {
-                switch self.rawValue {
-                case 0:
-                    //Empty consumer
-                    return "consumed"
-                case 1:
-                    //Non Empty consumer
-                    return "ready"
-                default:
-                    return ""
-                }
+            switch self.rawValue {
+            case 0:
+                //Empty consumer
+                return "consumed"
+            case 1:
+                //Non Empty consumer
+                return "ready"
+            default:
+                return ""
             }
         }
+    }
     
     public enum NTASequenceResult<T: Sendable>: Sendable {
         case success(T), consumed
     }
-
+    
     public enum NextNTAResult<T: Sendable>: Sendable {
         case ready(T), consumed
     }
     
     private let protectedState = ManagedAtomic<Int>(NTAConsumedState.consumed.rawValue)
-     
+    
     public var state: NTAConsumedState.RawValue {
         get { protectedState.load(ordering: .acquiring) }
         set { protectedState.store(newValue, ordering: .relaxed) }
     }
     
-    func ready() {
+    public func ready() {
         state = 1
     }
-
-    func cancel() {
+    
+    public func cancel() {
         state = 0
     }
 }

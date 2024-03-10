@@ -75,8 +75,10 @@ extension IRCCommand: CustomStringConvertible {
             return Constants.ping.rawValue
         case .PONG:
             return Constants.pong.rawValue
-        case .JOIN, .JOIN0:
+        case .JOIN:
             return Constants.join.rawValue
+        case.JOIN0:
+            return Constants.join0.rawValue
         case .PART:
             return Constants.part.rawValue
         case .LIST:
@@ -254,7 +256,7 @@ extension IRCCommand: CustomStringConvertible {
         case .CHANNELMODE_GET(let v):
             return Constants.mode.rawValue + Constants.space.rawValue + "\(v)"
         case .CHANNELMODE_GET_BANMASK(let v):
-            return Constants.mode.rawValue + Constants.space.rawValue + Constants.bString.rawValue + Constants.space.rawValue + "\(v)"
+            return Constants.mode.rawValue + Constants.space.rawValue + "\(v)" + Constants.space.rawValue + Constants.plus.rawValue + Constants.bString.rawValue
         case .CHANNELMODE(let nick, let add, let remove):
             var s = Constants.mode.rawValue + Constants.space.rawValue + "\(nick)"
             if !add   .isEmpty { s += Constants.space.rawValue + Constants.plus.rawValue + add.stringValue }
@@ -271,7 +273,7 @@ extension IRCCommand: CustomStringConvertible {
             + Constants.space.rawValue + Constants.keys.rawValue + Constants.space.rawValue + keys.joined(separator: Constants.comma.rawValue)
         case .PART(let channels):
             let names = channels.map { $0.stringValue}
-            return Constants.part.rawValue + names.joined(separator: Constants.comma.rawValue)
+            return Constants.part.rawValue + Constants.space.rawValue + names.joined(separator: Constants.comma.rawValue +  Constants.space.rawValue)
         case .LIST(.none, .none):
             return Constants.list.rawValue + Constants.space.rawValue + Constants.star.rawValue
         case .LIST(.none, .some(let target)):

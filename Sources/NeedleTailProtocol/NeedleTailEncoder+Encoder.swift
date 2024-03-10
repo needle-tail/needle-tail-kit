@@ -1,8 +1,8 @@
 import NIOCore
-    
+
 public final class NeedleTailEncoder {
     
-//    [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
+    //    [':' SOURCE]? ' ' COMMAND [' ' ARGS]? [' :' LAST-ARG]?
     public class func encode(
         value: IRCMessage
     ) async -> ByteBuffer {
@@ -28,7 +28,7 @@ public final class NeedleTailEncoder {
         }
         
         let base = newTag + newOrigin + command + newTarget
-
+        
         switch value.command {
             
         case .NICK(let v), .MODEGET(let v):
@@ -51,70 +51,88 @@ public final class NeedleTailEncoder {
             
         case .PING(server: let server, server2: let server2),
                 .PONG(server: let server, server2: let server2):
-            if let server2 = server2 {
-                //TODO: This is probably wrong
-                newString = base + argumentsWithLast([server]) + Constants.space.rawValue + Constants.colon.rawValue + argumentsWithLast([server2])
-            } else {
-                newString = base + argumentsWithLast([server])
-            }
-            
+            var servers = [String]()
+             if let server2 = server2 {
+                 servers.append(contentsOf: [server, server2])
+             } else {
+                 servers.append(server)
+             }
+            newString = base + create(
+                arguments: servers
+            )
         case .JOIN(channels: let channels, keys: let keys):
-            newString = base + Constants.space.rawValue
-            newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+            newString = base
+            newString += create(
+                arguments: channels.lazy.map({ $0.stringValue }),
+                buildWithComma: true
+            )
             if let keys = keys {
-                newString += commaSeperatedValues(keys)
+                newString += create(
+                    arguments: keys,
+                    buildWithComma: true
+                )
             }
             
         case .JOIN0:
             newString = base + Constants.space.rawValue + Constants.star.rawValue
             
         case .PART(channels: let channels):
-            newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+            newString = base + create(
+                arguments: channels.lazy.map({ $0.stringValue }),
+                buildWithComma: true
+            )
             
         case .LIST(channels: let channels, target: let target):
             if let channels = channels {
-                newString = base + commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
+                newString = base + create(
+                    arguments: channels.lazy.map({ $0.stringValue }),
+                    buildWithComma: true
+                )
             } else {
                 newString = base + Constants.space.rawValue + Constants.star.rawValue
             }
             if let target = target {
-                newString += Constants.space.rawValue + Constants.colon.rawValue + target
+                newString += Constants.space.rawValue + target
             }
             
         case .PRIVMSG(let recipients, let message),
                 .NOTICE(let recipients, let message):
-            newString = base + commaSeperatedValues(recipients.lazy.map({ $0.stringValue }))
+            newString = base + create(
+                arguments: recipients.lazy.map({ $0.stringValue }),
+                buildWithComma: true
+            )
             newString += Constants.space.rawValue + Constants.colon.rawValue + message
         case .MODE(let nick, add: let add, remove: let remove):
             newString = base + Constants.space.rawValue + nick.stringValue
-            let adds = add.stringValue.map({ "\(Constants.plus)\($0)" })
-            let removes = remove.stringValue.map({ "\(Constants.minus)\($0)" })
-            
+            let adds = add.stringValue.map({ "\(Constants.plus.rawValue) \($0)" })
+            let removes = remove.stringValue.map({ "\(Constants.minus.rawValue) \($0)" })
             if add.isEmpty && remove.isEmpty {
                 newString += Constants.space.rawValue + Constants.colon.rawValue
             } else {
-                newString += arguments(adds) + arguments(removes) + argumentsWithLast()
+                newString += arguments(adds) + arguments(removes)
             }
-            
         case .CHANNELMODE(let channel, add: let add, remove: let remove):
-            let adds = add.stringValue.map({ "\(Constants.plus)\($0)" })
-            let removes = remove.stringValue.map({ "\(Constants.minus)\($0)" })
+            let adds = add.stringValue.map({ "\(Constants.plus.rawValue)\($0)" })
+            let removes = remove.stringValue.map({ "\(Constants.minus.rawValue)\($0)" })
             
             newString = base + Constants.space.rawValue + channel.stringValue
-            newString += arguments(adds) + arguments(removes) + argumentsWithLast()
+            newString += arguments(adds) + arguments(removes)
             
         case .CHANNELMODE_GET(let value):
             newString = base + Constants.space.rawValue + value.stringValue
             
         case .CHANNELMODE_GET_BANMASK(let value):
-            newString = base + Constants.space.rawValue + Constants.bString.rawValue + Constants.space.rawValue + value.stringValue
+            newString = base + Constants.space.rawValue + value.stringValue + Constants.space.rawValue + Constants.plus.rawValue + Constants.bString.rawValue
         case .WHOIS(server: let server, usermasks: let usermasks):
             newString = base
             if let target = server {
                 newString += Constants.space.rawValue + target
             }
-            newString += Constants.space.rawValue + usermasks.joined(separator: Constants.comma.rawValue)
-            
+            newString += create(
+                arguments: usermasks,
+                buildWithColon: true,
+                buildWithComma: true
+            )
         case .WHO(usermask: let usermask, onlyOperators: let onlyOperators):
             newString += base
             if let mask = usermask {
@@ -124,16 +142,29 @@ public final class NeedleTailEncoder {
                 }
             }
         case .KICK(let channels, let users, let comments):
-            newString = base + Constants.space.rawValue
-            newString += commaSeperatedValues(channels.lazy.map({ $0.stringValue }))
-            newString += commaSeperatedValues(users.lazy.map({ $0.stringValue }))
-            newString += commaSeperatedValues(comments.lazy.map({ $0 }))
+            newString = base
+            newString += create(
+                arguments: channels.lazy.map({ $0.stringValue }),
+                buildWithComma: true
+            )
+            newString += create(
+                arguments: users.lazy.map({ $0.stringValue }),
+                buildWithComma: true
+            )
+            newString += create(
+                arguments: comments.lazy.map({ $0 }),
+                buildWithColon: true
+            )
         case .KILL(let nick, let comment):
-            newString = base + Constants.space.rawValue + nick.stringValue + comment
+            newString = base + Constants.space.rawValue + nick.stringValue + Constants.space.rawValue + Constants.colon.rawValue + comment
         case .numeric(_, let args),
                 .otherCommand(_, let args),
                 .otherNumeric(_, let args):
-                newString = base + argumentsWithLast(args)
+            newString = base + create(
+                arguments: args,
+                buildWithColon: true,
+                buildWithComma: true
+            )
         case .CAP(let subCommand, let capabilityIds):
             newString = base + Constants.space.rawValue + subCommand.commandAsString + Constants.space.rawValue + Constants.colon.rawValue
             newString += capabilityIds.joined(separator: Constants.space.rawValue)
@@ -142,7 +173,7 @@ public final class NeedleTailEncoder {
         return ByteBuffer(string: newString)
     }
     
-    private class func arguments(_ args: [String] = [""]) -> String {
+    internal class func arguments(_ args: [String] = [""]) -> String {
         var newString = ""
         for arg in args {
             newString += Constants.space.rawValue + arg
@@ -151,27 +182,46 @@ public final class NeedleTailEncoder {
     }
     
     //This method is used to recreate the last arguement in order for it to start with a colon. This is according to IRC syntax design.
-    private class func argumentsWithLast(_ args: [String] = [""]) -> String {
-        guard !args.isEmpty else { return "" }
-        var newString = ""
-            for arg in args.dropLast() {
-                newString += Constants.space.rawValue + arg
-            }
-        let lastIdx = args.index(args.startIndex, offsetBy: args.count - 1)
-        return newString + Constants.space.rawValue + Constants.colon.rawValue + args[lastIdx]
-    }
-    
-    private class func commaSeperatedValues(_ args: [String] = [""]) -> String {
-        var newString = Constants.space.rawValue
-        var isFirst = true
-        for arg in args {
-            if isFirst {
-                isFirst = false
+    internal class func create(
+        arguments: [String],
+        buildWithColon: Bool = false,
+        buildWithComma: Bool = false
+    ) -> String {
+        let newString = ""
+        var fixed = [String]()
+        var currentIndex = 0
+        for argument in arguments {
+            if currentIndex == 0 {
+                // append a colon to the front
+                if buildWithColon && !buildWithComma {
+                    fixed.append(Constants.colon.rawValue + argument)
+                }
+                if buildWithColon && buildWithComma {
+                    if arguments.count > 1 {
+                        fixed.append(Constants.colon.rawValue + argument + Constants.comma.rawValue)
+                    } else {
+                        fixed.append(Constants.colon.rawValue + argument)
+                    }
+                }
+                if !buildWithColon && buildWithComma {
+                    if arguments.count > 1 {
+                        fixed.append(argument + Constants.comma.rawValue)
+                    } else {
+                        fixed.append(argument)
+                    }
+                }
+                if !buildWithColon && !buildWithComma {
+                    fixed.append(argument)
+                }
             } else {
-                newString += Constants.comma.rawValue
+                if buildWithComma && currentIndex != (arguments.count - 1) {
+                    fixed.append(argument + Constants.comma.rawValue)
+                } else {
+                    fixed.append(argument)
+                }
             }
-            newString += arg
+            currentIndex += 1
         }
-        return newString
+        return newString + Constants.space.rawValue + fixed.joined(separator: Constants.space.rawValue)
     }
 }
