@@ -215,7 +215,7 @@ public struct MessageParser: Sendable {
                         seperatedArgumentesByComponent.append(contentsOf: [argumentString, String(lastArgument.dropFirst())])
                     }
                 } else {
-                    if commandString.isOtherCommand {
+                    if commandString.isOtherCommand && commandString != Constants.multipartMediaUpload.rawValue {
                         let initialArguements = seperatedArguments[..<messageIndex]
                         let lastArgument = seperatedArguments[messageIndex...]
                             .joined(separator: Constants.space.rawValue)
@@ -224,6 +224,12 @@ public struct MessageParser: Sendable {
                             .filter({ !$0.isEmpty })
                             .map({ $0.replacing(Constants.space.rawValue, with: Constants.none.rawValue) })
                         seperatedArgumentesByComponent.append(contentsOf: initialArguements + lastArgument)
+                        
+                        //If we are multipart this is probably a huge message that we want to parse further away from the inbound stream....
+                    } else if commandString.isOtherCommand, commandString == Constants.multipartMediaUpload.rawValue || commandString == Constants.multipartMediaDownload.rawValue {
+                            let initialArguements = seperatedArguments[..<messageIndex]
+                            let lastArgument = seperatedArguments[messageIndex...]
+                            seperatedArgumentesByComponent = seperatedArguments
                     } else {
                         let initialArguements = seperatedArguments[..<messageIndex]
                         let lastArgument = seperatedArguments[messageIndex...].joined(separator: Constants.space.rawValue)

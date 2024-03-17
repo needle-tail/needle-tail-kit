@@ -13,20 +13,17 @@ public final class ContactsBundle {
     
 #if (os(macOS) || os(iOS))
     @Published public var contactBundleViewModel = [ContactBundle]()
-    @Published public var scrollToBottom: UUID?
     @Published public var contactBundle: ContactBundle?
 #else
     public var contactBundleViewModel = [ContactBundle]()
-    public var scrollToBottom: UUID?
 #endif
     
     enum Errors: Error {
         case cannotFindBundle
     }
     
-    public init(contactBundleViewModel: [ContactBundle] = [ContactBundle](), scrollToBottom: UUID? = nil) {
+    public init(contactBundleViewModel: [ContactBundle] = [ContactBundle]()) {
         self.contactBundleViewModel = contactBundleViewModel
-        self.scrollToBottom = scrollToBottom
     }
     
     public func findContactBundle(for username: String) async throws -> ContactBundle {

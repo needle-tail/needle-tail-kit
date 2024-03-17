@@ -20,7 +20,7 @@ actor NeedleTailClient {
     let messageParser = MessageParser()
     let logger = Logger(label: "Client")
     var cancelStream = false
-    
+    let runLoop = NTKLoop()
     struct Configuration: Sendable {
         let ntkBundle: NTKClientBundle
         var transportState: TransportState

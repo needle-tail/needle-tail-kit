@@ -13,7 +13,7 @@ public struct ErrorView: View {
     
     public var body: some View {
         ZStack {
-            Text("You need to finish registering Error: \(error.localizedDescription)")
+            Text("Error: \(error.localizedDescription)")
         }
     }
 }

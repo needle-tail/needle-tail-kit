@@ -9,7 +9,9 @@ import Foundation
 import CypherMessaging
 
 public protocol TaskObjectProtocol {}
-public class RunLoop {
+public actor NTKLoop {
+    
+    public init() {}
     
     public enum LoopResult {
         case finished, runnning
@@ -63,8 +65,8 @@ public class RunLoop {
         }
     }
     
-    static var loopTasks = [Task<TaskObjectProtocol?, Error>]()
-    static var voidTasks = [Task<Void, Error>]()
+    var loopTasks = [Task<TaskObjectProtocol?, Error>]()
+    var voidTasks = [Task<Void, Error>]()
     
     
     /// Runs the loop
@@ -72,7 +74,7 @@ public class RunLoop {
     ///   - expiresIn: The Date we wish to exprire the loop on
     ///   - sleep: The length we want to sleep the loop
     ///   - stopRunning: a custom callback to indicate when we should call canRun = false
-    public static func run(_
+    public func run(_
                            expiresIn: TimeInterval?,
                            sleep: Duration,
                            tolerance: Duration = .zero,
@@ -82,9 +84,9 @@ public class RunLoop {
         let task: Task<Void, Error> = Task {
             try await withThrowingTaskGroup(of: Bool.self) { group in
                 try Task.checkCancellation()
-                let date = RunLoop.timeInterval(expiresIn)
+                let date = NTKLoop.timeInterval(expiresIn)
                 var canRun = true
-                while await RunLoop.execute(date, canRun: canRun) {
+                while await NTKLoop.execute(date, canRun: canRun) {
                     if suspendingClock {
                         try await Task.sleep(until: .now + sleep, tolerance: tolerance, clock: .suspending)
                     } else {
@@ -107,7 +109,7 @@ public class RunLoop {
         voidTasks.removeAll(where: { $0 == task })
     }
     
-    public static func runReturningLoop<T: TaskObjectProtocol>(
+    public func runReturningLoop<T: TaskObjectProtocol>(
         expiresIn: TimeInterval,
         seconds toSleep: UInt64,
         stopRunning: @Sendable @escaping () async throws -> (Bool, T?)
@@ -115,9 +117,9 @@ public class RunLoop {
         let task: Task<TaskObjectProtocol?, Error> = Task {
             try await withThrowingTaskGroup(of: T?.self) { group in
                 try Task.checkCancellation()
-                let date = RunLoop.timeInterval(expiresIn)
+                let date = NTKLoop.timeInterval(expiresIn)
                 var canRun = true
-                while await RunLoop.execute(date, canRun: canRun) {
+                while await NTKLoop.execute(date, canRun: canRun) {
                     try await Task.sleep(until: .now + .seconds(toSleep), tolerance: .zero, clock: .continuous)
                     let (isRunning, bundle) = try await stopRunning()
                     canRun = isRunning

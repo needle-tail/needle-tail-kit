@@ -52,4 +52,5 @@ public enum NeedleTailError: String, Error {
     case filePathDoesntExist
     case symmetricKeyDoesNotExist
     case contactBundleDoesNotExistForMediaId
+    case contactBundleDoesNotExistForMessageId
 }

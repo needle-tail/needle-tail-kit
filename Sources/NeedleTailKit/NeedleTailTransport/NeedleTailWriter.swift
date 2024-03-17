@@ -28,6 +28,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
     var channelBlob: String?
     var registryRequestId = ""
     let writerConsumer = NeedleTailAsyncConsumer<ByteBuffer>()
+    let runLoop = NTKLoop()
     
     init(asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>, writer: NIOAsyncChannelOutboundWriter<ByteBuffer>, transportState: TransportState, clientContext: ClientContext) throws {
         self.asyncChannel = asyncChannel
@@ -100,7 +101,7 @@ actor NeedleTailWriter: NeedleTailClientDelegate {
             command: .otherCommand(Constants.blobs.rawValue, [packet])
         )
         
-        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
+        try await runLoop.run(20, sleep: .seconds(1)) { [weak self] in
             guard let self else { return false }
             var running = true
             if await self.channelBlob != nil {

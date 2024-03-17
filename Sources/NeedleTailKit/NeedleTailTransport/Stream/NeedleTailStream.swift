@@ -61,6 +61,7 @@ actor NeedleTailStream: IRCDispatcher {
     var hasStarted = false
     var updateKeyBundle = false
     var aquaintanceInfo: AquaintanceInfo
+    let packetTracer = PacketTracer()
     
     struct MultipartChunk: Sendable {
         var id: String
@@ -153,7 +154,7 @@ actor NeedleTailStream: IRCDispatcher {
             case .otherCommand(Constants.blobs.rawValue, let blob):
                 try await configuration.delegate?.doBlobs(blob)
             case.otherCommand(Constants.multipartMediaDownload.rawValue, let media):
-                try await configuration.delegate?.doMultipartMessageDownload(media)
+                try await self.configuration.delegate?.doMultipartMessageDownload(media)
             case .otherCommand(Constants.listBucket.rawValue, let packet):
                 try await configuration.delegate?.doListBucket(packet)
             case .numeric(.replyMotDStart, _):
@@ -285,6 +286,7 @@ actor NeedleTailStream: IRCDispatcher {
                         await configuration.writer.setQuiting(false)
                         await configuration.ctDelegate?.shutdown()
                         await configuration.transportState.transition(to: .transportOffline)
+                        await configuration.messenger.removeClient()
 #if os(macOS)
                         await NSApplication.shared.reply(toApplicationShouldTerminate: true)
 #endif
@@ -504,8 +506,11 @@ actor NeedleTailStream: IRCDispatcher {
     
     //Send a PONG Reply to server When We receive a PING MESSAGE FROM SERVER
     public func doPong(_ origin: String, origin2: String? = nil) async throws {
-        try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
-        try await self.configuration.writer.transportMessage(command: .PONG(server: origin, server2: origin2), priority: .background)
+        Task.detached(priority: .background) { [weak self] in
+            guard let self else { return }
+            try await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(2), clock: .suspending)
+            try await self.configuration.writer.transportMessage(command: .PONG(server: origin, server2: origin2), priority: .background)
+        }
     }
     
     public func respondToTransportState() async {
@@ -566,52 +571,16 @@ actor NeedleTailStream: IRCDispatcher {
         await aquaintanceInfo.recievedIsOnline(onlineNicks)
     }
     
-    var multipartData = Data()
     public func doMultipartMessageDownload(_ packet: [String]) async throws {
-        precondition(packet.count == 4)
-        let partNumber = packet[0]
-        let totalParts = packet[1]
-        let name = packet[2]
-        let chunk = packet[3]
-        logger.info("Received multipart packet: \(partNumber) of: \(totalParts)")
-        guard let data = Data(base64Encoded: chunk) else { return }
-        
-        await downloadChunks.feedConsumer(
-            MultipartChunk(
-                id: name,
-                partNumber: partNumber,
-                totalParts: totalParts,
-                chunk: data
-            ), priority: .background
-        )
-        
-        let totalPartsInFile = await self.downloadChunks.deque.filter({ $0.item.id == name }).sorted(by: { $0.item.partNumber > $1.item.partNumber })
-        if totalPartsInFile.count == Int(totalPartsInFile.first?.item.totalParts ?? "") {
-            self.logger.info("Finished receiving parts...")
-            self.logger.info("Starting to process multipart packet...")
-            for try await result in await NeedleTailAsyncSequence(consumer: self.downloadChunks) {
-                switch result {
-                case .success(let chunk):
-                    await self.addChunkData(data: chunk.chunk)
-                    if chunk.partNumber == chunk.totalParts {
-                        try await self.processMultipartMediaMessage(self.multipartData)
-                        await self.removeMultipartData()
-                        await self.stopAnimatingProgress()
-                        return
-                    }
-                case .consumed:
-                    return
-                }
-            }
+        if let data = try await packetTracer.processPacket(
+            packet,
+            needsParsing: false,
+            logger: logger
+        ) {
+            guard let first = packet.first else { return }
+            await packetTracer.removePacket(first)
+            try await self.processMultipartMediaMessage(data)
         }
-    }
-    
-    func addChunkData(data: Data) async {
-        self.multipartData.append(data)
-    }
-    
-    func removeMultipartData() async {
-        self.multipartData.removeAll()
     }
     
     @MainActor

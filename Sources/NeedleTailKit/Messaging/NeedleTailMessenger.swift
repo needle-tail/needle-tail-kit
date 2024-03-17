@@ -68,7 +68,7 @@ public final class NeedleTailMessenger {
 #endif
     let consumer = NeedleTailAsyncConsumer<TargetConversation.Resolved>()
     let sortChats: @Sendable @MainActor (TargetConversation.Resolved, TargetConversation.Resolved) -> Bool
-    
+    let runLoop = NTKLoop()
     let priorityActor = PriorityActor()
     @PriorityActor
     public let mediaConsumer = NeedleTailAsyncConsumer<MediaPacket>()
@@ -163,7 +163,7 @@ public final class NeedleTailMessenger {
             //Show the Scanner for scanning the QRCode from the Master Device which is the approval code
             await displayScanner()
             
-            try await RunLoop.run(240, sleep: .seconds(1)) { @NeedleTailMessengerActor [weak self] in
+            try await runLoop.run(240, sleep: .seconds(1)) { @NeedleTailMessengerActor [weak self] in
                 guard let self else { return false }
                 var running = true
                 if self.registrationApproved == true {
@@ -247,7 +247,6 @@ public final class NeedleTailMessenger {
 #if (os(macOS) || os(iOS))
         emitter.dismissRegistration = true
         emitter.showProgress = false
-        //        contactsBundle.contactBundle = nil
 #endif
     }
     
@@ -411,41 +410,47 @@ public final class NeedleTailMessenger {
         await setNick(transport: cypherTransport)
         return info
     }
-    
+    internal var serviceTask: Task<Void, Error>?
     internal func resumeService(cypherTransport: NeedleTailCypherTransport, clientInfo: NeedleTailCypherTransport.ClientInfo) async {
-        do {
-            switch await getConnectionState() {
-            case .deregistered, .shouldRegister:
-                await setRegistrationState(.registering)
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    try Task.checkCancellation()
-                    group.addTask {
-                        try await cypherTransport.createClient(
-                            cypherTransport,
-                            clientInfo: clientInfo
-                        )
-                    }
-
-                    try await self.monitorClientConnection(cypherTransport)
-                    Task { @MainActor in
-                        if let client = cypherTransport.configuration.client {
-#if (os(macOS) || os(iOS))
-                            self.emitter.channelIsActive = await client.channelIsActive
-#endif
+        guard serviceTask?.isCancelled == true || serviceTask == nil else { return }
+        serviceTask = Task {
+            do {
+                switch await getConnectionState() {
+                case .deregistered, .shouldRegister:
+                    await setRegistrationState(.registering)
+                    try await withThrowingTaskGroup(of: Void.self) { group in
+                        try Task.checkCancellation()
+                        group.addTask {
+                            try await cypherTransport.createClient(
+                                cypherTransport,
+                                clientInfo: clientInfo
+                            )
                         }
-                    }
+                        
+                        try await self.monitorClientConnection(cypherTransport)
+                            if let client = cypherTransport.configuration.client {
+#if (os(macOS) || os(iOS))
+                                await setChannelIsActive(isActive: client.channelIsActive)
+#endif
+                            }
+                        }
+                case .deregistering:
+                    await setRegistrationState(.shouldRegister)
+                    try await monitorClientConnection(cypherTransport)
+                default:
+                    print("Trying to resume service during a \(await emitter.connectionState) state")
                 }
-            case .deregistering:
-                await setRegistrationState(.shouldRegister)
-                try await monitorClientConnection(cypherTransport)
-            default:
-                print("Trying to resume service during a \(await emitter.connectionState) state")
+            } catch let error as NIOCore.ChannelError {
+                await setErrorReporter(error: error.description)
+            } catch {
+                await setErrorReporter(error: error.localizedDescription)
             }
-        } catch let error as NIOCore.ChannelError {
-            await setErrorReporter(error: error.description)
-        } catch {
-            await setErrorReporter(error: error.localizedDescription)
         }
+    }
+    
+    @MainActor
+    private func setChannelIsActive(isActive: Bool) async {
+        self.emitter.channelIsActive = isActive
     }
     
     private func networkServiceResumer(_
@@ -453,37 +458,19 @@ public final class NeedleTailMessenger {
                                        clientInfo: NeedleTailCypherTransport.ClientInfo
     ) async {
 #if (os(macOS) || os(iOS))
-        let networkServiceResumerTask = Task {
-            return try await withThrowingTaskGroup(of: Void.self, body: { group in
-                //We need to make sure we have internet before we try this
-                guard let stream = await self.networkMonitor.currentStatusStream else { fatalError("Network Monitor never set the stream") }
-                for try await status in stream {
-                    try Task.checkCancellation()
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        if status == .satisfied {
-                            let notRegistered = await self.emitter.connectionState != .registered
-                            if cypherTransport.isConnected == false, notRegistered  {
-                                await self.resumeService(
-                                    cypherTransport: cypherTransport,
-                                    clientInfo: clientInfo
-                                )
-                            }
-                            return
-                        }
-                    }
-                }
-                _ = try await group.next()
-                group.cancelAll()
-            })
-        }
-        
-        do {
-            try await networkServiceResumerTask.value
-        } catch {
-            if !networkServiceResumerTask.isCancelled {
-                networkServiceResumerTask.cancel()
+        switch await self.networkMonitor.status {
+        case .satisfied:
+            let notRegistered = await self.emitter.connectionState != .registered
+            if cypherTransport.isConnected == false, notRegistered  {
+                await self.resumeService(
+                    cypherTransport: cypherTransport,
+                    clientInfo: clientInfo
+                )
             }
+        case .unsatisfied:
+            ()
+        default:
+            break
         }
 #endif
     }
@@ -542,7 +529,6 @@ public final class NeedleTailMessenger {
         case .registered:
             await setRegistrationState(.deregistering)
             try await cypherTransport.transportBridge?.suspendClient(isSuspending)
-            await removeClient()
         default:
             break
         }
@@ -550,6 +536,10 @@ public final class NeedleTailMessenger {
     
     func removeClient() async {
         cypherTransport?.configuration.client = nil
+        var serviceTask = await serviceTask
+        if serviceTask?.isCancelled == false {
+            serviceTask?.cancel()
+        }
     }
     
     func removeTransport(_ cypherTransport: NeedleTailCypherTransport) async {
@@ -943,7 +933,7 @@ extension NeedleTailMessenger {
             preferredPushType: .message
         )
     }
-    
+    //TODO: IF WE ARE OFFLINE HOW DO WE WANT TO HANDLE????d
     public func sendMultipartMessage(
         dtfp: DataToFilePacket,
         conversationPartner: Username,
@@ -1018,6 +1008,94 @@ extension NeedleTailMessenger {
 
 //LocalDB Stuff
 extension NeedleTailMessenger {
+    
+    public func findBundle(from messageId: String) async throws -> ContactsBundle.ContactBundle {
+        let contactBundle = try await contactsBundle.contactBundleViewModel.async.first { bundle in
+            switch await bundle.chat.resolveTarget() {
+            case .privateChat(let chat):
+                let allMessages = try await chat.allMessages(sortedBy: .ascending)
+                return ((await allMessages.async.first(where: { await $0.id.uuidString == messageId })) != nil)
+            default: return false
+            }
+        }
+        guard let contactBundle = contactBundle else {
+            // We did not have a message with this messageId.
+            throw NeedleTailError.contactBundleDoesNotExistForMessageId
+        }
+        return contactBundle
+    }
+    
+    @MainActor
+    public func updateContact(bundle: ContactsBundle.ContactBundle, with chat: AnyChatMessage) async throws {
+        guard let cypher = await self.cypher else { throw NeedleTailError.cypherMessengerNotSet }
+        if let index = await firstIndex(bundle: bundle) {
+            var bundle = bundle
+            bundle.id = UUID()
+            switch try await chat.target.resolve(in: cypher).resolveTarget() {
+            case .privateChat(let privateChat):
+                bundle.mostRecentMessage = try await MostRecentMessage(
+                    chat: privateChat
+                )
+            default: break
+            }
+            bundle.messages.insert(NeedleTailMessage(message: chat), at: 0)
+            contactsBundle.contactBundleViewModel[index] = bundle
+            await contactsBundle.arrangeBundle()
+        }
+    }
+    
+    private func setContactBundle(chat: AnyConversation, contact: Contact?) async throws {
+        var messages: [NeedleTailMessage] = []
+        let cursor = try await chat.cursor(sortedBy: .descending)
+        let nextBatch = try await cursor.getMore(50)
+        
+        for message in nextBatch {
+            messages.append(NeedleTailMessage(message: message))
+        }
+        
+        if var bundle = contactsBundle.contactBundleViewModel.first(where: { $0.chat.conversation.id == chat.conversation.id }) {
+            bundle.id = UUID()
+            bundle.contact = contact
+            bundle.chat = chat
+            bundle.messages = messages
+            if chat is PrivateChat {
+                bundle.mostRecentMessage = try await MostRecentMessage(
+                    chat: chat as! PrivateChat
+                )
+            }
+            await contactsBundle.arrangeBundle()
+        } else {
+            var bundle = ContactsBundle.ContactBundle(
+                contact: contact,
+                chat: chat,
+                groupChats: [],
+                cursor: cursor,
+                messages: messages
+            )
+            if chat is PrivateChat {
+                bundle.mostRecentMessage = try await MostRecentMessage(
+                    chat: chat as! PrivateChat
+                )
+            }
+            let loadedBundle = bundle
+            
+            await MainActor.run {
+                contactsBundle.contactBundleViewModel.append(loadedBundle)
+            }
+            await contactsBundle.arrangeBundle()
+        }
+    }
+    
+    @MainActor
+    func containsUsername(bundle: ContactsBundle.ContactBundle) async -> Bool {
+        contactsBundle.contactBundleViewModel.contains(where: { $0.contact?.username == bundle.contact?.username })
+    }
+    
+    @MainActor
+    func firstIndex(bundle: ContactsBundle.ContactBundle) async -> Array.Index? {
+        guard let index = contactsBundle.contactBundleViewModel.firstIndex(where: { $0.contact?.username == bundle.contact?.username }) else { return nil }
+        return index
+    }
     
     public func findMessage(from mediaId: String, cypher: CypherMessenger) async throws -> AnyChatMessage? {
         let conversations = try await cypher.listConversations(
@@ -1221,60 +1299,6 @@ extension NeedleTailMessenger {
                 break
             }
         }
-    }
-    
-    private func setContactBundle(chat: AnyConversation, contact: Contact?) async throws {
-        var messages: [NeedleTailMessage] = []
-        let cursor = try await chat.cursor(sortedBy: .descending)
-        let nextBatch = try await cursor.getMore(50)
-        
-        for message in nextBatch {
-            messages.append(NeedleTailMessage(message: message))
-        }
-        
-        if var bundle = contactsBundle.contactBundleViewModel.first(where: { $0.chat.conversation.id == chat.conversation.id }) {
-            bundle.id = UUID()
-            bundle.contact = contact
-            bundle.chat = chat
-            bundle.messages = messages
-            if chat is PrivateChat {
-                bundle.mostRecentMessage = try await MostRecentMessage(
-                    chat: chat as! PrivateChat
-                )
-            }
-            
-            await contactsBundle.arrangeBundle()
-        } else {
-            var bundle = ContactsBundle.ContactBundle(
-                contact: contact,
-                chat: chat,
-                groupChats: [],
-                cursor: cursor,
-                messages: messages
-            )
-            if chat is PrivateChat {
-                bundle.mostRecentMessage = try await MostRecentMessage(
-                    chat: chat as! PrivateChat
-                )
-            }
-            let loadedBundle = bundle
-            
-            await MainActor.run {
-                contactsBundle.contactBundleViewModel.append(loadedBundle)
-            }
-            await contactsBundle.arrangeBundle()
-        }
-    }
-    
-    @MainActor
-    func containsUsername(bundle: ContactsBundle.ContactBundle) async -> Bool {
-        contactsBundle.contactBundleViewModel.contains(where: { $0.contact?.username == bundle.contact?.username })
-    }
-    
-    @MainActor
-    func firstIndex(bundle: ContactsBundle.ContactBundle) async -> Array.Index {
-        guard let index = contactsBundle.contactBundleViewModel.firstIndex(where: { $0.contact?.username == bundle.contact?.username }) else { return 0 }
-        return index
     }
     
     public func removeMessages(from contact: Contact, shouldRevoke: Bool = false) async throws {

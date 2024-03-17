@@ -21,7 +21,6 @@ public final class MostRecentMessage<Chat: AnyConversation> {
         self.chat = chat
         let cursor = try await chat.cursor(sortedBy: .descending)
         let message = try await cursor.getNext()
-        
         if message?.raw.encrypted.conversationId == chat.conversation.id {
             self.message = message
         }

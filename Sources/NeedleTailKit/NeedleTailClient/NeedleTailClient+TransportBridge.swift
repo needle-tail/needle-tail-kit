@@ -156,7 +156,7 @@ extension NeedleTailClient: TransportBridge {
         default:
             break
         }
-        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
+        try await runLoop.run(20, sleep: .seconds(1)) { [weak self] in
             guard let strongSelf = self else { return false }
             var running = true
             if await strongSelf.store?.acknowledgment == .readReceipt {
@@ -212,7 +212,7 @@ extension NeedleTailClient: TransportBridge {
             let data = base64String.data(using: .ascii)
 #if (os(macOS) || os(iOS))
             await configuration.ntkBundle.cypherTransport.updateEmitter(data)
-            try await RunLoop.run(240, sleep: .seconds(1)) { @MainActor [weak self] in
+            try await runLoop.run(240, sleep: .seconds(1)) { @MainActor [weak self] in
                 guard let self else { return false }
                 var running = true
                 
@@ -235,7 +235,7 @@ extension NeedleTailClient: TransportBridge {
         let packet = try BSONEncoder().encodeString(readBundleObject)
         try await stream.readKeyBundle(packet)
         
-        let result = try await RunLoop.runReturningLoop(expiresIn: 15, seconds: 1) {
+        let result = try await runLoop.runReturningLoop(expiresIn: 35, seconds: 1) {
             var bundle: UserConfig?
             var canRun = true
             if let keyBundle = await store.keyBundle {
@@ -244,7 +244,7 @@ extension NeedleTailClient: TransportBridge {
             }
             return (canRun, bundle)
         }
-        guard let result = result else { throw NeedleTailError.emitterIsNil }
+        guard let result = result else { throw NeedleTailError.cannotReadKeyBundle }
         return result
     }
     
@@ -256,7 +256,7 @@ extension NeedleTailClient: TransportBridge {
         try await startSession(writer: writer, type: type, state: state)
     }
     
-    func suspendClient(_ isSuspending: Bool = false) async throws {
+    func suspendClient(_ isSuspending: Bool = false) async {
         do {
             try await attemptDisconnect(isSuspending)
         } catch {
@@ -354,7 +354,7 @@ extension NeedleTailClient: TransportBridge {
             break
         }
         
-        try await RunLoop.run(20, sleep: .seconds(1)) { [weak self] in
+        try await runLoop.run(20, sleep: .seconds(1)) { [weak self] in
             guard let  self else { return false }
             var running = true
             guard let store = await store else { throw NeedleTailError.storeNotIntitialized }
@@ -403,7 +403,7 @@ extension NeedleTailClient: TransportBridge {
         
         try await writer.transportMessage(command: .PRIVMSG([recipient], encodedString))
         
-        try await RunLoop.run(20, sleep: .seconds(1)) {
+        try await runLoop.run(20, sleep: .seconds(1)) {
             var running = true
             if await store.acknowledgment == .publishedKeyBundle("true") {
                 running = false
@@ -598,6 +598,7 @@ extension NeedleTailClient: TransportBridge {
             readReceipt: .none,
             multipartMessage: packet
         )
+
         let data = try BSONEncoder().encodeData(messagePacket)
         var packetCount = 0
         let chunks = data.chunks(ofCount: 10777216)

@@ -1,6 +1,7 @@
 import CypherMessaging
 import NeedleTailHelpers
 import NIOCore
+import AsyncAlgorithms
 
 public protocol NeedleTailClientDelegate: AnyObject, IRCDispatcher, NeedleTailWriterDelegate {
     
@@ -36,20 +37,24 @@ extension NeedleTailWriterDelegate {
                                     message: IRCMessage
     ) async throws {
         do {
-            await consumer.feedConsumer(
-                await NeedleTailEncoder.encode(value: message), priority: priority
-            )
-            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
-                switch result {
-                case .success(let buffer):
-                    do {
-                        try await writer.write(buffer)
-                    } catch {
-                        print(error)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                await consumer.feedConsumer(
+                    await NeedleTailEncoder.encode(value: message), priority: priority
+                )
+                for try await result in NeedleTailAsyncSequence(consumer: consumer) {
+                    switch result {
+                    case .success(let buffer):
+                        do {
+                            group.addTask {
+                                try await writer.write(buffer)
+                            }
+                        } catch {
+                            print(error)
+                            return
+                        }
+                    case .consumed:
                         return
                     }
-                case .consumed:
-                    return
                 }
             }
         } catch {
@@ -127,29 +132,29 @@ extension NeedleTailServerMessageDelegate {
                                     message: IRCMessage
     ) async throws {
         do {
-            await consumer.feedConsumer(
-                await NeedleTailEncoder.encode(value: message), priority: priority
-            )
-            for try await result in NeedleTailAsyncSequence(consumer: consumer) {
-                switch result {
-                case .success(let buffer):
-                    do {
-                        try await writer.write(buffer)
-                    } catch {
-                        print(error)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                await consumer.feedConsumer(
+                    await NeedleTailEncoder.encode(value: message), priority: priority
+                )
+                for try await result in NeedleTailAsyncSequence(consumer: consumer) {
+                    switch result {
+                    case .success(let buffer):
+                        do {
+                            group.addTask {
+                                try await writer.write(buffer)
+                            }
+                        } catch {
+                            print(error)
+                            return
+                        }
+                    case .consumed:
                         return
                     }
-                case .consumed:
-                    return
                 }
             }
         } catch {
             throw error
         }
-        
-        
-        let buffer = await NeedleTailEncoder.encode(value: message)
-        try await writer.write(buffer)
     }
     
     

@@ -80,9 +80,10 @@ public final class NeedleTailPlugin: Plugin, Sendable {
         print("CREATED MESSAGE", message.text)
        
         self.messenger.emitter.messageReceived = message
-        Task { @PriorityActor in
-            try await updateDeliveryStatus(message: message)
-            if let stream = await self.messenger.cypherTransport!.configuration.client!.stream {
+        Task.detached { [weak self] in
+            guard let self else { return }
+            try await self.updateDeliveryStatus(message: message)
+            if let stream = await self.messenger.cypherTransport?.configuration.client?.stream {
                 for try await result in NeedleTailAsyncSequence(consumer: stream.multipartMessageConsumer) {
                     switch result {
                     case .success(let filePacket):
@@ -122,10 +123,11 @@ public final class NeedleTailPlugin: Plugin, Sendable {
          break
         }
     }
-    
+    @MainActor
     public func onMessageChange(_ message: AnyChatMessage) {
 #if os(iOS)
-        Task { @PriorityActor [weak self] in
+        Task.detached { [weak self] in
+            assert(!Thread.isMainThread)
             guard let self else { return }
             try await self.updateDeliveryStatus(message: message)
         }
@@ -133,9 +135,7 @@ public final class NeedleTailPlugin: Plugin, Sendable {
 #endif
         
 #if (os(macOS) || os(iOS))
-        Task { @MainActor in
             messenger.emitter.messageChanged = message
-        }
 #endif
     }
     @MainActor

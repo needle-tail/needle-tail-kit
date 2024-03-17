@@ -61,7 +61,11 @@ let package = Package(
             .product(name: "NeedleTailCrypto", package: "needletail-crypto"),
             .target(name: "NeedleTailHelpers"),
             .target(name: "NeedleTailProtocol"),
-        ]),
+        ],
+            swiftSettings: [
+                .unsafeFlags(["-warn-concurrency"], .when(configuration: .debug))
+            ]
+        ),
         .target(
             name: "NeedleTailProtocol",
             dependencies: [

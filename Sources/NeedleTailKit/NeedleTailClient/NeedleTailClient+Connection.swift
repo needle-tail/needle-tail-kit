@@ -75,6 +75,8 @@ extension NeedleTailClient: ClientTransportDelegate {
                         for await stream in _inbound {
                             do {
                                 for try await buffer in stream {
+                                    group.addTask { [weak self] in
+                                    guard let self else { return }
                                         var buffer = buffer
                                         guard let message = buffer.readString(length: buffer.readableBytes) else { return }
                                         guard !message.isEmpty else { return }
@@ -85,19 +87,6 @@ extension NeedleTailClient: ClientTransportDelegate {
                                         for message in messages {
                                             guard let parsedMessage = AsyncMessageTask.parseMessageTask(task: message, messageParser: MessageParser()) else { break }
                                             self.logger.trace("Message Parsed \(parsedMessage)")
-                                            
-                                            var priority: _Concurrency.TaskPriority = .medium
-                                            switch parsedMessage.command.commandAsString {
-                                            case Constants.multipartMediaUpload.rawValue, Constants.multipartMediaDownload.rawValue:
-                                                priority = .utility
-                                            case Constants.ping.rawValue, Constants.pong.rawValue:
-                                                priority = .background
-                                            default:
-                                                break
-                                            }
-                                            
-                                            group.addTask(priority: priority) { [weak self] in
-                                            guard let self else { return }
                                             await self.stream?.processReceivedMessage(parsedMessage)
                                         }
                                     }

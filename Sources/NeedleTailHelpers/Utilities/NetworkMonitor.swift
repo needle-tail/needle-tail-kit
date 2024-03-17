@@ -16,7 +16,6 @@ public actor NetworkMonitor {
     private let monitorPath = NWPathMonitor()
     private var isSet = false
     
-    public var currentStatusStream: AsyncStream<NWPath.Status>?
     public init() {}
 
     @MainActor
@@ -41,7 +40,6 @@ public actor NetworkMonitor {
                 print("Monitor Stream Terminated with status:", status)
             }
         }
-        self.currentStatusStream = currentStatusStream
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 try Task.checkCancellation()
